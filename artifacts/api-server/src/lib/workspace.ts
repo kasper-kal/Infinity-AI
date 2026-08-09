@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 /**
- * Build Studio workspace primitives.
+ * Jarvis Build workspace primitives.
  *
  * Every project gets a separate directory below WORKSPACE_ROOT/projects. The
  * legacy default workspace remains available for existing Jarvis callers.

@@ -54,7 +54,7 @@ const STUDIOS: Studio[] = [
   },
   {
     id: 'build',
-    name: 'Build Mode',
+    name: 'Jarvis Build',
     tagline: 'A Linux workspace Jarvis codes in',
     replaces: 'Replit · Claude Code · Cursor',
     icon: Hammer,

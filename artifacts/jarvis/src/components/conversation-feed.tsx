@@ -33,7 +33,7 @@ export interface ChatMessage {
   pendingSourceCode?: { // "Use code for this answer?" confirmation
     userText: string;
   };
-  pendingBuildMode?: { // "Open Build Mode?" confirmation
+  pendingBuildMode?: { // "Open Jarvis Build?" confirmation
     userText: string;
   };
   /** Thinking mode, private reasoning chain shown in a collapsible block. */

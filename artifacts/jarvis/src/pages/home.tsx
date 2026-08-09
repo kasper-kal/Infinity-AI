@@ -855,7 +855,7 @@ export default function Home() {
     setChatInput('');
     setAttachedFile(null);
 
-    // "@Build <message>" shortcut → auto-switch to Build Mode with the task.
+    // "@Build <message>" shortcut → auto-switch to Jarvis Build with the task.
     // Runs before the agent-mode branch so @build always opens the studio.
     const buildMatch = text.match(/^@build\b\s*(.*)$/i);
     if (buildMatch) {

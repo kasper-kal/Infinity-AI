@@ -1,7 +1,7 @@
 /**
- * Iteration Controller: Manages unlimited iteration cycles for Build Mode.
+ * Iteration Controller: Manages unlimited iteration cycles for Jarvis Build.
  * Replaces the old 2-pass limit with full AI-assisted development loop.
- * 
+ *
  * Supports:
  * - Unlimited generation passes
  * - Error detection and auto-fix

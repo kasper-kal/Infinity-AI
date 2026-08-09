@@ -282,7 +282,7 @@ interface BuildModeConfirmationCardProps {
   onCancel: () => void;
 }
 
-/** "Open Build Mode?", Confirm gives Jarvis a Linux terminal + workspace to
+/** "Open Jarvis Build?", Confirm gives Jarvis a Linux terminal + workspace to
  *  set up the requested project (Replit-style). Cancel sends the message
  *  normally, no shell access. */
 export function BuildModeConfirmationCard({ userText, onConfirm, onCancel }: BuildModeConfirmationCardProps) {
@@ -302,7 +302,7 @@ export function BuildModeConfirmationCard({ userText, onConfirm, onCancel }: Bui
           </div>
           <div className="min-w-0">
             <p className="text-[11px] font-display font-semibold tracking-wider text-emerald-300">
-              BUILD MODE
+              JARVIS BUILD
             </p>
             <p className="text-[11px] font-mono text-muted-foreground/60 truncate">
               Jarvis gets a Linux terminal + workspace to set this up

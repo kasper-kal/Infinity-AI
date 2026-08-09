@@ -212,7 +212,7 @@ router.post("/export/github", async (req: Request, res: Response) => {
         "Add remote: git remote add origin " + repoUrl,
         `Checkout branch: git checkout -b ${branch || "main"}`,
         "Stage files: git add .",
-        'Commit: git commit -m "Initial commit from Jarvis Build Mode"',
+        'Commit: git commit -m "Initial commit from Jarvis Build"',
         "Push: git push -u origin " + (branch || "main"),
       ],
       note: "Automated GitHub push requires authentication. Use the commands above or push manually.",

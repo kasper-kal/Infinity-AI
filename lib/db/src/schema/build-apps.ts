@@ -2,7 +2,7 @@ import { pgTable, text, timestamp, uuid, jsonb, varchar } from "drizzle-orm/pg-c
 import { sql } from "drizzle-orm";
 
 /**
- * Saved Build Studio projects ("build-apps"). Each app's file bundle lives in
+ * Saved Jarvis Build projects ("build-apps"). Each app's file bundle lives in
  * the files database (fileId); metadata (ports, run command, env keys) is
  * stored here as JSON.
  */

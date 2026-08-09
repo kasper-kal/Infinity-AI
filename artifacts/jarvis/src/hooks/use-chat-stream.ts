@@ -257,7 +257,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                 break;
               case 'done':
                 convId = parsed.conversationId ?? convId;
-                // Auto-follow-up: when Jarvis signals the next step (Build Mode
+                // Auto-follow-up: when Jarvis signals the next step (Jarvis Build
                 // multi-step workflows), auto-submit it after a short delay.
                 if (parsed.followUp && typeof parsed.followUp === 'string') {
                   const task = parsed.followUp.trim().slice(0, 200);
@@ -319,7 +319,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                 break;
               case 'terminal_result':
                 // The AI ran a shell command, show it as a clean minimal card
-                // on the current assistant message and log it for Build Mode.
+                // on the current assistant message and log it for Jarvis Build.
                 {
                   const tr: TerminalResult = { command: parsed.command, exitCode: parsed.exitCode ?? 0, output: parsed.output ?? '' };
                   setSessionCommands(prev => [...prev, tr]);

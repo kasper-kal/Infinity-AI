@@ -263,8 +263,8 @@ const en = {
 
   /* Deep research */
   "research.title": "Deep Research",
-  "build.menuItem": "Build Mode",
-  "build.title": "Build Mode",
+  "build.menuItem": "Jarvis Build",
+  "build.title": "Jarvis Build",
   "build.terminalHint": "Linux sandbox, ask Jarvis to build something",
   "research.placeholder": "What should I research? Describe the goal in as much detail as you want…",
   "research.depth": "DEPTH",
@@ -407,7 +407,7 @@ const en = {
   "studio.music.downloadRecipe": "Download recipe",
   "studio.music.previewNote": "Free procedural preview, no provider or API key required. A local MusicGen worker can be added later for rendered instrumental audio.",
   "studio.build.subtitle": "Local workspace, lightweight editor, honest preview controls",
-  "studio.build.close": "Close Build Studio",
+  "studio.build.close": "Close Jarvis Build",
   "studio.build.appName": "App name",
   "studio.build.newFile": "New file path",
   "studio.build.openFileDesc": "Choose a file above or scaffold a starter project. This editor supports multiple open files, syntax-aware labels, and real saves.",
@@ -736,8 +736,8 @@ const nl: Record<keyof typeof en, string> = {
 
   /* Diep onderzoek */
   "research.title": "Diep Onderzoek",
-  "build.menuItem": "Bouwnodus",
-  "build.title": "Bouwnodus",
+  "build.menuItem": "Jarvis Build",
+  "build.title": "Jarvis Build",
   "build.terminalHint": "Linux-sandbox, vraag Jarvis om iets te bouwen",
   "research.placeholder": "Wat moet ik onderzoeken? Beschrijf het doel zo gedetailleerd als je wilt…",
   "research.depth": "DIEPTE",

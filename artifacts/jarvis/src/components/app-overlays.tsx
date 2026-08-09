@@ -47,7 +47,7 @@ interface AppOverlaysProps {
   onOpenResearch: () => void;
   onToggleWebSearch: () => void;
   onOpenSettings: () => void;
-  // Build Mode
+  // Jarvis Build
   buildPanelOpen: boolean;
   onCloseBuild: () => void;
   buildFiles?: { path: string; type: 'file' | 'dir'; size: number }[];
@@ -57,7 +57,7 @@ interface AppOverlaysProps {
   /** "@Build <message>" shortcut: prefill + auto-run the build prompt. */
   buildInitialPrompt?: string | null;
   buildRunKey?: number;
-  /** Legacy Build Mode props kept for callers during the Studio migration. */
+  /** Legacy Jarvis Build props kept for callers during the Studio migration. */
   buildTab?: string;
   setBuildTab?: (tab: string) => void;
   commandInput?: string;

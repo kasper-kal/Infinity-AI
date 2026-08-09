@@ -32,7 +32,7 @@ const E2E_WORKFLOWS = {
     steps: [
       { action: "navigate", target: "/" },
       { action: "wait-for", target: ".build-studio" },
-      { action: "verify", target: "title", value: "Jarvis Build Mode" },
+      { action: "verify", target: "title", value: "Jarvis Build" },
     ],
   },
   "create-workspace": {

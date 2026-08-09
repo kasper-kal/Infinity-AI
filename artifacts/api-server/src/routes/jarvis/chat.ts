@@ -140,7 +140,7 @@ function detectImageRequest(text: string): { isImageRequest: boolean; imagePromp
   return { isImageRequest: false, imagePrompt: '' };
 }
 
-/** Detect if the user is asking to enter Build Mode (set up / build / run a project). */
+/** Detect if the user is asking to enter Jarvis Build (set up / build / run a project). */
 function detectBuildModeRequest(text: string): boolean {
   const t = text.trim().toLowerCase();
   return (
@@ -691,7 +691,7 @@ router.post("/chat", async (req, res) => {
     webSearchEnabled?: string;
     responseStyle?: 'chat' | 'voice';
     allowSourceCode?: string;
-    /** Build Mode, Jarvis may run commands in the sandboxed Linux workspace shell ("true"). */
+    /** Jarvis Build, Jarvis may run commands in the sandboxed Linux workspace shell ("true"). */
     allowBuildMode?: string;
     /** Voice-mode emotion label from the client's prosody analysis (e.g. "frustrated") */
     emotion?: string;
@@ -1006,7 +1006,7 @@ router.post("/chat", async (req, res) => {
       return;
     }
 
-    // ── Build Mode auto-detect ─────────────────────────────────────
+    // ── Jarvis Build auto-detect ─────────────────────────────────────
     // "build me an app" / "enter build mode" → confirm first (unless already
     // confirmed this request via allowBuildMode=true), then open the terminal.
     const buildCheck = detectBuildModeRequest(sanitizedMessage);
@@ -1018,7 +1018,7 @@ router.post("/chat", async (req, res) => {
       });
       res.write(`data: ${JSON.stringify({
         type: "build_mode_detected",
-        confirmationMessage: "Open Build Mode? Jarvis will get a Linux terminal and workspace to set up the project for you.",
+        confirmationMessage: "Open Jarvis Build? Jarvis will get a Linux terminal and workspace to set up the project for you.",
       })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
@@ -1191,7 +1191,7 @@ router.post("/chat", async (req, res) => {
           fullResponse = final.text;
           totalTokens += final.totalTokens;
         } else if (dispatch && "commands" in dispatch) {
-          // Build Mode, the model asked to run terminal commands. Execute
+          // Jarvis Build, the model asked to run terminal commands. Execute
           // them in the sandboxed workspace and stream the real answer with
           // the command output available as context. Each command is also
           // streamed to the UI as a clean minimal card (command + output).
@@ -1263,7 +1263,7 @@ router.post("/chat", async (req, res) => {
     const response = fullResponse;
 
     // Signal end of stream, include an auto-follow-up task when the
-    // response contains "NEXT: <task>" (Build Mode multi-step workflow).
+    // response contains "NEXT: <task>" (Jarvis Build multi-step workflow).
     const followUpMatch = response.match(/NEXT:\s*(.+?)(?:\n|$)/i);
     const followUp = followUpMatch ? followUpMatch[1].trim().slice(0, 200) : null;
     res.write(`data: ${JSON.stringify({

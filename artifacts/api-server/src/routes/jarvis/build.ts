@@ -180,7 +180,7 @@ async function createBuildPlan(
         {
           role: "system",
           content: withExtraBuildInstructions(
-            "You are the planning layer inside Jarvis Build Mode. Plan substantial implementation requests before any files are changed. " +
+            "You are the planning layer inside Jarvis Build. Plan substantial implementation requests before any files are changed. " +
             "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
             "Do not write code and do not claim that anything has been implemented. Return ONLY valid JSON with this shape: " +
             "{title:string,summary:string,steps:string[],files:string[],risks:string[]}. " +
@@ -274,7 +274,7 @@ async function reviewAndFixWorkspace(
           role: "system",
           content:
             withExtraBuildInstructions(
-              "You are the self-reviewer inside Jarvis Build Mode. Review a locally generated web app after it has been run. " +
+              "You are the self-reviewer inside Jarvis Build. Review a locally generated web app after it has been run. " +
               "Return ONLY JSON with this shape: {done:boolean,summary:string,fixRequest:string|null,deferred:string[]}. " +
               "Set done false only when a concrete runtime, structure, or obvious completeness issue can be fixed now. " +
               "Keep fixRequest short and actionable. Do not claim that a screenshot, accessibility, security, or performance check passed unless evidence is provided. " +
@@ -530,7 +530,7 @@ function cleanText(value: unknown, max: number): string {
 function withExtraBuildInstructions(basePrompt: string, extraPrompt: string): string {
   const extra = cleanText(extraPrompt, 4000);
   if (!extra) return basePrompt;
-  return `${basePrompt}\n\nAdditional Build Mode instructions from the user (additive only; preserve the original Build Mode requirements and safety rules):\n${extra}`;
+  return `${basePrompt}\n\nAdditional Jarvis Build instructions from the user (additive only; preserve the original Jarvis Build requirements and safety rules):\n${extra}`;
 }
 
 function safeWorkspacePath(relPath: string, workspaceId = "default"): string | null {
@@ -707,8 +707,8 @@ router.post("/build/plan", async (req, res) => {
     const plan = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt);
     res.json({ ok: true, plan });
   } catch (err) {
-    req.log.error({ err }, "Failed to create Build Mode plan");
-    res.status(500).json({ error: "Could not create a Build Mode plan" });
+    req.log.error({ err }, "Failed to create Jarvis Build plan");
+    res.status(500).json({ error: "Could not create a Jarvis Build plan" });
   }
 });
 

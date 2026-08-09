@@ -207,7 +207,7 @@ const CREATE_TABLES = [
     "expires_at" timestamp
   )`,
 
-  // ── Build Studio saved apps ────────────────────────────────────
+  // ── Jarvis Build saved apps ────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "build_apps" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "name" text NOT NULL,
