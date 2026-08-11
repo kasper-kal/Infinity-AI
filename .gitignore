@@ -59,6 +59,14 @@ data/
 # Screenshots
 screenshots
 *.png
+*.jpg
+
+# WhatsApp-Web runtime (orphaned Chromium session — never commit)
+.wwebjs_auth
+.wwebjs_cache
+
+# Launch logs
+.launch.log
 
 # Claude changes log
 claude_changes_log.txt
