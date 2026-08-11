@@ -85,6 +85,34 @@ const CREATE_TABLES = [
     "completed_at" timestamp
   )`,
 
+  // ── Book Studio jobs ────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS "book_jobs" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "title" text NOT NULL DEFAULT 'Untitled book',
+    "idea" text NOT NULL,
+    "language" text NOT NULL DEFAULT 'en',
+    "page_count" integer NOT NULL DEFAULT 120,
+    "words_per_page" integer NOT NULL DEFAULT 250,
+    "chunk_size" integer NOT NULL DEFAULT 10,
+    "critique_passes" integer NOT NULL DEFAULT 2,
+    "status" text NOT NULL DEFAULT 'queued',
+    "progress" integer NOT NULL DEFAULT 0,
+    "phase" text NOT NULL DEFAULT 'Queued…',
+    "log" text NOT NULL DEFAULT '',
+    "plan" text NOT NULL DEFAULT '{}',
+    "manuscript" text NOT NULL DEFAULT '',
+    "samples" text NOT NULL DEFAULT '[]',
+    "api_key" text,
+    "base_url" text,
+    "model" text,
+    "pdf_file" text,
+    "error" text,
+    "heartbeat_at" timestamp NOT NULL DEFAULT now(),
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "started_at" timestamp,
+    "completed_at" timestamp
+  )`,
+
   // ── Web push subscriptions ──────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "push_subscriptions" (
     "endpoint" text PRIMARY KEY,
@@ -250,6 +278,30 @@ const ALTER_TABLES = [
   `ALTER TABLE "research_jobs" ADD COLUMN IF NOT EXISTS "heartbeat_at" timestamp NOT NULL DEFAULT now()`,
   `ALTER TABLE "research_jobs" ADD COLUMN IF NOT EXISTS "started_at" timestamp`,
   `ALTER TABLE "research_jobs" ADD COLUMN IF NOT EXISTS "completed_at" timestamp`,
+
+  // book_jobs, book studio columns (added after first deploy)
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "title" text NOT NULL DEFAULT 'Untitled book'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "idea" text NOT NULL`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "language" text NOT NULL DEFAULT 'en'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "page_count" integer NOT NULL DEFAULT 120`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "words_per_page" integer NOT NULL DEFAULT 250`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "chunk_size" integer NOT NULL DEFAULT 10`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "critique_passes" integer NOT NULL DEFAULT 2`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "status" text NOT NULL DEFAULT 'queued'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "progress" integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "phase" text NOT NULL DEFAULT 'Queued…'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "log" text NOT NULL DEFAULT ''`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "plan" text NOT NULL DEFAULT '{}'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "manuscript" text NOT NULL DEFAULT ''`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "samples" text NOT NULL DEFAULT '[]'`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "api_key" text`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "base_url" text`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "model" text`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "pdf_file" text`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "error" text`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "heartbeat_at" timestamp NOT NULL DEFAULT now()`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "started_at" timestamp`,
+  `ALTER TABLE "book_jobs" ADD COLUMN IF NOT EXISTS "completed_at" timestamp`,
 
   // llm_keys, rotation pool columns
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "enabled" boolean NOT NULL DEFAULT true`,
