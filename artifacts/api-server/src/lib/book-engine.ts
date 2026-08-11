@@ -92,30 +92,34 @@ async function appendLog(id: string, line: string): Promise<void> {
   await patch(id, { log: log.slice(-30_000), heartbeatAt: new Date() });
 }
 
-/* ── LLM call with BYO fallback ────────────────────────────────────────── */
+/* ── LLM calls ──────────────────────────────────────────────────────────── */
 
-async function callLLM(
-  job: NonNullable<Awaited<ReturnType<typeof getJob>>>,
+/** BYO credentials the user pasted into the studio (used before a job exists). */
+export interface ByoCreds {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+/**
+ * Low-level LLM call that works with a BYO key OR the shared key pool,
+ * with retries + backoff. `onFail` lets the caller log each failure.
+ */
+async function rawLLM(
+  byo: ByoCreds | null,
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
   opts: { temperature?: number; maxTokens?: number } = {},
+  onFail?: (err: unknown, attemptNo: number) => Promise<void> | void,
 ): Promise<string> {
   const temperature = opts.temperature ?? 0.7;
   const maxTokens = opts.maxTokens ?? 6000;
 
-  // Capture BYO creds up front so TS keeps the null-checks across the closure.
-  const byo = job.apiKey && job.baseUrl && job.model ? { apiKey: job.apiKey, baseUrl: job.baseUrl, model: job.model } : null;
   const attempt = (): Promise<string> =>
     byo
-      ? (async () => {
-          const client = new OpenAI({ apiKey: byo.apiKey, baseURL: byo.baseUrl });
-          const completion = await client.chat.completions.create({
-            model: byo.model,
-            messages,
-            temperature,
-            max_tokens: maxTokens,
-          });
-          return completion.choices[0]?.message?.content ?? "";
-        })()
+      ? new OpenAI({ apiKey: byo.apiKey, baseURL: byo.baseUrl })
+          .chat.completions
+          .create({ model: byo.model, messages, temperature, max_tokens: maxTokens })
+          .then((c) => c.choices[0]?.message?.content ?? "")
       : runWithLLM((client, model) =>
           client.chat.completions
             .create({ model, messages, temperature, max_tokens: maxTokens })
@@ -128,11 +132,98 @@ async function callLLM(
       return await attempt();
     } catch (err) {
       lastErr = err;
-      await appendLog(job.id, `LLM call failed (attempt ${attemptNo + 1}/${LLM_RETRIES}): ${(err as Error)?.message?.slice(0, 200) ?? err}`);
+      if (onFail) await onFail(err, attemptNo);
       if (attemptNo < LLM_RETRIES - 1) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+/** LLM call scoped to a job: uses the job's BYO creds, logs failures to the job log. */
+async function callLLM(
+  job: NonNullable<Awaited<ReturnType<typeof getJob>>>,
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  opts: { temperature?: number; maxTokens?: number } = {},
+): Promise<string> {
+  const byo = job.apiKey && job.baseUrl && job.model ? { apiKey: job.apiKey, baseUrl: job.baseUrl, model: job.model } : null;
+  return rawLLM(byo, messages, opts, async (err, attemptNo) => {
+    await appendLog(job.id, `LLM call failed (attempt ${attemptNo + 1}/${LLM_RETRIES}): ${(err as Error)?.message?.slice(0, 200) ?? err}`);
+  });
+}
+
+/* ── Plan generation (runs BEFORE a job row exists) ────────────────────── */
+
+const PLANNER_SYSTEM_PROMPT = `You are an expert book planner in a Book Studio. A reader gives you a book idea and a target page count; you turn it into a concrete chapter plan they approve before a single word is written.
+
+Respond with a SINGLE JSON object, nothing else, no markdown fences:
+{
+  "title": "A strong, marketable book title",
+  "summary": "2-4 sentence synopsis of what the book will be",
+  "chapters": [
+    { "title": "Chapter title", "summary": "What happens / what this chapter covers (1-2 sentences)", "pages": <estimated pages> }
+  ]
+}
+
+Rules:
+- Write the title, summary and chapter content in the book's language.
+- 8-16 chapters, roughly equal in size; the chapter "pages" values should sum close to the target page count.
+- Chapter summaries should be specific and evocative, not generic.
+- If the user provides style samples, let the tone in the samples guide the pacing and chapter shape.`;
+
+export interface PlanOptions {
+  idea: string;
+  language: string;
+  pageCount: number;
+  samples: BookStyleSample[];
+  byo?: ByoCreds | null;
+}
+
+/** Turn an idea into a chapter plan (the approve / change-me loop). */
+export async function generatePlan(opts: PlanOptions): Promise<BookPlan> {
+  const samplesText = samplesToPrompt(opts.samples);
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: PLANNER_SYSTEM_PROMPT },
+    {
+      role: "user",
+      content:
+        `Language: ${opts.language || "en"}\n` +
+        `Target page count: ${opts.pageCount}\n\n` +
+        (samplesText ? `Style samples from real books:\n${samplesText}\n\n` : "") +
+        `Book idea:\n${opts.idea}`,
+    },
+  ];
+  const raw = await rawLLM(opts.byo ?? null, messages, { temperature: 0.7, maxTokens: 4000 });
+  return parsePlan(stripFences(raw));
+}
+
+/** Re-plan when the user asks to change something about the current plan. */
+export async function replanPlan(opts: PlanOptions & { current: BookPlan; feedback: string }): Promise<BookPlan> {
+  const samplesText = samplesToPrompt(opts.samples);
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: "system", content: PLANNER_SYSTEM_PROMPT },
+    {
+      role: "user",
+      content:
+        `Language: ${opts.language || "en"}\n` +
+        `Target page count: ${opts.pageCount}\n\n` +
+        (samplesText ? `Style samples from real books:\n${samplesText}\n\n` : "") +
+        `Book idea:\n${opts.idea}\n\n` +
+        `Current plan (as JSON):\n${JSON.stringify(opts.current, null, 2)}\n\n` +
+        `The reader wants you to change something. Feedback: "${opts.feedback}"\n` +
+        `Revise the plan to address it, and respond with ONLY the new plan JSON.`,
+    },
+  ];
+  const raw = await rawLLM(opts.byo ?? null, messages, { temperature: 0.7, maxTokens: 4000 });
+  return parsePlan(stripFences(raw));
+}
+
+/** Remove ```json ... ``` fences if the model wrapped the output. */
+function stripFences(raw: string): string {
+  const m = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (m) return m[1].trim();
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  return start >= 0 && end > start ? raw.slice(start, end + 1) : raw;
 }
 
 /* ── The pipeline ───────────────────────────────────────────────────────── */
@@ -372,7 +463,7 @@ export async function renderPdf(jobId: string, html: string): Promise<string> {
 }
 
 /** Walk up from the server CWD to the repo root (pnpm-workspace.yaml anchor). */
-function findRepoRoot(): string {
+export function findRepoRoot(): string {
   let dir = process.cwd();
   for (let i = 0; i < 6; i++) {
     if (existsSync(path.join(dir, "pnpm-workspace.yaml"))) return dir;
