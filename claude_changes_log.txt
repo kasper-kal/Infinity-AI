@@ -91,3 +91,11 @@
   full_chat_with_thinking.txt (0B empty), .launch.log, 6 md5-verified duplicates in attached_assets/.
 - Removed now-empty attached_assets/ dir. Extended .gitignore: .wwebjs_auth, .wwebjs_cache, .launch.log, *.jpg.
 - Verified: working tree clean, 393 files tracked, ui-walkthrough.mjs reference in qa-report report intact.
+
+## 2026-08-11 - Book Studio backend: book-engine + book-samples
+- Fixed typecheck errors in book-engine.ts: `const job` -> `let job` in runBookJob (TS2588),
+  `waitUntil: "networkidle0"` -> `"load"` (TS2322), and captured BYO creds into a local `byo`
+  const so TS null-checks survive the closure (TS2769).
+- Confirmed both new files type-clean via `npx tsc -p tsconfig.json --noEmit`; remaining errors
+  are pre-existing TS6305 (lib/db not built) / TS7006 across old files, not from Book Studio.
+- Built lib/db project references (`npx tsc --build lib/db`) to clear the TS6305 noise.
