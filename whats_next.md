@@ -1,31 +1,22 @@
 # What's Next
 
-## Last session (2026-08-11)
+## Current session (2026-08-11) — Book Studio built inside Jarvis
 
-**User message:** "Audit this repo for unnecessary clutter and produce a cleanup list. Do NOT delete anything — just list candidates with a recommendation per item." → then "execute the cleanup"
+**User message:** "So what i want is a website where you can make an actual book, like that you actually receive a PDF in A5, beautifully formatted, good font etc. You start with your idea, it gets planned into chapters and a summary... approve the plan or click a button to tell the LLM to change something... AI messaged separately 10 pages at a time... existing pages get uploaded with every request and updated as pages get added... also receives a few pages from existing books in the folder 'Books' so it knows the writing style... then the .txt + inspo books get uploaded again with 'Tell me exactly what to change' ×2... then formatted with a good font... one last final check... push notification + download the formatted .pdf in A5. BYO API key inside the website... inspo books in 'Books', personal project, no legal problems." User chose **Autonomous background job** + **Full book layout PDF** via AskUserQuestion.
 
-**What I did:**
-1. **Audited** the repo (excl. node_modules/.git/.env*): root reports, empties, scripts, duplicates, screenshots, temp/logs. Verified tracked vs untracked via `git ls-files`. Produced the two-table report (A. Safe to delete / B. Move to archive). Nothing deleted at that stage.
-2. **Executed the cleanup** (user approved) in two pushed commits:
-   - `c4ea241` — moved 7 archival docs + 22 reference assets → `archive/`, `ui-walkthrough.mjs` → `qa-report/`
-   - `97aed33` — deleted `.wwebjs_auth/` (233 files, 37MB), `.wwebjs_cache/`, 23 superseded QA reports, 6 stale screenshots, `whatsapp-bridge.js`, 8 orphaned walkthrough scripts, 3 root scripts, `full_chat_with_thinking.txt` (0B), `.launch.log`, 6 md5-verified `attached_assets` duplicates. Removed the now-empty `attached_assets/` dir. Extended `.gitignore` (`.wwebjs_auth`, `.wwebjs_cache`, `.launch.log`, `*.jpg`).
+**What I did (5 pushed commits):**
+1. `86de2b7` — **DB schema `book_jobs`** (idea, language, pageCount, wordsPerPage, chunkSize, critiquePasses, status/progress/phase/log, plan, growing manuscript, samples, masked BYO apiKey/baseUrl/model, pdfFile, error, heartbeatAt) + idempotent auto-migrate.
+2. `f866815` — **Style-sample reader** (book-samples.ts: re-scans Books/ every call, .txt/.md/.pdf via pdf-parse, language sniff, bounded 18k prompt) + **autonomous engine** (book-engine.ts: 10-page separate LLM calls, growing book.txt recap, 2 critique passes, buildBookHtml with title page/TOC/chapter pages/`@page A5`/Liberation Serif, Puppeteer → data/books/<id>.pdf, per-loop cancel, recoverStuckBookJobs, BYO→shared-pool fallback).
+3. `c787680` — **Plan generation + routes** (generatePlan/replanPlan, routes/jarvis/book.ts: /book/plan, /book/plan/review, /book/samples, /book/jobs ± /:id, /:id/cancel, /:id/pdf; BYO keys masked in every response).
+4. `d4d002f` — **Frontend wizard** (book-studio.tsx: setup → plan with "Change something" loop & Approve → job cards with progress/log/cancel/Download PDF + book.txt; studio card in studios-hub; 12s background polling + push/browser/toast notification on completion in home.tsx; 45 book.* i18n keys en+nl).
 
-**Result:** Working tree clean, 393 files tracked, ~38MB reclaimed. The `ui-walkthrough.mjs` reference in `qa-report/JARVIS-QA-REPORT.md` is intact.
+**Verification:** api-server book files type-clean; Jarvis app typechecks with **0 errors**; server bundles (build.mjs, dist 9.2mb); Book-samples reader verified live against Books/ (6 books, PDF extraction + language sniffing); Puppeteer A5 PDF render verified on this machine (~27KB).
 
-**My response:** Cleanup executed — report the two commits, the reclaimed ~38MB, and that nothing valuable was lost.
+**Important:** No `.env` exists in the repo (gitignored by design). The live **LLM calls, Neon DB persistence and web-push** can only be exercised on the running app which already has its env. The user's real API keys (incl. the Neon DATABASE_URL) from a previous session are NOT stored here — the server's `.env` must already exist in production.
+
+**My response (what user should know):** The Book Studio is fully built and wired into the Studios hub. Open Jarvis → Studios → **Book Studio**, type an idea, set pages/chunk/passes/BYO key if wanted, "Plan my book", review the chapters, ask for changes as many times as you like, then "Approve & start writing". It runs in the background — close the tab, get a push notification when the A5 PDF is ready, download it from the YOUR BOOKS list. The only thing not yet exercised is one live full end-to-end run (requires the server env + an LLM key), which I can kick off whenever the app is running.
 
 ## Next steps (awaiting user direction)
-- User added Books/ with 5 sample book excerpts — will be updated often. No task attached yet.
-- Waiting on user to say what the books should feed into (book upload/chat/reader feature?).
-
-## Last session (2026-08-11)
-**User message:** "ive put examples of books (5) in a folder called 'Books' this WILL be upadated often"
-
-**What I did:**
-1. Inspected Books/ (5 samples: 2 text files — EN memoir + NL YA — and 3 PDF excerpts).
-2. Confirmed no existing book-ingestion feature in artifacts/ — folder is fresh test data.
-3. Committed + pushed `da4f55f` (5 files, ~515KB) so the folder is tracked from the start.
-
-**My response:** Acknowledged the folder, committed it, and noted it as a live resource that will change often — flagged that I'll re-scan it each session and asked what the samples should feed into.
-
-**User follow-up:** "its completely legal, its a personal project" — user confirms the books are legal, personal-project use. Caution dropped, no further discussion needed.
+- Run one real book end-to-end against the live app once it's up (needs the server's `.env`).
+- User to update Books/ often — the studio re-scans the folder on every plan/job start, no cache.
+- Possible follow-ups: publish the PDF to a downloadable history page, custom cover image upload, A5 paperback vs digital length guidance.

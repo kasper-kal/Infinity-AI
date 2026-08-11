@@ -114,3 +114,12 @@
   mirroring deep research, toast + browser/push notification when a book completes,
   case 'book' in handleStudioSelect.
 - Jarvis app typechecks clean (0 errors) after the wiring.
+
+## 2026-08-11 - Book Studio verification + session state
+- Verified: api-server book files type-clean, jarvis app 0 errors, server bundles (dist 9.2mb).
+- Runtime smoke tests: book-samples reader works against real Books/ (6 books — boy-7 NL,
+  gone.en.nl, House-to-House EN, hunger-games, it, Martian; PDF extraction + language sniff ok);
+  Puppeteer A5 PDF render ok on this machine (~27KB, @page A5 + footer page numbers).
+- Live LLM/Neon DB/web-push paths NOT exercised — no .env in repo (gitignored); runs in production.
+- Updated .session_state.md (10 steps done, 1 pending live-run), whats_next.md.
+- Also committing user's newly added Books/gone.en.nl.pdf sample (Books/ approved for tracking).
