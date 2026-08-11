@@ -27,3 +27,5 @@
 3. Committed + pushed `da4f55f` (5 files, ~515KB) so the folder is tracked from the start.
 
 **My response:** Acknowledged the folder, committed it, and noted it as a live resource that will change often — flagged that I'll re-scan it each session and asked what the samples should feed into.
+
+**User follow-up:** "its completely legal, its a personal project" — user confirms the books are legal, personal-project use. Caution dropped, no further discussion needed.
