@@ -2,25 +2,18 @@
 
 ## Last session (2026-08-11)
 
-**User message:** "Audit this repo (/home/kasperkal1970/Jarvis) for unnecessary clutter and produce a cleanup list. Do NOT delete anything — just list candidates with a recommendation per item."
+**User message:** "Audit this repo for unnecessary clutter and produce a cleanup list. Do NOT delete anything — just list candidates with a recommendation per item." → then "execute the cleanup"
 
 **What I did:**
-- Swept the whole repo (excl. node_modules/.git/.env*): root-level report files with line counts, empty files, superseded test scripts, duplicated QA content, stale screenshots, temp/log artifacts.
-- Cross-checked tracking state with `git ls-files` — all junk is tracked except `.wwebjs_cache/`.
-- Produced the two-table report (A. Safe to delete, B. Move to archive) with path · size/lines · what it is · recommendation · why. **Nothing deleted** — recommendations only.
+1. **Audited** the repo (excl. node_modules/.git/.env*): root reports, empties, scripts, duplicates, screenshots, temp/logs. Verified tracked vs untracked via `git ls-files`. Produced the two-table report (A. Safe to delete / B. Move to archive). Nothing deleted at that stage.
+2. **Executed the cleanup** (user approved) in two pushed commits:
+   - `c4ea241` — moved 7 archival docs + 22 reference assets → `archive/`, `ui-walkthrough.mjs` → `qa-report/`
+   - `97aed33` — deleted `.wwebjs_auth/` (233 files, 37MB), `.wwebjs_cache/`, 23 superseded QA reports, 6 stale screenshots, `whatsapp-bridge.js`, 8 orphaned walkthrough scripts, 3 root scripts, `full_chat_with_thinking.txt` (0B), `.launch.log`, 6 md5-verified `attached_assets` duplicates. Removed the now-empty `attached_assets/` dir. Extended `.gitignore` (`.wwebjs_auth`, `.wwebjs_cache`, `.launch.log`, `*.jpg`).
 
-**Key findings:**
-- `.wwebjs_auth/` — 233 tracked files, ~37MB orphaned WhatsApp-Web Chromium session (zero code refs) → delete + gitignore
-- 23 root QA/BUTTON reports superseded by `qa-report/JARVIS-COMPLETE-AUDIT.txt` (which explicitly corrects them) → delete
-- `screenshots/` (6 jpg, tracked) stale, superseded by qa-report screenshots → delete
-- `full_chat_with_thinking.txt` 0B empty tracked junk → delete
-- `ui-walkthrough.mjs` is the only live audit script (referenced by qa-report) → move to qa-report/
-- 8 orphaned walkthrough/*.mjs + 3 root scripts → delete
-- attached_assets: 3+ duplicate pastes and 2 duplicate image pairs (md5-verified) → keep 1 each, delete dups
-- Archive candidates: AI_DOES_THE_THINKING_PROMPT.md, PROJECT_MAP.md, full-walktrough-by-freebuff.txt, build-mode-competitor-analysis.txt, SYSTEM_STATUS_FINAL.txt, RENDER_FIX_SUMMARY.md → new archive/ folder
+**Result:** Working tree clean, 393 files tracked, ~38MB reclaimed. The `ui-walkthrough.mjs` reference in `qa-report/JARVIS-QA-REPORT.md` is intact.
 
-**My response:** Full two-table audit report delivered. Asked for approval to execute (git rm Table A, move Table B to archive/, extend .gitignore).
+**My response:** Cleanup executed — report the two commits, the reclaimed ~38MB, and that nothing valuable was lost.
 
 ## Next steps (awaiting user direction)
-- Wait for user approval to execute the cleanup
-- If approved: run the deletions/moves, update .gitignore, commit+push
+- Nothing pending from this request. Both audit + cleanup done.
+- Ideas if the user wants to keep going: split `use-chat-stream.ts` (large) and `AppOverlays` next; or smoke-test the app (`npm run dev`).

@@ -72,3 +72,14 @@
   RENDER_FIX_SUMMARY.md, kept attached_assets files -> new archive/ folder.
 - Verified tracking: all junk git-tracked except .wwebjs_cache/ (untracked).
 - Awaiting user approval to execute deletions/moves.
+
+## 2026-08-11 - Executed repo cleanup (user approved audit)
+- Commit c4ea241: moved to archive/ — AI_DOES_THE_THINKING_PROMPT.md, PROJECT_MAP.md, RENDER_FIX_SUMMARY.md,
+  SYSTEM_STATUS_FINAL.txt, build-mode-competitor-analysis.txt, full-walktrough-by-freebuff.txt, 22 reference
+  assets (session pastes, photos, screen recording). Moved ui-walkthrough.mjs to qa-report/ (its report's live harness).
+- Commit 97aed33: deleted — .wwebjs_auth/ (233 tracked files, ~37MB orphaned WhatsApp-Web Chromium session),
+  .wwebjs_cache/, 23 superseded root QA/BUTTON reports, 6 stale screenshots/, whatsapp-bridge.js,
+  8 orphaned walkthrough/*.{mjs,sh}, screenshot-check.mjs, screenshot-test.mjs, test-build-mode.js,
+  full_chat_with_thinking.txt (0B empty), .launch.log, 6 md5-verified duplicates in attached_assets/.
+- Removed now-empty attached_assets/ dir. Extended .gitignore: .wwebjs_auth, .wwebjs_cache, .launch.log, *.jpg.
+- Verified: working tree clean, 393 files tracked, ui-walkthrough.mjs reference in qa-report report intact.
