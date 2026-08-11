@@ -60,3 +60,15 @@
   fileAttachedLabel/agentModeIndicator/attachmentAlt, keyRetry.* (5), voice.you/jarvis, camera.note).
   Wired all previously-hardcoded strings in the new components through t().
 - tsc --noEmit passes clean (EXIT 0) for both tasks.
+
+## 2026-08-11 - Repo clutter audit (recommendations only, nothing deleted)
+- Produced two-table cleanup report per user request (DO NOT delete — list only).
+- Table A (safe to delete): .wwebjs_auth/ (233 tracked files, 37MB orphaned WhatsApp session),
+  23 root QA/BUTTON reports superseded by qa-report/JARVIS-COMPLETE-AUDIT.txt, screenshots/ (6 jpg),
+  full_chat_with_thinking.txt (0B), .launch.log, whatsapp-bridge.js, 8 orphaned walkthrough/*.mjs + 3 root scripts,
+  5 md5-verified duplicate files in attached_assets (kept 1 each).
+- Table B (move to archive): ui-walkthrough.mjs -> qa-report/; AI_DOES_THE_THINKING_PROMPT.md, PROJECT_MAP.md,
+  full-walktrough-by-freebuff.txt, build-mode-competitor-analysis.txt, SYSTEM_STATUS_FINAL.txt,
+  RENDER_FIX_SUMMARY.md, kept attached_assets files -> new archive/ folder.
+- Verified tracking: all junk git-tracked except .wwebjs_cache/ (untracked).
+- Awaiting user approval to execute deletions/moves.
