@@ -20,6 +20,7 @@ import { AppOverlays } from '@/components/app-overlays';
 import { haptics } from '@/lib/haptics';
 import { useEmotionDetection, type EmotionLabel } from '@/hooks/use-emotion-detection';
 import type { ResearchJob } from '@/components/research-panel';
+import type { BookJob } from '@/components/book-studio';
 import { GemDialog } from '@/components/gem-dialog';
 import type { StudioId } from '@/components/studios-hub';
 import { ensurePushSubscription } from '@/lib/push';
@@ -124,6 +125,9 @@ export default function Home() {
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchJobs, setResearchJobs] = useState<ResearchJob[]>([]);
   const researchNotifiedRef = useRef<Set<string>>(new Set());
+  const [bookStudioOpen, setBookStudioOpen] = useState(false);
+  const [bookJobs, setBookJobs] = useState<BookJob[]>([]);
+  const bookNotifiedRef = useRef<Set<string>>(new Set());
 
   // Wave 2, user-defined gems + Data Lab
   const [gemDialogOpen, setGemDialogOpen] = useState(false);
@@ -544,6 +548,39 @@ export default function Home() {
     const iv = setInterval(loadResearch, 12_000);
     return () => { cancelled = true; clearInterval(iv); };
   }, [refreshSidebar, toast, t]);
+
+  // ── Book Studio: poll background jobs + notify when a book is ready ──
+  useEffect(() => {
+    let cancelled = false;
+    const loadBooks = async () => {
+      try {
+        const res = await fetch('/api/jarvis/book/jobs');
+        if (!res.ok) return;
+        const jobs = (await res.json()) as BookJob[];
+        if (cancelled) return;
+        setBookJobs(jobs);
+        // Newly completed book → toast notification + browser notification
+        for (const job of jobs) {
+          if (job.status === 'completed' && !bookNotifiedRef.current.has(job.id)) {
+            bookNotifiedRef.current.add(job.id);
+            toast({
+              title: t('book.notificationTitle'),
+              description: `${job.title}, ${t('book.notificationBody')}`,
+            });
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                const n = new Notification(job.title, { body: t('book.notificationBody'), tag: `book-${job.id}` });
+                n.onclick = () => { window.focus(); setBookStudioOpen(true); };
+              } catch { /* notifications unavailable */ }
+            }
+          }
+        }
+      } catch { /* server not reachable, retry on next tick */ }
+    };
+    void loadBooks();
+    const iv = setInterval(loadBooks, 12_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [toast, t]);
 
   /** Convert a File to base64 + metadata */
   const readFile = useCallback((file: File): Promise<AttachedFile> => {
@@ -1069,6 +1106,7 @@ export default function Home() {
       case 'build': setBuildPanelOpen(true); refreshBuildFiles(); break;
       case 'design': setDesignStudioOpen(true); break;
       case 'music': setMusicStudioOpen(true); break;
+      case 'book': setBookStudioOpen(true); break;
       case 'factcheck': setMode('chat'); break; // fact-check lives on each message
       case 'datalab': setDataLabOpen(true); break;
     }
@@ -1513,6 +1551,8 @@ export default function Home() {
         studiosOpen={studiosOpen} onCloseStudios={() => setStudiosOpen(false)} onSelectStudio={handleStudioSelect}
         designStudioOpen={designStudioOpen} onCloseDesign={() => setDesignStudioOpen(false)} designInitialImage={designImage}
         musicStudioOpen={musicStudioOpen} onCloseMusic={() => setMusicStudioOpen(false)}
+        bookStudioOpen={bookStudioOpen} onCloseBook={() => setBookStudioOpen(false)} bookJobs={bookJobs}
+        onCancelBook={async (jobId) => { try { await fetch(`/api/jarvis/book/jobs/${jobId}/cancel`, { method: 'POST' }); } catch { /* noop */ } }}
         showResearchPulse={!researchPanelOpen && researchJobs.some(j => j.status === 'queued' || j.status === 'running')}
       />
     </div>

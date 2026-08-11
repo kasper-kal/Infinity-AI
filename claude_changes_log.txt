@@ -99,3 +99,18 @@
 - Confirmed both new files type-clean via `npx tsc -p tsconfig.json --noEmit`; remaining errors
   are pre-existing TS6305 (lib/db not built) / TS7006 across old files, not from Book Studio.
 - Built lib/db project references (`npx tsc --build lib/db`) to clear the TS6305 noise.
+
+## 2026-08-11 - Book Studio frontend component + wiring
+- Created components/book-studio.tsx: full-book wizard modal — setup (idea, language,
+  page count slider, words-per-page, pages-per-session chunk size, critique passes,
+  BYO key collapsible, live Books/ style-sample indicator) → plan (title, summary,
+  chapters with page counts, "Change something" feedback re-plan loop, Approve &
+  start) → job cards (progress bar, phase log, cancel, download PDF + book.txt).
+- Added ~45 book.* i18n keys to en + nl (both Records keyed the same).
+- studios-hub.tsx: added 'book' to StudioId + a Book Studio card (BookOpen icon).
+- app-overlays.tsx: threaded bookStudioOpen/onCloseBook/bookJobs/onCancelBook props,
+  renders <BookStudio>.
+- home.tsx: bookStudioOpen/bookJobs state, 12s background polling of /api/jarvis/book/jobs
+  mirroring deep research, toast + browser/push notification when a book completes,
+  case 'book' in handleStudioSelect.
+- Jarvis app typechecks clean (0 errors) after the wiring.

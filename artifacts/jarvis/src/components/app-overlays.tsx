@@ -9,6 +9,7 @@ import { GemDialog } from '@/components/gem-dialog';
 import { CommandPalette } from '@/components/command-palette';
 import { DesignStudio } from '@/components/design-studio';
 import { MusicStudio } from '@/components/music-studio';
+import { BookStudio, type BookJob } from '@/components/book-studio';
 import { StudiosHub, type StudioId } from '@/components/studios-hub';
 import { CommandCard } from '@/components/widgets/CommandCard';
 import type { TerminalResult } from '@/types/widget';
@@ -72,6 +73,11 @@ interface AppOverlaysProps {
   designInitialImage?: string | null;
   musicStudioOpen: boolean;
   onCloseMusic: () => void;
+  // Book Studio
+  bookStudioOpen: boolean;
+  onCloseBook: () => void;
+  bookJobs: BookJob[];
+  onCancelBook: (jobId: string) => void;
   // Research pulse chip
   showResearchPulse: boolean;
 }
@@ -112,6 +118,14 @@ export function AppOverlays(props: AppOverlaysProps) {
 
       {/* ── Music Studio ── */}
       <MusicStudio open={props.musicStudioOpen} onClose={props.onCloseMusic} />
+
+      {/* ── Book Studio ── */}
+      <BookStudio
+        open={props.bookStudioOpen}
+        onClose={props.onCloseBook}
+        jobs={props.bookJobs}
+        onCancel={props.onCancelBook}
+      />
 
       {/* ── Settings ── */}
       <SettingsPanel open={props.settingsOpen} onClose={props.onCloseSettings} theme={props.theme as 'dark' | 'light' | 'auto'} onToggleTheme={props.onToggleTheme as any} />

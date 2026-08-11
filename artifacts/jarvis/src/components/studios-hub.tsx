@@ -1,12 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, MessageSquare, AudioWaveform, Camera, Telescope, Hammer,
-  ImagePlus, Music2, ShieldCheck, Database, ChevronRight,
+  ImagePlus, Music2, ShieldCheck, Database, ChevronRight, BookOpen,
 } from 'lucide-react';
 
 export type StudioId =
   | 'chat' | 'voice' | 'camera' | 'research' | 'build'
-  | 'design' | 'music' | 'factcheck' | 'datalab';
+  | 'design' | 'music' | 'factcheck' | 'datalab' | 'book';
 
 interface Studio {
   id: StudioId;
@@ -75,6 +75,14 @@ const STUDIOS: Studio[] = [
     replaces: 'Suno · Udio',
     icon: Music2,
     tint: 'bg-emerald-500/10', tintDark: 'dark:bg-emerald-400/15', text: 'text-emerald-500 dark:text-emerald-400',
+  },
+  {
+    id: 'book',
+    name: 'Book Studio',
+    tagline: 'Idea → planned chapters → a full A5 PDF book',
+    replaces: 'Sudowrite · NovelAI',
+    icon: BookOpen,
+    tint: 'bg-rose-500/10', tintDark: 'dark:bg-rose-400/15', text: 'text-rose-500 dark:text-rose-400',
   },
   {
     id: 'factcheck',
