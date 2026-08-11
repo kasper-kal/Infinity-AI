@@ -59,6 +59,8 @@ const en = {
   "sidebar.navBrowser": "Browser",
   "sidebar.navCamera": "Camera",
   "sidebar.navPlugins": "Plug-ins",
+  "sidebar.openHistory": "Open history",
+  "sidebar.closeHistory": "Close history",
 
   /* Time */
   "time.justNow": "just now",
@@ -238,6 +240,17 @@ const en = {
   "input.thinkingStatus": "THINKING…",
   "input.speakingStatus": "JARVIS IS SPEAKING, ",
   "input.stop": "STOP",
+  "input.attachTitle": "Attach, camera, or search",
+  "input.fileAttachedLabel": "FILE ATTACHED",
+  "input.agentModeIndicator": "AGENT MODE ON: your message will search the web",
+  "input.attachmentAlt": "Attachment",
+
+  /* Manual LLM-key retry banner */
+  "keyRetry.title": "LLM key failed",
+  "keyRetry.sameKey": "Try same key",
+  "keyRetry.nextKey": "Try next key",
+  "keyRetry.nextKeyWithName": "Try next key: {name}",
+  "keyRetry.dismiss": "Dismiss",
 
   /* Voice mode */
   "voice.status.idle": "Ready",
@@ -260,6 +273,11 @@ const en = {
   "voice.browser": "Browser",
   "voice.camOn": "Cam On",
   "voice.cam": "Cam",
+  "voice.you": "YOU",
+  "voice.jarvis": "JARVIS",
+
+  /* Camera mode */
+  "camera.note": "Camera — object detection runs 100% in your browser",
 
   /* Deep research */
   "research.title": "Deep Research",
@@ -530,6 +548,8 @@ const nl: Record<keyof typeof en, string> = {
   "sidebar.navBrowser": "Browser",
   "sidebar.navCamera": "Camera",
   "sidebar.navPlugins": "Plug-ins",
+  "sidebar.openHistory": "Geschiedenis openen",
+  "sidebar.closeHistory": "Geschiedenis sluiten",
 
   /* Time */
   "time.justNow": "zojuist",
@@ -711,6 +731,17 @@ const nl: Record<keyof typeof en, string> = {
   "input.thinkingStatus": "BEZIG MET DENKEN…",
   "input.speakingStatus": "JARVIS SPREEKT, ",
   "input.stop": "STOP",
+  "input.attachTitle": "Toevoegen, camera of zoeken",
+  "input.fileAttachedLabel": "BESTAND TOEGEVOEGD",
+  "input.agentModeIndicator": "AGENTMODUS AAN: je bericht zoekt op het web",
+  "input.attachmentAlt": "Bijlage",
+
+  /* Manual LLM-key retry banner */
+  "keyRetry.title": "LLM-sleutel mislukt",
+  "keyRetry.sameKey": "Zelfde sleutel opnieuw",
+  "keyRetry.nextKey": "Volgende sleutel",
+  "keyRetry.nextKeyWithName": "Volgende sleutel: {name}",
+  "keyRetry.dismiss": "Sluiten",
 
   /* Voice mode */
   "voice.status.idle": "Klaar",
@@ -733,6 +764,11 @@ const nl: Record<keyof typeof en, string> = {
   "voice.browser": "Browser",
   "voice.camOn": "Cam aan",
   "voice.cam": "Cam",
+  "voice.you": "JIJ",
+  "voice.jarvis": "JARVIS",
+
+  /* Camera mode */
+  "camera.note": "Camera — objectdetectie draait 100% in je browser",
 
   /* Diep onderzoek */
   "research.title": "Diep Onderzoek",

@@ -1,48 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useSpeechRecognition, isSpeechRecognitionSupported } from '@/hooks/use-speech-recognition';
 import { useWakeWord, isWakeWordSupported } from '@/hooks/use-wake-word';
 import { useClapDetection } from '@/hooks/use-clap-detection';
 import { useSynthesizeSpeech } from '@workspace/api-client-react';
-import { Orb, AppState } from '@/components/orb';
-import { ConversationFeed, ChatMessage } from '@/components/conversation-feed';
+import type { AppState } from '@/components/orb';
+import type { ChatMessage } from '@/components/conversation-feed';
 import { ChatSidebar } from '@/components/chat-sidebar';
-import { SettingsPanel } from '@/components/settings-panel';
 import { useToast } from '@/hooks/use-toast';
-import { Square, Mic, Send, PanelLeft, X, Plus, Bug, Search, Lightbulb, Minimize2, Maximize2, ArrowLeft, MessagesSquare, SquarePen, Camera, Globe, FileText } from 'lucide-react';
-import type { Widget, TerminalResult, FileEdit } from '@/types/widget';
-import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, CommandCard } from '@/components/widgets';
-import { ErrorDetailPanel, buildClientErrorDetail, type ErrorDetail } from '@/components/error-detail-panel';
+import { Bug } from 'lucide-react';
+import type { Widget, TerminalResult, AttachedFile } from '@/types/widget';
+import { buildClientErrorDetail, type ErrorDetail } from '@/components/error-detail-panel';
 import { useScreenShare } from '@/hooks/use-screen-share';
-import { JarvisBrowser } from '@/components/jarvis-browser';
-import { CameraFeed } from '@/components/camera-feed';
 import { useI18n } from '@/lib/i18n';
 import { useTimerOrchestration } from '@/hooks/use-timer-orchestration';
 import { useChatStream } from '@/hooks/use-chat-stream';
-import { TimerStrip } from '@/components/timer-strip';
 import { useTheme } from '@/lib/use-theme';
-import { PlusMenu, getPlusMenuCoords, type PlusAction } from '@/components/plus-menu';
+import { getPlusMenuCoords, type PlusAction } from '@/components/plus-menu';
 import { AppOverlays } from '@/components/app-overlays';
-import { looksLikeCodeRequest } from '@/lib/code-intent';
 import { haptics } from '@/lib/haptics';
 import { useEmotionDetection, type EmotionLabel } from '@/hooks/use-emotion-detection';
-import { ResearchPanel, type ResearchJob } from '@/components/research-panel';
+import type { ResearchJob } from '@/components/research-panel';
 import { GemDialog } from '@/components/gem-dialog';
-import { DataLab } from '@/components/data-lab';
-import { CommandPalette } from '@/components/command-palette';
-import { DesignStudio } from '@/components/design-studio';
-import { MusicStudio } from '@/components/music-studio';
-import { StudiosHub, type StudioId } from '@/components/studios-hub';
-import { ConversationActions } from '@/components/conversation-actions';
-import { GroupSettings } from '@/components/group-settings';
+import type { StudioId } from '@/components/studios-hub';
 import { ensurePushSubscription } from '@/lib/push';
-
-interface AttachedFile {
-  base64: string;
-  mimeType: string;
-  fileName: string;
-  preview?: string; // object URL for images
-}
+import { KeyRetryBanner } from '@/components/home/key-retry-banner';
+import { HomeHeader } from '@/components/home/home-header';
+import { CameraModeView } from '@/components/home/camera-mode-view';
+import { VoiceModeView } from '@/components/home/voice-mode-view';
+import { ChatModeView } from '@/components/home/chat-mode-view';
+import { PipBrowserWindow } from '@/components/home/pip-browser-window';
 
 export default function Home() {
   const { t, lang } = useI18n();
@@ -60,8 +46,6 @@ export default function Home() {
     }
   });
   const isChatMode = mode === 'chat';
-  const isAgentMode = mode === 'agent';
-  const isCameraMode = mode === 'camera';
   const [chatInput, setChatInput] = useState('');
   // Thinking mode, Jarvis streams a private reasoning pass before the answer
   // (shown in a collapsible "Thinking" block). Persisted across reloads.
@@ -722,7 +706,7 @@ export default function Home() {
                   onDone();
                 };
                 // MUST set onended BEFORE start(0), on some browsers the
-                // callback won't fire if registered after playback begins.
+                // callback won't fire if playback begins afterward.
                 activeAudioRef.current = {
                   stop: () => {
                     tracking = false;
@@ -970,6 +954,21 @@ export default function Home() {
   }, []);
 
   const pendingBuildRef = useRef<{ userText: string; file: AttachedFile | null; speak: boolean } | null>(null);
+
+  /** Reduced +-menu handler used by the chat composer (the composer menu only
+      offers attach/camera/gem/image/studios entries; the full handler below is
+      for plugin actions & the command palette). */
+  const handleComposerPlusAction = useCallback((action: PlusAction) => {
+    switch (action) {
+      case 'attach-file': fileInputRef.current?.click(); break;
+      case 'camera': setMode('camera'); break;
+      case 'new-gem': setGemDialogOpen(true); break;
+      case 'generate-image': setTimeout(() => inputRef.current?.focus(), 50); break;
+      case 'studios': setStudiosOpen(true); break;
+      case 'design-studio': setDesignStudioOpen(true); break;
+      case 'music-studio': setMusicStudioOpen(true); break;
+    }
+  }, []);
 
   const handlePlusAction = useCallback((action: PlusAction) => {
     closePlusMenu();
@@ -1253,99 +1252,52 @@ export default function Home() {
 
   const isBusy = status === 'thinking' || status === 'transcribing';
 
-  const statusLabels: Record<AppState, string> = {
-    idle: t('voice.status.idle'),
-    wake: t('voice.status.wake'),
-    recording: t('voice.status.recording'),
-    transcribing: t('voice.status.transcribing'),
-    thinking: t('voice.status.thinking'),
-    speaking: t('voice.status.speaking'),
-  };
-
+  /** Composer drop handler: reads the dropped file with a fake progress bar. */
+  const handleComposerDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    setUploadProgress(0);
+    try {
+      // Simulate progress during file read
+      const progressInterval = setInterval(() => {
+        setUploadProgress(p => Math.min(95, (p ?? 0) + Math.random() * 15));
+      }, 200);
+      const result = await readFile(file);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      setTimeout(() => setUploadProgress(null), 500);
+      if (attachedFile?.preview) URL.revokeObjectURL(attachedFile.preview);
+      setAttachedFile(result);
+      toast({ title: t('input.fileAttached'), description: file.name });
+    } catch {
+      setUploadProgress(null);
+      toast({ title: t('input.couldNotRead'), variant: 'destructive' });
+    }
+  }, [attachedFile, readFile, toast, t]);
 
   return (
     <div className={`${resolved} h-dvh bg-background text-foreground flex flex-col overflow-hidden`}>
 
       {/* Manual LLM-key retry (chat/voice only): the chosen key failed, the
           user decides to try the same key again or switch to the next one. */}
-      <AnimatePresence>
-        {keyRetry && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-[90] w-[calc(100%-2rem)] max-w-md"
-            data-testid="llm-key-retry"
-          >
-            <div className="rounded-xl border border-amber-400/30 bg-card/95 backdrop-blur-xl shadow-apple-lg p-3">
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-mono tracking-widest text-amber-400 uppercase">LLM key failed</p>
-                  <p className="text-xs text-foreground/90 mt-1 leading-relaxed">{keyRetry.message}</p>
-                  <p className="text-[10px] font-mono text-muted-foreground mt-1 truncate">{keyRetry.keyName}</p>
-                </div>
-                <button
-                  onClick={dismissKeyRetry}
-                  className="p-1 rounded-md hover:bg-secondary/70 text-muted-foreground transition-colors flex-shrink-0"
-                  aria-label="Dismiss"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className="flex gap-2 mt-2.5">
-                <button
-                  onClick={retrySameKey}
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-400 text-[11px] font-medium hover:bg-amber-400/20 active:scale-[0.98] transition-all"
-                  data-testid="retry-same-key"
-                >
-                  Try same key
-                </button>
-                <button
-                  onClick={retryNextKey}
-                  disabled={!keyRetry.nextKeyId}
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
-                  data-testid="retry-next-key"
-                >
-                  Try next key{keyRetry.nextKeyName ? `: ${keyRetry.nextKeyName.split(' ').slice(-2).join(' ')}` : ''}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <KeyRetryBanner
+        keyRetry={keyRetry}
+        onSameKey={retrySameKey}
+        onNextKey={retryNextKey}
+        onDismiss={dismissKeyRetry}
+      />
 
       {/* ── Header: Apple-style translucent toolbar ── */}
       {/* Hidden in voice mode, the orb view takes the full screen. */}
-      <header className={`glass-toolbar px-4 py-2.5 flex items-center border-b border-border/50 relative z-50 flex-shrink-0 ${mode === 'voice' ? 'hidden' : ''}`}>
-        {/* Left: hamburger (menu), always visible, ChatGPT style */}
-        <button
-          onClick={() => setMobileSidebarOpen(open => !open)}
-          className="w-9 h-9 rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 text-foreground flex items-center justify-center shadow-sm transition-all hover:bg-secondary/70 active:scale-95"
-          aria-label={mobileSidebarOpen ? 'Close history' : 'Open history'}
-          aria-expanded={mobileSidebarOpen}
-        >
-          <PanelLeft className="w-[18px] h-[18px]" />
-        </button>
-
-        {/* Right: new chat */}
-        <div className="relative flex items-center ml-auto">
-          <div className="flex items-center rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 shadow-sm overflow-hidden">
-            <button
-              onClick={() => { haptics.light(); handleNewChat(); }}
-              className="w-9 h-9 flex items-center justify-center text-foreground transition-colors hover:bg-secondary/70 active:scale-95"
-              aria-label={t('sidebar.newChat')}
-              title={t('sidebar.newChat')}
-            >
-              <SquarePen className="w-[18px] h-[18px]" strokeWidth={2} />
-            </button>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <GroupSettings conversationId={activeConversationId} />
-            <ConversationActions conversationId={activeConversationId} />
-          </div>
-        </div>
-      </header>
+      <HomeHeader
+        mode={mode}
+        mobileSidebarOpen={mobileSidebarOpen}
+        onToggleSidebar={() => setMobileSidebarOpen(open => !open)}
+        onNewChat={handleNewChat}
+        activeConversationId={activeConversationId}
+      />
 
       {/* ── Body ─────────────────────────────────── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -1368,593 +1320,161 @@ export default function Home() {
 
           {/* ── CAMERA MODE, full-screen object detection ── */}
           {mode === 'camera' && (
-            <div className="flex-1 flex flex-col min-h-0 relative">
-              {/* Back to chat */}
-              <button
-                onClick={() => { haptics.light(); setMode('chat'); }}
-                className="absolute top-3 left-3 z-30 w-9 h-9 rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 text-foreground flex items-center justify-center shadow-sm hover:bg-secondary/70 active:scale-95 transition-all"
-                aria-label={t('voice.backToChat')}
-                title={t('voice.backToChat')}
-              >
-                <ArrowLeft className="w-[18px] h-[18px]" />
-              </button>
-              <div className="flex-1 min-h-0 p-4 sm:p-8 flex flex-col">
-                <div className="liquid-glass-soft rounded-2xl overflow-hidden flex-1 min-h-0 relative">
-                  <CameraFeed
-                    className="h-full"
-                    enableDetection
-                    onUploadPhoto={() => cameraInputRef.current?.click()}
-                  />
-                </div>
-                <p className="text-center text-xs text-muted-foreground mt-3">
-                  {t('header.mode.camera')}, object detection runs 100% in your browser
-                </p>
-              </div>
-            </div>
+            <CameraModeView
+              onBack={() => setMode('chat')}
+              onUploadPhoto={() => cameraInputRef.current?.click()}
+            />
           )}
 
           {/* ── VOICE MODE, full screen ── */}
           {mode === 'voice' && (
-            <div className="flex-1 flex flex-col min-h-0 relative">
-              {/* Back to chat, header is hidden in voice mode */}
-              <button
-                onClick={() => { haptics.light(); setMode('chat'); }}
-                className="absolute top-3 left-3 z-30 w-9 h-9 rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 text-foreground flex items-center justify-center shadow-sm hover:bg-secondary/70 active:scale-95 transition-all"
-                aria-label={t('voice.backToChat')}
-                title={t('voice.backToChat')}
-              >
-                  <MessagesSquare className="w-[18px] h-[18px]" />
-              </button>
-              {/* Orb + status */}
-              <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 min-h-0">
-                {/* Durable server-side timers, survive reloads, fire even with the tab closed */}
-                <TimerStrip
-                  timers={activeTimers}
-                  onCancel={(id) => void cancelTimer(id)}
-                  onPause={(id) => void pauseTimer(id)}
-                  onResume={(id) => void resumeTimer(id)}
-                />
-                {(activeWidget?.type === 'alarm' || activeWidget?.type === 'timer') && (
-                  <div className="mb-4 flex flex-col items-center">
-                    {activeWidget.type === 'alarm' && (
-                      <AlarmWidget {...activeWidget} compact onClose={() => setActiveWidget(null)} />
-                    )}
-                    {activeWidget.type === 'timer' && (
-                      <TimerWidget {...activeWidget} compact onClose={() => setActiveWidget(null)} />
-                    )}
-                  </div>
-                )}
-                <Orb
-                  status={status}
-                  onClick={handleToggleRecording}
-                  amplitude={orbAmplitude}
-                />
-
-                {/* PiP toggles, agent + browser + camera */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-                  <button
-                    onClick={() => { haptics.light(); setAgentModeActive(a => !a); if (!agentModeActive) setPipBrowserOpen(true); setPipFullscreen(null); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium font-rounded transition-all ${
-                      agentModeActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground/80 hover:text-foreground'
-                    }`}
-                  >
-                    <Search className="w-3 h-3 inline mr-1" />
-                    {agentModeActive ? t('voice.agentOn') : t('voice.agent')}
-                  </button>
-                  <button
-                    onClick={() => { haptics.light(); setPipBrowserOpen(b => !b); setPipFullscreen(null); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium font-rounded transition-all ${
-                      pipBrowserOpen ? 'bg-primary/15 text-primary' : 'text-muted-foreground/80 hover:text-foreground'
-                    }`}
-                  >
-                    <Globe className="w-3 h-3 inline mr-1" />
-                    {pipBrowserOpen ? t('voice.browserOn') : t('voice.browser')}
-                  </button>
-                  <button
-                    onClick={() => { haptics.light(); setMode('camera'); }}
-                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium font-rounded transition-all text-muted-foreground/80 hover:text-foreground"
-                  >
-                    <Camera className="w-3 h-3 inline mr-1" />
-                    {t('voice.cameraMode')}
-                  </button>
-                </div>
-                <div className="mt-6 text-center space-y-2">
-                  <AnimatePresence mode="wait">
-                    <motion.h2
-                      key={status}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.2 }}
-                      className={`text-lg tracking-tight ${
-                        status === 'recording' ? 'text-red-500 dark:text-red-400' :
-                        status === 'speaking' ? 'text-green-500 dark:text-green-400' :
-                        status === 'thinking' || status === 'transcribing' ? 'text-amber-500 dark:text-amber-400' :
-                        'text-foreground font-normal'
-                      }`}
-                    >
-                      {statusLabels[status]}
-                    </motion.h2>
-                  </AnimatePresence>
-                  {voiceEmotion !== 'neutral' && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 font-rounded rounded-full border border-primary/25 bg-primary/5"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-[10px] font-medium text-primary/80">{t(`emotion.${voiceEmotion}`)}</span>
-                    </motion.div>
-                  )}
-                  {status === 'speaking' && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      onClick={handleStopSpeaking}
-                      className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 text-foreground/70 hover:bg-secondary/80 transition-colors text-xs font-medium">
-                      <Square className="w-3 h-3 fill-current" /> Stop
-                    </motion.button>
-                  )}
-                </div>
-              </div>
-
-              {/* Widget panel OR conversation history, pinned to bottom */}
-              <div className="flex-shrink-0 px-4 sm:px-6 pb-4 sm:pb-8 pt-2 max-w-2xl w-full mx-auto">
-                {activeWidget && activeWidget.type !== 'alarm' && activeWidget.type !== 'timer' ? (
-                  <div className="overflow-y-auto max-h-[40vh] sm:max-h-[55vh]">
-                    {activeWidget.type === 'clock'    && <ClockWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'weather'  && <WeatherWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'calendar' && <CalendarWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                  </div>
-                ) : messages.length > 0 ? (
-                  /* Compact conversation history strip */
-                  <div className="max-h-[40vh] overflow-y-auto space-y-2 scrollbar-thin px-2">
-                    {messages.slice(-8).map((msg, i) => (
-                      <motion.div
-                        key={messages.length - 8 + i}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className={`flex items-start gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-sm leading-snug font-sans ${
-                          msg.role === 'user'
-                            ? 'bg-primary/20 text-foreground rounded-tr-sm'
-                            : 'bg-card/60 border border-border/30 text-foreground/90 rounded-tl-sm'
-                        }`}>
-                          <p className="text-[10px] font-mono tracking-widest text-muted-foreground/50 mb-0.5">
-                            {msg.role === 'user' ? 'YOU' : 'JARVIS'}
-                          </p>
-                          <p className="text-[13px] leading-relaxed line-clamp-3">
-                            {msg.content}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2 min-h-[5rem]">
-                    {subtitle?.user && (
-                      <p className="text-center text-sm text-muted-foreground/70 leading-snug">
-                        <span className="text-[10px] tracking-widest text-muted-foreground/70 block mb-0.5">YOU</span>
-                        {subtitle.user}
-                      </p>
-                    )}
-                    {subtitle?.jarvis && (
-                      <p className="text-center text-sm text-primary/80 leading-snug">
-                        <span className="text-[10px] tracking-widest text-primary/70 block mb-0.5">JARVIS</span>
-                        {subtitle.jarvis}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <VoiceModeView
+              status={status}
+              voiceEmotion={voiceEmotion}
+              orbAmplitude={orbAmplitude}
+              activeTimers={activeTimers}
+              activeWidget={activeWidget}
+              agentModeActive={agentModeActive}
+              pipBrowserOpen={pipBrowserOpen}
+              messages={messages}
+              subtitle={subtitle}
+              onBack={() => setMode('chat')}
+              onToggleRecording={handleToggleRecording}
+              onStopSpeaking={handleStopSpeaking}
+              onCancelTimer={(id) => void cancelTimer(id)}
+              onPauseTimer={(id) => void pauseTimer(id)}
+              onResumeTimer={(id) => void resumeTimer(id)}
+              onCloseWidget={() => setActiveWidget(null)}
+              onToggleAgent={() => { setAgentModeActive(a => !a); if (!agentModeActive) setPipBrowserOpen(true); setPipFullscreen(null); }}
+              onToggleBrowser={() => { setPipBrowserOpen(b => !b); setPipFullscreen(null); }}
+              onOpenCamera={() => setMode('camera')}
+            />
           )}
 
           {/* ── CHAT MODE ── */}
           {mode === 'chat' && (
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              {/* Chat area */}
-              <div className="flex-1 flex flex-col h-full min-h-0 bg-card/5">
-
-                {/* Durable server-side timers, survive reloads, fire even with the tab closed */}
-                <TimerStrip
-                  timers={activeTimers}
-                  onCancel={(id) => void cancelTimer(id)}
-                  onPause={(id) => void pauseTimer(id)}
-                  onResume={(id) => void resumeTimer(id)}
-                />
-
-                {/* Mobile-only widget strip (orb panel is hidden on mobile) */}
-                {activeWidget && (
-                  <div className="lg:hidden flex-shrink-0 px-3 pt-2 pb-1 border-b border-border/20">
-                    {activeWidget.type === 'timer'    && <TimerWidget {...activeWidget} compact onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'alarm'    && <AlarmWidget {...activeWidget} compact onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'clock'    && <ClockWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'weather'  && <WeatherWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                    {activeWidget.type === 'calendar' && <CalendarWidget {...activeWidget} onClose={() => setActiveWidget(null)} />}
-                  </div>
-                )}
-
-                <ConversationFeed
-                  messages={messages}
-                  isThinking={status === 'thinking'}
-                  suggestions={suggestions}
-                  onSuggestionClick={handleSuggestionClick}
-                  onRegenerate={handleRegenerate}
-                  onEditMessage={handleEditMessage}
-                  onSpeak={speakMessage}
-                  onImageConfirm={(prompt) => {
-                    // Remove pending image messages and generate
-                    setMessages(prev => prev.filter(m => !m.pendingImage));
-                    handleGenerateImage(prompt);
-                  }}
-                  onEditImage={(image) => {
-                    setDesignImage(image);
-                    setDesignStudioOpen(true);
-                  }}
-                  onImageCancel={() => {
-                    // Remove pending image messages
-                    setMessages(prev => prev.filter(m => !m.pendingImage));
-                    setStatus('idle');
-                  }}
-                  generatingImage={generatingImage}
-                  generatingImagePrompt={generatingImagePrompt}
-                  onScreenShareConfirm={() => {
-                    setMessages(prev => prev.filter(m => !m.pendingScreenShare));
-                    handleToggleScreenShare();
-                  }}
-                  onScreenShareCancel={() => {
-                    setMessages(prev => prev.filter(m => !m.pendingScreenShare));
-                    setStatus('idle');
-                  }}
-                  onAgentBrowserConfirm={(query) => {
-                    setMessages(prev => prev.filter(m => !m.pendingAgentBrowser));
-                    setPipBrowserOpen(true);
-                    setPipFullscreen(null);
-                    // Start the autonomous agent loop with the confirmed query
-                    setAgentGoal(`search for ${query}`);
-                  }}
-                  onAgentBrowserCancel={() => {
-                    setMessages(prev => prev.filter(m => !m.pendingAgentBrowser));
-                    setStatus('idle');
-                  }}
-                  onSourceCodeConfirm={() => {
-                    const pending = pendingCodeRef.current;
-                    pendingCodeRef.current = null;
-                    setMessages(prev => prev.filter(m => !m.pendingSourceCode));
-                    if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, true);
-                  }}
-                  onSourceCodeCancel={() => {
-                    const pending = pendingCodeRef.current;
-                    pendingCodeRef.current = null;
-                    setMessages(prev => prev.filter(m => !m.pendingSourceCode));
-                    if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, false);
-                  }}
-                  onBuildModeConfirm={() => {
-                    const pending = pendingBuildRef.current;
-                    pendingBuildRef.current = null;
-                    setMessages(prev => prev.filter(m => !m.pendingBuildMode));
-                    setBuildPanelOpen(true);
-                    refreshBuildFiles();
-                    if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, undefined, false, true);
-                  }}
-                  onBuildModeCancel={() => {
-                    const pending = pendingBuildRef.current;
-                    pendingBuildRef.current = null;
-                    setMessages(prev => prev.filter(m => !m.pendingBuildMode));
-                    if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, undefined, false, false);
-                  }}
-                />
-
-                {/* Input bar, #21: padding-bottom accounts for Safari's home indicator / safe area */}
-                <div
-                  data-chat-composer
-                  className={`border-t border-border/30 bg-background/90 backdrop-blur-md px-4 pt-3 flex-shrink-0 space-y-2 relative ${dragOver ? 'border-primary/50' : ''}`}
-                  style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={e => { e.preventDefault(); setDragOver(false); }}
-                  onDrop={async e => {
-                    e.preventDefault();
-                    setDragOver(false);
-                    const file = e.dataTransfer.files?.[0];
-                    if (!file) return;
-                    setUploadProgress(0);
-                    try {
-                      // Simulate progress during file read
-                      const progressInterval = setInterval(() => {
-                        setUploadProgress(p => Math.min(95, (p ?? 0) + Math.random() * 15));
-                      }, 200);
-                      const result = await readFile(file);
-                      clearInterval(progressInterval);
-                      setUploadProgress(100);
-                      setTimeout(() => setUploadProgress(null), 500);
-                      if (attachedFile?.preview) URL.revokeObjectURL(attachedFile.preview);
-                      setAttachedFile(result);
-                      toast({ title: t('input.fileAttached'), description: file.name });
-                    } catch {
-                      setUploadProgress(null);
-                      toast({ title: t('input.couldNotRead'), variant: 'destructive' });
-                    }
-                  }}
-                >
-                  {/* Drag-over overlay */}
-                  <AnimatePresence>
-                    {dragOver && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-20 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 flex items-center justify-center pointer-events-none"
-                      >
-                        <p className="font-display text-sm tracking-widest text-primary/70">{t('input.dropHere')}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  {/* Upload progress bar */}
-                  <AnimatePresence>
-                    {uploadProgress !== null && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="h-1 bg-card rounded-full overflow-hidden"
-                      >
-                        <motion.div
-                          className="h-full bg-primary rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${uploadProgress}%` }}
-                          transition={{ duration: 0.3 }}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  {attachedFile && (
-                    <div className="flex items-center gap-2">
-                      <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0 flex items-center justify-center bg-card/40">
-                        {attachedFile.preview ? (
-                          <img src={attachedFile.preview} alt="Attachment" className="w-full h-full object-cover" />
-                        ) : (
-                          <FileText className="w-5 h-5 text-muted-foreground/60" />
-                        )}
-                        <button onClick={removeAttachedFile}
-                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-background/80 flex items-center justify-center text-foreground hover:text-red-400 transition-colors">
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-mono text-foreground/80 tracking-widest truncate">{attachedFile.fileName}</p>
-                        <p className="text-[10px] font-mono text-muted-foreground/50 tracking-widest">FILE ATTACHED</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1 px-2 py-1.5 rounded-full border border-[#e5e5ea] dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-sm">
-                    {/* Hidden file inputs */}
-                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
-                    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
-
-                    {/* + menu button */}
-                    <div className="relative flex-shrink-0" ref={plusButtonRef}>
-                      <button
-                        id="plus-menu-button"
-                        onClick={() => plusMenuOpen ? closePlusMenu() : openPlusMenu()}
-                        disabled={isBusy}
-                        title="Attach, camera, or search"
-                        className={`p-2 rounded-full transition-all disabled:opacity-30 ${
-                          attachedFile || webSearchEnabled
-                            ? 'text-primary bg-primary/10'
-                            : 'text-foreground/70 hover:text-foreground hover:bg-secondary/70'
-                        }`}
-                      >
-                        <Plus className="w-[18px] h-[18px]" strokeWidth={2} />
-                      </button>
-                    </div>
-
-                    {/* Thinking mode toggle, Jarvis streams his reasoning before answering */}
-                    <button
-                      onClick={() => { haptics.light(); setThinkingEnabled(v => !v); }}
-                      disabled={isBusy}
-                      title={thinkingEnabled ? t('input.thinkingOn') : t('input.thinking')}
-                      className={`p-2 rounded-full transition-all flex-shrink-0 disabled:opacity-30 ${
-                        thinkingEnabled
-                          ? 'text-primary bg-primary/10'
-                          : 'text-foreground/70 hover:text-foreground hover:bg-secondary/70'
-                      }`}
-                    >
-                      <Lightbulb
-                        className={`w-[18px] h-[18px] transition-transform ${thinkingEnabled ? 'scale-110' : ''}`}
-                        strokeWidth={2}
-                      />
-                    </button>
-
-                    {/* Agent mode toggle, Jarvis researches with live web search */}
-                    <button
-                      onClick={() => { haptics.light(); setAgentModeActive(a => !a); }}
-                      disabled={isBusy}
-                      title={agentModeActive ? t('input.agentModeOn') : t('input.agentMode')}
-                      className={`p-2 rounded-full transition-all flex-shrink-0 disabled:opacity-30 ${
-                        agentModeActive
-                          ? 'text-primary bg-primary/10'
-                          : 'text-foreground/70 hover:text-foreground hover:bg-secondary/70'
-                      }`}
-                    >
-                      <Search
-                        className={`w-[18px] h-[18px] transition-transform ${agentModeActive ? 'scale-110' : ''}`}
-                        strokeWidth={2}
-                      />
-                    </button>
-
-                    <div className="relative flex-1 min-w-0">
-                      <textarea ref={e => { inputRef.current = e; textareaRef.current = e; }} value={chatInput}
-                        onChange={e => setChatInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSubmit(); }
-                          if (e.key === 'Escape' && chatInput) { setChatInput(''); e.preventDefault(); }
-                          if (e.key === 'ArrowUp' && !chatInput && messages.length > 0) {
-                            // Find last user message for quick edit
-                            const lastUserIdx = [...messages].reverse().findIndex(m => m.role === 'user');
-                            if (lastUserIdx >= 0) {
-                              const realIdx = messages.length - 1 - lastUserIdx;
-                              const lastUserMsg = messages[realIdx].content;
-                              if (lastUserMsg) {
-                                setChatInput(lastUserMsg);
-                                e.preventDefault();
-                              }
-                            }
-                          }
-                        }}
-                        onPaste={handleInputPaste}
-                        rows={1}
-                        placeholder={
-                          chatDictating
-                            ? (chatInterim || t('input.listening'))
-                            : isBusy ? t('input.processing')
-                            : attachedFile ? t('input.placeholderFile')
-                            : t('input.placeholder')
-                        }
-                        disabled={isBusy}
-                          className="chat-composer-input w-full bg-transparent text-foreground placeholder:text-muted-foreground/50 placeholder:text-center font-sans text-[15px] pl-2 pr-12 py-2.5 outline-none resize-none min-h-[24px] max-h-[140px]"
-                      />
-                       <button
-                         onClick={handleChatMicToggle}
-                         disabled={isBusy}
-                         title={chatDictating ? t('input.stopDictate') : t('input.dictate')}
-                         aria-label={chatDictating ? t('input.stopDictate') : t('input.dictate')}
-                         className={`absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all disabled:opacity-30 ${
-                           chatDictating
-                             ? 'text-red-500 bg-red-500/10 animate-pulse'
-                             : 'text-foreground/60 hover:text-foreground hover:bg-secondary/70'
-                         }`}
-                       >
-                         {chatDictating
-                           ? <Square className="w-[17px] h-[17px] fill-current" />
-                           : <Mic className="w-[18px] h-[18px]" strokeWidth={2} />}
-                       </button>
-                    </div>
-                    {/* Blue circular button, opens full-screen voice mode */}
-                    <button onClick={handleOpenVoiceMode} disabled={isBusy}
-                      title={t('input.voiceMode')}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 active:scale-95 transition-all flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed">
-                       <span
-                         aria-hidden="true"
-                         className="flex h-5 items-center justify-center gap-[2px]"
-                       >
-                         {[2, 3, 4, 3, 2].map((height, index) => {
-                           const isDot = index === 0 || index === 4;
-                           return (
-                           <span
-                             key={index}
-                             className={`${isDot ? 'h-1.5 w-[2px]' : 'w-[2px]'} rounded-full bg-current`}
-                             style={isDot ? undefined : { height: `${height * 4 + 2}px` }}
-                           />
-                           );
-                         })}
-                       </span>
-                    </button>
-                  </div>
-
-                  {/* + menu popover, rendered through a portal so its fixed
-                      positioning is always viewport-relative (framer-motion
-                      transforms on ancestors used to throw it off-screen). */}
-                  <PlusMenu
-                    open={plusMenuOpen && !isBusy && plusMenuCoords !== null}
-                    onClose={closePlusMenu}
-                    onAction={(action) => {
-                      closePlusMenu();
-                      switch (action) {
-                        case 'attach-file': fileInputRef.current?.click(); break;
-                        case 'camera': setMode('camera'); break;
-                        case 'new-gem': setGemDialogOpen(true); break;
-                        case 'generate-image': setTimeout(() => inputRef.current?.focus(), 50); break;
-                        case 'studios': setStudiosOpen(true); break;
-                        case 'design-studio': setDesignStudioOpen(true); break;
-                        case 'music-studio': setMusicStudioOpen(true); break;
-                      }
-                    }}
-                    coords={plusMenuCoords}
-                    labels={{
-                      attachFile: t('input.attachFile'),
-                      camera: t('header.mode.camera'),
-                      newGem: t('gem.menuItem'),
-                      generateImage: t('input.generateImage'),
-                      buildMode: t('build.menuItem'),
-                    }}
-                  />
-
-                  {/* Agent mode indicator */}
-                  {agentModeActive && (
-                    <div className="flex items-center gap-1.5 px-1 pb-1">
-                      <Search className="w-3 h-3 text-primary" />
-                      <span className="text-[11px] font-mono text-primary tracking-wider">AGENT MODE ON: your message will search the web</span>
-                    </div>
-                  )}
-
-                  {/* Status bar below input */}
-                  <div className="min-h-[16px]">
-                    {chatDictating && (
-                      <p className="text-[10px] font-mono text-red-400/70 tracking-widest text-center animate-pulse">
-                        {t('input.listeningStatus')}
-                      </p>
-                    )}
-                    {status === 'thinking' && !chatDictating && (
-                      <p className="text-[10px] font-mono text-yellow-400/60 tracking-widest text-center animate-pulse">
-                        {t('input.thinkingStatus')}
-                      </p>
-                    )}
-                    {status === 'speaking' && (
-                      <p className="text-[10px] font-mono text-muted-foreground/50 tracking-widest text-center">
-                        {t('input.speakingStatus')}
-                        <button onClick={handleStopSpeaking} className="text-primary hover:underline">{t('input.stop')}</button>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ChatModeView
+              activeTimers={activeTimers}
+              activeWidget={activeWidget}
+              messages={messages}
+              isThinking={status === 'thinking'}
+              suggestions={suggestions}
+              generatingImage={generatingImage}
+              generatingImagePrompt={generatingImagePrompt}
+              chatInput={chatInput}
+              chatDictating={chatDictating}
+              chatInterim={chatInterim}
+              attachedFile={attachedFile}
+              dragOver={dragOver}
+              uploadProgress={uploadProgress}
+              isBusy={isBusy}
+              thinkingEnabled={thinkingEnabled}
+              agentModeActive={agentModeActive}
+              webSearchEnabled={webSearchEnabled}
+              plusMenuOpen={plusMenuOpen}
+              plusMenuCoords={plusMenuCoords}
+              status={status}
+              inputRef={inputRef}
+              textareaRef={textareaRef}
+              fileInputRef={fileInputRef}
+              cameraInputRef={cameraInputRef}
+              plusButtonRef={plusButtonRef}
+              onCancelTimer={(id) => void cancelTimer(id)}
+              onPauseTimer={(id) => void pauseTimer(id)}
+              onResumeTimer={(id) => void resumeTimer(id)}
+              onCloseWidget={() => setActiveWidget(null)}
+              onSuggestionClick={handleSuggestionClick}
+              onRegenerate={handleRegenerate}
+              onEditMessage={handleEditMessage}
+              onSpeak={speakMessage}
+              onImageConfirm={(prompt) => {
+                // Remove pending image messages and generate
+                setMessages(prev => prev.filter(m => !m.pendingImage));
+                handleGenerateImage(prompt);
+              }}
+              onEditImage={(image) => {
+                setDesignImage(image);
+                setDesignStudioOpen(true);
+              }}
+              onImageCancel={() => {
+                // Remove pending image messages
+                setMessages(prev => prev.filter(m => !m.pendingImage));
+                setStatus('idle');
+              }}
+              onScreenShareConfirm={() => {
+                setMessages(prev => prev.filter(m => !m.pendingScreenShare));
+                handleToggleScreenShare();
+              }}
+              onScreenShareCancel={() => {
+                setMessages(prev => prev.filter(m => !m.pendingScreenShare));
+                setStatus('idle');
+              }}
+              onAgentBrowserConfirm={(query) => {
+                setMessages(prev => prev.filter(m => !m.pendingAgentBrowser));
+                setPipBrowserOpen(true);
+                setPipFullscreen(null);
+                // Start the autonomous agent loop with the confirmed query
+                setAgentGoal(`search for ${query}`);
+              }}
+              onAgentBrowserCancel={() => {
+                setMessages(prev => prev.filter(m => !m.pendingAgentBrowser));
+                setStatus('idle');
+              }}
+              onSourceCodeConfirm={() => {
+                const pending = pendingCodeRef.current;
+                pendingCodeRef.current = null;
+                setMessages(prev => prev.filter(m => !m.pendingSourceCode));
+                if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, true);
+              }}
+              onSourceCodeCancel={() => {
+                const pending = pendingCodeRef.current;
+                pendingCodeRef.current = null;
+                setMessages(prev => prev.filter(m => !m.pendingSourceCode));
+                if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, false);
+              }}
+              onBuildModeConfirm={() => {
+                const pending = pendingBuildRef.current;
+                pendingBuildRef.current = null;
+                setMessages(prev => prev.filter(m => !m.pendingBuildMode));
+                setBuildPanelOpen(true);
+                refreshBuildFiles();
+                if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, undefined, false, true);
+              }}
+              onBuildModeCancel={() => {
+                const pending = pendingBuildRef.current;
+                pendingBuildRef.current = null;
+                setMessages(prev => prev.filter(m => !m.pendingBuildMode));
+                if (pending) processUserTextRef.current?.(pending.userText, pending.file, pending.speak, undefined, false, false);
+              }}
+              onChatInputChange={setChatInput}
+              onToggleThinking={() => { haptics.light(); setThinkingEnabled(v => !v); }}
+              onToggleAgentMode={() => { haptics.light(); setAgentModeActive(a => !a); }}
+              onOpenPlusMenu={openPlusMenu}
+              onClosePlusMenu={closePlusMenu}
+              onPlusAction={handleComposerPlusAction}
+              onChatSubmit={handleChatSubmit}
+              onChatMicToggle={handleChatMicToggle}
+              onOpenVoiceMode={handleOpenVoiceMode}
+              onRemoveAttachedFile={removeAttachedFile}
+              onPaste={handleInputPaste}
+              onFileSelect={handleFileSelect}
+              onDragOver={setDragOver}
+              onDrop={handleComposerDrop}
+              onStopSpeaking={handleStopSpeaking}
+            />
           )}
 
         </main>
 
-        {/* ── PiP Floating Windows ── */}
-        <AnimatePresence>
-          {pipBrowserOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              className={`fixed z-50 bg-card border border-border/50 rounded-xl shadow-apple-lg overflow-hidden flex flex-col ${
-                pipFullscreen === 'browser'
-                  ? 'inset-4'
-                  : 'bottom-20 right-4 w-80 h-60'
-              }`}
-            >
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-primary/60" />
-                  <span className="text-[10px] font-medium text-muted-foreground">{t('sidebar.navBrowser')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setPipFullscreen(f => f === 'browser' ? null : 'browser')} className="p-1 rounded hover:bg-secondary/80 text-muted-foreground transition-colors">
-                    {pipFullscreen === 'browser' ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-                  </button>
-                  <button onClick={() => { setPipBrowserOpen(false); setPipFullscreen(null); }} className="p-1 rounded hover:bg-secondary/80 text-muted-foreground transition-colors">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0">
-                <JarvisBrowser
-                  className="h-full border-0 rounded-b-xl"
-                  autoRunGoal={agentGoal}
-                  onGoalHandled={() => setAgentGoal(null)}
-                />
-              </div>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
+        {/* ── PiP Floating Window: Jarvis agent browser ── */}
+        <PipBrowserWindow
+          open={pipBrowserOpen}
+          fullscreen={pipFullscreen}
+          agentGoal={agentGoal}
+          onToggleFullscreen={() => setPipFullscreen(f => f === 'browser' ? null : 'browser')}
+          onClose={() => { setPipBrowserOpen(false); setPipFullscreen(null); }}
+          onGoalHandled={() => setAgentGoal(null)}
+        />
       </div>
 
       {/* ── New Gem dialog ── */}

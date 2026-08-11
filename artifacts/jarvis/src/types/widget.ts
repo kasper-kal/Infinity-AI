@@ -67,6 +67,14 @@ export interface TerminalResult {
   output: string;
 }
 
+/** A file the user attached to a message (base64 + metadata). */
+export interface AttachedFile {
+  base64: string;
+  mimeType: string;
+  fileName: string;
+  preview?: string; // object URL for images
+}
+
 /** Fact-check result for an assistant message (from /api/jarvis/verify). */
 export interface VerifyClaim {
   claim: string;

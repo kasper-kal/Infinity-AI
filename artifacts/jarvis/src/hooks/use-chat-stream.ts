@@ -6,20 +6,12 @@
  */
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type Dispatch, type SetStateAction } from 'react';
 import { looksLikeCodeRequest } from '@/lib/code-intent';
-import type { Widget, FileEdit, TerminalResult } from '@/types/widget';
+import type { Widget, FileEdit, TerminalResult, AttachedFile } from '@/types/widget';
 import type { ErrorDetail } from '@/components/error-detail-panel';
 import type { ChatMessage } from '@/components/conversation-feed';
 import type { EmotionLabel } from '@/hooks/use-emotion-detection';
 import type { AppState } from '@/components/orb';
 import type { ServerTimer } from '@/hooks/use-timer-orchestration';
-
-/** Attached-file shape passed with a message (mirrors home.tsx). */
-interface AttachedFile {
-  base64: string;
-  mimeType: string;
-  fileName: string;
-  preview?: string;
-}
 
 /**
  * Manual LLM-key retry (chat and voice only). The chosen key failed and the
