@@ -73,6 +73,14 @@
 - Verified tracking: all junk git-tracked except .wwebjs_cache/ (untracked).
 - Awaiting user approval to execute deletions/moves.
 
+## 2026-08-11 - Added Books/ sample folder (5 book excerpts)
+- User dropped 5 sample books into Books/: House-to-House-snippet.txt (EN military memoir),
+  boy-7-dutch-example.txt (NL YA "Zeven minuten"), The Martian.pdf, hunger-games-18.pdf,
+  it-by-stephen-king.pdf. Small excerpts (34-45 page PDFs / single chapters) — test data.
+- No book-ingestion feature exists yet in artifacts/; folder is a fresh resource for a future feature.
+- Committed + pushed da4f55f (5 files, ~515KB). User says this folder WILL be updated often —
+  treat as a live resource and re-scan contents at the start of each session.
+
 ## 2026-08-11 - Executed repo cleanup (user approved audit)
 - Commit c4ea241: moved to archive/ — AI_DOES_THE_THINKING_PROMPT.md, PROJECT_MAP.md, RENDER_FIX_SUMMARY.md,
   SYSTEM_STATUS_FINAL.txt, build-mode-competitor-analysis.txt, full-walktrough-by-freebuff.txt, 22 reference

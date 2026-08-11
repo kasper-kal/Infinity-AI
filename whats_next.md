@@ -15,5 +15,15 @@
 **My response:** Cleanup executed — report the two commits, the reclaimed ~38MB, and that nothing valuable was lost.
 
 ## Next steps (awaiting user direction)
-- Nothing pending from this request. Both audit + cleanup done.
-- Ideas if the user wants to keep going: split `use-chat-stream.ts` (large) and `AppOverlays` next; or smoke-test the app (`npm run dev`).
+- User added Books/ with 5 sample book excerpts — will be updated often. No task attached yet.
+- Waiting on user to say what the books should feed into (book upload/chat/reader feature?).
+
+## Last session (2026-08-11)
+**User message:** "ive put examples of books (5) in a folder called 'Books' this WILL be upadated often"
+
+**What I did:**
+1. Inspected Books/ (5 samples: 2 text files — EN memoir + NL YA — and 3 PDF excerpts).
+2. Confirmed no existing book-ingestion feature in artifacts/ — folder is fresh test data.
+3. Committed + pushed `da4f55f` (5 files, ~515KB) so the folder is tracked from the start.
+
+**My response:** Acknowledged the folder, committed it, and noted it as a live resource that will change often — flagged that I'll re-scan it each session and asked what the samples should feed into.
