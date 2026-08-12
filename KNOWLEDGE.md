@@ -28,7 +28,7 @@
 ## Active projects
 > Live status (what's done/in-flight/next) always lives in **session-brief.md** — this section holds only permanent facts.
 - **Book Studio** — permanent facts: full A5-PDF book generator (idea → plan → approve/"change something" → 10-page LLM chunks → 2 critique passes → A5 PDF + book.txt), BYO API key, push notification, background job. Built + verified.
-- **Projects System** — permanent facts: user's 32-step brief "persistent workspaces with isolated project memory"; plan-first approach mandated by user; full requirement capture + phases A–H in `docs/projects-system-plan.md`.
+- **Projects System** — permanent facts: user's 32-step brief "persistent workspaces with isolated project memory"; plan-first approach mandated by user; full requirement capture (steps 1–20) + phases A–O in `docs/projects-system-plan.md`. Key gotcha: `project_files` + `projects.instructions` exist in schema but are **not wired into any backend route/chat context yet** — the project context pipeline is greenfield.
 
 ## Decisions registry
 - 2026-08-11 Repo cleanup: stale docs → `archive/`; deleted orphaned WhatsApp session + junk (c4ea241, 97aed33); extended `.gitignore`.

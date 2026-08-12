@@ -1,8 +1,8 @@
-# Jarvis Projects System — Build Plan (Steps 1–10 of 32)
+# Jarvis Projects System — Build Plan (Steps 1–20 of 32)
 
 > **Status:** PLAN ONLY — no implementation yet.
-> **Source:** User's 32-step brief, first 10 steps captured in full below.
-> **Living document:** will be extended when steps 11–20 and 21–32 are handed over; phases may be re-cut then.
+> **Source:** User's 32-step brief, first 20 steps captured in full below.
+> **Living document:** will be extended when steps 21–32 are handed over; phases may be re-cut then.
 
 ---
 
@@ -35,6 +35,33 @@ The brief says: inspect the repository, reuse working architecture, don't replac
 - **Book Studio** (`books.ts` schema, `book.ts` routes, `book-studio.tsx`, ~45 `book.*` i18n keys) — the most recent full feature end-to-end; copy its conventions: Drizzle schema + idempotent auto-migrate entries, router registration, frontend wizard, `en`/`nl` i18n Records, background polling + push notification.
 - **Auto-migrate:** `lib/db/src/auto-migrate.ts` (books.ts added ~20 `ALTER ADD COLUMN IF NOT EXISTS` entries) — reuse for every new table/column below.
 - **Stack/conventions:** Drizzle ORM + Postgres (Neon), Express routers under `/api/jarvis/*`, React + Vite + Tailwind + framer-motion + lucide-react, i18n via `src/lib/i18n.tsx` (`nl: Record<keyof typeof en, string>` type-enforced). **0-euro budget — no paid services, no free trials.**
+
+### 1B. Repo grounding — steps 11–20 (what already exists to reuse)
+
+Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, activity, DB, API, context pipeline, UI, empty states). Findings that ground them:
+
+#### File storage already exists (step 11) — extend, don't rebuild
+- **`/api/files`** (`artifacts/api-server/src/routes/files.ts`) is the existing file API: `POST` (multipart upload, 50 MB limit, mime-sniffed), `GET` (list, `?conversation_id=` filter, 200-cap), `GET /:key` (serve blob, mime sniff, inline `Content-Disposition`).
+- **Schema** `lib/db/src/schema/files.ts` lives in the SEPARATE files DB (`DATABASE_URL_FILES`, falls back to main): id, conversationId (nullable), kind (`image|document|audio|build-app|code`), name, mime, size, storageKey, bucket, owner (`user|jarvis|account`), createdAt.
+- **Storage lib** `lib/storage.ts` already exposes `getStorage().remove(key)` on all backends (local disk, R2, B2) — delete is a thin addition, not new infrastructure.
+- **Gaps vs step 11:** no delete, no rename (`PATCH`), no forced download (`?download=1`), no name search, no project association on upload, no project-scoped listing. The `projectFiles` join table (projectId ↔ fileId, cross-db, **no FK possible**) exists in schema but is **not wired into any backend route yet** — the frontend gallery lists *all* `/api/files` (global), not project files.
+- **Plan:** add the missing operations to the SAME `/api/files` router; accept `projectId` on upload and maintain the `project_files` join; add `GET /projects/:id/files`.
+
+#### Research engine already exists (step 12) — integrate, don't rebuild
+- **`researchJobs`** (`lib/db/src/schema/research.ts`): run-level entity already holding title, prompt, mode, depth, status, progress, phase, **log** (append-only step log), **notes** (distilled corpus), **report** (final synthesized report), gemSystemPrompt, gemConversationId, heartbeat, timestamps.
+- **`/api/jarvis/research`** (`routes/jarvis/research.ts`): start (POST, background engine), list, get, cancel, estimate. The engine (`lib/research-engine.ts`) already has heartbeat + restart-resume.
+- **Gaps vs step 12:** no project association (join planned in Phase A, not yet active), no project-scoped list, no first-class **Sources** surface, no **Saved findings** store. "Runs / reports" already exist — we associate + surface, we do NOT re-model the engine.
+
+#### Ownership model (step 16)
+- `accounts.ts`: minimal local accounts for **invited groupchat users** only; the **primary user has no account row**. So projects are implicitly single-owner (the primary user) today.
+- **Plan:** add nullable `owner_account_id` to `projects` (null = primary user). Full `project_members` table deferred until multi-user projects are real.
+
+#### Agent-ready building blocks (step 14)
+- The autonomous loop doesn't exist yet, but Jarvis already has the pieces agent activity would produce: **research engine** (long background jobs w/ heartbeat+resume), **browser** (`routes/jarvis/browse.ts`), **terminal**, **code editor**, **Build Studio** (files changed), **tests route**, **git routes**.
+- **Plan:** add the agent-run/action schema now (so Projects are agent-ready), defer the autonomous agent itself.
+
+#### Critical honest finding for step 18 (AI context pipeline)
+- Today chat.ts injects a **global memory + profile** block into the system prompt. **No project context is injected at all yet**: `projects.instructions` is written by PATCH but never read into chat; `project_files` is referenced by no backend route. So the project context pipeline (identity, instructions, memory, files, history, research) is **greenfield at the injection site**, but it reuses the existing injection point + the Phase E relevance engine.
 
 ---
 
@@ -114,9 +141,70 @@ The brief says: inspect the repository, reuse working architecture, don't replac
 
 ---
 
-## 3. Build phases (steps 1–10 mapped to concrete work)
+## 2B. Requirements — steps 11–20, captured in full
 
-> Order = dependency-first. Backend/schema before UI. Phases are cut so steps 11–32 can slot in without rework.
+### Step 11 — PROJECT FILES
+- Projects need a Files section. Users should be able to: **Upload · Browse · Preview (where supported) · Delete · Rename · Download · Search** files.
+- **Reuse Jarvis's existing file-storage infrastructure** — do NOT create a second unrelated file-storage system (one exists: `/api/files` + R2/local blobs, see section 1B).
+- Every project file should have a **project association**.
+- Files should be **available as context to Jarvis when relevant** (feeds step 18).
+
+### Step 12 — PROJECT RESEARCH
+- Research results should be **attachable to Projects**. If Jarvis performs research while inside a project, **associate the run/result with that project**.
+- The project should eventually have: **Research runs · Reports · Sources · Saved findings**.
+- Do **not rebuild the existing research system** (it exists: `researchJobs` + background engine). **Integrate** it with Projects.
+
+### Step 13 — PROJECT TASKS
+- Add a **lightweight Tasks section**. Users create tasks like: "Fix mobile navigation" · "Research competitors" · "Add authentication" · "Deploy website".
+- Tasks have: **title · description · status · priority · created time · updated time · optional due date · optional conversation reference · optional file/reference · optional project memory/reference**.
+- Statuses: **TODO · IN PROGRESS · DONE**.
+- **Keep it lightweight** — do NOT turn it into a giant project-management application.
+
+### Step 14 — AGENT-READY ARCHITECTURE
+- This Projects system will eventually power an **autonomous Jarvis agent** — design the data model so future agent activity can belong to a Project: `Project → Agent Run → Actions → Files changed → Tests → Browser activity → Result`.
+- Do **not necessarily implement the complete autonomous agent now** unless the existing architecture makes it easy.
+- But make Projects **capable of becoming the agent's persistent workspace**.
+
+### Step 15 — PROJECT ACTIVITY
+- Add a **lightweight activity/history view**. Examples: **Project created · Conversation started · File uploaded · Research completed · Memory added · Memory updated · Task completed · Agent ran · File changed**.
+- This should make the project **feel alive**.
+
+### Step 16 — DATABASE
+- **Inspect the existing database/schema first** (done — section 1B). Create **proper relational structures**, not one giant JSON object.
+- At minimum determine whether the architecture needs entities equivalent to: `projects · project_members/ownership (if applicable) · project_conversations · project_files · project_memories · project_instructions · project_tasks · project_research · project_activity`.
+- Use the repository's **existing ORM/database conventions**; do **NOT blindly duplicate tables** if equivalents already exist. Add **migrations properly**. **Preserve existing data**.
+
+### Step 17 — API
+- Create **clean backend APIs** following the existing Jarvis API conventions — the **frontend should never directly manipulate the database**.
+- Support: Create / Get / List / Update / Delete-archive project, plus project **conversations · files · memories · instructions · tasks · activity**.
+- Keep **authorization / project-ownership checks server-side**.
+
+### Step 18 — AI CONTEXT PIPELINE — *critical*
+- When a conversation belongs to a project, the context pipeline must be capable of receiving:
+  1. **Project identity**
+  2. **Project instructions**
+  3. **Relevant project memory**
+  4. **Relevant project files/context**
+  5. **Relevant project conversation history**
+  6. **Relevant research**
+- Do **NOT send irrelevant project data unnecessarily**.
+- Do **NOT include Project A's memory when talking inside Project B**.
+- Do **NOT include project context in unrelated global conversations**.
+
+### Step 19 — UI/UX
+- Follow the **existing Jarvis visual system**. Do NOT make Projects look like Notion, or a generic SaaS dashboard. It should feel like **Jarvis + persistent workspace**.
+- The **project sidebar** should make it extremely easy to: **switch projects · start a chat · open memory · open files · open research · open tasks · open settings/instructions**.
+- **Avoid excessive navigation layers.**
+
+### Step 20 — EMPTY STATES
+- Make empty projects useful. For a brand-new project: **"Your project is ready."** then useful actions: **[Start a conversation] [Upload files] [Add instructions] [Add first task]**.
+- Do **NOT** show a giant empty dashboard.
+
+---
+
+## 3. Build phases (steps 1–20 mapped to concrete work)
+
+> Order = dependency-first. Backend/schema before UI. Phases are cut so steps 21–32 can slot in without rework.
 
 ### Phase A — Data model & migration (foundations for steps 1, 2, 4, 5, 6, 10)
 **Extend existing `projects` table** (new columns, idempotent `ALTER ... ADD COLUMN IF NOT EXISTS` in `auto-migrate.ts`):
@@ -180,6 +268,73 @@ Extend `routes/jarvis/projects.ts` (all responses reuse existing `cleanText` gua
 - Upgrade `project-gallery.tsx` (or replace its render with the new first-class section) — keep the same component boundaries and design tokens so it feels native.
 - Project home becomes the landing view when opening a project; standard chat remains available.
 
+### Re-cut of phases A–H (deltas introduced by steps 11–20)
+
+Steps 11–20 add system-level work on top of A–H rather than reworking them. Deltas:
+
+- **Phase A (data model):** add `owner_account_id` nullable to `projects` (step 16 ownership); `project_tasks` grows to the step 13 shape (description, priority, due, refs — see Phase K); `project_activity.type` enum expands to the step 15 event set (see Phase M); new agent tables `project_agent_runs` + `project_agent_actions` added (step 14, Phase M).
+- **Phase B (projects CRUD):** unchanged; ownership check added per step 17.
+- **Phase C (project home):** gains the step 20 **empty state** ("Your project is ready." + 4 actions) and the step 15 "Recent activity" strip (Phase M wires the feed).
+- **Phase D (scoped conversations):** the context-injection bullet is **expanded into Phase L** (identity + instructions + memory → + relevant files, relevant history, relevant research). Move/remove/list/search work is unchanged.
+- **Phase E (memory engine):** unchanged — its keyword-relevance retrieval is the shared engine Phase L reuses for files/history/research too.
+- **Phase F, G (memory UI, instructions):** unchanged.
+- **Phase H (navigation):** gains the step 19 **quick-access rail** (switch project, chat, memory, files, research, tasks, instructions — flat, no extra layers).
+
+### Phase I — Project Files (step 11)
+
+Extend the EXISTING `/api/files` router (do NOT create a second file system):
+- `PATCH /api/files/:id` — rename (update `files.name`).
+- `DELETE /api/files/:id` — delete metadata row + blob (`getStorage().remove(storageKey)`; backends already support it).
+- Download: serve endpoint gains `?download=1` → `Content-Disposition: attachment` (default stays `inline`).
+- Search: `GET /api/files` gains `?q=` (name ILIKE) alongside the existing `?conversation_id=` filter.
+- Project association: `POST /api/files` accepts `projectId` → insert `project_files` join row (projectId, fileId). `GET /projects/:id/files` lists the project's files via the join.
+- Preview: reuse the existing mime-sniffed serve — images render inline, documents via an embedded viewer (`<object>`/`<iframe>`), audio via the existing player; a light modal around the file URL.
+- Frontend `src/components/projects/project-files.tsx`: grid/list, upload button, search box, preview modal, rename (inline), delete (confirm), download. Log activity (`file_uploaded`, `file_changed`).
+- Files-as-context handoff to Phase L.
+
+### Phase J — Project Research (step 12)
+
+Activate the `project_research` join planned in Phase A; the research engine stays untouched:
+- `POST /api/jarvis/research` accepts optional `projectId` → inserts the join row on start; `GET /projects/:id/research` lists runs (title, status, progress, phase, dates).
+- Run detail reuses the existing job view (report / notes / log) — do not re-model.
+- **Sources:** surfaced read-only from the run's existing `log`/`notes` (the engine already writes its sources there).
+- **Saved findings:** small `project_research_findings` table (id, projectId, researchJobId, excerpt, createdAt) + pin/unpin endpoints — user-saved excerpts.
+- Log `research_completed` on job completion (Phase M helper).
+
+### Phase K — Project Tasks (step 13)
+
+- Extend `project_tasks` (from the Phase A baseline) to the full step-13 shape: `description` text · `status` enum `todo|in_progress|done` (TODO / IN PROGRESS / DONE) · `priority` enum `low|medium|high` · `dueAt` timestamp (optional) · `conversationId` uuid nullable (FK→conversations, SET NULL) · `fileId` uuid nullable (→ files, cross-db, no FK) · `memoryId` uuid nullable (→ project_memories) · created/updated times (existing). **Kept deliberately light** — no boards, assignees, or dependencies.
+- Routes `routes/jarvis/project-tasks.ts`: `GET /projects/:id/tasks`, `POST /projects/:id/tasks`, `PATCH /tasks/:id` (title/description/priority/due/status cycle), `DELETE /tasks/:id`.
+- Frontend `src/components/projects/project-tasks.tsx`: inline add, status cycle (TODO → IN PROGRESS → DONE), priority chip, optional due date, delete. Log `task_added` / `task_completed`.
+
+### Phase L — AI Context Pipeline (step 18) — *critical, supersedes Phase D's injection bullet*
+
+At the system-prompt assembly point in `chat.ts` where the global memory block is injected today, when the conversation has a project, append a scoped `PROJECT CONTEXT` block built from all six sources:
+1. **Project identity** — name + description, one short line.
+2. **Project instructions** — ALL of them (few + authoritative, step 10).
+3. **Relevant project memory** — Phase E engine: keyword-scored top-N + always pinned.
+4. **Relevant project files/context** — keyword-scored top-N project files; for text-like kinds include a content excerpt (reuse the file-read path), for others name/mime/url.
+5. **Relevant project conversation history** — the current conversation's messages are already the request context (existing); add keyword-scored excerpts from OTHER project conversations when relevant.
+6. **Relevant research** — keyword-scored research runs: title, status, report/findings excerpt.
+- **Isolation invariants (enforced in code, tested):** every sub-source queries `WHERE project_id = :id` only; project memory/instructions/files/history/research are NEVER injected into a non-project or other-project conversation; global memory is never injected into a project conversation. One `buildProjectContext(projectId, userMessage)` helper.
+
+### Phase M — Agent-ready schema + activity feed (steps 14, 15)
+
+- **Schema (built now, populated later — step 14):** `project_agent_runs` (id, projectId FK cascade, status `queued|running|completed|failed|cancelled`, objective, startedAt, completedAt, result summary, createdAt) and `project_agent_actions` (id, runId FK cascade, projectId, type `browser|code|file|test|terminal|search|other`, description, detail, createdAt) — covering the `Project → Agent Run → Actions → Files changed / Tests / Browser activity → Result` shape. **The autonomous agent loop itself is deferred** (matches the brief).
+- **Activity (step 15):** expand `project_activity.type` to the event set — `project_created · conversation_started · file_uploaded · file_changed · research_completed · memory_added · memory_updated · instruction_added · task_added · task_completed · agent_ran`. One `logActivity(projectId, type, description)` helper; call it from every mutating endpoint (project CRUD, conversation moves, Phase I files, Phase J research, Phase K tasks, memory, instructions).
+- Frontend `src/components/projects/project-activity.tsx`: full feed (newest first, grouped by day, type icon); the project home's "Recent activity" strip (Phase C) reads the same feed.
+
+### Phase N — API + ownership consolidation (step 17)
+
+- Complete endpoint inventory (below) under the existing routers + the new routers (I–M), all following existing `/api/jarvis/*` conventions and the `cleanText` guard.
+- **Ownership/authorization server-side:** every project-scoped handler resolves the project (`WHERE id = :id`), 404s on missing; single-owner model (`owner_account_id` null = primary user) enforced in handlers; the frontend only ever calls `/api/jarvis/*` — it never touches the DB (existing rule, kept).
+- **Inventory:** `GET/POST /projects` · `GET/PATCH/DELETE /projects/:id` · `POST /projects/:id/open` · `POST/DELETE /projects/:id/pin` · `POST /projects` `fromConversationId` · `POST/DELETE /conversations/:id/project` · `GET /projects/:id/home` · `GET /projects/:id/conversations` · `GET/POST /projects/:id/files` + `PATCH/DELETE /api/files/:id` · `GET/POST /projects/:id/research` + findings endpoints · `GET/POST /projects/:id/memories` + `PATCH/DELETE/pin /memories/:id` · project instructions CRUD · `GET/POST /projects/:id/tasks` + `PATCH/DELETE /tasks/:id` · `GET /projects/:id/activity`.
+
+### Phase O — Navigation + empty states (steps 19, 20)
+
+- **Project sidebar (step 19):** when a project is open, a compact rail — **switch project · chat · memory · files · research · tasks · instructions/settings** — one click each, no nested layers. Reuses existing Tailwind/framer-motion/lucide tokens; keeps the Jarvis look (dark glass cards + the existing accent/border language), explicitly NOT Notion/Linear/SaaS chrome. Global Jarvis nav untouched; project chrome only inside a project.
+- **Empty state (step 20):** Phase C's project home gets an empty branch for brand-new projects — **"Your project is ready."** + one-click **[Start a conversation] [Upload files] [Add instructions] [Add first task]** (wired to New chat / upload / instructions / first task). The activity feed seeds with the `project_created` event. No giant empty dashboard.
+
 ---
 
 ## 4. Verification (per phase, matching project norms)
@@ -187,10 +342,14 @@ Extend `routes/jarvis/projects.ts` (all responses reuse existing `cleanText` gua
 - Server bundles (`build.mjs`).
 - Auto-migrate runs idempotently (fresh + existing DB).
 - Where possible, Puppeteer smoke like Book Studio (create project → home → memory add → conversation inherits context).
+- New phases I–O: file CRUD smoke (upload → rename → preview → download → delete, project association), research attach (start inside project → join row → list), task CRUD + status cycle, activity rows for every event type, and the critical **context-pipeline isolation test** — a message in Project A must not leak Project B's or global context, and vice versa.
 - Live LLM/DB paths only fully exercisable where the server's `.env` exists (repo `.env` is gitignored by design).
 
 ## 5. Open questions / deferrals
 - **Relevant retrieval depth:** keyword scoring for v1; pgvector embedding retrieval is possible on Neon but costs LLM tokens per memory write — defer decision until steps 11+ clarify (there may be an embedding path in a later step).
-- **Steps 11–32 unknown:** likely cover files/workspace, agent activity, tasks workflow, generated assets, delete/archive flows, activity history UI, security. Phases A–H are cut so these append cleanly (new tables/routes/components rather than rework).
+- **Steps 21–32 unknown** (steps 11–20 are now planned above): likely security/permissions, archiving/deletion flows, workspace/code, generated assets, and further agent wiring. Phases A–O are cut so these append cleanly (new tables/routes/components rather than rework).
 - **Existing `projects.instructions` legacy column:** keep populated from the new `project_instructions` table for back-compat, or migrate on read.
 - **Research association:** `project_research` join added now; the research *engine* itself (background job) stays untouched.
+- **Research "Sources"/"Saved findings" depth (step 12):** sources surfaced read-only from the existing job `log`/`notes` vs. new extraction/storage — deferred until steps 21–32 clarify.
+- **Agent schema timing (step 14):** build `project_agent_runs` / `project_agent_actions` now (routes + activity wiring) or schema-only until the agent actually exists — pending later steps.
+- **Files content extraction (step 18 item 4):** text extraction for document kinds (pdf/doc/txt) so file context can be excerpted per chat turn; cost/perf of reading blobs — reuse the existing file-read path, defer RAG-depth decisions.
