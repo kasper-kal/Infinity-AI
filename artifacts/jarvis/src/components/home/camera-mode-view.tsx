@@ -18,7 +18,7 @@ export function CameraModeView({ onBack, onUploadPhoto }: CameraModeViewProps) {
       {/* Back to chat */}
       <button
         onClick={() => { haptics.light(); onBack(); }}
-        className="absolute top-3 left-3 z-30 w-9 h-9 rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 text-foreground flex items-center justify-center shadow-sm hover:bg-secondary/70 active:scale-95 transition-all"
+        className="absolute top-3 left-3 z-30 w-9 h-9 rounded-full bg-card/80 border border-border/50 backdrop-blur-xl text-foreground flex items-center justify-center shadow-sm hover:bg-secondary/80 active:scale-95 transition-all"
         aria-label={t('voice.backToChat')}
         title={t('voice.backToChat')}
       >

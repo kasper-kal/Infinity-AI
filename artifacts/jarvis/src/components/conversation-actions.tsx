@@ -82,7 +82,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
 
   return (
     <div className="relative">
-      <button type="button" onClick={toggleMenu} aria-label="Conversation actions" title="Conversation actions" className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-foreground shadow-sm transition hover:bg-secondary/70 dark:bg-[#1c1c1e]"><MoreHorizontal className="h-[18px] w-[18px]" /></button>
+      <button type="button" onClick={toggleMenu} aria-label="Conversation actions" title="Conversation actions" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-card/70 text-foreground shadow-sm transition-colors hover:bg-secondary active:scale-95"><MoreHorizontal className="h-[18px] w-[18px]" /></button>
       {open && (
         <>
           <button type="button" aria-label="Close conversation actions" onClick={() => { setOpen(false); setPanel(null); }} className="fixed inset-0 z-40 cursor-default" />

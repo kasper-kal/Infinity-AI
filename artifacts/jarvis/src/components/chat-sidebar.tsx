@@ -13,7 +13,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
-import { ProjectGallery } from '@/components/project-gallery';
+import { ProjectGallery, type ProjectSection } from '@/components/project-gallery';
 
 type TFunc = (key: TranslationKey, params?: Record<string, string | number>) => string;
 
@@ -104,9 +104,13 @@ interface SidebarContentProps {
   onMobileClose?: () => void;
   onOpenSettings?: () => void;
   onNavigate?: (mode: 'chat' | 'agent' | 'camera') => void;
+  activeProjectId?: string | null;
+  onOpenProject?: (projectId: string | null) => void;
+  onOpenProjectSection?: (section: ProjectSection) => void;
+  onStartProjectChat?: () => void | Promise<void>;
 }
 
-function SidebarContent({ conversations, activeId, deleting, searchQuery, onNew, onSelect, onDelete,  onSearchChange, onClearAll, onMobileClose, onOpenSettings, onNavigate }: SidebarContentProps) {
+function SidebarContent({ conversations, activeId, deleting, searchQuery, onNew, onSelect, onDelete, onSearchChange, onClearAll, onMobileClose, onOpenSettings, onNavigate, activeProjectId, onOpenProject, onOpenProjectSection, onStartProjectChat }: SidebarContentProps) {
   const { t } = useI18n();
   const groups = groupByDate(conversations, t);
 
@@ -117,25 +121,28 @@ function SidebarContent({ conversations, activeId, deleting, searchQuery, onNew,
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header, ChatGPT style title + circular search */}
-      <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-        <h2 className="text-lg font-bold tracking-tight text-foreground">{t('header.title')}</h2>
+      {/* Calm workspace header, the global toolbar already carries the brand. */}
+      <div className="flex items-center justify-between border-b border-border/30 px-3 pb-3 pt-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">{t('sidebar.recentItems')}</p>
+          <p className="mt-0.5 text-xs font-medium text-foreground">{t('header.title')}</p>
+        </div>
         <button
           onClick={() => document.querySelector<HTMLInputElement>('.sidebar-search-input')?.focus()}
-          className="w-8 h-8 rounded-full bg-secondary/70 hover:bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 bg-card/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           aria-label={t('header.search')}
         >
-          <Search className="w-4 h-4" />
+          <Search className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Nav links, actually switch modes now (Chat / Browser / Camera) */}
-      <nav className="px-2 space-y-0.5">
+      {/* Primary modes stay compact and visually grouped. */}
+      <nav className="mx-2 mt-2 space-y-0.5 rounded-xl bg-secondary/25 p-1">
         {navItems.map(({ icon: Icon, label, mode }) => (
           <button
             key={label}
             onClick={() => { haptics.light(); onNavigate?.(mode); onMobileClose?.(); }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
           >
             <Icon className="w-[18px] h-[18px]" strokeWidth={1.8} />
             {label}
@@ -144,7 +151,14 @@ function SidebarContent({ conversations, activeId, deleting, searchQuery, onNew,
       </nav>
 
       {/* Projects and Gallery workspace */}
-      <ProjectGallery activeConversationId={activeId} onSelectConversation={onSelect} />
+      <ProjectGallery
+        activeConversationId={activeId}
+        activeProjectId={activeProjectId}
+        onSelectConversation={onSelect}
+        onOpenProject={onOpenProject}
+        onOpenProjectSection={onOpenProjectSection}
+        onStartProjectChat={onStartProjectChat}
+      />
 
       {/* Search */}
       <div className="px-4 pt-3 pb-2">
@@ -233,22 +247,22 @@ function SidebarContent({ conversations, activeId, deleting, searchQuery, onNew,
         ))}
       </div>
 
-      {/* Footer, blue Chat pill + settings gear (ChatGPT style) */}
-      <div className="p-3 border-t border-border/20 flex-shrink-0">
+      {/* Footer actions stay quiet; New Chat is primary in the top toolbar. */}
+      <div className="flex-shrink-0 border-t border-border/30 bg-background/40 p-3">
         <div className="flex items-center gap-2">
           <button
             onClick={() => { haptics.light(); onNew(); }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 font-rounded rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-semibold shadow-sm"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 font-rounded text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
           >
-            <Pencil className="w-4 h-4" strokeWidth={2} />
-            {t('sidebar.chat')}
+            <Pencil className="h-4 w-4" strokeWidth={2} />
+            {t('sidebar.newChat')}
           </button>
           <button
             onClick={() => { haptics.light(); onOpenSettings?.(); }}
-            className="w-10 h-10 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:bg-secondary/70 flex items-center justify-center transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
             aria-label={t('header.settings')}
           >
-            <Settings className="w-[18px] h-[18px]" strokeWidth={1.8} />
+            <Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </button>
         </div>
         {conversations.length > 0 && onClearAll ? (
@@ -278,9 +292,13 @@ interface ChatSidebarProps {
   onMobileClose?: () => void;
   onOpenSettings?: () => void;
   onNavigate?: (mode: 'chat' | 'agent' | 'camera') => void;
+  activeProjectId?: string | null;
+  onOpenProject?: (projectId: string | null) => void;
+  onOpenProjectSection?: (section: ProjectSection) => void;
+  onStartProjectChat?: () => void | Promise<void>;
 }
 
-export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen, desktopOpen = true, onMobileClose, onOpenSettings, onNavigate }: ChatSidebarProps) {
+export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen, desktopOpen = true, onMobileClose, onOpenSettings, onNavigate, activeProjectId, onOpenProject, onOpenProjectSection, onStartProjectChat }: ChatSidebarProps) {
   const { t } = useI18n();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -292,13 +310,19 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
     try {
       // With an active query, search across titles AND message contents
       // (episodic memory) instead of just filtering titles client-side.
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('q', searchQuery);
+      if (activeProjectId) params.set('projectId', activeProjectId);
+      const query = params.toString();
       const url = searchQuery
-        ? `/api/jarvis/conversations/search?q=${encodeURIComponent(searchQuery)}`
-        : '/api/jarvis/conversations';
+        ? `/api/jarvis/conversations/search?${query}`
+        : query
+          ? `/api/jarvis/conversations?${query}`
+          : '/api/jarvis/conversations';
       const res = await fetch(url);
       if (res.ok) setConversations(await res.json());
     } catch { /* silent */ }
-  }, [searchQuery]);
+  }, [activeProjectId, searchQuery]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
 
@@ -347,6 +371,10 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
     onMobileClose,
     onOpenSettings,
     onNavigate,
+    activeProjectId,
+    onOpenProject,
+    onOpenProjectSection,
+    onStartProjectChat,
   };
 
   return (
@@ -359,7 +387,7 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
             animate={{ width: 256, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="hidden lg:flex flex-col border-r border-border/30 bg-background/70 backdrop-blur-2xl flex-shrink-0 overflow-hidden"
+            className="hidden flex-shrink-0 flex-col overflow-hidden border-r border-border/40 bg-background/80 backdrop-blur-2xl lg:flex"
           >
             <div className="w-64 h-full flex flex-col">
               <SidebarContent {...sharedProps} />

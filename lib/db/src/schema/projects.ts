@@ -8,8 +8,11 @@ import { conversations } from "./conversations";
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  description: text("description").notNull().default(""),
   color: text("color").notNull().default("#0ea5e9"),
   archived: boolean("archived").notNull().default(false),
+  pinned: boolean("pinned").notNull().default(false),
+  lastOpenedAt: timestamp("last_opened_at"),
   /** Custom instructions injected as system text into every chat in the project. */
   instructions: text("instructions"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

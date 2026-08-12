@@ -148,7 +148,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
         onClick={() => { setOpen(true); setError(null); }}
         aria-label="Group settings"
         title="Group settings"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-foreground shadow-sm transition hover:bg-secondary/70 dark:bg-[#1c1c1e]"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-card/70 text-foreground shadow-sm transition-colors hover:bg-secondary active:scale-95"
       >
         <Users className="h-[18px] w-[18px]" />
       </button>

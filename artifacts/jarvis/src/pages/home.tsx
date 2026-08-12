@@ -30,6 +30,10 @@ import { CameraModeView } from '@/components/home/camera-mode-view';
 import { VoiceModeView } from '@/components/home/voice-mode-view';
 import { ChatModeView } from '@/components/home/chat-mode-view';
 import { PipBrowserWindow } from '@/components/home/pip-browser-window';
+import { ProjectHome, type ProjectHomeAction } from '@/components/projects/project-home';
+import type { ProjectSection } from '@/components/project-gallery';
+import { ProjectMemory } from '@/components/projects/project-memory';
+import { ProjectInstructions } from '@/components/projects/project-instructions';
 
 export default function Home() {
   const { t, lang } = useI18n();
@@ -57,6 +61,8 @@ export default function Home() {
     try { localStorage.setItem('jarvis-thinking', thinkingEnabled ? 'true' : 'false'); } catch { /* noop */ }
   }, [thinkingEnabled]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectView, setActiveProjectView] = useState<'home' | 'memory' | 'instructions'>('home');
   const [sidebarRefreshTick, setSidebarRefreshTick] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -662,6 +668,87 @@ export default function Home() {
     chatTimerMsgIdxRef.current = null;
     timerStartedAtRef.current = null;
     timerOriginalDurationRef.current = null;
+  }, []);
+
+  const handleNewChatFromShell = useCallback(() => {
+    setActiveProjectId(null);
+    setActiveProjectView('home');
+    handleNewChat();
+  }, [handleNewChat]);
+
+  const handleSidebarSelect = useCallback(async (id: string) => {
+    setActiveProjectId(null);
+    setMode('chat');
+    await loadConversation(id);
+  }, [loadConversation]);
+
+  const handleProjectBack = useCallback(() => {
+    setActiveProjectId(null);
+    setActiveProjectView('home');
+  }, []);
+
+  const handleProjectContinue = useCallback(async (conversationId: string) => {
+    await loadConversation(conversationId);
+    setActiveProjectId(null);
+    setMode('chat');
+  }, [loadConversation]);
+
+  const handleProjectNewChat = useCallback(async () => {
+    if (!activeProjectId) return;
+    try {
+      const response = await fetch('/api/jarvis/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: activeProjectId }),
+      });
+      if (!response.ok) throw new Error('Could not create conversation');
+      const conversation = await response.json() as { id: string };
+
+      handleNewChat();
+      setActiveConversationId(conversation.id);
+      setActiveProjectId(null);
+      setMode('chat');
+      refreshSidebar();
+    } catch {
+      toast({ variant: 'destructive', title: t('projectHome.newChatError') });
+    }
+  }, [activeProjectId, handleNewChat, refreshSidebar, t, toast]);
+
+  const handleProjectAction = useCallback((action: ProjectHomeAction) => {
+    if (action === 'memory') {
+      setActiveProjectView('memory');
+      return;
+    }
+    if (action === 'instructions') {
+      setActiveProjectView('instructions');
+      return;
+    }
+    if (action === 'conversations') {
+      setActiveProjectView('home');
+      return;
+    }
+    toast({ title: t('projectHome.actionComingSoon'), description: t('projectHome.actionComingSoonDesc') });
+  }, [t, toast]);
+
+  const handleProjectSection = useCallback((section: ProjectSection) => {
+    if (section === 'chat') {
+      void handleProjectNewChat();
+      return;
+    }
+    if (section === 'home' || section === 'conversations') {
+      setActiveProjectView('home');
+      return;
+    }
+    handleProjectAction(section);
+  }, [handleProjectAction, handleProjectNewChat]);
+
+  const handleOpenProject = useCallback((projectId: string | null) => {
+    setActiveProjectId(projectId);
+    setActiveProjectView('home');
+    if (projectId) {
+      setMode('chat');
+      setMobileSidebarOpen(false);
+    }
   }, []);
 
   // Wave 2, a freshly created gem opens straight into chat mode
@@ -1333,7 +1420,7 @@ export default function Home() {
         mode={mode}
         mobileSidebarOpen={mobileSidebarOpen}
         onToggleSidebar={() => setMobileSidebarOpen(open => !open)}
-        onNewChat={handleNewChat}
+        onNewChat={handleNewChatFromShell}
         activeConversationId={activeConversationId}
       />
 
@@ -1343,21 +1430,48 @@ export default function Home() {
         {mode !== 'voice' && (
           <ChatSidebar
             activeId={activeConversationId}
-            onSelect={loadConversation}
-            onNew={handleNewChat}
+            onSelect={handleSidebarSelect}
+            onNew={handleNewChatFromShell}
             refreshTick={sidebarRefreshTick}
             mobileOpen={mobileSidebarOpen}
             desktopOpen={mobileSidebarOpen}
             onMobileClose={() => setMobileSidebarOpen(false)}
             onOpenSettings={() => setSettingsOpen(true)}
             onNavigate={(m) => { haptics.light(); setMode(m); }}
+            activeProjectId={activeProjectId}
+            onOpenProject={handleOpenProject}
+            onOpenProjectSection={handleProjectSection}
+            onStartProjectChat={handleProjectNewChat}
           />
         )}
 
         <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
+          {activeProjectId && activeProjectView === 'memory' && (
+            <ProjectMemory
+              projectId={activeProjectId}
+              onBack={() => setActiveProjectView('home')}
+            />
+          )}
+
+          {activeProjectId && activeProjectView === 'instructions' && (
+            <ProjectInstructions
+              projectId={activeProjectId}
+              onBack={() => setActiveProjectView('home')}
+            />
+          )}
+
+          {activeProjectId && activeProjectView === 'home' && (
+            <ProjectHome
+              projectId={activeProjectId}
+              onBack={handleProjectBack}
+              onContinueConversation={handleProjectContinue}
+              onNewChat={handleProjectNewChat}
+              onOpenAction={handleProjectAction}
+            />
+          )}
 
           {/* ── CAMERA MODE, full-screen object detection ── */}
-          {mode === 'camera' && (
+          {!activeProjectId && mode === 'camera' && (
             <CameraModeView
               onBack={() => setMode('chat')}
               onUploadPhoto={() => cameraInputRef.current?.click()}
@@ -1365,7 +1479,7 @@ export default function Home() {
           )}
 
           {/* ── VOICE MODE, full screen ── */}
-          {mode === 'voice' && (
+          {!activeProjectId && mode === 'voice' && (
             <VoiceModeView
               status={status}
               voiceEmotion={voiceEmotion}
@@ -1390,7 +1504,7 @@ export default function Home() {
           )}
 
           {/* ── CHAT MODE ── */}
-          {mode === 'chat' && (
+          {!activeProjectId && mode === 'chat' && (
             <ChatModeView
               activeTimers={activeTimers}
               activeWidget={activeWidget}

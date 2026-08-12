@@ -151,8 +151,11 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "projects" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "name" text NOT NULL,
+    "description" text NOT NULL DEFAULT '',
     "color" text NOT NULL DEFAULT '#0ea5e9',
     "archived" boolean NOT NULL DEFAULT false,
+    "pinned" boolean NOT NULL DEFAULT false,
+    "last_opened_at" timestamp,
     "instructions" text,
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
@@ -170,6 +173,34 @@ const CREATE_TABLES = [
     "name" text NOT NULL,
     "created_at" timestamp NOT NULL DEFAULT now()
   )`,
+
+  // ── Project memory (strictly scoped to one project) ────────────
+  `CREATE TABLE IF NOT EXISTS "project_memories" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "category" text NOT NULL DEFAULT 'about',
+    "content" text NOT NULL,
+    "key" text NOT NULL,
+    "source_type" text NOT NULL DEFAULT 'manual',
+    "source_ref" text NOT NULL DEFAULT '',
+    "pinned" boolean NOT NULL DEFAULT false,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "project_memories_project_key_idx" ON "project_memories" ("project_id", "key")`,
+  `CREATE INDEX IF NOT EXISTS "project_memories_project_idx" ON "project_memories" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_memories_project_pinned_idx" ON "project_memories" ("project_id", "pinned")`,
+
+  // ── Project instructions (explicit rules, strictly project-scoped) ──
+  `CREATE TABLE IF NOT EXISTS "project_instructions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "text" text NOT NULL,
+    "sort_order" integer NOT NULL DEFAULT 0,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_instructions_project_order_idx" ON "project_instructions" ("project_id", "sort_order", "created_at")`,
 
   // ── Pins (pinned chats sort to the top) ────────────────────────
   `CREATE TABLE IF NOT EXISTS "pins" (
@@ -312,6 +343,11 @@ const ALTER_TABLES = [
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "failures" integer NOT NULL DEFAULT 0`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "last_used_at" timestamp`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "created_at" timestamp NOT NULL DEFAULT now()`,
+
+  // projects, Phase B project management fields
+  `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "description" text NOT NULL DEFAULT ''`,
+  `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "pinned" boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "last_opened_at" timestamp`,
 
   // push_subscriptions
   `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "user_agent" text NOT NULL DEFAULT ''`,

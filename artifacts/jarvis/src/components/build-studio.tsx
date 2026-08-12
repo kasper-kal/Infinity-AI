@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bug, Camera, Check, ChevronDown, ChevronRight, Code2, Container, Database, Download, FilePlus2, Folder, FolderPlus, GitBranch, GitCommit, Globe, Hammer, History, LayoutTemplate, Loader2, Moon, MoreHorizontal, Package, Play, Plus, RefreshCw, Save, Search, Send, Sparkles, Square, Sun, Terminal, TestTube2, Trash2, Upload, X, Zap } from 'lucide-react';
 import type { TerminalResult } from '@/types/widget';
@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/use-theme';
 import CodeEditor from '@/components/code-editor';
 import { ParticleSpherePreview } from '@/components/particle-sphere-preview';
+import { BuildProgressPanel } from '@/components/build-progress-panel';
 
 interface WorkspaceFile { path: string; type: 'file' | 'dir'; size: number; }
 interface SavedApp { id: string; name: string; description: string; metadata?: { fileCount?: number; envKeys?: string[]; previewPort?: number | null }; }
@@ -14,6 +15,8 @@ const TAB_ORDER: StudioTab[] = ['editor', 'terminal', 'preview', 'packages', 'en
 interface WizardQuestion { key: string; label: string; options?: string[]; }
 interface FeatureInventoryItem { key: string; label: string; selected: boolean; }
 interface ActivityBlock { id: string; icon: 'sparkles' | 'terminal' | 'camera' | 'check'; message: string; actionCount?: number; }
+type BuildProgressStatus = 'working' | 'waiting' | 'done' | 'error' | 'cancelled';
+interface BuildProgressItem { id: string; role: 'user' | 'jarvis'; message: string; status: BuildProgressStatus; createdAt: number; }
 interface IterateResponse { ok?: boolean; done?: boolean; summary?: string; fixRequest?: string | null; deferred?: string[]; filesChanged?: string[]; passNumber?: number; error?: string; }
 interface PreviewAgentEvent { type: 'inspect' | 'decision' | 'action' | 'error' | 'complete'; message: string; step?: number; }
 interface PreviewAgentResponse { completed?: boolean; summary?: string; events?: PreviewAgentEvent[]; consoleErrors?: string[]; error?: string; }
@@ -37,7 +40,11 @@ interface DbTable { name: string; columns: DbColumn[]; rowCount: number; }
 interface ApiEndpoint { method: string; path: string; description?: string; }
 
 const waitMs = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
+const formatProgressTime = (milliseconds: number) => {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+};
 
 const downloadTextFile = (path: string, content: string) => {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -48,6 +55,7 @@ const downloadTextFile = (path: string, content: string) => {
   anchor.click();
   URL.revokeObjectURL(url);
 };
+
 
 interface BuildStudioProps {
   open: boolean;
@@ -113,8 +121,9 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [previewOutput, setPreviewOutput] = useState('');
   const [savedApps, setSavedApps] = useState<SavedApp[]>([]);
   const [saveName, setSaveName] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<ReactNode | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const wizardWasOpenRef = useRef(false);
   const [wizardBusy, setWizardBusy] = useState(false);
   const [wizardPrompt, setWizardPrompt] = useState('');
   const [wizardQuestions, setWizardQuestions] = useState<WizardQuestion[]>([]);
@@ -131,6 +140,20 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [featureInventory, setFeatureInventory] = useState<FeatureInventoryItem[]>([]);
   const [activities, setActivities] = useState<ActivityBlock[]>([]);
   const [completion, setCompletion] = useState<{ summary: string; deferred: string[]; files: string[] } | null>(null);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<BuildProgressStatus>('done');
+  const [progressItems, setProgressItems] = useState<BuildProgressItem[]>([]);
+  const progressItemsRef = useRef<BuildProgressItem[]>([]);
+  const [progressStartedAt, setProgressStartedAt] = useState<number | null>(null);
+  const [progressClock, setProgressClock] = useState(() => Date.now());
+  const buildAbortRef = useRef<AbortController | null>(null);
+  const buildCancelRequestedRef = useRef(false);
+  const buildCancelRef = useRef<(() => void) | null>(null);
+  const progressStartedAtRef = useRef<number | null>(null);
+  const [deepSleep, setDeepSleep] = useState(false);
+  const [afkMode, setAfkMode] = useState(false);
+  const [wakeSensitivity, setWakeSensitivity] = useState<'any' | 'keypress'>('any');
+  const [sleepSummary, setSleepSummary] = useState<string | null>(null);
   const [autoFixPass, setAutoFixPass] = useState(0);
   const [agentGoal, setAgentGoal] = useState('');
   const [agentBusy, setAgentBusy] = useState(false);
@@ -196,16 +219,77 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [walkthroughBusy, setWalkthroughBusy] = useState(false);
   const [walkthroughErrors, setWalkthroughErrors] = useState<string[]>([]);
   const [walkthroughReportPath, setWalkthroughReportPath] = useState<string | null>(null);
-  const [deepSleep, setDeepSleep] = useState(false);
-  const [afkMode, setAfkMode] = useState(false);
-  const [wakeSensitivity, setWakeSensitivity] = useState<'any' | 'keypress'>('any');
-  const [sleepSummary, setSleepSummary] = useState<string | null>(null);
   const [walkthroughVisible, setWalkthroughVisible] = useState(false);
 
-  const filePaths = useMemo(() => files.filter((file) => file.type === 'file'), [files]);
   const addActivity = useCallback((message: string, icon: ActivityBlock['icon'] = 'sparkles', actionCount = 1) => {
     setActivities((current) => [...current, { id: crypto.randomUUID(), icon, message, actionCount }].slice(-12));
   }, []);
+  const showProgressPanel = useCallback((items: BuildProgressItem[], status: BuildProgressStatus, startedAt: number | null) => {
+    setProgressOpen(true);
+    setNotice(<><span className="sr-only">{t('studio.build.progressTitle')}</span><BuildProgressPanel open items={items} status={status} startedAt={startedAt} clock={Date.now()} onOpen={() => setProgressOpen(true)} onClose={() => { setProgressOpen(false); setNotice(null); }} onCancel={() => buildCancelRef.current?.()} /></>);
+  }, [t]);
+  const startProgress = useCallback((prompt: string) => {
+    const now = Date.now();
+    buildCancelRequestedRef.current = false;
+    stopPipelineRef.current = false;
+    progressStartedAtRef.current = now;
+    setProgressStartedAt(now);
+    setProgressStatus('working');
+    const items = [{ id: crypto.randomUUID(), role: 'user' as const, message: prompt, status: 'done' as const, createdAt: now }];
+    progressItemsRef.current = items;
+    setProgressItems(items);
+    showProgressPanel(items, 'working', now);
+    setCompletion(null);
+  }, [showProgressPanel]);
+  const addProgressMessage = useCallback((message: string, status: BuildProgressStatus = 'working') => {
+    const next = [...progressItemsRef.current, { id: crypto.randomUUID(), role: 'jarvis' as const, message, status, createdAt: Date.now() }].slice(-40);
+    progressItemsRef.current = next;
+    setProgressItems(next);
+    showProgressPanel(next, status, progressStartedAtRef.current);
+  }, [showProgressPanel]);
+  const setProgressResult = useCallback((message: string, status: Extract<BuildProgressStatus, 'done' | 'error' | 'cancelled'> = 'done') => {
+    addProgressMessage(message, status);
+    setProgressStatus(status);
+    setProgressClock(Date.now());
+  }, [addProgressMessage]);
+  const beginBuildRequest = useCallback(() => {
+    buildAbortRef.current?.abort();
+    const controller = new AbortController();
+    buildAbortRef.current = controller;
+    buildCancelRequestedRef.current = false;
+    return controller;
+  }, []);
+  const releaseBuildRequest = useCallback((controller: AbortController) => {
+    if (buildAbortRef.current === controller) buildAbortRef.current = null;
+  }, []);
+  const wasBuildCancelled = (error: unknown) => buildCancelRequestedRef.current || (error instanceof Error && error.name === 'AbortError');
+  const cancelBuild = useCallback(() => {
+    if (progressStatus !== 'working' && progressStatus !== 'waiting') return;
+    buildCancelRequestedRef.current = true;
+    stopPipelineRef.current = true;
+    buildAbortRef.current?.abort();
+    setBusy(false);
+    setWizardBusy(false);
+    setPlanBusy(false);
+    setAutoFixPass(0);
+    setWizardOpen(false);
+    setPlan(null);
+    setProgressStatus('cancelled');
+    addProgressMessage(t('studio.build.progressCancelled'), 'cancelled');
+  }, [addProgressMessage, progressStatus, t]);
+  buildCancelRef.current = cancelBuild;
+  useEffect(() => {
+    if (!progressOpen || (progressStatus !== 'working' && progressStatus !== 'waiting')) return;
+    const timer = window.setInterval(() => setProgressClock(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [progressOpen, progressStatus]);
+  useEffect(() => {
+    const wasOpen = wizardWasOpenRef.current;
+    wizardWasOpenRef.current = wizardOpen;
+    if (!wasOpen || wizardOpen || progressStatus !== 'waiting' || plan) return;
+    setProgressStatus('cancelled');
+    addProgressMessage(t('studio.build.progressCancelled'), 'cancelled');
+  }, [addProgressMessage, plan, progressStatus, t, wizardOpen]);
   const visibleFiles = useMemo(() => files.filter((file) => {
     const parts = file.path.replace(/\/$/, '').split('/');
     return parts.slice(0, -1).every((_, index) => expanded.has(parts.slice(0, index + 1).join('/')));
@@ -528,21 +612,38 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const deletePath = async (path: string) => { if (window.confirm(`Delete ${path}?`)) { await fetch(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' }); if (selectedPath === path) { setSelectedPath(null); setContent(''); } void loadFiles(); } };
 
   const doScaffold = async (prompt: string, answers: Record<string, string>, feedbackText: string | null, approvedPlan: BuildPlan | null = plan) => {
+    const controller = beginBuildRequest();
     setBusy(true);
     setCompletion(null);
+    setProgressStatus('working');
     addActivity(feedbackText ? t('studio.build.activityApplying') : t('studio.build.activityScaffolding'), 'sparkles', 2);
-    const { response, data } = await apiJson<{ files?: string[]; previewCommand?: string }>('/api/jarvis/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan }) });
-    if (response.ok) {
+    addProgressMessage(feedbackText ? t('studio.build.progressApplyingChanges') : t('studio.build.progressScaffolding'));
+    try {
+      const { response, data } = await apiJson<{ files?: string[]; previewCommand?: string; error?: string }>('/api/jarvis/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan }), signal: controller.signal });
+      if (!response.ok) {
+        const message = data.error ?? t('studio.build.scaffoldFailed');
+        addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
+        setCompletion({ summary: message, deferred: [], files: [] });
+        setProgressResult(message, 'error');
+        return;
+      }
+      const createdFiles = data.files ?? [];
+      addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
       setScaffoldPrompt(''); setLastPrompt(prompt); setLastAnswers(answers); setFeedback(''); setPlan(null);
       if (data.previewCommand) setPreviewCommand(data.previewCommand);
-      setNotice(t('studio.build.starterCreated'));
       await loadFiles();
-      await runAutoPipeline(prompt, answers, data.files ?? [], approvedPlan);
-    } else {
-      addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
-      setNotice(t('studio.build.scaffoldFailed'));
+      await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
+    } catch (error) {
+      if (!wasBuildCancelled(error)) {
+        const message = t('studio.build.scaffoldFailed');
+        addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
+        setCompletion({ summary: message, deferred: [], files: [] });
+        setProgressResult(message, 'error');
+      }
+    } finally {
+      setBusy(false);
+      releaseBuildRequest(controller);
     }
-    setBusy(false);
   };
 
   const isSmallBuildRequest = (prompt: string): boolean => {
@@ -552,47 +653,80 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   };
 
   const requestPlan = async (prompt: string, answers: Record<string, string>): Promise<BuildPlan | null> => {
+    const controller = beginBuildRequest();
     setPlanBusy(true);
-    const { response, data } = await apiJson<{ plan?: BuildPlan; error?: string }>('/api/jarvis/build/plan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workspaceId, prompt, answers, extraSystemPrompt }),
-    });
-    setPlanBusy(false);
-    if (!response.ok || !data.plan) {
-      setNotice(data.error ?? 'Jarvis could not prepare a plan');
+    setProgressStatus('working');
+    addProgressMessage(t('studio.build.progressPlanning'));
+    try {
+      const { response, data } = await apiJson<{ plan?: BuildPlan; error?: string }>('/api/jarvis/build/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, prompt, answers, extraSystemPrompt }),
+        signal: controller.signal,
+      });
+      if (!response.ok || !data.plan) {
+        const message = data.error ?? t('studio.build.planFailed');
+        setProgressResult(message, 'error');
+        return null;
+      }
+      setPlan(data.plan);
+      setWizardOpen(false);
+      addProgressMessage(t('studio.build.progressPlanReady'), 'waiting');
+      setProgressStatus('waiting');
+      return data.plan;
+    } catch (error) {
+      if (!wasBuildCancelled(error)) {
+        const message = t('studio.build.planFailed');
+        setProgressResult(message, 'error');
+      }
       return null;
+    } finally {
+      setPlanBusy(false);
+      releaseBuildRequest(controller);
     }
-    setPlan(data.plan);
-    setWizardOpen(false);
-    return data.plan;
   };
 
   const continueBuild = async (prompt: string, answers: Record<string, string>, feedbackText: string | null = null) => {
     if (isSmallBuildRequest(prompt)) {
+      addProgressMessage(t('studio.build.progressSmallChange'));
       await doScaffold(prompt, answers, feedbackText, null);
       return;
     }
     const nextPlan = await requestPlan(prompt, answers);
     if (!nextPlan) return;
-    setNotice('Plan ready for review');
   };
 
   const beginScaffold = async (promptOverride?: string) => {
     const prompt = (promptOverride ?? scaffoldPrompt).trim();
     if (!prompt) return;
+    startProgress(prompt);
+    const controller = beginBuildRequest();
     setWizardBusy(true);
-    const { response, data } = await apiJson<{ questions?: WizardQuestion[]; inventory?: FeatureInventoryItem[] }>('/api/jarvis/build/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
-    setWizardBusy(false);
-    if (!response.ok) {
-      await continueBuild(prompt, {}, null);
-      return;
+    addProgressMessage(t('studio.build.progressUnderstanding'));
+    try {
+      const { response, data } = await apiJson<{ questions?: WizardQuestion[]; inventory?: FeatureInventoryItem[]; error?: string }>('/api/jarvis/build/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }), signal: controller.signal });
+      if (!response.ok) {
+        addProgressMessage(t('studio.build.progressQuestionsSkipped'));
+        setWizardBusy(false);
+        await continueBuild(prompt, {}, null);
+        return;
+      }
+      setWizardPrompt(prompt);
+      setWizardQuestions(data.questions ?? []);
+      setFeatureInventory(data.inventory ?? []);
+      setWizardAnswers({});
+      setWizardOpen(true);
+      addProgressMessage(t('studio.build.progressWaitingForAnswers'), 'waiting');
+      setProgressStatus('waiting');
+    } catch (error) {
+      if (!wasBuildCancelled(error)) {
+        const message = t('studio.build.questionsFailed');
+        setProgressResult(message, 'error');
+      }
+    } finally {
+      setWizardBusy(false);
+      releaseBuildRequest(controller);
     }
-    setWizardPrompt(prompt);
-    setWizardQuestions(data.questions ?? []);
-    setFeatureInventory(data.inventory ?? []);
-    setWizardAnswers({});
-    setWizardOpen(true);
   };
 
   // Auto-start a build from the "@Build <message>" chat shortcut. Each new
@@ -610,35 +744,54 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   const acceptPlan = async () => {
     if (!plan || busy || planBusy) return;
+    const approvedPlan = plan;
     const prompt = lastPrompt || wizardPrompt || scaffoldPrompt.trim();
     const answers = lastPrompt ? lastAnswers : wizardAnswers;
-    await doScaffold(prompt, answers, null, plan);
+    if (!prompt) {
+      setProgressResult(t('studio.build.scaffoldFailed'), 'error');
+      return;
+    }
+    setPlan(null);
+    setWizardOpen(false);
+    addProgressMessage(t('studio.build.progressApplyingPlan'));
+    await doScaffold(prompt, answers, null, approvedPlan);
   };
 
   const changePlan = () => {
     setPlan(null);
     setWizardOpen(false);
+    addProgressMessage(t('studio.build.progressPlanChange'), 'waiting');
+    setProgressStatus('waiting');
     window.requestAnimationFrame(() => scaffoldInputRef.current?.focus());
   };
 
   const applyFeedback = async () => {
     if (!feedback.trim() || busy) return;
+    const feedbackText = feedback.trim();
     const prompt = lastPrompt || scaffoldPrompt.trim() || t('studio.build.defaultApp');
-    await continueBuild(prompt, lastAnswers, feedback.trim());
+    startProgress(`${prompt}\n${feedbackText}`);
+    addProgressMessage(t('studio.build.progressFeedbackReceived'));
+    await continueBuild(prompt, lastAnswers, feedbackText);
   };
 
-  const captureScreenshot = async (): Promise<boolean> => {
+  const captureScreenshot = async (signal?: AbortSignal): Promise<boolean> => {
     if (screenshotBusy) return Boolean(screenshot || mobileScreenshot);
     setScreenshotBusy(true);
-    const { response, data } = await apiJson<{ dataUrl?: string; error?: string; screenshots?: PreviewScreenshots }>('/api/jarvis/build/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort, viewports: ['desktop', 'mobile'] }) });
-    setScreenshotBusy(false);
-    if (response.ok && (data.screenshots?.desktop || data.screenshots?.mobile || data.dataUrl)) {
-      setScreenshot(data.screenshots?.desktop?.dataUrl ?? data.dataUrl ?? null);
-      setMobileScreenshot(data.screenshots?.mobile?.dataUrl ?? null);
-      return true;
+    try {
+      const { response, data } = await apiJson<{ dataUrl?: string; error?: string; screenshots?: PreviewScreenshots }>('/api/jarvis/build/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort, viewports: ['desktop', 'mobile'] }), signal });
+      if (response.ok && (data.screenshots?.desktop || data.screenshots?.mobile || data.dataUrl)) {
+        setScreenshot(data.screenshots?.desktop?.dataUrl ?? data.dataUrl ?? null);
+        setMobileScreenshot(data.screenshots?.mobile?.dataUrl ?? null);
+        return true;
+      }
+      if (!signal?.aborted) setNotice(data.error ?? t('studio.build.screenshotFailed'));
+      return false;
+    } catch (error) {
+      if (!signal && !wasBuildCancelled(error)) setNotice(t('studio.build.screenshotFailed'));
+      return false;
+    } finally {
+      setScreenshotBusy(false);
     }
-    setNotice(data.error ?? t('studio.build.screenshotFailed'));
-    return false;
   };
 
   const runPreviewAgent = async () => {
@@ -664,10 +817,10 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     if (response.ok) { setEnv(next); setNotice('Environment saved'); }
   };
 
-  const launchPreview = async (): Promise<boolean> => {
-    const { response, data } = await apiJson<{ url?: string; error?: string }>('/api/jarvis/build/preview/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', command: previewCommand.replace('${PORT}', String(previewPort)), port: previewPort }) });
+  const launchPreview = async (signal?: AbortSignal): Promise<boolean> => {
+    const { response, data } = await apiJson<{ url?: string; error?: string }>('/api/jarvis/build/preview/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', command: previewCommand.replace('${PORT}', String(previewPort)), port: previewPort }), signal });
     if (response.ok) { setPreviewRunning(true); setPreviewUrl(data.url ?? `http://localhost:${previewPort}`); setPreviewOutput('Starting preview...'); return true; }
-    setNotice(data.error ?? 'Preview failed to start');
+    if (!signal?.aborted) setNotice(data.error ?? 'Preview failed to start');
     return false;
   };
   const startPreview = async () => { setBusy(true); await launchPreview(); setBusy(false); };
@@ -678,46 +831,98 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     return () => window.clearInterval(timer);
   }, [previewRunning, workspaceId]);
 
-  const runAutoPipeline = async (prompt: string, answers: Record<string, string>, createdFiles: string[], approvedPlan: BuildPlan | null = plan) => {
-    addActivity(t('studio.build.activityStartingPreview'), 'terminal', 1);
-    const started = await launchPreview();
-    if (!started) {
-      setCompletion({ summary: t('studio.build.previewFailed'), deferred: [], files: createdFiles });
-      return;
-    }
-    await waitMs(1400);
-    let captured = await captureScreenshot();
-    if (!captured) { await waitMs(1400); captured = await captureScreenshot(); }
-    if (captured) addActivity(t('studio.build.activityScreenshot'), 'camera', 1);
-    else addActivity(t('studio.build.activityScreenshotFailed'), 'camera', 1);
-
-    let summary = captured ? t('studio.build.activityReviewing') : t('studio.build.previewNeedsReview');
-    let deferred: string[] = [];
+  const runAutoPipeline = async (prompt: string, answers: Record<string, string>, createdFiles: string[], approvedPlan: BuildPlan | null = plan, signal?: AbortSignal) => {
+    const ownController = signal ? null : beginBuildRequest();
+    const activeSignal = signal ?? ownController?.signal;
+    const maxReviewPasses = 8; // bounded self-review
     let allFiles = [...createdFiles];
-    stopPipelineRef.current = false;
-    let pass = 1;
-    while (!stopPipelineRef.current) {
-      setAutoFixPass(pass);
-      addActivity(t('studio.build.activityReviewPass', { n: pass }), 'sparkles', 2);
-      const status = await apiJson<{ output?: string }>(`/api/jarvis/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`);
-      const output = status.data.output ?? previewOutput;
-      setPreviewOutput(output);
-      const { response, data } = await apiJson<IterateResponse>('/api/jarvis/build/iterate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, previewOutput: output, passNumber: pass, extraSystemPrompt, plan: approvedPlan }) });
-      if (!response.ok) { summary = t('studio.build.reviewFailed'); break; }
-      summary = data.summary ?? summary;
-      deferred = data.deferred ?? deferred;
-      allFiles = [...new Set([...allFiles, ...(data.filesChanged ?? [])])];
-      if (data.filesChanged?.length) {
-        addActivity(t('studio.build.activityFixed', { files: data.filesChanged.length }), 'terminal', data.filesChanged.length);
-        await loadFiles();
-        if (!stopPipelineRef.current) { await launchPreview(); await waitMs(1200); captured = await captureScreenshot(); if (captured) addActivity(t('studio.build.activityScreenshot'), 'camera', 1); }
+    try {
+      addActivity(t('studio.build.activityStartingPreview'), 'terminal', 1);
+      addProgressMessage(t('studio.build.progressStartingPreview'));
+      const started = await launchPreview(activeSignal);
+      if (!started) {
+        const message = t('studio.build.previewFailed');
+        setCompletion({ summary: message, deferred: [], files: allFiles });
+        setProgressResult(message, 'error');
+        return;
       }
-      if (data.done || !data.fixRequest) break;
-      pass += 1;
+      if (activeSignal?.aborted || buildCancelRequestedRef.current || stopPipelineRef.current) return;
+      await waitMs(1400);
+      addProgressMessage(t('studio.build.progressCapturingPreview'));
+      let captured = await captureScreenshot(activeSignal);
+      if (!captured && !activeSignal?.aborted) { await waitMs(1400); captured = await captureScreenshot(activeSignal); }
+      if (captured) {
+        addActivity(t('studio.build.activityScreenshot'), 'camera', 1);
+        addProgressMessage(t('studio.build.progressScreenshotReady'));
+      } else if (!activeSignal?.aborted) {
+        addActivity(t('studio.build.activityScreenshotFailed'), 'camera', 1);
+        addProgressMessage(t('studio.build.activityScreenshotFailed'));
+      }
+
+      let summary = captured ? t('studio.build.activityReviewing') : t('studio.build.previewNeedsReview');
+      let deferred: string[] = [];
+      stopPipelineRef.current = false;
+      let pass = 1;
+      while (!stopPipelineRef.current && !activeSignal?.aborted) {
+        setAutoFixPass(pass);
+        addActivity(t('studio.build.activityReviewPass', { n: pass }), 'sparkles', 2);
+        addProgressMessage(t('studio.build.progressReviewPass', { n: pass }));
+        const status = await apiJson<{ output?: string }>(`/api/jarvis/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`, { signal: activeSignal });
+        const output = status.data.output ?? previewOutput;
+        setPreviewOutput(output);
+        const { response, data } = await apiJson<IterateResponse>('/api/jarvis/build/iterate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, previewOutput: output, passNumber: pass, extraSystemPrompt, plan: approvedPlan }), signal: activeSignal });
+        if (!response.ok) {
+          summary = data.error ?? t('studio.build.reviewFailed');
+          setCompletion({ summary, deferred, files: [...new Set(allFiles)] });
+          setProgressResult(summary, 'error');
+          return;
+        }
+        summary = data.summary ?? summary;
+        deferred = data.deferred ?? deferred;
+        allFiles = [...new Set([...allFiles, ...(data.filesChanged ?? [])])];
+        if (data.filesChanged?.length) {
+          addActivity(t('studio.build.activityFixed', { files: data.filesChanged.length }), 'terminal', data.filesChanged.length);
+          addProgressMessage(t('studio.build.progressFilesFixed', { n: data.filesChanged.length }));
+          await loadFiles();
+          if (!stopPipelineRef.current && !activeSignal?.aborted) {
+            await launchPreview(activeSignal);
+            await waitMs(1200);
+            captured = await captureScreenshot(activeSignal);
+            if (captured) {
+              addActivity(t('studio.build.activityScreenshot'), 'camera', 1);
+              addProgressMessage(t('studio.build.progressScreenshotReady'));
+            }
+          }
+        }
+        if (data.done || !data.fixRequest) break;
+        if (pass >= maxReviewPasses) {
+          summary = t('studio.build.maxPasses', { summary });
+          addProgressMessage(t('studio.build.progressMaxPasses'), 'waiting');
+          break;
+        }
+        pass += 1;
+      }
+      if (activeSignal?.aborted || buildCancelRequestedRef.current) return;
+      if (stopPipelineRef.current) {
+        const message = t('studio.build.progressCancelled');
+        setCompletion({ summary: message, deferred, files: [...new Set(allFiles)] });
+        setProgressResult(message, 'cancelled');
+        return;
+      }
+      addActivity(t('studio.build.activityComplete'), 'check', 1);
+      addProgressMessage(t('studio.build.progressComplete'), 'done');
+      setCompletion({ summary, deferred, files: [...new Set(allFiles)] });
+      setProgressStatus('done');
+    } catch (error) {
+      if (!wasBuildCancelled(error)) {
+        const message = t('studio.build.pipelineFailed');
+        setCompletion({ summary: message, deferred: [], files: [...new Set(allFiles)] });
+        setProgressResult(message, 'error');
+      }
+    } finally {
+      setAutoFixPass(0);
+      if (ownController) releaseBuildRequest(ownController);
     }
-    addActivity(t('studio.build.activityComplete'), 'check', 1);
-    setCompletion({ summary, deferred, files: [...new Set(allFiles)] });
-    setAutoFixPass(0);
   };
 
 
@@ -780,7 +985,8 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const toggleHotReload = async () => {
     if (hotReload) {
       await fetch('/api/jarvis/hot-reload/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) });
-      hotReloadRef.current?.close(); hotReloadRef.current = null;
+      hotReloadRef.current?.close();
+      hotReloadRef.current = null;
       setHotReload(false);
       setNotice('Auto-reload disabled');
       return;

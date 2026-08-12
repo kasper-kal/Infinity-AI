@@ -1,6 +1,6 @@
 # Jarvis Projects System — Build Plan (Steps 1–20 of 32)
 
-> **Status:** PLAN ONLY — no implementation yet.
+> **Status:** Phases B–H implemented; remaining phases are still planned only.
 > **Source:** User's 32-step brief, first 20 steps captured in full below.
 > **Living document:** will be extended when steps 21–32 are handed over; phases may be re-cut then.
 
@@ -12,7 +12,8 @@ The brief says: inspect the repository, reuse working architecture, don't replac
 
 ### Existing Projects code (a lighter system already lives here)
 - **DB schema** `lib/db/src/schema/projects.ts` — a ChatGPT-style *folder* system, NOT yet a workspace:
-  - `projects` (id, name, color, archived, **instructions** [single text col, injected as system text], createdAt, updatedAt)
+  - `projects` (id, name, color, archived, **instructions** [legacy compatibility column], createdAt, updatedAt)
+  - `project_instructions` (ordered explicit rules; canonical source for the dedicated Project Instructions UI and chat injection)
   - `projectChats` (projectId ↔ conversationId) — conversation↔project association **already exists**
   - `projectFiles` (projectId ↔ fileId, cross-db, no FK) — shared context files exist
   - `pins` (conversation-level pinning only)
@@ -61,7 +62,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - **Plan:** add the agent-run/action schema now (so Projects are agent-ready), defer the autonomous agent itself.
 
 #### Critical honest finding for step 18 (AI context pipeline)
-- Today chat.ts injects a **global memory + profile** block into the system prompt. **No project context is injected at all yet**: `projects.instructions` is written by PATCH but never read into chat; `project_files` is referenced by no backend route. So the project context pipeline (identity, instructions, memory, files, history, research) is **greenfield at the injection site**, but it reuses the existing injection point + the Phase E relevance engine.
+- Today chat.ts injects a **global memory + profile** block into the system prompt. Project chats now also inject project identity, all ordered `project_instructions` rules (with a legacy-column fallback), and Phase E relevant project memory. `project_files` is still referenced by no backend route, so files, history, and research remain future context-pipeline work. The remaining pipeline work reuses this injection point + the Phase E relevance engine.
 
 ---
 
@@ -214,13 +215,15 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 
 **New tables (new schema file `lib/db/src/schema/project-memory.ts` + auto-migrate CREATE TABLE):**
 - `project_memories` — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `category` text (about/technical/decisions/requirements + freeform), `content` text, `key` text (canonical upsert key — prevents duplicates, step 9), `sourceType` text (`conversation|file|research|instruction|agent|manual`), `sourceRef` text (conversation title + date, file path, etc.), `pinned` boolean default false, `createdAt`, `updatedAt`.
-- `project_instructions` — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `text` text, `sortOrder` int, `createdAt`. (Step 10 wants a dedicated *area* with multiple rules + CRUD — a table beats the single legacy `projects.instructions` column; the legacy column stays for back-compat and is fed from this table.)
+- `project_instructions` — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `text` text, `sortOrder` int, `createdAt`, `updatedAt`. (Step 10 wants a dedicated *area* with multiple rules + CRUD — a table beats the single legacy `projects.instructions` column; the legacy column stays synchronized for back-compat.)
 - `project_tasks` — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `title`, `status` (`todo|doing|done`), `sortOrder`, `createdAt`, `updatedAt`. (Tasks surface on the project home now; full task workflow may be in later steps.)
 - `project_activity` — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `type` (`chat|file|research|memory|instruction|task|other`), `description` text, `createdAt`. Append-only feed for "Recent activity" + activity/history requirement.
 - `project_research` join — `id uuid PK`, `projectId uuid FK→projects (cascade)`, `researchJobId uuid`, `createdAt`. Associates background research to a project (research engine already persists jobs; we add the relationship, no duplication).
 
 ### Phase B — Backend: first-class Projects CRUD + management (step 2)
-Extend `routes/jarvis/projects.ts` (all responses reuse existing `cleanText` guard; keep shapes consistent):
+**Status: IMPLEMENTED** — backend routes and the required project management columns are now in place; frontend wiring is deferred to the later navigation/home phases.
+
+Implemented in `routes/jarvis/projects.ts` (all inputs use the existing `cleanText` guard; project-scoped queries enforce the project id):
 - `GET /projects?q=&sort=&archived=` — search (name/description ILIKE) + sort (`updated|created|name|recently used`) + pin-first ordering.
 - `POST /projects` (exists — add `description`), `PATCH /projects/:id` (exists — add rename/description/color/archive), `DELETE /projects/:id` (new — hard delete + cascade; archive already available via PATCH).
 - `POST /projects/:id/open` — touch `lastOpenedAt` for recently-used.
@@ -230,16 +233,25 @@ Extend `routes/jarvis/projects.ts` (all responses reuse existing `cleanText` gua
 - **Isolation invariant (step 5):** every project-scoped query is filtered `WHERE project_id = :id`; a project's data is only ever addressable through its own id.
 
 ### Phase C — Project Home backend + UI (step 3)
-- `GET /projects/:id/home` — aggregate: project (name/description), recent activity (last ~10 `project_activity`), counts + latest entries for conversations/files/research/tasks/memory.
-- Frontend `src/components/projects/project-home.tsx` — layout exactly per the brief: name + description, `[Continue working]` (reopen last conversation) + `[New chat]` (start a scoped conversation), Recent activity feed, and tiles for Conversations · Files · Research · Tasks · Memory. Uses existing Tailwind/framer-motion/lucide + `t()` i18n (`projectHome.*` keys in `en` + `nl`).
+**Status: IMPLEMENTED** — the project home is reachable from the existing sidebar and keeps future project tools honest until their backend phases land.
+
+Implemented:
+- `GET /projects/:id/home` — scoped aggregate with project identity, recent activity derived from existing project/conversation/file relationships, counts, and latest entries. Research/tasks/memory are explicit empty sections until their tables and routes land.
+- Frontend `src/components/projects/project-home.tsx` — Jarvis-native dashboard with name + description, `[Continue working]` (reopen last conversation), `[New chat]` (create and move a conversation into the project), recent activity, and tiles for Conversations · Files · Research · Tasks · Memory.
+- The Home shell now switches into the dashboard when a project is selected from the existing sidebar, supports back/continue/new-chat callbacks, an honest empty-project state, and English/Dutch `projectHome.*` translations.
 
 ### Phase D — Project-scoped conversations (step 4)
-- **Auto-associate:** creating a conversation from inside a project sets `projectChats` row on creation.
-- **Auto-context injection:** in `chat.ts` system-prompt assembly (where the global memory block is injected today), when the conversation has a project: inject (a) **Project Instructions** (all of them, step 10), (b) **relevant Project Memories** (subset, step 8), (c) a short project identity line (name + description). All scoped strictly to that project — **no cross-project leakage**.
-- Move / remove / list / search: extend conversations route to filter by project + expose move/remove endpoints (Phase B route covers moves; conversations list gains `?projectId=`).
-- Frontend: project conversations list + "new conversation in project" + move-to-project affordance in the sidebar/project home. Reuse existing `ConversationFeed`/`ChatComposer` — **do not duplicate conversation rendering**.
+**Status: IMPLEMENTED** — project conversations now have an explicit lifecycle and context boundary; the dedicated project-memory retrieval pass remains in Phase E.
+
+Implemented:
+- **Auto-associate:** `POST /conversations` accepts `projectId` and creates the conversation plus its `projectChats` relationship in one transaction. Project Home uses this path for new chats.
+- **Scoped list/search:** `GET /conversations?projectId=` and `GET /conversations/search?q=&projectId=` return only that project's conversations. Unscoped list/search excludes project-linked conversations so they do not leak into global history.
+- **Context boundary:** chat resolves the conversation's project server-side and injects project identity plus the ordered dedicated `project_instructions` rules, falling back to legacy `projects.instructions` for older data. Global user memory is suppressed for project conversations; Phase E adds relevant project-memory retrieval and project-scoped extraction.
+- Move / remove remains available through the Phase B conversation↔project endpoints, with the one-project invariant preserved by the move transaction.
+- Frontend: the Home shell passes the active project to the sidebar, which lists and searches scoped project conversations; Project Home creates project chats through the scoped API. Existing conversation rendering is reused.
 
 ### Phase E — Project Memory system (steps 5, 6, 8, 9 — the heart)
+**Status: IMPLEMENTED** — project memory now has isolated relational storage, CRUD/pin APIs, zero-cost keyword retrieval, and project-scoped automatic extraction. The bilingual Phase F memory UI is implemented below.
 - **Routes** `routes/jarvis/project-memories.ts`:
   - `GET /projects/:id/memories` — grouped by category for the UI (step 7 shape).
   - `POST /projects/:id/memories` — manual add (sourceType `manual`, explicit source field).
@@ -248,25 +260,36 @@ Extend `routes/jarvis/projects.ts` (all responses reuse existing `cleanText` gua
   - `POST /memories/:memoryId/pin` — pin/unpin.
 - **Relevant retrieval (step 8):** in-project chat builds the memory block by **keyword relevance** — tokenize the user message, score `project_memories` rows by term overlap + category match, take top-N (e.g. 12) **+ always include pinned**. No vector DB/paid service (0-euro). Optional pgvector upgrade (Neon supports it) deferred — see Open Questions.
 - **Automatic extraction (step 9):** generalize the existing chat.ts LLM extraction routine (currently targets `userMemories`) into a project-scoped pass: after a project conversation turn, ask the model for candidate facts **with a category + canonical `key`**; upsert `project_memories` by `(projectId, key)` so changed facts **update, never duplicate**. Skip noise per the brief's whitelist (requirements/constraints/decisions/preferences/architecture/facts/recurring instructions/goals) and the existing do-not-remember rules.
-- **Isolation (step 5):** every read/write is project-scoped; global memory and other projects' memory are never included in a project's context, and project memory is never injected into non-project or other-project chats.
+- **Isolation (step 5):** every read/write is project-scoped; global memory and other projects' memory are never included in a project's context, and project memory is never injected into non-project or other-project chats. Compatibility mutation endpoints require an explicit `projectId` when the memory id is not nested.
 
 ### Phase F — Memory UI (step 7)
-- `src/components/projects/project-memory.tsx` — Project → Memory tab:
-  - Grouped view (About this project / Technical / Decisions / Requirements by `category`).
-  - Per-memory: **View** (expand) · **Edit** (inline) · **Delete/Forget** · **Pin** (badge + sort priority) · **Source** (render sourceType + sourceRef, e.g. "Conversation → Design discussion → Aug 11, 2026").
-  - Manual add memory (with category + source), search within memory list.
-  - Distinct visual treatment for **Pinned** (important project rules).
-- `projectHome.*` / `projectMemory.*` i18n keys in `en` + `nl`.
+**Status: IMPLEMENTED** — Project Memory is now a dedicated Jarvis-native view opened from the Project Home Memory tile; global chat navigation remains unchanged.
+
+Implemented in `src/components/projects/project-memory.tsx`:
+- Grouped view by memory category with pinned-first visual treatment.
+- Per-memory source type/reference, last-updated date, inline edit, forget, and pin/unpin controls.
+- Manual add form with content, category, and optional source reference.
+- Scoped search through the Phase E project-memory API, loading/error/empty states, and bilingual English/Dutch copy.
+- Project Home memory tile opens the view; Back returns to the same project dashboard.
 
 ### Phase G — Project Instructions (step 10)
-- `routes`: CRUD on `project_instructions` (list / add / edit / delete / reorder) under `routes/jarvis/projects.ts` or a small dedicated router.
-- UI: `src/components/projects/project-instructions.tsx` — clearly labeled **PROJECT INSTRUCTIONS** vs **PROJECT MEMORY** (separate tabs/sections, different framing: "rules you set" vs "what Jarvis learned").
-- Injection: full instructions block included whenever a chat runs inside the project (Phase D).
+**Status: IMPLEMENTED** — explicit project rules now have their own relational storage, scoped management API, dedicated bilingual UI, and chat-context injection.
+
+Implemented:
+- Schema and idempotent migration for `project_instructions` with strict project FK isolation, stable ordering, and timestamps; the legacy `projects.instructions` column remains for compatibility.
+- API router `routes/jarvis/project-instructions.ts`: `GET/POST /projects/:id/instructions`, scoped `PATCH/DELETE /projects/:projectId/instructions/:instructionId`, and strict reorder via `POST /projects/:id/instructions/reorder`. Mutations keep the legacy column synchronized, and old single-column instructions are materialized on read.
+- Frontend `src/components/projects/project-instructions.tsx`: Jarvis-native bilingual rule editor with add/edit/delete, move up/down ordering, explicit-rule framing, and useful loading/error/empty states.
+- Project Home's Instructions tile opens the dedicated view; chat injects every dedicated rule in order, with a safe fallback to legacy instructions if migration is not yet available.
 
 ### Phase H — Navigation: Projects are first-class (step 2)
-- Sidebar: a **Projects section** in `chat-sidebar.tsx` — create/rename/delete-archive/open, **search**, **sort**, **recently used**, **pin/favorite**, move/copy conversation into project, create-from-conversation.
-- Upgrade `project-gallery.tsx` (or replace its render with the new first-class section) — keep the same component boundaries and design tokens so it feels native.
-- Project home becomes the landing view when opening a project; standard chat remains available.
+**Status: IMPLEMENTED** — the existing Jarvis sidebar now exposes Projects as a first-class, scoped workspace navigator without replacing global chat navigation.
+
+Implemented in `project-gallery.tsx`, `chat-sidebar.tsx`, and `pages/home.tsx`:
+- Project search against name and description, with updated/created/name/recently-used sorting and archived-project visibility.
+- Create, create-from-current-conversation, open, inline rename, archive/restore, pin/unpin, hard delete, and move-current-chat actions; the one-project-per-conversation invariant remains enforced by the backend.
+- A compact project quick-access rail for home, new chat, memory, files, research, tasks, and instructions. Implemented views open directly; future views report honestly through the existing Jarvis toast instead of pretending to exist.
+- Project Home remains the landing view when opening a project, while the regular global chat list and navigation stay available outside the project scope.
+- All new navigation copy is routed through the existing English/Dutch i18n contract.
 
 ### Re-cut of phases A–H (deltas introduced by steps 11–20)
 
@@ -277,7 +300,8 @@ Steps 11–20 add system-level work on top of A–H rather than reworking them. 
 - **Phase C (project home):** gains the step 20 **empty state** ("Your project is ready." + 4 actions) and the step 15 "Recent activity" strip (Phase M wires the feed).
 - **Phase D (scoped conversations):** the context-injection bullet is **expanded into Phase L** (identity + instructions + memory → + relevant files, relevant history, relevant research). Move/remove/list/search work is unchanged.
 - **Phase E (memory engine):** unchanged — its keyword-relevance retrieval is the shared engine Phase L reuses for files/history/research too.
-- **Phase F, G (memory UI, instructions):** unchanged.
+- **Phase F (memory UI):** unchanged.
+- **Phase G (instructions):** now implemented; the dedicated ordered rule table, API, UI, and injection are active.
 - **Phase H (navigation):** gains the step 19 **quick-access rail** (switch project, chat, memory, files, research, tasks, instructions — flat, no extra layers).
 
 ### Phase I — Project Files (step 11)
@@ -348,7 +372,7 @@ At the system-prompt assembly point in `chat.ts` where the global memory block i
 ## 5. Open questions / deferrals
 - **Relevant retrieval depth:** keyword scoring for v1; pgvector embedding retrieval is possible on Neon but costs LLM tokens per memory write — defer decision until steps 11+ clarify (there may be an embedding path in a later step).
 - **Steps 21–32 unknown** (steps 11–20 are now planned above): likely security/permissions, archiving/deletion flows, workspace/code, generated assets, and further agent wiring. Phases A–O are cut so these append cleanly (new tables/routes/components rather than rework).
-- **Existing `projects.instructions` legacy column:** keep populated from the new `project_instructions` table for back-compat, or migrate on read.
+- **Existing `projects.instructions` legacy column:** the dedicated `project_instructions` table is canonical; Phase G mutations synchronize the legacy column, and reads materialize old single-column data into the new table.
 - **Research association:** `project_research` join added now; the research *engine* itself (background job) stays untouched.
 - **Research "Sources"/"Saved findings" depth (step 12):** sources surfaced read-only from the existing job `log`/`notes` vs. new extraction/storage — deferred until steps 21–32 clarify.
 - **Agent schema timing (step 14):** build `project_agent_runs` / `project_agent_actions` now (routes + activity wiring) or schema-only until the agent actually exists — pending later steps.

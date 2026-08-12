@@ -326,7 +326,7 @@ export function ConversationFeed({
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="flex-1 w-full overflow-y-auto px-4 sm:px-6 py-6 space-y-4 flex flex-col scroll-smooth relative z-10"
+      className="relative z-10 flex-1 w-full overflow-y-auto px-4 py-8 sm:px-6 space-y-5 flex flex-col scroll-smooth"
     >
       {/* Scroll to bottom button */}
       <AnimatePresence>
@@ -407,7 +407,7 @@ export function ConversationFeed({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.2 }}
               className={`group flex flex-col gap-1.5 ${
-                isUser ? 'max-w-[85%] self-end items-end' : 'w-full self-start items-start'
+                isUser ? 'max-w-[min(85%,42rem)] self-end items-end' : 'mx-auto w-full max-w-3xl self-start items-start'
               }`}
             >
               {/* File preview (user attachments) */}
@@ -505,7 +505,7 @@ export function ConversationFeed({
                   <div
                     className={`text-[15px] leading-relaxed font-sans ${
                       isUser
-                        ? 'bg-[#e9f1fc] dark:bg-primary/25 text-foreground rounded-2xl rounded-br-md px-4 py-2.5 max-w-[85%]'
+                        ? 'bg-primary/10 dark:bg-primary/25 text-foreground rounded-2xl rounded-br-md px-4 py-2.5 max-w-[85%]'
                         : 'text-foreground max-w-full'
                     }`}
                   >

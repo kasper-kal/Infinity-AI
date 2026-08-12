@@ -1,60 +1,472 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import {
   db,
   conversations,
   messages,
   pins,
   projectChats,
+  projectFiles,
+  projectInstructions,
+  projectMemories,
   projects,
   shareLinks,
 } from "@workspace/db";
 
 const router = Router();
 
+type ProjectSort = "updated" | "created" | "name" | "recently-used";
+
 function cleanText(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-router.get("/projects", async (_req, res) => {
+function hasBodyField(body: unknown, field: string): boolean {
+  return typeof body === "object" && body !== null && Object.prototype.hasOwnProperty.call(body, field);
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function parseArchived(value: unknown): boolean | "all" {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "all") return "all";
+  return raw === "true" || raw === "1";
+}
+
+function parseSort(value: unknown): ProjectSort {
+  const raw = String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+  if (raw === "created") return "created";
+  if (raw === "name") return "name";
+  if (raw === "recent" || raw === "recently-used" || raw === "recentlyused" || raw === "last-opened") {
+    return "recently-used";
+  }
+  return "updated";
+}
+
+async function findProject(id: string) {
+  const [project] = await db.select().from(projects).where(eq(projects.id, id));
+  return project;
+}
+
+async function findConversation(id: string) {
+  const [conversation] = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.id, id));
+  return conversation;
+}
+
+async function moveConversation(conversationId: string, projectId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const previousLinks = await tx
+      .select({ projectId: projectChats.projectId })
+      .from(projectChats)
+      .where(eq(projectChats.conversationId, conversationId));
+
+    await tx
+      .delete(projectChats)
+      .where(eq(projectChats.conversationId, conversationId));
+
+    await tx.insert(projectChats).values({ projectId, conversationId });
+
+    const now = new Date();
+    await tx.update(projects).set({ updatedAt: now }).where(eq(projects.id, projectId));
+    for (const previousProjectId of new Set(previousLinks.map((link) => link.projectId))) {
+      if (previousProjectId !== projectId) {
+        await tx.update(projects).set({ updatedAt: now }).where(eq(projects.id, previousProjectId));
+      }
+    }
+  });
+}
+
+async function removeConversationLinks(conversationId: string, projectId?: string): Promise<number> {
+  return db.transaction(async (tx) => {
+    const condition = projectId
+      ? and(eq(projectChats.conversationId, conversationId), eq(projectChats.projectId, projectId))
+      : eq(projectChats.conversationId, conversationId);
+    const existing = await tx
+      .select({ projectId: projectChats.projectId })
+      .from(projectChats)
+      .where(condition);
+
+    if (existing.length === 0) return 0;
+
+    await tx.delete(projectChats).where(condition);
+    const now = new Date();
+    for (const affectedProjectId of new Set(existing.map((link) => link.projectId))) {
+      await tx.update(projects).set({ updatedAt: now }).where(eq(projects.id, affectedProjectId));
+    }
+    return existing.length;
+  });
+}
+
+async function listProjectConversations(req: Request, res: Response): Promise<void> {
+  const projectId = cleanText(req.params.id, 80);
   try {
-    const rows = await db.select().from(projects).orderBy(desc(projects.updatedAt));
+    const project = await findProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        updatedAt: conversations.updatedAt,
+      })
+      .from(projectChats)
+      .innerJoin(conversations, eq(projectChats.conversationId, conversations.id))
+      .where(eq(projectChats.projectId, projectId))
+      .orderBy(desc(conversations.updatedAt));
     res.json(rows);
   } catch (err) {
+    req.log.error({ err }, "Failed to load project conversations");
+    res.status(500).json({ error: "Failed to load project conversations" });
+  }
+}
+
+router.get("/projects", async (req, res) => {
+  const query = cleanText(req.query.q, 120);
+  const archived = parseArchived(req.query.archived);
+  const sort = parseSort(req.query.sort);
+
+  try {
+    const filters = [];
+    if (archived !== "all") filters.push(eq(projects.archived, archived));
+    if (query) {
+      const search = or(
+        ilike(projects.name, `%${escapeLike(query)}%`),
+        ilike(projects.description, `%${escapeLike(query)}%`),
+      );
+      if (search) filters.push(search);
+    }
+
+    const filter = filters.length > 1 ? and(...filters) : filters[0];
+    const queryBuilder = db.select().from(projects);
+    const filteredQuery = filter ? queryBuilder.where(filter) : queryBuilder;
+
+    const rows = sort === "created"
+      ? await filteredQuery.orderBy(desc(projects.pinned), desc(projects.createdAt))
+      : sort === "name"
+        ? await filteredQuery.orderBy(desc(projects.pinned), asc(projects.name), desc(projects.updatedAt))
+        : sort === "recently-used"
+          ? await filteredQuery.orderBy(
+            desc(projects.pinned),
+            sql`${projects.lastOpenedAt} DESC NULLS LAST`,
+            desc(projects.updatedAt),
+          )
+          : await filteredQuery.orderBy(desc(projects.pinned), desc(projects.updatedAt));
+
+    res.json(rows);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load projects");
     res.status(500).json({ error: "Failed to load projects" });
   }
 });
 
+router.get("/projects/:id", async (req, res) => {
+  try {
+    const project = await findProject(req.params.id);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    res.json(project);
+  } catch (err) {
+    req.log.error({ err }, "Failed to load project");
+    res.status(500).json({ error: "Failed to load project" });
+  }
+});
+
+router.get("/projects/:id/home", async (req, res) => {
+  try {
+    const project = await findProject(req.params.id);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const [conversationCountRows, conversationLatest, fileCountRows, fileLatest, memoryCountRows, memoryLatest] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(projectChats)
+        .where(eq(projectChats.projectId, project.id)),
+      db
+        .select({
+          id: conversations.id,
+          title: conversations.title,
+          createdAt: conversations.createdAt,
+          updatedAt: conversations.updatedAt,
+        })
+        .from(projectChats)
+        .innerJoin(conversations, eq(projectChats.conversationId, conversations.id))
+        .where(eq(projectChats.projectId, project.id))
+        .orderBy(desc(conversations.updatedAt))
+        .limit(5),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(projectFiles)
+        .where(eq(projectFiles.projectId, project.id)),
+      db
+        .select({
+          id: projectFiles.id,
+          fileId: projectFiles.fileId,
+          name: projectFiles.name,
+          createdAt: projectFiles.createdAt,
+        })
+        .from(projectFiles)
+        .where(eq(projectFiles.projectId, project.id))
+        .orderBy(desc(projectFiles.createdAt))
+        .limit(5),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(projectMemories)
+        .where(eq(projectMemories.projectId, project.id)),
+      db
+        .select({
+          id: projectMemories.id,
+          category: projectMemories.category,
+          content: projectMemories.content,
+          pinned: projectMemories.pinned,
+          createdAt: projectMemories.createdAt,
+          updatedAt: projectMemories.updatedAt,
+        })
+        .from(projectMemories)
+        .where(eq(projectMemories.projectId, project.id))
+        .orderBy(desc(projectMemories.pinned), desc(projectMemories.updatedAt))
+        .limit(5),
+    ]);
+
+    // Phase I/M will add first-class research, task, and activity tables. Until
+    // tables. Until those phases land, derive a useful activity feed from the
+    // project and the relationships that already exist.
+    const recentActivity = [
+      {
+        type: "project_created",
+        description: project.name,
+        createdAt: project.createdAt,
+      },
+      ...conversationLatest.map((conversation) => ({
+        type: "conversation",
+        description: conversation.title,
+        createdAt: conversation.updatedAt,
+      })),
+      ...fileLatest.map((file) => ({
+        type: "file",
+        description: file.name,
+        createdAt: file.createdAt,
+      })),
+      ...memoryLatest.map((memory) => ({
+        type: "memory",
+        description: memory.content,
+        createdAt: memory.updatedAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+
+    res.json({
+      project,
+      counts: {
+        conversations: Number(conversationCountRows[0]?.count ?? 0),
+        files: Number(fileCountRows[0]?.count ?? 0),
+        research: 0,
+        tasks: 0,
+        memory: Number(memoryCountRows[0]?.count ?? 0),
+      },
+      latest: {
+        conversations: conversationLatest,
+        files: fileLatest,
+        research: [],
+        tasks: [],
+        memory: memoryLatest,
+      },
+      recentActivity,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to load project home");
+    res.status(500).json({ error: "Failed to load project home" });
+  }
+});
+
 router.post("/projects", async (req, res) => {
-  const name = cleanText(req.body?.name, 80);
+  const body = req.body as Record<string, unknown> | undefined;
+  const fromConversationId = cleanText(body?.fromConversationId, 80);
+  let sourceConversation: { id: string; title: string } | undefined;
+
+  if (fromConversationId) {
+    try {
+      const [conversation] = await db
+        .select({ id: conversations.id, title: conversations.title })
+        .from(conversations)
+        .where(eq(conversations.id, fromConversationId));
+      if (!conversation) {
+        res.status(404).json({ error: "Conversation not found" });
+        return;
+      }
+      sourceConversation = conversation;
+    } catch (err) {
+      req.log.error({ err }, "Failed to load source conversation");
+      res.status(500).json({ error: "Failed to create project from conversation" });
+      return;
+    }
+  }
+
+  const name = cleanText(body?.name, 80) || cleanText(sourceConversation?.title, 80);
   if (!name) {
     res.status(400).json({ error: "Project name is required" });
     return;
   }
+
+  const description = hasBodyField(body, "description") ? cleanText(body?.description, 4000) : "";
+  const color = cleanText(body?.color, 32) || "#0ea5e9";
+  const instructions = hasBodyField(body, "instructions")
+    ? cleanText(body?.instructions, 4000) || null
+    : null;
+
   try {
-    const [row] = await db.insert(projects).values({
-      name,
-      color: cleanText(req.body?.color, 32) || "#0ea5e9",
-      instructions: cleanText(req.body?.instructions, 4000) || null,
-    }).returning();
-    res.status(201).json(row);
+    if (!sourceConversation) {
+      const [row] = await db.insert(projects).values({
+        name,
+        description,
+        color,
+        instructions,
+      }).returning();
+      res.status(201).json(row);
+      return;
+    }
+
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(projects).values({
+        name,
+        description,
+        color,
+        instructions,
+      }).returning();
+      await tx
+        .delete(projectChats)
+        .where(eq(projectChats.conversationId, sourceConversation.id));
+      await tx.insert(projectChats).values({
+        projectId: created.id,
+        conversationId: sourceConversation.id,
+      });
+      return created;
+    });
+
+    res.status(201).json({ ...row, fromConversationId: sourceConversation.id });
   } catch (err) {
+    req.log.error({ err }, "Failed to create project");
     res.status(500).json({ error: "Failed to create project" });
   }
 });
 
 router.patch("/projects/:id", async (req, res) => {
-  const name = cleanText(req.body?.name, 80);
-  const color = cleanText(req.body?.color, 32);
-  const instructions = cleanText(req.body?.instructions, 4000);
-  const archived = typeof req.body?.archived === "boolean" ? req.body.archived : undefined;
+  const body = req.body as Record<string, unknown> | undefined;
+  const hasName = hasBodyField(body, "name");
+  const hasDescription = hasBodyField(body, "description");
+  const hasColor = hasBodyField(body, "color");
+  const hasInstructions = hasBodyField(body, "instructions");
+  const hasArchived = hasBodyField(body, "archived");
+  const name = cleanText(body?.name, 80);
+  const description = cleanText(body?.description, 4000);
+  const color = cleanText(body?.color, 32);
+  const instructions = cleanText(body?.instructions, 4000);
+
+  if (hasName && !name) {
+    res.status(400).json({ error: "Project name cannot be empty" });
+    return;
+  }
+  if (hasColor && !color) {
+    res.status(400).json({ error: "Project color cannot be empty" });
+    return;
+  }
+  if (hasArchived && typeof body?.archived !== "boolean") {
+    res.status(400).json({ error: "archived must be a boolean" });
+    return;
+  }
+
+  try {
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(projects).set({
+        ...(hasName ? { name } : {}),
+        ...(hasDescription ? { description } : {}),
+        ...(hasColor ? { color } : {}),
+        ...(hasInstructions ? { instructions: instructions || null } : {}),
+        ...(hasArchived ? { archived: body?.archived as boolean } : {}),
+        updatedAt: new Date(),
+      }).where(eq(projects.id, req.params.id)).returning();
+
+      // Keep the legacy PATCH contract two-way compatible with the dedicated
+      // ordered table: an old client sending one instruction block replaces
+      // the dedicated rules for that project as one rule.
+      if (updated && hasInstructions) {
+        await tx.delete(projectInstructions).where(eq(projectInstructions.projectId, updated.id));
+        if (instructions) {
+          await tx.insert(projectInstructions).values({
+            projectId: updated.id,
+            text: instructions,
+            sortOrder: 0,
+          });
+        }
+      }
+      return updated;
+    });
+    if (!row) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    res.json(row);
+  } catch (err) {
+    req.log.error({ err }, "Failed to update project");
+    res.status(500).json({ error: "Failed to update project" });
+  }
+});
+
+router.delete("/projects/:id", async (req, res) => {
+  try {
+    const [existing] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.id, req.params.id));
+    if (!existing) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    await db.delete(projects).where(eq(projects.id, req.params.id));
+    res.json({ ok: true, id: existing.id });
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete project");
+    res.status(500).json({ error: "Failed to delete project" });
+  }
+});
+
+router.post("/projects/:id/open", async (req, res) => {
   try {
     const [row] = await db.update(projects).set({
-      ...(name ? { name } : {}),
-      ...(color ? { color } : {}),
-      ...(instructions ? { instructions } : {}),
-      ...(archived === undefined ? {} : { archived }),
+      lastOpenedAt: new Date(),
+    }).where(eq(projects.id, req.params.id)).returning();
+    if (!row) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    res.json(row);
+  } catch (err) {
+    req.log.error({ err }, "Failed to mark project as opened");
+    res.status(500).json({ error: "Failed to open project" });
+  }
+});
+
+router.post("/projects/:id/pin", async (req, res) => {
+  try {
+    const [row] = await db.update(projects).set({
+      pinned: true,
       updatedAt: new Date(),
     }).where(eq(projects.id, req.params.id)).returning();
     if (!row) {
@@ -63,36 +475,29 @@ router.patch("/projects/:id", async (req, res) => {
     }
     res.json(row);
   } catch (err) {
-    res.status(500).json({ error: "Failed to update project" });
+    req.log.error({ err }, "Failed to pin project");
+    res.status(500).json({ error: "Failed to pin project" });
   }
 });
 
-router.delete("/projects/:id", async (req, res) => {
+router.delete("/projects/:id/pin", async (req, res) => {
   try {
-    await db.delete(projects).where(eq(projects.id, req.params.id));
-    res.json({ ok: true });
+    const [row] = await db.update(projects).set({
+      pinned: false,
+      updatedAt: new Date(),
+    }).where(eq(projects.id, req.params.id)).returning();
+    if (!row) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    res.json(row);
   } catch (err) {
-    res.status(500).json({ error: "Failed to delete project" });
+    req.log.error({ err }, "Failed to unpin project");
+    res.status(500).json({ error: "Failed to unpin project" });
   }
 });
 
-router.get("/projects/:id/chats", async (req, res) => {
-  try {
-    const rows = await db.select({
-      id: conversations.id,
-      title: conversations.title,
-      createdAt: conversations.createdAt,
-      updatedAt: conversations.updatedAt,
-    })
-      .from(projectChats)
-      .innerJoin(conversations, eq(projectChats.conversationId, conversations.id))
-      .where(eq(projectChats.projectId, req.params.id))
-      .orderBy(asc(conversations.updatedAt));
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to load project chats" });
-  }
-});
+router.get(["/projects/:id/chats", "/projects/:id/conversations"], listProjectConversations);
 
 router.post("/projects/:id/chats", async (req, res) => {
   const conversationId = cleanText(req.body?.conversationId, 80);
@@ -100,27 +505,99 @@ router.post("/projects/:id/chats", async (req, res) => {
     res.status(400).json({ error: "conversationId is required" });
     return;
   }
+
   try {
-    const [row] = await db.insert(projectChats).values({
-      projectId: req.params.id,
-      conversationId,
-    }).returning();
-    await db.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, req.params.id));
-    res.status(201).json(row);
+    const [project, conversation] = await Promise.all([
+      findProject(req.params.id),
+      findConversation(conversationId),
+    ]);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!conversation) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+
+    await moveConversation(conversationId, project.id);
+    const [membership] = await db
+      .select()
+      .from(projectChats)
+      .where(and(
+        eq(projectChats.projectId, project.id),
+        eq(projectChats.conversationId, conversation.id),
+      ));
+    res.status(201).json(membership);
   } catch (err) {
+    req.log.error({ err }, "Failed to move chat to project");
     res.status(500).json({ error: "Failed to add chat to project" });
   }
 });
 
 router.delete("/projects/:id/chats/:conversationId", async (req, res) => {
   try {
-    await db.delete(projectChats).where(and(
-      eq(projectChats.projectId, req.params.id),
-      eq(projectChats.conversationId, req.params.conversationId),
-    ));
-    res.json({ ok: true });
+    const project = await findProject(req.params.id);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    const conversation = await findConversation(req.params.conversationId);
+    if (!conversation) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+
+    const removed = await removeConversationLinks(req.params.conversationId, req.params.id);
+    res.json({ ok: true, removed });
   } catch (err) {
+    req.log.error({ err }, "Failed to remove chat from project");
     res.status(500).json({ error: "Failed to remove chat from project" });
+  }
+});
+
+router.post("/conversations/:id/project", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 80);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId is required" });
+    return;
+  }
+
+  try {
+    const [project, conversation] = await Promise.all([
+      findProject(projectId),
+      findConversation(req.params.id),
+    ]);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    if (!conversation) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+
+    await moveConversation(conversation.id, project.id);
+    res.json({ conversationId: conversation.id, project });
+  } catch (err) {
+    req.log.error({ err }, "Failed to move conversation to project");
+    res.status(500).json({ error: "Failed to move conversation to project" });
+  }
+});
+
+router.delete("/conversations/:id/project", async (req, res) => {
+  try {
+    const conversation = await findConversation(req.params.id);
+    if (!conversation) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+
+    const removed = await removeConversationLinks(conversation.id);
+    res.json({ ok: true, removed });
+  } catch (err) {
+    req.log.error({ err }, "Failed to remove conversation from project");
+    res.status(500).json({ error: "Failed to remove conversation from project" });
   }
 });
 

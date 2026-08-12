@@ -88,7 +88,7 @@ export function ChatComposer(props: ChatComposerProps) {
   return (
     <div
       data-chat-composer
-      className={`border-t border-border/30 bg-background/90 backdrop-blur-md px-4 pt-3 flex-shrink-0 space-y-2 relative ${dragOver ? 'border-primary/50' : ''}`}
+      className={`relative flex-shrink-0 space-y-2 border-t border-border/30 bg-background/90 px-4 pt-4 backdrop-blur-md ${dragOver ? 'border-primary/50' : ''}`}
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={e => { e.preventDefault(); setDragOver(false); }}
@@ -126,8 +126,8 @@ export function ChatComposer(props: ChatComposerProps) {
         )}
       </AnimatePresence>
       {attachedFile && (
-        <div className="flex items-center gap-2">
-          <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0 flex items-center justify-center bg-card/40">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-2">
+          <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card/40">
             {attachedFile.preview ? (
               <img src={attachedFile.preview} alt={t('input.attachmentAlt')} className="w-full h-full object-cover" />
             ) : (
@@ -144,7 +144,7 @@ export function ChatComposer(props: ChatComposerProps) {
           </div>
         </div>
       )}
-      <div className="flex items-center gap-1 px-2 py-1.5 rounded-full border border-[#e5e5ea] dark:border-white/10 bg-white dark:bg-[#1c1c1e] shadow-sm">
+      <div className="mx-auto flex w-full max-w-3xl items-center gap-1.5 rounded-2xl border border-border/60 bg-card/80 px-2.5 py-2 shadow-apple-sm backdrop-blur-xl">
         {/* Hidden file inputs */}
         <input ref={fileInputRef} type="file" className="hidden" onChange={onFileSelect} />
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileSelect} />

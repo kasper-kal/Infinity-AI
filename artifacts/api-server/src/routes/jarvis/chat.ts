@@ -4,8 +4,24 @@ import { fileTypeFromBuffer } from "file-type";
 import { extractRawText } from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { jarvisConfig } from "../../config/jarvis";
-import { db, conversations, messages, jarvisSettings, userMemories, spotifyTokens, gmailTokens } from "@workspace/db";
+import {
+  db,
+  conversations,
+  messages,
+  jarvisSettings,
+  userMemories,
+  projectMemories,
+  projectInstructions,
+  spotifyTokens,
+  gmailTokens,
+  projectChats,
+  projects,
+} from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
+import {
+  buildRelevantProjectMemoryContext,
+  canonicalProjectMemoryKey,
+} from "../../lib/project-memory";
 import { buildLiveContext } from "../../lib/live-context";
 import { detectAndBuildWidget } from "../../lib/widget-detector";
 import { classifyCapabilityIntent } from "../../lib/capability-intent";
@@ -445,11 +461,29 @@ async function getConnectedCapabilities(settings: Record<string, string>): Promi
   ].join("\n");
 }
 
+// The existing chat tail calls the global extractor. Queue the scoped context
+// by the sanitized message so that legacy callers still route project turns
+// into project memory without changing global-memory behavior.
+const pendingProjectContexts = new Map<string, ProjectContext[]>();
+
 /** Extract memorable facts from the user's message and upsert them into memory */
 async function extractAndStoreMemories(
   userMessage: string,
   assistantResponse: string,
 ): Promise<void> {
+  const queuedProjectContexts = pendingProjectContexts.get(userMessage);
+  const queuedProjectContext = queuedProjectContexts?.shift();
+  if (queuedProjectContexts?.length === 0) pendingProjectContexts.delete(userMessage);
+  if (queuedProjectContext) {
+    await extractAndStoreProjectMemories(
+      queuedProjectContext.projectId,
+      queuedProjectContext.conversationTitle,
+      userMessage,
+      assistantResponse,
+    );
+    return;
+  }
+
   try {
     const client = pooledClient();
     const completion = await client.chat.completions.create({
@@ -501,6 +535,86 @@ Only save if the user EXPLICITLY says "my name is X", "I work as Y", "I live in 
   }
 }
 
+/** Extract durable project facts and upsert them by project + canonical key. */
+async function extractAndStoreProjectMemories(
+  projectId: string,
+  conversationTitle: string,
+  userMessage: string,
+  assistantResponse: string,
+): Promise<void> {
+  try {
+    const client = pooledClient();
+    const completion = await client.chat.completions.create({
+      model: jarvisConfig.llmModel,
+      messages: [
+        {
+          role: "system",
+          content: `You extract durable facts that are useful for continuing work inside one software or personal project.
+Return ONLY a valid JSON array of objects with "category", "key", and "content" fields, no explanation, no markdown.
+Use a category such as about, technical, architecture, decisions, constraints, requirements, preferences, or goals.
+Each key must be a short canonical snake_case label for the fact, stable across future updates.
+Each content value must be one concise, declarative project fact, requirement, constraint, decision, architecture detail, preference, goal, or recurring instruction.
+Return [] when nothing durable and project-specific was stated.
+Be extremely selective. Extract only useful project facts explicitly stated or clearly confirmed by the user in this exchange.
+Do not save temporary tasks, questions, guesses, assistant claims, generic programming knowledge, or personal facts unrelated to this project.
+If a later statement changes an earlier fact, use the same key so the existing memory is updated rather than duplicated.`,
+        },
+        {
+          role: "user",
+          content: `Project conversation: "${conversationTitle.slice(0, 160)}"\nUser said: "${userMessage.slice(0, 4000)}"\nAssistant replied: "${assistantResponse.slice(0, 4000)}"`,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const match = raw.match(/\[.*\]/s);
+    if (!match) return;
+    const parsed: unknown = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return;
+
+    const sourceRef = `Conversation: ${conversationTitle.trim().slice(0, 200) || "Project chat"}`;
+    for (const item of parsed) {
+      if (typeof item !== "object" || item === null) continue;
+      const candidate = item as Record<string, unknown>;
+      const content = typeof candidate.content === "string"
+        ? candidate.content.trim().slice(0, 4000)
+        : "";
+      const keyInput = typeof candidate.key === "string" ? candidate.key : content;
+      const key = canonicalProjectMemoryKey(keyInput);
+      const category = typeof candidate.category === "string"
+        ? candidate.category.trim().toLowerCase().replace(/\s+/g, "_").slice(0, 60)
+        : "about";
+      if (!content || !key || !category) continue;
+
+      await db
+        .insert(projectMemories)
+        .values({
+          projectId,
+          category,
+          content,
+          key,
+          sourceType: "conversation",
+          sourceRef,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [projectMemories.projectId, projectMemories.key],
+          set: {
+            category,
+            content,
+            sourceType: "conversation",
+            sourceRef,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  } catch {
+    // Project-memory extraction is best-effort and never blocks the response.
+  }
+}
+
 /** Build a formatted memory + profile block to inject into the system prompt */
 async function buildMemoryContext(): Promise<string | null> {
   const [memories, settings] = await Promise.all([
@@ -519,6 +633,95 @@ async function buildMemoryContext(): Promise<string | null> {
   }
 
   return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+type ProjectContext = {
+  projectId: string;
+  projectName: string;
+  conversationTitle: string;
+  prompt: string;
+};
+
+/** Build a project identity/instructions/memory block for one conversation. */
+async function buildProjectContext(
+  conversationId: string,
+  userMessage: string,
+  queueForExtraction: boolean,
+): Promise<ProjectContext | null> {
+  const [project] = await db
+    .select({
+      projectId: projects.id,
+      name: projects.name,
+      description: projects.description,
+      instructions: projects.instructions,
+      conversationTitle: conversations.title,
+    })
+    .from(projectChats)
+    .innerJoin(projects, eq(projectChats.projectId, projects.id))
+    .innerJoin(conversations, eq(projectChats.conversationId, conversations.id))
+    .where(eq(projectChats.conversationId, conversationId))
+    .limit(1);
+
+  if (!project) return null;
+
+  const newline = String.fromCharCode(10);
+  let instructions = project.instructions?.trim() ?? "";
+  try {
+    const instructionRows = await db
+      .select({ text: projectInstructions.text })
+      .from(projectInstructions)
+      .where(eq(projectInstructions.projectId, project.projectId))
+      .orderBy(asc(projectInstructions.sortOrder), asc(projectInstructions.createdAt));
+    const dedicatedInstructions = instructionRows.map((row) => row.text.trim()).filter(Boolean);
+    if (dedicatedInstructions.length > 0) instructions = dedicatedInstructions.join(newline);
+  } catch {
+    // Keep legacy project instructions available if the new table is not ready.
+  }
+
+  const identity = project.description?.trim()
+    ? `You are working inside the Jarvis project '${project.name}'. Project description: ${project.description.trim()}`
+    : `You are working inside the Jarvis project '${project.name}'.`;
+  const parts = ['## PROJECT CONTEXT' + newline + identity];
+  if (instructions) {
+    parts.push(
+      '## PROJECT INSTRUCTIONS' + newline +
+        'These are explicit rules for this project. Follow them whenever they apply:' + newline +
+        instructions,
+    );
+  }
+
+  // Retrieval is scoped by projectId in the helper. If the new table is still
+  // being created during the first server boot, keep chat available and let
+  // the next request pick up project memory.
+  try {
+    const memoryContext = await buildRelevantProjectMemoryContext(project.projectId, userMessage);
+    if (memoryContext) parts.push(memoryContext);
+  } catch {
+    // Project memory is additive context, not a reason to fail a chat request.
+  }
+
+  const context: ProjectContext = {
+    projectId: project.projectId,
+    projectName: project.name,
+    conversationTitle: project.conversationTitle,
+    prompt: parts.join(newline + newline),
+  };
+
+  if (queueForExtraction) {
+    const queue = pendingProjectContexts.get(userMessage) ?? [];
+    queue.push(context);
+    pendingProjectContexts.set(userMessage, queue);
+    const cleanup = setTimeout(() => {
+      const current = pendingProjectContexts.get(userMessage);
+      if (!current) return;
+      const index = current.indexOf(context);
+      if (index >= 0) current.splice(index, 1);
+      if (current.length === 0) pendingProjectContexts.delete(userMessage);
+    }, 120_000);
+    cleanup.unref?.();
+  }
+
+  return context;
 }
 
 /** Generate 3 short follow-up suggestion chips from the assistant's last response */
@@ -734,7 +937,7 @@ router.post("/chat", async (req, res) => {
       convId = newConv.id;
     }
 
-    const [history, settings, memoryContext, convRow] = await Promise.all([
+    const [history, settings, memoryContext, convRow, projectContext] = await Promise.all([
       db
         .select()
         .from(messages)
@@ -744,6 +947,7 @@ router.post("/chat", async (req, res) => {
       buildMemoryContext(),
       // Gem conversations carry their own system prompt (created by deep research)
       db.select().from(conversations).where(eq(conversations.id, convId)).then(rows => rows[0] ?? null),
+      buildProjectContext(convId, sanitizedMessage, agentMode !== "true"),
     ]);
 
     const calendarEntries = [1, 2, 3, 4, 5]
@@ -886,8 +1090,11 @@ router.post("/chat", async (req, res) => {
     // Agent mode is deliberately isolated from personal context, no location,
     // calendar, Gmail, stored memories, or voice emotion. Those are for normal
     // chats only; the research agent works on the web context alone.
+    if (projectContext) systemParts.push(projectContext.prompt);
     if (liveContext && agentMode !== "true") systemParts.push(liveContext);
-    if (memoryContext && agentMode !== "true") systemParts.push(memoryContext);
+    // Project conversations receive project context instead of global user
+    // memory, preventing personal facts from leaking into workspace context.
+    if (memoryContext && agentMode !== "true" && !projectContext) systemParts.push(memoryContext);
     if (webContext) systemParts.push(webContext);
     if (emotion && emotion.trim() && emotion !== "neutral" && agentMode !== "true") {
       systemParts.push(

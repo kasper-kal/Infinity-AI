@@ -21,33 +21,34 @@ export function HomeHeader({ mode, mobileSidebarOpen, onToggleSidebar, onNewChat
   if (mode === 'voice') return null;
 
   return (
-    <header className="glass-toolbar px-4 py-2.5 flex items-center border-b border-border/50 relative z-50 flex-shrink-0">
-      {/* Left: hamburger (menu), always visible, ChatGPT style */}
-      <button
-        onClick={onToggleSidebar}
-        className="w-9 h-9 rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 text-foreground flex items-center justify-center shadow-sm transition-all hover:bg-secondary/70 active:scale-95"
-        aria-label={t(mobileSidebarOpen ? 'sidebar.closeHistory' : 'sidebar.openHistory')}
-        aria-expanded={mobileSidebarOpen}
-      >
-        <PanelLeft className="w-[18px] h-[18px]" />
-      </button>
+    <header className="glass-toolbar flex h-14 flex-shrink-0 items-center justify-between border-b border-border/50 px-3 sm:px-4 relative z-50">
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          onClick={onToggleSidebar}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-card/70 text-foreground shadow-sm transition-colors hover:bg-secondary active:scale-95"
+          aria-label={t(mobileSidebarOpen ? 'sidebar.closeHistory' : 'sidebar.openHistory')}
+          aria-expanded={mobileSidebarOpen}
+        >
+          <PanelLeft className="h-[18px] w-[18px]" />
+        </button>
+        <div className="hidden items-center gap-2 sm:flex">
+          <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.65)]" aria-hidden="true" />
+          <span className="text-sm font-semibold tracking-tight text-foreground">{t('header.title')}</span>
+        </div>
+      </div>
 
-      {/* Right: new chat */}
-      <div className="relative flex items-center ml-auto">
-        <div className="flex items-center rounded-full bg-white dark:bg-[#1c1c1e] border border-black/10 dark:border-white/15 shadow-sm overflow-hidden">
-          <button
-            onClick={() => { haptics.light(); onNewChat(); }}
-            className="w-9 h-9 flex items-center justify-center text-foreground transition-colors hover:bg-secondary/70 active:scale-95"
-            aria-label={t('sidebar.newChat')}
-            title={t('sidebar.newChat')}
-          >
-            <SquarePen className="w-[18px] h-[18px]" strokeWidth={2} />
-          </button>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <GroupSettings conversationId={activeConversationId} />
-          <ConversationActions conversationId={activeConversationId} />
-        </div>
+      <div className="flex items-center gap-1.5">
+        <GroupSettings conversationId={activeConversationId} />
+        <ConversationActions conversationId={activeConversationId} />
+        <button
+          onClick={() => { haptics.light(); onNewChat(); }}
+          className="flex h-9 items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-2.5 text-primary transition-colors hover:bg-primary/15 active:scale-95 sm:px-3"
+          aria-label={t('sidebar.newChat')}
+          title={t('sidebar.newChat')}
+        >
+          <SquarePen className="h-[17px] w-[17px]" strokeWidth={2} />
+          <span className="hidden text-xs font-medium sm:inline">{t('sidebar.newChat')}</span>
+        </button>
       </div>
     </header>
   );

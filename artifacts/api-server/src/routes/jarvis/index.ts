@@ -5,6 +5,8 @@ import speakRouter from "./speak";
 import conversationsRouter from "./conversations";
 import settingsRouter from "./settings";
 import memoriesRouter from "./memories";
+import projectMemoriesRouter from "./project-memories";
+import projectInstructionsRouter from "./project-instructions";
 import gmailRouter from "./gmail";
 import spotifyRouter from "./spotify";
 import browseRouter from "./browse";
@@ -51,6 +53,9 @@ const router = Router();
 
 router.use(conversationsRouter);
 router.use(settingsRouter);
+// Mount before the global memory router so scoped /memories/:id mutations can
+// handle requests that include projectId, while requests without it fall through.
+router.use(projectMemoriesRouter);
 router.use(memoriesRouter);
 router.use(transcribeRouter);
 router.use(chatRouter);
@@ -68,6 +73,7 @@ router.use(secretsRouter);
 router.use(terminalRouter);
 router.use(verifyRouter);
 router.use(timersRouter);
+router.use(projectInstructionsRouter);
 router.use(projectsRouter);
 router.use(groupsRouter);
 router.use(buildRouter);

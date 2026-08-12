@@ -647,7 +647,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                         >
                           {profile.initials}
                         </div>
-                        <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-white dark:bg-[#1f1f23] border border-border/40 flex items-center justify-center">
+                        <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-card border border-border/40 flex items-center justify-center shadow-sm">
                           <Pencil className="w-3 h-3 text-foreground/70" />
                         </span>
                       </div>
