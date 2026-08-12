@@ -6,10 +6,10 @@ CRITICAL RULE — ENFORCED AT END OF EVERY RESPONSE:
 
 CRITICAL ROUTINE FOR EVERY SINGLE MESSAGE:
 1. Read the user's new message carefully.
-2. Read 'session-brief.md' — the LIVING WORKING STATE: current situation, active threads, next actions, locked decisions, recent conversation. This is how every session continues like one chat. (Replaces .session_state.md + whats_next.md.)
-3. Read 'KNOWLEDGE.md' when a durable fact is needed — the curated project knowledge base: who, budget, repository map, active projects, decisions. Updated on change, never appended. (Replaces claude_changes_log.txt.)
-4. Perform the requested work. AS I GO, update session-brief.md (position, next actions, recent conversation).
-5. After every code change, record it in session-brief.md's recent-conversation; update KNOWLEDGE.md only if a durable fact changed.
+2. Read 'session-brief.md' — the LIVE PROJECT STATE: what I just did, the project right now, the change record (every change, newest first), active threads, next actions. This is how every session continues like one chat. (Replaces .session_state.md + whats_next.md.)
+3. Read 'KNOWLEDGE.md' when a durable fact is needed — how everything works + permanent rules. Updated on change, never appended. (Replaces claude_changes_log.txt.)
+4. Perform the requested work. AS I GO — after EVERY singular change (code, file, decision) — update session-brief.md's Change record (newest first, cap ~15) + Project state, so the file ALWAYS reflects the project right now.
+5. Update KNOWLEDGE.md only when a durable fact changed (how-it-works, permanent rule). Never store personal trivia (e.g. what to call the user) — that's unnecessary space.
 6. At the end of every turn, update LAST_UPDATED + Next actions in session-brief.md.
 7. Dont stop until youve done what the user wanted, if there was a problem, you will keep trying until its fixed and done.
 8. The old three files (claude_changes_log.txt, .session_state.md, whats_next.md) are archived in archive/ — do not recreate or reference them.

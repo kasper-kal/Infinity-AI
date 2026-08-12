@@ -7,8 +7,9 @@
 ## Who & ground rules
 - Owner: **Kasper Kal** (kasperkal1970@gmail.com). GitHub: kasper-kal/Jarvis. Personal hobby project.
 - Budget: **every thing, service, API, hosting, library = 0 euro, permanently free, no free trials.**
-- Continuity: user wants every session to feel like one chat → session-brief.md is the handoff; this file is the stable memory.
-- User works in short, structured messages and dislikes stale/repetitive tracking noise.
+- Continuity: user wants every session to feel like one chat → **session-brief.md is the live state (updated every change)**; this file is the stable how-it-works reference.
+- **Memory rule: never store personal trivia** (titles, how to address the user, small talk). Only project state, change record, and how-it-works. Trivia like "sir" dies with the session by design.
+- User works in short, structured messages; dislikes stale/repetitive tracking noise.
 
 ## Repository map (reuse, don't rebuild)
 - Monorepo: `artifacts/api-server` (Express, port 8080) · `artifacts/jarvis` (React + Vite, port 5173) · `lib/db` (Drizzle package `@workspace/db`) · `Books/` (live style samples) · `scripts/` · `docs/` · `archive/` · `qa-report/`.
@@ -25,8 +26,9 @@
 - **Jarvis-the-app must not read internal working docs** — blocked in `artifacts/api-server/src/lib/source-code.ts` (KNOWLEDGE.md, session-brief.md, jarvis config, .env, etc.).
 
 ## Active projects
-- **Book Studio** — DONE & wired (10 tasks, type-clean, bundles, A5 PDF render verified). Full A5-PDF book generator: idea → plan → approve/"change something" → 10-page LLM chunks → 2 critique passes → A5 PDF + book.txt, BYO API key, push notification. **Pending: one live end-to-end run** (needs server `.env` with DATABASE_URL + LLM keys; repo `.env` is gitignored by design).
-- **Projects System** — IN PLANNING. User's 32-step brief "persistent workspaces with isolated project memory". Steps 1–10 captured + build phases A–H in `docs/projects-system-plan.md`. Steps 11–20 / 21–32 pending. **No implementation yet (plan-first, per user).**
+> Live status (what's done/in-flight/next) always lives in **session-brief.md** — this section holds only permanent facts.
+- **Book Studio** — permanent facts: full A5-PDF book generator (idea → plan → approve/"change something" → 10-page LLM chunks → 2 critique passes → A5 PDF + book.txt), BYO API key, push notification, background job. Built + verified.
+- **Projects System** — permanent facts: user's 32-step brief "persistent workspaces with isolated project memory"; plan-first approach mandated by user; full requirement capture + phases A–H in `docs/projects-system-plan.md`.
 
 ## Decisions registry
 - 2026-08-11 Repo cleanup: stale docs → `archive/`; deleted orphaned WhatsApp session + junk (c4ea241, 97aed33); extended `.gitignore`.
