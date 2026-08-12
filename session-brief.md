@@ -17,6 +17,7 @@ LAST_UPDATED: 2026-08-12
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-12 session-brief Next-actions sharpened for the steps 11–20 handoff: read plan doc first, extend faithfully, DON'T implement yet (plan-first).
 - 2026-08-12 session-brief restructured to live-state format; CLAUDE.md routine + KNOWLEDGE.md updated to encode the contract (update on every change; never store personal trivia).
 - 2026-08-12 Continuity redesign: KNOWLEDGE.md + session-brief.md replace the 3 old logs; CLAUDE.md routine updated; source-code.ts blockers updated (9ef62ab).
 - 2026-08-12 Projects System plan: `docs/projects-system-plan.md` written for steps 1–10 (4541abd).
@@ -27,11 +28,11 @@ LAST_UPDATED: 2026-08-12
 - 2026-08-11 `Books/` folder added (5 style samples; user updates it often — re-scan every session).
 
 ## Active threads
-- **Projects System** — awaiting steps 11–20; then 21–32; then build.
+- **Projects System** — awaiting the user's paste of steps 11–20 (their very next message). On receipt: READ `docs/projects-system-plan.md` FIRST (steps 1–10 are fully captured there), then extend it. Then await 21–32; build only after all 32 are planned.
 - **Book Studio** — live end-to-end run pending (needs server `.env`).
 
 ## Next actions
-1. Receive steps 11–20 of Projects System brief → extend `docs/projects-system-plan.md`, re-cut phases A–H if needed.
+1. **When the user pastes steps 11–20 of the Projects System brief (next fresh-chat handoff):** read `docs/projects-system-plan.md` first (steps 1–10 already fully captured there), then EXTEND it — full faithful capture of 11–20, NO details skipped — and reconcile/re-cut phases A–H if the new steps change the shape. Do NOT start implementing: plan-first until all 32 steps are planned (locked decision).
 2. Receive 21–32 → finalize plan → begin implementation.
 3. Optional: delete now-inert `.cron_watchdog.sh` / `.tmux_runner.sh` if user wants.
 
