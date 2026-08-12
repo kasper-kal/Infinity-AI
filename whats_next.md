@@ -1,6 +1,16 @@
 # What's Next
 
-## Current session (2026-08-11) — Book Studio built inside Jarvis
+## Current session (2026-08-12) — CLAUDE.md cleanup
+
+**User message:** "remove everything about a chromebook, about auto resume, the entirety of line 37 and 36"
+
+**What I did:** Removed the AUTO-RESUME SYSTEM section (jarvis-launch.sh/tmux/omniroute, .cron_watchdog.sh, 106-step checklist, "9999 restart cycles") and the "User is rebooting Chromebook. Full plan: memory file pending-redesign" line from CLAUDE.md. Kept the GitHub identity line. Verified clean via grep. Committed + pushed `2cbf5ae`.
+
+**Next:** Nothing pending from this task. The Book Studio live end-to-end run is still the open item whenever the user wants it.
+
+---
+
+## Previous session (2026-08-11) — Book Studio built inside Jarvis
 
 **User message:** "So what i want is a website where you can make an actual book, like that you actually receive a PDF in A5, beautifully formatted, good font etc. You start with your idea, it gets planned into chapters and a summary... approve the plan or click a button to tell the LLM to change something... AI messaged separately 10 pages at a time... existing pages get uploaded with every request and updated as pages get added... also receives a few pages from existing books in the folder 'Books' so it knows the writing style... then the .txt + inspo books get uploaded again with 'Tell me exactly what to change' ×2... then formatted with a good font... one last final check... push notification + download the formatted .pdf in A5. BYO API key inside the website... inspo books in 'Books', personal project, no legal problems." User chose **Autonomous background job** + **Full book layout PDF** via AskUserQuestion.
 
