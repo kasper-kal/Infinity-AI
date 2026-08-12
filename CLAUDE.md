@@ -29,10 +29,4 @@ WHEN USER SAYS "go" (OR ANY MESSAGE):
 5. Update LAST_UPDATED at top of .session_state.md
 6. Go to step 2 — do NEXT unchecked box. Keep going.
 
-AUTO-RESUME SYSTEM:
-- jarvis-launch.sh → tmux → types "omniroute" → launches claude → types "go"
-- .cron_watchdog.sh → cron every 5 min → relaunches if work pending
-- .session_state.md → 106-step checklist → resume from last unchecked box
-- 9999 restart cycles on crash
-User is rebooting Chromebook. Full plan: memory file pending-redesign
 GitHub: kasper-kal/Jarvis — user is Kasper Kal (kasperkal1970@gmail.com)
