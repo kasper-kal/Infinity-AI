@@ -202,6 +202,82 @@ const CREATE_TABLES = [
   )`,
   `CREATE INDEX IF NOT EXISTS "project_instructions_project_order_idx" ON "project_instructions" ("project_id", "sort_order", "created_at")`,
 
+  // ── Project tasks (lightweight to-do list, strictly project-scoped) ──
+  `CREATE TABLE IF NOT EXISTS "project_tasks" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "title" text NOT NULL,
+    "description" text,
+    "status" text NOT NULL DEFAULT 'todo',
+    "priority" text NOT NULL DEFAULT 'medium',
+    "due_at" timestamp,
+    "conversation_id" uuid,
+    "file_id" uuid,
+    "memory_id" uuid,
+    "sort_order" integer NOT NULL DEFAULT 0,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_tasks_project_idx" ON "project_tasks" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_tasks_project_status_idx" ON "project_tasks" ("project_id", "status")`,
+  `CREATE INDEX IF NOT EXISTS "project_tasks_project_sort_idx" ON "project_tasks" ("project_id", "sort_order")`,
+
+  // ── Project activity (append-only feed) ────────────────────────
+  `CREATE TABLE IF NOT EXISTS "project_activity" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "type" text NOT NULL,
+    "description" text NOT NULL,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_activity_project_idx" ON "project_activity" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_activity_project_created_idx" ON "project_activity" ("project_id", "created_at")`,
+
+  // ── Project research (join + saved findings) ───────────────────
+  `CREATE TABLE IF NOT EXISTS "project_research" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "research_job_id" uuid NOT NULL,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_research_project_idx" ON "project_research" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_research_job_idx" ON "project_research" ("research_job_id")`,
+  `CREATE TABLE IF NOT EXISTS "project_research_findings" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "research_job_id" uuid NOT NULL,
+    "excerpt" text NOT NULL,
+    "pinned" boolean NOT NULL DEFAULT false,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_research_findings_project_idx" ON "project_research_findings" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_research_findings_job_idx" ON "project_research_findings" ("research_job_id")`,
+
+  // ── Project agent runs + actions (agent-ready, populated later) ──
+  `CREATE TABLE IF NOT EXISTS "project_agent_runs" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "status" text NOT NULL DEFAULT 'queued',
+    "objective" text,
+    "result_summary" text,
+    "started_at" timestamp,
+    "completed_at" timestamp,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_agent_runs_project_idx" ON "project_agent_runs" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_agent_runs_project_status_idx" ON "project_agent_runs" ("project_id", "status")`,
+  `CREATE TABLE IF NOT EXISTS "project_agent_actions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "run_id" uuid NOT NULL REFERENCES "project_agent_runs"("id") ON DELETE CASCADE,
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "type" text NOT NULL DEFAULT 'other',
+    "description" text,
+    "detail" text,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_agent_actions_run_idx" ON "project_agent_actions" ("run_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_agent_actions_project_idx" ON "project_agent_actions" ("project_id")`,
+
   // ── Pins (pinned chats sort to the top) ────────────────────────
   `CREATE TABLE IF NOT EXISTS "pins" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

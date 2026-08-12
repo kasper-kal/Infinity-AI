@@ -10,7 +10,8 @@ import { Router } from "express";
 import multer from "multer";
 import { fileTypeFromBuffer } from "file-type";
 import { filesDb, files } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { db, projectFiles, projects } from "@workspace/db";
+import { eq, desc, and, ilike } from "drizzle-orm";
 import { getStorage, persistFile, storageBackend, type FileKind, type FileOwner } from "../lib/storage";
 import { buildErrorDetail } from "../lib/error-detail";
 
@@ -23,6 +24,14 @@ const upload = multer({
 
 const VALID_KINDS: FileKind[] = ["image", "document", "audio", "build-app", "code"];
 const VALID_OWNERS: FileOwner[] = ["user", "jarvis", "account"];
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function cleanText(value: unknown, max: number): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
 
 router.post("/", upload.single("file"), async (req, res) => {
   const startMs = Date.now();
@@ -41,6 +50,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     const ownerRaw = String(req.body?.owner ?? "user").trim();
     const owner = (VALID_OWNERS as string[]).includes(ownerRaw) ? (ownerRaw as FileOwner) : "user";
     const conversationId = String(req.body?.conversationId ?? "").trim() || undefined;
+    const projectId = cleanText(req.body?.projectId, 80) || undefined;
 
     const result = await persistFile({
       data: req.file.buffer,
@@ -54,6 +64,21 @@ router.post("/", upload.single("file"), async (req, res) => {
       res.status(500).json({ error: "Failed to store file" });
       return;
     }
+
+    if (projectId && result.fileId) {
+      const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId));
+      if (project) {
+        await db.insert(projectFiles).values({
+          projectId: project.id,
+          fileId: result.fileId,
+          name: req.file.originalname || "file",
+        }).catch(() => undefined);
+      }
+    }
+
     req.log.info({ key: result.key, bytes: req.file.size, backend: storageBackend() }, "File stored");
     res.status(201).json({ file: result });
   } catch (err) {
@@ -66,11 +91,15 @@ router.post("/", upload.single("file"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const conversationId = String(req.query?.conversation_id ?? "").trim() || undefined;
-    const where = conversationId ? and(eq(files.conversationId, conversationId)) : undefined;
+    const q = cleanText(req.query.q, 120);
+    const conditions = [];
+    if (conversationId) conditions.push(eq(files.conversationId, conversationId));
+    if (q) conditions.push(ilike(files.name, `%${escapeLike(q)}%`));
+    const where = conditions.length > 1 ? and(...conditions) : conditions[0] ?? undefined;
     const rows = await filesDb
       .select()
       .from(files)
-      .where(where ?? undefined)
+      .where(where)
       .orderBy(desc(files.createdAt))
       .limit(200);
     res.json({
@@ -93,9 +122,75 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.patch("/:id", async (req, res) => {
+  const id = cleanText(req.params.id, 80);
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  const name = cleanText(req.body?.name, 255);
+  if (!name) {
+    res.status(400).json({ error: "name cannot be empty" });
+    return;
+  }
+  try {
+    const [updated] = await filesDb
+      .update(files)
+      .set({ name })
+      .where(eq(files.id, id))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    res.json({
+      id: updated.id,
+      name: updated.name,
+      kind: updated.kind,
+      mime: updated.mime,
+      size: updated.size,
+      conversationId: updated.conversationId,
+      owner: updated.owner,
+      bucket: updated.bucket,
+      createdAt: updated.createdAt,
+      url: `/api/files/${encodeURIComponent(updated.storageKey)}`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "File rename failed");
+    res.status(500).json({ error: "File rename failed" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  const id = cleanText(req.params.id, 80);
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  try {
+    const [row] = await filesDb
+      .select()
+      .from(files)
+      .where(eq(files.id, id))
+      .limit(1);
+    if (!row) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    await filesDb.delete(files).where(eq(files.id, id)).catch(() => undefined);
+    await getStorage().remove(row.storageKey).catch(() => undefined);
+    await db.delete(projectFiles).where(eq(projectFiles.fileId, id)).catch(() => undefined);
+    res.json({ ok: true, id });
+  } catch (err) {
+    req.log.error({ err }, "File delete failed");
+    res.status(500).json({ error: "File delete failed" });
+  }
+});
+
 router.get("/:key", async (req, res) => {
   try {
     const key = decodeURIComponent(req.params.key ?? "");
+    const download = String(req.query?.download ?? "").trim() === "1";
     if (!key) {
       res.status(400).json({ error: "key is required" });
       return;
@@ -123,7 +218,8 @@ router.get("/:key", async (req, res) => {
     res.setHeader("Content-Type", contentType ?? "application/octet-stream");
     res.setHeader("Content-Length", String(blob.data.length));
     if (row?.name) {
-      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(row.name)}"`);
+      const disposition = download ? "attachment" : "inline";
+      res.setHeader("Content-Disposition", `${disposition}; filename="${encodeURIComponent(row.name)}"`);
     }
     res.send(blob.data);
   } catch (err) {

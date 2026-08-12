@@ -14,6 +14,7 @@ import {
   projects,
   shareLinks,
 } from "@workspace/db";
+import { filesDb, files } from "@workspace/db";
 
 const router = Router();
 
@@ -192,7 +193,7 @@ router.get("/projects/:id/home", async (req, res) => {
       return;
     }
 
-    const [conversationCountRows, conversationLatest, fileCountRows, fileLatest, memoryCountRows, memoryLatest] = await Promise.all([
+    const [conversationCountRows, conversationLatest, fileCountRows, fileRows, memoryCountRows, memoryLatest] = await Promise.all([
       db
         .select({ count: sql<number>`count(*)` })
         .from(projectChats)
@@ -216,6 +217,7 @@ router.get("/projects/:id/home", async (req, res) => {
       db
         .select({
           id: projectFiles.id,
+          projectId: projectFiles.projectId,
           fileId: projectFiles.fileId,
           name: projectFiles.name,
           createdAt: projectFiles.createdAt,
@@ -243,8 +245,33 @@ router.get("/projects/:id/home", async (req, res) => {
         .limit(5),
     ]);
 
+    const fileIds = fileRows.map((r) => r.fileId);
+    const fileMetadata = fileIds.length > 0
+      ? await filesDb
+          .select()
+          .from(files)
+          .where(sql`${files.id} = ANY(${fileIds})`)
+      : [];
+    const metadataById = new Map(fileMetadata.map((f) => [f.id, f]));
+
+    const fileLatest = fileRows.map((r) => {
+      const meta = metadataById.get(r.fileId);
+      return {
+        id: r.fileId,
+        projectFileId: r.id,
+        name: r.name || meta?.name || "file",
+        kind: meta?.kind,
+        mime: meta?.mime,
+        size: meta?.size,
+        owner: meta?.owner,
+        bucket: meta?.bucket,
+        createdAt: r.createdAt || meta?.createdAt,
+        url: meta ? `/api/files/${encodeURIComponent(meta.storageKey)}` : null,
+      };
+    });
+
     // Phase I/M will add first-class research, task, and activity tables. Until
-    // tables. Until those phases land, derive a useful activity feed from the
+    // those phases land, derive a useful activity feed from the
     // project and the relationships that already exist.
     const recentActivity = [
       {
@@ -494,6 +521,60 @@ router.delete("/projects/:id/pin", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to unpin project");
     res.status(500).json({ error: "Failed to unpin project" });
+  }
+});
+
+router.get("/projects/:id/files", async (req, res) => {
+  const projectId = cleanText(req.params.id, 80);
+  try {
+    const project = await findProject(projectId);
+    if (!project) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        id: projectFiles.id,
+        projectId: projectFiles.projectId,
+        fileId: projectFiles.fileId,
+        name: projectFiles.name,
+        createdAt: projectFiles.createdAt,
+      })
+      .from(projectFiles)
+      .where(eq(projectFiles.projectId, project.id))
+      .orderBy(desc(projectFiles.createdAt));
+
+    const fileIds = rows.map((r) => r.fileId);
+    const fileMetadata = fileIds.length > 0
+      ? await filesDb
+          .select()
+          .from(files)
+          .where(sql`${files.id} = ANY(${fileIds})`)
+      : [];
+
+    const metadataById = new Map(fileMetadata.map((f) => [f.id, f]));
+
+    res.json({
+      files: rows.map((r) => {
+        const meta = metadataById.get(r.fileId);
+        return {
+          id: r.fileId,
+          projectFileId: r.id,
+          name: r.name || meta?.name || "file",
+          kind: meta?.kind,
+          mime: meta?.mime,
+          size: meta?.size,
+          owner: meta?.owner,
+          bucket: meta?.bucket,
+          createdAt: r.createdAt || meta?.createdAt,
+          url: meta ? `/api/files/${encodeURIComponent(meta.storageKey)}` : null,
+        };
+      }),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to load project files");
+    res.status(500).json({ error: "Failed to load project files" });
   }
 });
 

@@ -701,6 +701,29 @@ const en = {
   "projectMemory.source.agent": "Agent",
   "projectMemory.source.manual": "Manual",
 
+  /* Project files */
+  "projectFiles.back": "Back to project",
+  "projectFiles.eyebrow": "Project files",
+  "projectFiles.title": "Files in this project",
+  "projectFiles.description": "Reference material, assets, and documents that belong to this workspace.",
+  "projectFiles.searchPlaceholder": "Search project files…",
+  "projectFiles.clearSearch": "Clear file search",
+  "projectFiles.upload": "Upload file",
+  "projectFiles.loadError": "Project files could not be loaded.",
+  "projectFiles.retry": "Try again",
+  "projectFiles.loading": "Loading project files…",
+  "projectFiles.fileCount": "{n} files",
+  "projectFiles.noResults": "No matching files",
+  "projectFiles.noResultsDescription": "Try a different search term or upload a new file.",
+  "projectFiles.emptyTitle": "No files yet",
+  "projectFiles.emptyDescription": "Upload the first file to give this project reference material. Files can be images, documents, code, or audio.",
+  "projectFiles.download": "Download",
+  "projectFiles.rename": "Rename",
+  "projectFiles.delete": "Delete",
+  "projectFiles.deleteConfirm": "Delete this file from the project?",
+  "projectFiles.cancel": "Cancel",
+  "projectFiles.save": "Save",
+
   /* Project instructions */
   "projectInstructions.back": "Back to project",
   "projectInstructions.eyebrow": "Project instructions",
@@ -789,6 +812,30 @@ const projectMemoryNl = {
   "projectMemory.source.manual": "Handmatig",
 } as const;
 
+const projectFilesNl = {
+  "projectFiles.back": "Terug naar project",
+  "projectFiles.eyebrow": "Projectbestanden",
+  "projectFiles.title": "Bestanden in dit project",
+  "projectFiles.description": "Referentiemateriaal, assets en documenten die bij deze werkruimte horen.",
+  "projectFiles.searchPlaceholder": "Projectbestanden zoeken…",
+  "projectFiles.clearSearch": "Bestandszoekopdracht wissen",
+  "projectFiles.upload": "Bestand uploaden",
+  "projectFiles.loadError": "Projectbestanden konden niet worden geladen.",
+  "projectFiles.retry": "Opnieuw proberen",
+  "projectFiles.loading": "Projectbestanden laden…",
+  "projectFiles.fileCount": "{n} bestanden",
+  "projectFiles.noResults": "Geen passende bestanden",
+  "projectFiles.noResultsDescription": "Probeer een andere zoekterm of upload een nieuw bestand.",
+  "projectFiles.emptyTitle": "Nog geen bestanden",
+  "projectFiles.emptyDescription": "Upload het eerste bestand om dit project referentiemateriaal te geven. Bestanden kunnen afbeeldingen, documenten, code of audio zijn.",
+  "projectFiles.download": "Downloaden",
+  "projectFiles.rename": "Hernoemen",
+  "projectFiles.delete": "Verwijderen",
+  "projectFiles.deleteConfirm": "Dit bestand uit het project verwijderen?",
+  "projectFiles.cancel": "Annuleren",
+  "projectFiles.save": "Opslaan",
+} as const;
+
 const projectInstructionsNl = {
   "projectInstructions.back": "Terug naar project",
   "projectInstructions.eyebrow": "Projectinstructies",
@@ -853,6 +900,7 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.questionsFailed": "De optionele vragen konden niet worden voorbereid. Je kunt het verzoek opnieuw proberen.",
   ...projectMemoryNl,
   ...projectInstructionsNl,
+  ...projectFilesNl,
   /* Header */
   "header.title": "Jarvis",
   "header.search": "Zoeken",

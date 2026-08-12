@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { fileTypeFromBuffer } from "file-type";
 import { extractRawText } from "mammoth";
 import { PDFParse } from "pdf-parse";
+import { randomUUID } from "node:crypto";
 import { jarvisConfig } from "../../config/jarvis";
 import {
   db,
@@ -11,17 +12,14 @@ import {
   jarvisSettings,
   userMemories,
   projectMemories,
-  projectInstructions,
   spotifyTokens,
   gmailTokens,
-  projectChats,
-  projects,
 } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import {
-  buildRelevantProjectMemoryContext,
   canonicalProjectMemoryKey,
 } from "../../lib/project-memory";
+import { buildFullProjectContext } from "../../lib/project-context";
 import { buildLiveContext } from "../../lib/live-context";
 import { detectAndBuildWidget } from "../../lib/widget-detector";
 import { classifyCapabilityIntent } from "../../lib/capability-intent";
@@ -462,18 +460,22 @@ async function getConnectedCapabilities(settings: Record<string, string>): Promi
 }
 
 // The existing chat tail calls the global extractor. Queue the scoped context
-// by the sanitized message so that legacy callers still route project turns
-// into project memory without changing global-memory behavior.
+// keyed by a per-request UUID (generated at request start), never by the
+// message text — keying on message body let two identical messages sent in
+// different projects corrupt each other's extraction target.
 const pendingProjectContexts = new Map<string, ProjectContext[]>();
 
 /** Extract memorable facts from the user's message and upsert them into memory */
 async function extractAndStoreMemories(
+  requestId: string,
   userMessage: string,
   assistantResponse: string,
 ): Promise<void> {
-  const queuedProjectContexts = pendingProjectContexts.get(userMessage);
+  const queuedProjectContexts = pendingProjectContexts.get(requestId);
   const queuedProjectContext = queuedProjectContexts?.shift();
-  if (queuedProjectContexts?.length === 0) pendingProjectContexts.delete(userMessage);
+  if (queuedProjectContexts && queuedProjectContexts.length === 0) {
+    pendingProjectContexts.delete(requestId);
+  }
   if (queuedProjectContext) {
     await extractAndStoreProjectMemories(
       queuedProjectContext.projectId,
@@ -642,81 +644,25 @@ type ProjectContext = {
   prompt: string;
 };
 
-/** Build a project identity/instructions/memory block for one conversation. */
+/** Build a project context block for one conversation using the Phase L pipeline. */
 async function buildProjectContext(
   conversationId: string,
   userMessage: string,
+  requestId: string,
   queueForExtraction: boolean,
 ): Promise<ProjectContext | null> {
-  const [project] = await db
-    .select({
-      projectId: projects.id,
-      name: projects.name,
-      description: projects.description,
-      instructions: projects.instructions,
-      conversationTitle: conversations.title,
-    })
-    .from(projectChats)
-    .innerJoin(projects, eq(projectChats.projectId, projects.id))
-    .innerJoin(conversations, eq(projectChats.conversationId, conversations.id))
-    .where(eq(projectChats.conversationId, conversationId))
-    .limit(1);
+  const context = await buildFullProjectContext(conversationId, userMessage);
 
-  if (!project) return null;
-
-  const newline = String.fromCharCode(10);
-  let instructions = project.instructions?.trim() ?? "";
-  try {
-    const instructionRows = await db
-      .select({ text: projectInstructions.text })
-      .from(projectInstructions)
-      .where(eq(projectInstructions.projectId, project.projectId))
-      .orderBy(asc(projectInstructions.sortOrder), asc(projectInstructions.createdAt));
-    const dedicatedInstructions = instructionRows.map((row) => row.text.trim()).filter(Boolean);
-    if (dedicatedInstructions.length > 0) instructions = dedicatedInstructions.join(newline);
-  } catch {
-    // Keep legacy project instructions available if the new table is not ready.
-  }
-
-  const identity = project.description?.trim()
-    ? `You are working inside the Jarvis project '${project.name}'. Project description: ${project.description.trim()}`
-    : `You are working inside the Jarvis project '${project.name}'.`;
-  const parts = ['## PROJECT CONTEXT' + newline + identity];
-  if (instructions) {
-    parts.push(
-      '## PROJECT INSTRUCTIONS' + newline +
-        'These are explicit rules for this project. Follow them whenever they apply:' + newline +
-        instructions,
-    );
-  }
-
-  // Retrieval is scoped by projectId in the helper. If the new table is still
-  // being created during the first server boot, keep chat available and let
-  // the next request pick up project memory.
-  try {
-    const memoryContext = await buildRelevantProjectMemoryContext(project.projectId, userMessage);
-    if (memoryContext) parts.push(memoryContext);
-  } catch {
-    // Project memory is additive context, not a reason to fail a chat request.
-  }
-
-  const context: ProjectContext = {
-    projectId: project.projectId,
-    projectName: project.name,
-    conversationTitle: project.conversationTitle,
-    prompt: parts.join(newline + newline),
-  };
-
-  if (queueForExtraction) {
-    const queue = pendingProjectContexts.get(userMessage) ?? [];
+  if (context && queueForExtraction) {
+    const queue = pendingProjectContexts.get(requestId) ?? [];
     queue.push(context);
-    pendingProjectContexts.set(userMessage, queue);
+    pendingProjectContexts.set(requestId, queue);
     const cleanup = setTimeout(() => {
-      const current = pendingProjectContexts.get(userMessage);
+      const current = pendingProjectContexts.get(requestId);
       if (!current) return;
       const index = current.indexOf(context);
       if (index >= 0) current.splice(index, 1);
-      if (current.length === 0) pendingProjectContexts.delete(userMessage);
+      if (current.length === 0) pendingProjectContexts.delete(requestId);
     }, 120_000);
     cleanup.unref?.();
   }
@@ -873,6 +819,10 @@ async function extractFileText(
 
 router.post("/chat", async (req, res) => {
   const startMs = Date.now();
+  // Per-request UUID used to key the project-memory extraction queue.
+  // Never use the message text as a key — identical messages in different
+  // projects would cross-contaminate the extraction target.
+  const requestId = randomUUID();
   const {
     userMessage,
     conversationId,
@@ -947,7 +897,7 @@ router.post("/chat", async (req, res) => {
       buildMemoryContext(),
       // Gem conversations carry their own system prompt (created by deep research)
       db.select().from(conversations).where(eq(conversations.id, convId)).then(rows => rows[0] ?? null),
-      buildProjectContext(convId, sanitizedMessage, agentMode !== "true"),
+      buildProjectContext(convId, sanitizedMessage, requestId, agentMode !== "true"),
     ]);
 
     const calendarEntries = [1, 2, 3, 4, 5]
@@ -1532,7 +1482,7 @@ router.post("/chat", async (req, res) => {
     // Fire-and-forget: extract memorable facts from this exchange. Normal chats
     // only, agent mode is isolated from the memory system entirely (it neither
     // reads nor writes memories).
-    if (agentMode !== "true") extractAndStoreMemories(sanitizedMessage, response).catch(() => {});
+    if (agentMode !== "true") extractAndStoreMemories(requestId, sanitizedMessage, response).catch(() => {});
   } catch (err) {
     req.log.error({ err }, "LLM chat request failed");
     let msg = "Chat request failed. Please try again.";

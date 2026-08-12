@@ -7,18 +7,19 @@
 LAST_UPDATED: 2026-08-12
 
 ## Just did (last action)
-- Finished the chat-shell cleanup round: verified the previous composer/feed/sidebar/toolbar work (typecheck + diff clean) and removed the last hardcoded colors (user bubble, header action buttons, voice/camera back buttons, settings avatar badge) so every surface uses the theme tokens.
+- Implemented Phase L (AI Context Pipeline): created `lib/project-context.ts` assembling all six scoped sources (identity, instructions, memory, files, history, research) into the PROJECT CONTEXT block; refactored `chat.ts` `buildProjectContext` to delegate to it; fixed Phase I rename bug (was keying on join id instead of files.id); typecheck + build pass for both packages.
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup is implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors were converted to theme tokens (user bubble, header actions, voice/camera back buttons, settings avatar badge).
 - **Build Studio progress work:** complete. The transcript is portaled out of the notice content, screenshot requests settle safely, accepted plans leave plan mode immediately, plan requests preserve earlier updates, pipeline terminal states remain visible, progress messages avoid nested state updates, and dismissed questions cannot strand the run.
 - **Continuity system:** `CLAUDE.md` routine + `KNOWLEDGE.md` (how it works) + `session-brief.md` (live state) replace the old 3 logs (archived in `archive/`). `source-code.ts` blocks KNOWLEDGE/session-brief from Jarvis-the-app's source reading.
-- **Projects System:** 32-step user brief "persistent workspaces with isolated project memory". Steps 1–20 remain planned in `docs/projects-system-plan.md`, with **Phases B–H implemented** (including ordered Project Instructions and first-class Projects navigation). Phases I–O remain planned. Awaiting steps 21–32.
+- **Projects System:** 32-step user brief "persistent workspaces with isolated project memory". Steps 1–20 remain planned in `docs/projects-system-plan.md`, with **Phases B–H + I (project files) + L (AI Context Pipeline) implemented**. Phases J–O remain planned. Awaiting steps 21–32.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Pending: one live end-to-end run (needs server `.env`).
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-12 Phase L (AI Context Pipeline) implemented: `lib/project-context.ts` assembles six scoped sources (identity, instructions, memory, files w/ text excerpt, history from other project chats, research runs) into the PROJECT CONTEXT block; `chat.ts` `buildProjectContext` now delegates to it; all queries strictly filtered by projectId. Phase I rename bug fixed (keyed on files.id, not join id). typecheck + build pass for both packages.
 - 2026-08-12 Chat-shell hardcoded-color cleanup verified: `pnpm run typecheck` and `git diff --check` pass; user bubble, header actions (GroupSettings/ConversationActions), voice/camera back buttons, and the settings avatar badge now use theme tokens instead of hardcoded light/dark hexes.
 - 2026-08-12 Jarvis composer cleanup: the input now uses a centered max-width surface with neutral theme tokens instead of competing hardcoded light/dark pill styles.
 - 2026-08-12 Jarvis conversation-feed cleanup: assistant content now sits in a bounded reading column, user bubbles have a readable maximum width, and feed spacing is less cramped.
