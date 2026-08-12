@@ -123,3 +123,15 @@
 - Live LLM/Neon DB/web-push paths NOT exercised — no .env in repo (gitignored); runs in production.
 - Updated .session_state.md (10 steps done, 1 pending live-run), whats_next.md.
 - Also committing user's newly added Books/gone.en.nl.pdf sample (Books/ approved for tracking).
+
+## 2026-08-12 - Projects System: plan doc for steps 1-10 (no implementation)
+- User gave steps 1-10 of a 32-step "Jarvis Projects: Persistent Workspaces with Isolated Project Memory" brief.
+- Request: summarize + plan build phases in a .md first (NOT plan mode, NOT build yet). Steps 11-20 and 21-32 to follow.
+- Inspected repo to ground the plan: existing projects.ts schema (ChatGPT-style folder: projects/projectChats/projectFiles/pins),
+  routes/jarvis/projects.ts CRUD, project-gallery.tsx in chat-sidebar, global userMemories schema + memories.ts routes,
+  LLM auto-extraction (~chat.ts L448) + memory block injection (~chat.ts L504), researchJobs schema, Book Studio as full-feature pattern,
+  auto-migrate.ts idempotent pattern, en/nl i18n Records.
+- Wrote docs/projects-system-plan.md: repo grounding, full step 1-10 requirement capture, build phases A-H
+  (A data model/migration, B first-class CRUD, C project home, D scoped conversations + context injection,
+  E project memory system w/ relevant retrieval + extraction, F memory UI, G instructions, H first-class nav),
+  verification per phase, open questions/deferrals.

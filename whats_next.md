@@ -1,6 +1,19 @@
 # What's Next
 
-## Current session (2026-08-12) — CLAUDE.md cleanup
+## Current session (2026-08-12) — Projects System: plan doc (steps 1–10 of 32)
+
+**User message:** 32-step brief "Build Jarvis Projects: Persistent Workspaces With Isolated Project Memory." Asked me to **summarize + plan build phases for steps 1–10 in a .md first** (explicitly NOT plan mode, NOT a build). Steps 11–20 and 21–32 will be handed over next.
+
+**What I did:**
+- Grounded the plan in the repo: existing ChatGPT-style `projects`/`projectChats`/`projectFiles`/`pins` schema + `routes/jarvis/projects.ts` + `project-gallery.tsx`; global `userMemories` + `memories.ts` routes; LLM auto-extraction (~chat.ts L448) + memory-block injection (~chat.ts L504); `researchJobs`; Book Studio as the full-feature pattern; idempotent `auto-migrate.ts`.
+- Wrote **`docs/projects-system-plan.md`** — full step 1–10 requirement capture (no details skipped) + build phases A–H (data model, first-class CRUD, project home, scoped conversations + context injection, project memory w/ relevant retrieval + extraction, memory UI, instructions, first-class nav) + per-phase verification + open questions.
+- Committed + pushed (plan only, no code changed).
+
+**Next:** user hands over steps 11–20 → extend the plan doc (re-cut phases if needed). Implementation only after the full brief is planned.
+
+---
+
+## Previous session (2026-08-12) — CLAUDE.md cleanup
 
 **User message:** "remove everything about a chromebook, about auto resume, the entirety of line 37 and 36"
 
