@@ -1,12 +1,18 @@
-import type { ChangeEvent, ClipboardEvent, DragEvent, RefObject } from 'react';
-import type { Widget, AttachedFile } from '@/types/widget';
-import type { ServerTimer } from '@/hooks/use-timer-orchestration';
-import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget } from '@/components/widgets';
-import { ConversationFeed, ChatMessage } from '@/components/conversation-feed';
-import { TimerStrip } from '@/components/timer-strip';
-import type { PlusAction } from '@/components/plus-menu';
-import { ChatComposer } from '@/components/home/chat-composer';
-import type { AppState } from '@/components/orb';
+import type { ChangeEvent, ClipboardEvent, DragEvent, RefObject } from "react";
+import type { Widget, AttachedFile } from "@/types/widget";
+import type { ServerTimer } from "@/hooks/use-timer-orchestration";
+import {
+  ClockWidget,
+  WeatherWidget,
+  TimerWidget,
+  AlarmWidget,
+  CalendarWidget,
+} from "@/components/widgets";
+import { ConversationFeed, ChatMessage } from "@/components/conversation-feed";
+import { TimerStrip } from "@/components/timer-strip";
+import type { PlusAction } from "@/components/plus-menu";
+import { ChatComposer } from "@/components/home/chat-composer";
+import type { AppState } from "@/components/orb";
 
 export interface ChatModeViewProps {
   activeTimers: ServerTimer[];
@@ -135,10 +141,9 @@ export function ChatModeView(props: ChatModeViewProps) {
   } = props;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="ios-chat-shell flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Chat area */}
-      <div className="flex-1 flex flex-col h-full min-h-0 bg-card/5">
-
+      <div className="relative flex-1 flex flex-col h-full min-h-0 overflow-hidden">
         {/* Durable server-side timers, survive reloads, fire even with the tab closed */}
         <TimerStrip
           timers={activeTimers}
@@ -150,11 +155,21 @@ export function ChatModeView(props: ChatModeViewProps) {
         {/* Mobile-only widget strip (orb panel is hidden on mobile) */}
         {activeWidget && (
           <div className="lg:hidden flex-shrink-0 px-3 pt-2 pb-1 border-b border-border/20">
-            {activeWidget.type === 'timer'    && <TimerWidget {...activeWidget} compact onClose={onCloseWidget} />}
-            {activeWidget.type === 'alarm'    && <AlarmWidget {...activeWidget} compact onClose={onCloseWidget} />}
-            {activeWidget.type === 'clock'    && <ClockWidget {...activeWidget} onClose={onCloseWidget} />}
-            {activeWidget.type === 'weather'  && <WeatherWidget {...activeWidget} onClose={onCloseWidget} />}
-            {activeWidget.type === 'calendar' && <CalendarWidget {...activeWidget} onClose={onCloseWidget} />}
+            {activeWidget.type === "timer" && (
+              <TimerWidget {...activeWidget} compact onClose={onCloseWidget} />
+            )}
+            {activeWidget.type === "alarm" && (
+              <AlarmWidget {...activeWidget} compact onClose={onCloseWidget} />
+            )}
+            {activeWidget.type === "clock" && (
+              <ClockWidget {...activeWidget} onClose={onCloseWidget} />
+            )}
+            {activeWidget.type === "weather" && (
+              <WeatherWidget {...activeWidget} onClose={onCloseWidget} />
+            )}
+            {activeWidget.type === "calendar" && (
+              <CalendarWidget {...activeWidget} onClose={onCloseWidget} />
+            )}
           </div>
         )}
 

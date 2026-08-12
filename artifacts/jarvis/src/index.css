@@ -1,25 +1,121 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
 /* ── SF Pro — self-hosted (Display + Rounded, woff2 subsets) ───── */
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 100; font-display: swap; src: url('/fonts/SFProDisplay-Thin.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 200; font-display: swap; src: url('/fonts/SFProDisplay-Ultralight.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 300; font-display: swap; src: url('/fonts/SFProDisplay-Light.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/SFProDisplay-Regular.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/SFProDisplay-Medium.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/SFProDisplay-Semibold.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/SFProDisplay-Bold.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/SFProDisplay-Heavy.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Display'; font-style: normal; font-weight: 900; font-display: swap; src: url('/fonts/SFProDisplay-Black.woff2') format('woff2'); }
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Thin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Ultralight.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Light.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Semibold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Heavy.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Display";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/SFProDisplay-Black.woff2") format("woff2");
+}
 
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 100; font-display: swap; src: url('/fonts/SFProRounded-Thin.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 200; font-display: swap; src: url('/fonts/SFProRounded-Ultralight.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 300; font-display: swap; src: url('/fonts/SFProRounded-Light.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/SFProRounded-Regular.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/SFProRounded-Medium.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/SFProRounded-Semibold.woff2') format('woff2'); }
-@font-face { font-family: 'SF Pro Rounded'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/SFProRounded-Bold.woff2') format('woff2'); }
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Thin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Ultralight.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Light.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Semibold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SF Pro Rounded";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SFProRounded-Bold.woff2") format("woff2");
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -79,7 +175,8 @@
 }
 
 /* ── Apple-inspired Light theme (default) ────────── */
-:root, .light {
+:root,
+.light {
   --background: 0 0% 100%;
   --foreground: 0 0% 8%;
   --card: 0 0% 100%;
@@ -102,9 +199,13 @@
   --input: 0 0% 0% / 0.1;
   --ring: 211 100% 50% / 0.35;
 
-  --app-font-sans: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  --app-font-rounded: 'SF Pro Rounded', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --app-font-mono: 'SF Pro Display', 'SF Pro Rounded', ui-monospace, monospace;
+  --app-font-sans:
+    "SF Pro Display", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    system-ui, sans-serif;
+  --app-font-rounded:
+    "SF Pro Rounded", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
+  --app-font-mono: "SF Pro Display", "SF Pro Rounded", ui-monospace, monospace;
   --radius: 0.75rem;
 }
 
@@ -132,21 +233,31 @@
   --input: 0 0% 100% / 0.1;
   --ring: 211 100% 60% / 0.3;
 
-  --app-font-sans: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  --app-font-rounded: 'SF Pro Rounded', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --app-font-mono: 'SF Pro Display', 'SF Pro Rounded', ui-monospace, monospace;
+  --app-font-sans:
+    "SF Pro Display", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    system-ui, sans-serif;
+  --app-font-rounded:
+    "SF Pro Rounded", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
+  --app-font-mono: "SF Pro Display", "SF Pro Rounded", ui-monospace, monospace;
   --radius: 0.75rem;
 }
 
 /* ── Apple devices (iOS/macOS) → system SF Pro (no download needed, crispest) ── */
 .platform-apple {
-  --app-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
-  --app-font-rounded: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-  --app-font-mono: 'SF Pro Display', 'SF Pro Rounded', ui-monospace, monospace;
+  --app-font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", system-ui, sans-serif;
+  --app-font-rounded:
+    "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    system-ui, sans-serif;
+  --app-font-mono: "SF Pro Display", "SF Pro Rounded", ui-monospace, monospace;
 }
 
 @layer base {
-  * { @apply border-border; }
+  * {
+    @apply border-border;
+  }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
@@ -172,11 +283,14 @@
   /* Subtle noise texture for depth — a cheap static dot grid instead of a
      full-screen feTurbulence filter, which forced a constant GPU repaint. */
   body::before {
-    content: '';
+    content: "";
     position: fixed;
     inset: 0;
     opacity: 0.015;
-    background-image: radial-gradient(hsl(var(--foreground)) 1px, transparent 1px);
+    background-image: radial-gradient(
+      hsl(var(--foreground)) 1px,
+      transparent 1px
+    );
     background-size: 7px 7px;
     pointer-events: none;
     z-index: 9999;
@@ -231,10 +345,20 @@
 }
 
 /* Scrollbar — Apple-style thin */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(var(--foreground) / 0.15); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--foreground) / 0.3); }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground) / 0.3);
+}
 
 * {
   scrollbar-width: thin;
@@ -257,19 +381,27 @@
 
 /* Full-strength liquid glass — primary chrome (sidebars, sheets) */
 .liquid-glass {
-  background: linear-gradient(135deg, hsl(var(--card) / 0.72), hsl(var(--card) / 0.42));
+  background: linear-gradient(
+    135deg,
+    hsl(var(--card) / 0.72),
+    hsl(var(--card) / 0.42)
+  );
   backdrop-filter: blur(24px) saturate(170%);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   border: 0.5px solid hsl(var(--border));
   box-shadow:
-    inset 0 0.5px 0 hsl(0 0% 100% / 0.10),
+    inset 0 0.5px 0 hsl(0 0% 100% / 0.1),
     inset 0 -0.5px 0 hsl(0 0% 0% / 0.04),
     0 8px 24px hsl(0 0% 0% / 0.06);
 }
 
 /* Soft liquid glass — input bars, cards */
 .liquid-glass-soft {
-  background: linear-gradient(160deg, hsl(var(--card) / 0.55), hsl(var(--card) / 0.30));
+  background: linear-gradient(
+    160deg,
+    hsl(var(--card) / 0.55),
+    hsl(var(--card) / 0.3)
+  );
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   border: 0.5px solid hsl(var(--border));
@@ -280,7 +412,7 @@
 
 /* Ultra-thin material — overlay chrome */
 .liquid-glass-thin {
-  background: hsl(var(--card) / 0.30);
+  background: hsl(var(--card) / 0.3);
   backdrop-filter: blur(10px) saturate(130%);
   -webkit-backdrop-filter: blur(10px) saturate(130%);
   border: 0.5px solid hsl(var(--border));
@@ -291,27 +423,34 @@
   position: relative;
 }
 .specular::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 0 auto 0;
   height: 0.5px;
-  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.35), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(0 0% 100% / 0.35),
+    transparent
+  );
   pointer-events: none;
 }
 
 /* Fluid multi-color gradient (blue → magenta → green) */
 .gradient-fluid {
-  background: linear-gradient(120deg, #007AFF 0%, #AF52DE 45%, #34C759 100%);
+  background: linear-gradient(120deg, #007aff 0%, #af52de 45%, #34c759 100%);
 }
 .text-gradient-fluid {
-  background: linear-gradient(120deg, #007AFF 0%, #AF52DE 45%, #34C759 100%);
+  background: linear-gradient(120deg, #007aff 0%, #af52de 45%, #34c759 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 /* Capsule geometry */
-.capsule { border-radius: 9999px; }
+.capsule {
+  border-radius: 9999px;
+}
 
 /* Legacy glass helpers (kept for compatibility) */
 .glass {
@@ -334,24 +473,34 @@
 
 /* Apple-style shadow tokens */
 .shadow-apple-sm {
-  box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04), 0 1px 2px hsl(0 0% 0% / 0.06);
+  box-shadow:
+    0 1px 3px hsl(0 0% 0% / 0.04),
+    0 1px 2px hsl(0 0% 0% / 0.06);
 }
 
 .shadow-apple-md {
-  box-shadow: 0 4px 6px hsl(0 0% 0% / 0.04), 0 2px 4px hsl(0 0% 0% / 0.06);
+  box-shadow:
+    0 4px 6px hsl(0 0% 0% / 0.04),
+    0 2px 4px hsl(0 0% 0% / 0.06);
 }
 
 .shadow-apple-lg {
-  box-shadow: 0 10px 15px hsl(0 0% 0% / 0.05), 0 4px 6px hsl(0 0% 0% / 0.05);
+  box-shadow:
+    0 10px 15px hsl(0 0% 0% / 0.05),
+    0 4px 6px hsl(0 0% 0% / 0.05);
 }
 
 .shadow-apple-xl {
-  box-shadow: 0 20px 25px hsl(0 0% 0% / 0.06), 0 10px 10px hsl(0 0% 0% / 0.04);
+  box-shadow:
+    0 20px 25px hsl(0 0% 0% / 0.06),
+    0 10px 10px hsl(0 0% 0% / 0.04);
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -360,8 +509,12 @@
 
 /* Reduced transparency */
 @media (prefers-reduced-transparency: reduce) {
-  .liquid-glass, .liquid-glass-soft, .liquid-glass-thin,
-  .glass, .glass-dark, .glass-toolbar {
+  .liquid-glass,
+  .liquid-glass-soft,
+  .liquid-glass-thin,
+  .glass,
+  .glass-dark,
+  .glass-toolbar {
     background: hsl(var(--card));
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -381,4 +534,125 @@
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
   border-radius: var(--radius);
+}
+
+/* ChatGPT × iOS app shell polish */
+.ios-chat-shell {
+  background:
+    radial-gradient(
+      circle at 50% -12%,
+      hsl(var(--primary) / 0.1),
+      transparent 30rem
+    ),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.45));
+}
+
+.dark .ios-chat-shell {
+  background:
+    radial-gradient(
+      circle at 50% -18%,
+      hsl(var(--primary) / 0.18),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at 14% 24%,
+      hsl(270 90% 65% / 0.09),
+      transparent 24rem
+    ),
+    linear-gradient(180deg, hsl(var(--background)), hsl(0 0% 4%));
+}
+
+.ios-header {
+  border-bottom: 0.5px solid hsl(var(--border));
+  background: linear-gradient(
+    180deg,
+    hsl(var(--background) / 0.86),
+    hsl(var(--background) / 0.62)
+  );
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.ios-composer {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    hsl(var(--background) / 0.86) 34%,
+    hsl(var(--background) / 0.96)
+  );
+}
+
+.ios-composer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--border)),
+    transparent
+  );
+}
+
+.ios-composer-bar {
+  border: 0.5px solid hsl(var(--border));
+  border-radius: 1.75rem;
+  background: linear-gradient(
+    180deg,
+    hsl(var(--card) / 0.92),
+    hsl(var(--card) / 0.76)
+  );
+  box-shadow:
+    0 18px 48px hsl(0 0% 0% / 0.1),
+    0 2px 10px hsl(0 0% 0% / 0.05),
+    inset 0 1px 0 hsl(0 0% 100% / 0.18);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+}
+
+.dark .ios-composer-bar {
+  background: linear-gradient(
+    180deg,
+    hsl(0 0% 15% / 0.9),
+    hsl(0 0% 10% / 0.84)
+  );
+  box-shadow:
+    0 18px 54px hsl(0 0% 0% / 0.45),
+    inset 0 1px 0 hsl(0 0% 100% / 0.08);
+}
+
+.ios-tool-button {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.ios-tool-button:hover {
+  transform: translateY(-1px);
+}
+
+.ios-voice-button {
+  box-shadow:
+    0 10px 24px hsl(0 0% 0% / 0.18),
+    inset 0 1px 0 hsl(0 0% 100% / 0.18);
+}
+
+.ios-prompt-card {
+  background-image: linear-gradient(
+    180deg,
+    hsl(var(--card) / 0.82),
+    hsl(var(--card) / 0.56)
+  );
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.12),
+    0 10px 24px hsl(0 0% 0% / 0.04);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+.ios-prompt-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.16),
+    0 16px 30px hsl(0 0% 0% / 0.07);
 }

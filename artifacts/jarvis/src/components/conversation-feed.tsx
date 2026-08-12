@@ -1,39 +1,86 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { FileText, Copy, Check, CheckCircle2, Circle, RotateCcw, Pencil, X, Send, Search, Timer, ChevronDown, Image, Eye, EyeOff, Sun, Lightbulb, Loader2, Wand2, BrainCircuit } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
-import { haptics } from '@/lib/haptics';
-import type { Widget, VerifyClaim, TerminalResult } from '@/types/widget';
-import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, ImageResultsWidget, DateWidget, CalculatorWidget, DefineWidget, UnitConverterWidget, CurrencyWidget, MapWidget, RandomWidget, MusicWidget } from '@/components/widgets';
-import type { FileEdit } from '@/types/widget';
-import { FigmaWidget, type FigmaTokenCard } from '@/components/widgets';
-import { CommandCard } from '@/components/widgets/CommandCard';
-import { FileEditCard } from '@/components/widgets/FileEditCard';
-import { ImageConfirmationCard, ImageGeneratingCard, ScreenShareConfirmationCard, AgentBrowserConfirmationCard, SourceCodeConfirmationCard, BuildModeConfirmationCard } from '@/components/image-confirmation-card';
+import { useEffect, useRef, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  FileText,
+  Copy,
+  Check,
+  CheckCircle2,
+  Circle,
+  RotateCcw,
+  Pencil,
+  X,
+  Send,
+  Search,
+  Timer,
+  ChevronDown,
+  Image,
+  Eye,
+  EyeOff,
+  Sun,
+  Lightbulb,
+  Loader2,
+  Wand2,
+  BrainCircuit,
+} from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+import { haptics } from "@/lib/haptics";
+import type { Widget, VerifyClaim, TerminalResult } from "@/types/widget";
+import {
+  ClockWidget,
+  WeatherWidget,
+  TimerWidget,
+  AlarmWidget,
+  CalendarWidget,
+  ImageResultsWidget,
+  DateWidget,
+  CalculatorWidget,
+  DefineWidget,
+  UnitConverterWidget,
+  CurrencyWidget,
+  MapWidget,
+  RandomWidget,
+  MusicWidget,
+} from "@/components/widgets";
+import type { FileEdit } from "@/types/widget";
+import { FigmaWidget, type FigmaTokenCard } from "@/components/widgets";
+import { CommandCard } from "@/components/widgets/CommandCard";
+import { FileEditCard } from "@/components/widgets/FileEditCard";
+import {
+  ImageConfirmationCard,
+  ImageGeneratingCard,
+  ScreenShareConfirmationCard,
+  AgentBrowserConfirmationCard,
+  SourceCodeConfirmationCard,
+  BuildModeConfirmationCard,
+} from "@/components/image-confirmation-card";
 
 export interface ChatMessage {
   /** Stable client-side id, avoids duplicate-key warnings during stream updates. */
   id?: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   file?: { preview?: string; fileName?: string };
   widget?: Widget;
   timestamp?: number; // epoch ms
   image?: string; // base64 data URL of a generated image
-  pendingImage?: { // image confirmation prompt waiting for user response
+  pendingImage?: {
+    // image confirmation prompt waiting for user response
     imagePrompt: string;
     confirmationMessage: string;
   };
   pendingScreenShare?: boolean; // screen share confirmation
-  pendingAgentBrowser?: { // agent browser prompt waiting for user query
+  pendingAgentBrowser?: {
+    // agent browser prompt waiting for user query
     confirmationMessage: string;
   };
-  pendingSourceCode?: { // "Use code for this answer?" confirmation
+  pendingSourceCode?: {
+    // "Use code for this answer?" confirmation
     userText: string;
   };
-  pendingBuildMode?: { // "Open Jarvis Build?" confirmation
+  pendingBuildMode?: {
+    // "Open Jarvis Build?" confirmation
     userText: string;
   };
   /** Thinking mode, private reasoning chain shown in a collapsible block. */
@@ -73,27 +120,38 @@ interface ConversationFeedProps {
 /** Collapsible "Thinking" block, shows Jarvis's private reasoning pass.
  *  Collapsed: a quiet row with a right-pointing chevron. Expanded: the chevron
  *  turns downward (⌄) and the reasoning text slides open. */
-function ThinkingBlock({ reasoning, label }: { reasoning: string; label: string }) {
+function ThinkingBlock({
+  reasoning,
+  label,
+}: {
+  reasoning: string;
+  label: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-border/40 bg-muted/25 overflow-hidden">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/40 active:bg-muted/50"
       >
-        <BrainCircuit className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0" strokeWidth={2} />
-        <span className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">{label}</span>
+        <BrainCircuit
+          className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0"
+          strokeWidth={2}
+        />
+        <span className="text-[11px] font-medium text-muted-foreground tracking-wide flex-1">
+          {label}
+        </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-muted-foreground/50 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+          className={`w-3.5 h-3.5 text-muted-foreground/50 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
         />
       </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
           >
             <div className="px-3 pt-2 pb-3 text-xs leading-relaxed text-muted-foreground/80 whitespace-pre-wrap border-t border-border/25">
               {reasoning}
@@ -120,44 +178,98 @@ function TypingIndicator() {
           <motion.span
             key={i}
             className="w-[3px] rounded-full bg-foreground/35"
-              animate={{ height: [6, 18, 6], opacity: [0.4, 0.9, 0.4] }}
-              transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.1, ease: 'easeInOut' }}
-            />
-          ))}
-        </div>
+            animate={{ height: [6, 18, 6], opacity: [0.4, 0.9, 0.4] }}
+            transition={{
+              duration: 0.7,
+              repeat: Infinity,
+              delay: i * 0.1,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
     </motion.div>
   );
 }
 
 function InlineWidget({ widget }: { widget: Widget }) {
   switch (widget.type) {
-    case 'clock':
+    case "clock":
       return <ClockWidget timezones={widget.timezones} />;
-    case 'weather':
+    case "weather":
       return <WeatherWidget {...widget} />;
-    case 'timer':
-      return <TimerWidget durationSeconds={widget.durationSeconds} label={widget.label} />;
-    case 'alarm':
+    case "timer":
+      return (
+        <TimerWidget
+          durationSeconds={widget.durationSeconds}
+          label={widget.label}
+        />
+      );
+    case "alarm":
       return <AlarmWidget time={widget.time} label={widget.label} />;
-    case 'calendar':
-      return <CalendarWidget events={widget.events} weekStart={widget.weekStart} />;
-    case 'images':
-      return <ImageResultsWidget query={widget.query} results={widget.results} />;
-    case 'date':
+    case "calendar":
+      return (
+        <CalendarWidget events={widget.events} weekStart={widget.weekStart} />
+      );
+    case "images":
+      return (
+        <ImageResultsWidget query={widget.query} results={widget.results} />
+      );
+    case "date":
       return <DateWidget />;
-    case 'calculator':
-      return <CalculatorWidget expression={widget.expression} result={widget.result} />;
-    case 'define':
-      return <DefineWidget word={widget.word} phonetic={widget.phonetic} meanings={widget.meanings} />;
-    case 'unit':
-      return <UnitConverterWidget value={widget.value} fromUnit={widget.fromUnit} toUnit={widget.toUnit} category={widget.category} label={widget.label} />;
-    case 'currency':
-      return <CurrencyWidget from={widget.from} to={widget.to} amount={widget.amount} rate={widget.rate} updated={widget.updated} />;
-    case 'map':
-      return <MapWidget query={widget.query} lat={widget.lat} lon={widget.lon} displayName={widget.displayName} />;
-    case 'random':
-      return <RandomWidget kind={widget.kind} value={widget.value} label={widget.label} />;
-    case 'music':
+    case "calculator":
+      return (
+        <CalculatorWidget
+          expression={widget.expression}
+          result={widget.result}
+        />
+      );
+    case "define":
+      return (
+        <DefineWidget
+          word={widget.word}
+          phonetic={widget.phonetic}
+          meanings={widget.meanings}
+        />
+      );
+    case "unit":
+      return (
+        <UnitConverterWidget
+          value={widget.value}
+          fromUnit={widget.fromUnit}
+          toUnit={widget.toUnit}
+          category={widget.category}
+          label={widget.label}
+        />
+      );
+    case "currency":
+      return (
+        <CurrencyWidget
+          from={widget.from}
+          to={widget.to}
+          amount={widget.amount}
+          rate={widget.rate}
+          updated={widget.updated}
+        />
+      );
+    case "map":
+      return (
+        <MapWidget
+          query={widget.query}
+          lat={widget.lat}
+          lon={widget.lon}
+          displayName={widget.displayName}
+        />
+      );
+    case "random":
+      return (
+        <RandomWidget
+          kind={widget.kind}
+          value={widget.value}
+          label={widget.label}
+        />
+      );
+    case "music":
       return <MusicWidget composition={widget.composition} />;
     default:
       return null;
@@ -174,7 +286,13 @@ function extractHtmlBlock(content: string): string | null {
   const html = match[1].trim();
   // Only treat it as an artifact when it clearly looks like a document/app,
   // not a one-line fragment.
-  if (html.length < 40 || (!/^\s*<!doctype/i.test(html) && !/<(html|body|div|h1|h2|h3|p|button|input|table|ul|ol|style|script|svg)[\s>]/i.test(html))) {
+  if (
+    html.length < 40 ||
+    (!/^\s*<!doctype/i.test(html) &&
+      !/<(html|body|div|h1|h2|h3|p|button|input|table|ul|ol|style|script|svg)[\s>]/i.test(
+        html,
+      ))
+  ) {
     return null;
   }
   return html;
@@ -187,11 +305,14 @@ function ArtifactPreview({ html }: { html: string }) {
   return (
     <div className="w-full max-w-xl mt-1">
       <button
-        onClick={() => { haptics.light(); setOpen(o => !o); }}
+        onClick={() => {
+          haptics.light();
+          setOpen((o) => !o);
+        }}
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/25 bg-primary/5 text-primary text-[10px] font-mono hover:bg-primary/15 transition-all active:scale-95"
       >
         {open ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-        {open ? 'Hide preview' : 'Preview'}
+        {open ? "Hide preview" : "Preview"}
       </button>
       {open && (
         <div className="mt-1.5 rounded-xl overflow-hidden border border-border/60 shadow-apple-md">
@@ -199,7 +320,9 @@ function ArtifactPreview({ html }: { html: string }) {
             <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400/70" />
             <span className="w-2.5 h-2.5 rounded-full bg-green-400/70" />
-            <span className="ml-2 text-[9px] font-mono text-muted-foreground/60">artifact.html</span>
+            <span className="ml-2 text-[9px] font-mono text-muted-foreground/60">
+              artifact.html
+            </span>
           </div>
           <iframe
             title="HTML artifact preview"
@@ -215,7 +338,11 @@ function ArtifactPreview({ html }: { html: string }) {
 }
 
 /** Inline editor for user messages, appears when user clicks edit */
-function InlineEditor({ content, onSave, onCancel }: {
+function InlineEditor({
+  content,
+  onSave,
+  onCancel,
+}: {
   content: string;
   onSave: (newText: string) => void;
   onCancel: () => void;
@@ -233,16 +360,22 @@ function InlineEditor({ content, onSave, onCancel }: {
       <textarea
         ref={inputRef}
         value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSave(draft.trim()); }
-          if (e.key === 'Escape') onCancel();
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSave(draft.trim());
+          }
+          if (e.key === "Escape") onCancel();
         }}
-        rows={Math.min(draft.split('\n').length + 1, 8)}
+        rows={Math.min(draft.split("\n").length + 1, 8)}
         className="w-full bg-background border border-primary/40 text-foreground font-mono text-sm px-3 py-2 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 resize-none"
       />
       <div className="flex items-center gap-1.5 self-end">
-        <button onClick={onCancel} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+        <button
+          onClick={onCancel}
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        >
           <X className="w-3.5 h-3.5" />
         </button>
         <button
@@ -269,7 +402,7 @@ export function ConversationFeed({
   onImageCancel,
   onEditImage,
   generatingImage = false,
-  generatingImagePrompt = '',
+  generatingImagePrompt = "",
   onScreenShareConfirm,
   onScreenShareCancel,
   onAgentBrowserConfirm,
@@ -317,7 +450,7 @@ export function ConversationFeed({
     !isThinking &&
     suggestions.length > 0 &&
     messages.length > 0 &&
-    messages[messages.length - 1]?.role === 'assistant';
+    messages[messages.length - 1]?.role === "assistant";
 
   // Better empty state
   const isEmpty = messages.length === 0 && !isThinking;
@@ -326,7 +459,7 @@ export function ConversationFeed({
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="relative z-10 flex-1 w-full overflow-y-auto px-4 py-8 sm:px-6 space-y-5 flex flex-col scroll-smooth"
+      className="relative z-10 flex-1 w-full overflow-y-auto px-3 py-8 sm:px-6 space-y-5 flex flex-col scroll-smooth"
     >
       {/* Scroll to bottom button */}
       <AnimatePresence>
@@ -335,7 +468,10 @@ export function ConversationFeed({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            onClick={() => { haptics.light(); scrollToBottom(); }}
+            onClick={() => {
+              haptics.light();
+              scrollToBottom();
+            }}
             className="sticky bottom-0 z-20 mx-auto -mb-4 flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary/30 bg-background/90 backdrop-blur-sm text-primary text-[10px] font-mono tracking-wider hover:bg-primary/10 transition-all shadow-lg"
           >
             <ChevronDown className="w-3 h-3" />
@@ -344,60 +480,77 @@ export function ConversationFeed({
         )}
       </AnimatePresence>
       {isEmpty && (
-        <div className="chat-empty-state m-auto flex flex-col items-stretch justify-center gap-6 py-6 sm:py-8 px-4 w-full max-w-xl">
+        <div className="chat-empty-state m-auto flex flex-col items-stretch justify-center gap-7 py-6 sm:py-8 px-4 w-full max-w-2xl">
           {/* Compact brand mark */}
           <div className="flex flex-col items-center gap-2 text-center">
-            <div className="relative w-12 h-12">
-              <div className="absolute inset-0 rounded-full border border-primary/20 animate-ping" style={{ animationDuration: '3s' }} />
-              <div className="absolute inset-1.5 rounded-full border border-primary/30" />
+            <div className="relative w-16 h-16">
+              <div
+                className="absolute inset-0 rounded-full border border-primary/20 animate-ping"
+                style={{ animationDuration: "3s" }}
+              />
+              <div className="absolute inset-1.5 rounded-full border border-primary/30 bg-background/45 backdrop-blur-xl shadow-apple-lg" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse" />
+                <div className="w-3 h-3 bg-foreground rounded-full animate-pulse" />
               </div>
             </div>
             <p className="text-[11px] font-mono text-muted-foreground tracking-wider">
-              {t('header.title')}
+              {t("header.title")}
             </p>
           </div>
 
           {/* Quick actions, ChatGPT-style suggestion rows */}
-          <div className="space-y-1.5 w-full">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
             {[
-              { icon: Sun, label: t('home.goodMorning'), primary: true },
-              { icon: Image, label: t('home.createImage') },
-              { icon: Pencil, label: t('home.write') },
-              { icon: Search, label: t('home.searchWeb') },
-            ].map(({ icon: Icon, label, primary }: { icon: any; label: string; primary?: boolean }, i) => (
-              <motion.button
-                key={label}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
-                onClick={() => { haptics.light(); onSuggestionClick?.(label); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left border transition-all group ${
-                  primary
-                    ? 'border-primary/20 bg-primary/5 hover:border-primary/40 hover:bg-primary/10'
-                    : 'border-transparent hover:border-border/40 hover:bg-card/40'
-                }`}
-              >
-                <span className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
-                  primary
-                    ? 'bg-primary/15 text-primary'
-                    : 'bg-secondary/60 text-muted-foreground group-hover:text-primary'
-                }`}>
-                  <Icon className="w-4 h-4" />
-                </span>
-                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                  {label}
-                </span>
-              </motion.button>
-            ))}
+              { icon: Sun, label: t("home.goodMorning"), primary: true },
+              { icon: Image, label: t("home.createImage") },
+              { icon: Pencil, label: t("home.write") },
+              { icon: Search, label: t("home.searchWeb") },
+            ].map(
+              (
+                {
+                  icon: Icon,
+                  label,
+                  primary,
+                }: { icon: any; label: string; primary?: boolean },
+                i,
+              ) => (
+                <motion.button
+                  key={label}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.1 + i * 0.05 }}
+                  onClick={() => {
+                    haptics.light();
+                    onSuggestionClick?.(label);
+                  }}
+                  className={`ios-prompt-card w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left border transition-all group ${
+                    primary
+                      ? "border-border/50 bg-background/70 hover:border-primary/30 hover:bg-background/90"
+                      : "border-border/40 bg-background/45 hover:border-border/70 hover:bg-background/80"
+                  }`}
+                >
+                  <span
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
+                      primary
+                        ? "bg-foreground text-background"
+                        : "bg-secondary/60 text-muted-foreground group-hover:text-primary"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                    {label}
+                  </span>
+                </motion.button>
+              ),
+            )}
           </div>
         </div>
       )}
 
       <AnimatePresence initial={false}>
         {messages.map((msg, idx) => {
-          const isUser = msg.role === 'user';
+          const isUser = msg.role === "user";
           const isEditing = editingIdx === idx;
 
           return (
@@ -407,20 +560,30 @@ export function ConversationFeed({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.2 }}
               className={`group flex flex-col gap-1.5 ${
-                isUser ? 'max-w-[min(85%,42rem)] self-end items-end' : 'mx-auto w-full max-w-3xl self-start items-start'
+                isUser
+                  ? "max-w-[min(85%,42rem)] self-end items-end"
+                  : "mx-auto w-full max-w-3xl self-start items-start"
               }`}
             >
               {/* File preview (user attachments) */}
               {msg.file && (
-                <div className={`flex items-center gap-2.5 p-2.5 rounded-2xl border border-border bg-card max-w-[260px] ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
+                <div
+                  className={`flex items-center gap-2.5 p-2.5 rounded-2xl border border-border bg-card max-w-[260px] ${isUser ? "rounded-tr-sm" : "rounded-tl-sm"}`}
+                >
                   {msg.file.preview ? (
-                    <img src={msg.file.preview} alt="Attached" className="w-10 h-10 rounded-lg object-cover border border-border/50 flex-shrink-0" />
+                    <img
+                      src={msg.file.preview}
+                      alt="Attached"
+                      className="w-10 h-10 rounded-lg object-cover border border-border/50 flex-shrink-0"
+                    />
                   ) : (
                     <div className="w-10 h-10 rounded-lg border border-border/50 flex items-center justify-center flex-shrink-0">
                       <FileText className="w-4 h-4 text-muted-foreground/70" />
                     </div>
                   )}
-                  <span className="text-[10px] font-mono text-muted-foreground/70 truncate">{msg.file.fileName ?? 'Attached file'}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/70 truncate">
+                    {msg.file.fileName ?? "Attached file"}
+                  </span>
                 </div>
               )}
 
@@ -435,41 +598,55 @@ export function ConversationFeed({
               )}
 
               {/* Screen share confirmation card */}
-              {msg.pendingScreenShare && onScreenShareConfirm && onScreenShareCancel && (
-                <ScreenShareConfirmationCard
-                  onConfirm={onScreenShareConfirm}
-                  onCancel={onScreenShareCancel}
-                />
-              )}
+              {msg.pendingScreenShare &&
+                onScreenShareConfirm &&
+                onScreenShareCancel && (
+                  <ScreenShareConfirmationCard
+                    onConfirm={onScreenShareConfirm}
+                    onCancel={onScreenShareCancel}
+                  />
+                )}
 
               {/* Agent browser confirmation card */}
-              {msg.pendingAgentBrowser && onAgentBrowserConfirm && onAgentBrowserCancel && (
-                <AgentBrowserConfirmationCard
-                  onConfirm={onAgentBrowserConfirm}
-                  onCancel={onAgentBrowserCancel}
-                />
-              )}
+              {msg.pendingAgentBrowser &&
+                onAgentBrowserConfirm &&
+                onAgentBrowserCancel && (
+                  <AgentBrowserConfirmationCard
+                    onConfirm={onAgentBrowserConfirm}
+                    onCancel={onAgentBrowserCancel}
+                  />
+                )}
 
               {/* "Use code for this answer?" confirmation card */}
-              {msg.pendingSourceCode && onSourceCodeConfirm && onSourceCodeCancel && (
-                <SourceCodeConfirmationCard
-                  userText={msg.pendingSourceCode.userText}
-                  onConfirm={onSourceCodeConfirm}
-                  onCancel={onSourceCodeCancel}
-                />
-              )}
-              {msg.pendingBuildMode && onBuildModeConfirm && onBuildModeCancel && (
-                <BuildModeConfirmationCard
-                  userText={msg.pendingBuildMode.userText}
-                  onConfirm={onBuildModeConfirm}
-                  onCancel={onBuildModeCancel}
-                />
-              )}
+              {msg.pendingSourceCode &&
+                onSourceCodeConfirm &&
+                onSourceCodeCancel && (
+                  <SourceCodeConfirmationCard
+                    userText={msg.pendingSourceCode.userText}
+                    onConfirm={onSourceCodeConfirm}
+                    onCancel={onSourceCodeCancel}
+                  />
+                )}
+              {msg.pendingBuildMode &&
+                onBuildModeConfirm &&
+                onBuildModeCancel && (
+                  <BuildModeConfirmationCard
+                    userText={msg.pendingBuildMode.userText}
+                    onConfirm={onBuildModeConfirm}
+                    onCancel={onBuildModeCancel}
+                  />
+                )}
 
               {/* Generated image display */}
               {msg.image && (
-                <div className={`relative group rounded-2xl overflow-hidden border border-purple-400/20 bg-card max-w-[360px] ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
-                  <img src={msg.image} alt="Generated image" className="w-full h-auto" />
+                <div
+                  className={`relative group rounded-2xl overflow-hidden border border-purple-400/20 bg-card max-w-[360px] ${isUser ? "rounded-tr-sm" : "rounded-tl-sm"}`}
+                >
+                  <img
+                    src={msg.image}
+                    alt="Generated image"
+                    className="w-full h-auto"
+                  />
                   {onEditImage && (
                     <button
                       onClick={() => onEditImage(msg.image!)}
@@ -480,7 +657,9 @@ export function ConversationFeed({
                   )}
                   {msg.content && (
                     <div className="px-3 py-2 border-t border-border/30">
-                      <p className="text-[10px] font-mono text-muted-foreground/60 leading-relaxed">{msg.content}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground/60 leading-relaxed">
+                        {msg.content}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -490,7 +669,10 @@ export function ConversationFeed({
               {isEditing ? (
                 <InlineEditor
                   content={msg.content}
-                  onSave={(newText) => { setEditingIdx(null); onEditMessage?.(idx, newText); }}
+                  onSave={(newText) => {
+                    setEditingIdx(null);
+                    onEditMessage?.(idx, newText);
+                  }}
                   onCancel={() => setEditingIdx(null)}
                 />
               ) : (
@@ -498,33 +680,35 @@ export function ConversationFeed({
                   {/* Thinking mode, collapsible private reasoning above the answer */}
                   {!isUser && msg.reasoning && (
                     <div className="mb-2">
-                      <ThinkingBlock reasoning={msg.reasoning} label={t('feed.thinking')} />
+                      <ThinkingBlock
+                        reasoning={msg.reasoning}
+                        label={t("feed.thinking")}
+                      />
                     </div>
                   )}
                   {msg.content && (
-                  <div
-                    className={`text-[15px] leading-relaxed font-sans ${
-                      isUser
-                        ? 'bg-primary/10 dark:bg-primary/25 text-foreground rounded-2xl rounded-br-md px-4 py-2.5 max-w-[85%]'
-                        : 'text-foreground max-w-full'
-                    }`}
-                  >
-                    {isUser ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert prose-a:text-primary prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[12px] prose-headings:text-foreground prose-strong:text-foreground [&_*]:text-foreground">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <div className="prose prose-sm max-w-none dark:prose-invert prose-a:text-primary prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[12px] prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border/50 prose-headings:text-foreground prose-strong:text-foreground prose-strong:font-semibold">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
+                    <div
+                      className={`text-[15px] leading-relaxed font-sans ${
+                        isUser
+                          ? "bg-foreground text-background rounded-[1.35rem] rounded-br-md px-4 py-2.5 shadow-apple-sm max-w-[85%] [&_*]:!text-background"
+                          : "text-foreground max-w-full"
+                      }`}
+                    >
+                      {isUser ? (
+                        <div className="prose prose-sm max-w-none prose-a:text-background prose-code:bg-background/15 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[12px] prose-headings:text-background prose-strong:text-background [&_*]:text-background">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-a:text-primary prose-code:bg-muted/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[12px] prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border/50 prose-headings:text-foreground prose-strong:text-foreground prose-strong:font-semibold">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
                   )}
-
                 </div>
               )}
 
@@ -541,15 +725,20 @@ export function ConversationFeed({
               )}
 
               {/* Terminal command cards the AI ran, clean minimal boxes */}
-              {!isUser && ((msg.terminalResults && msg.terminalResults.length > 0) || (msg.fileEdits && msg.fileEdits.length > 0) || msg.figma) && (
-                <div className="w-full max-w-xl">
-                  {msg.terminalResults?.map((tr, i) => <CommandCard key={i} result={tr} />)}
-                  {msg.fileEdits?.map((ed, i) => (
-                    <FileEditCard key={`fe-${ed.path}-${i}`} edit={ed} />
-                  ))}
-                  {msg.figma && <FigmaWidget data={msg.figma} />}
-                </div>
-              )}
+              {!isUser &&
+                ((msg.terminalResults && msg.terminalResults.length > 0) ||
+                  (msg.fileEdits && msg.fileEdits.length > 0) ||
+                  msg.figma) && (
+                  <div className="w-full max-w-xl">
+                    {msg.terminalResults?.map((tr, i) => (
+                      <CommandCard key={i} result={tr} />
+                    ))}
+                    {msg.fileEdits?.map((ed, i) => (
+                      <FileEditCard key={`fe-${ed.path}-${i}`} edit={ed} />
+                    ))}
+                    {msg.figma && <FigmaWidget data={msg.figma} />}
+                  </div>
+                )}
             </motion.div>
           );
         })}
@@ -578,7 +767,10 @@ export function ConversationFeed({
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.07 }}
-                onClick={() => { haptics.light(); onSuggestionClick?.(s); }}
+                onClick={() => {
+                  haptics.light();
+                  onSuggestionClick?.(s);
+                }}
                 className="px-2.5 sm:px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary text-[10px] sm:text-xs font-mono hover:bg-primary/15 hover:border-primary/60 transition-all active:scale-95 text-center whitespace-normal"
               >
                 {s}
