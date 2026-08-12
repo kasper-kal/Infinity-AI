@@ -7,7 +7,7 @@
 LAST_UPDATED: 2026-08-12
 
 ## Just did (last action)
-- Finished the chat-shell cleanup round: verified the previous composer/feed/sidebar/toolbar work (typecheck + diff clean) and removed the last hardcoded colors (user bubble, header action buttons, voice/camera back buttons, settings avatar badge) so every surface uses the theme tokens.
+- Updated README with an Agent Workflow section that points automation agents to `AGENTS.md` and explains the continuity files (`CLAUDE.md`, `session-brief.md`, `KNOWLEDGE.md`).
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup is implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors were converted to theme tokens (user bubble, header actions, voice/camera back buttons, settings avatar badge).
@@ -19,6 +19,7 @@ LAST_UPDATED: 2026-08-12
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-12 README Agent Workflow section added so contributors and automation agents know to read `AGENTS.md` and keep the continuity files aligned.
 - 2026-08-12 Chat-shell hardcoded-color cleanup verified: `pnpm run typecheck` and `git diff --check` pass; user bubble, header actions (GroupSettings/ConversationActions), voice/camera back buttons, and the settings avatar badge now use theme tokens instead of hardcoded light/dark hexes.
 - 2026-08-12 Jarvis composer cleanup: the input now uses a centered max-width surface with neutral theme tokens instead of competing hardcoded light/dark pill styles.
 - 2026-08-12 Jarvis conversation-feed cleanup: assistant content now sits in a bounded reading column, user bubbles have a readable maximum width, and feed spacing is less cramped.

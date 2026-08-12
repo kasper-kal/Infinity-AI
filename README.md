@@ -142,6 +142,22 @@ Open **http://localhost:5173**.
 
 ---
 
+## 🤖 Agent Workflow
+
+This repository includes an `AGENTS.md` file at the repo root. Automation agents should read it before making changes; it mirrors the Claude Code routine and documents the required session handoff files, zero-euro budget rule, and commit/push workflow.
+
+For project continuity, keep these files aligned with the current state when work changes:
+
+| File | Purpose |
+|---|---|
+| `AGENTS.md` | Repo-level instructions for coding agents working in this tree |
+| `CLAUDE.md` | Claude Code routine copied into `AGENTS.md` for tool compatibility |
+| `session-brief.md` | Live handoff: latest action, current project state, change record, next actions |
+| `KNOWLEDGE.md` | Durable project knowledge and conventions that should survive between sessions |
+
+
+---
+
 ## 📄 License
 
 MIT — free to use, modify, and extend.
