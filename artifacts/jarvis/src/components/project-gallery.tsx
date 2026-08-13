@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Archive,
   ArrowRight,
+  Activity,
   BrainCircuit,
   Check,
   ChevronDown,
@@ -36,7 +37,8 @@ export type ProjectSection =
   | 'files'
   | 'research'
   | 'tasks'
-  | 'instructions';
+  | 'instructions'
+  | 'activity';
 
 interface Project {
   id: string;
@@ -82,6 +84,7 @@ const quickAccessItems: { section: ProjectSection; icon: typeof Home; labelKey: 
   { section: 'research', icon: FlaskConical, labelKey: 'projectGallery.research' },
   { section: 'tasks', icon: ListTodo, labelKey: 'projectGallery.tasks' },
   { section: 'instructions', icon: ShieldCheck, labelKey: 'projectGallery.instructions' },
+  { section: 'activity', icon: Activity, labelKey: 'projectGallery.activity' },
 ];
 
 function projectQueryUrl(query: string, sort: ProjectSort, includeArchived: boolean): string {

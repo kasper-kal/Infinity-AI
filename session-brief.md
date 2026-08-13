@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-12
+LAST_UPDATED: 2026-08-12 20:45
 
 ## Just did (last action)
 - Implemented Phase L (AI Context Pipeline): created `lib/project-context.ts` assembling all six scoped sources (identity, instructions, memory, files, history, research) into the PROJECT CONTEXT block; refactored `chat.ts` `buildProjectContext` to delegate to it; fixed Phase I rename bug (was keying on join id instead of files.id); typecheck + build pass for both packages.

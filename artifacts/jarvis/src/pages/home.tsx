@@ -62,7 +62,7 @@ export default function Home() {
   }, [thinkingEnabled]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeProjectView, setActiveProjectView] = useState<'home' | 'memory' | 'instructions'>('home');
+  const [activeProjectView, setActiveProjectView] = useState<'home' | 'memory' | 'instructions' | 'activity'>('home');
   const [sidebarRefreshTick, setSidebarRefreshTick] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -725,6 +725,10 @@ export default function Home() {
     }
     if (action === 'conversations') {
       setActiveProjectView('home');
+      return;
+    }
+    if (action === 'activity') {
+      setActiveProjectView('activity');
       return;
     }
     toast({ title: t('projectHome.actionComingSoon'), description: t('projectHome.actionComingSoonDesc') });

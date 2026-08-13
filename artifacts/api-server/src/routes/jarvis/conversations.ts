@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, conversations, messages, projectChats, projects } from "@workspace/db";
 import { eq, desc, asc, ilike, and, inArray, notInArray } from "drizzle-orm";
+import { logActivity } from "./project-activity";
 
 const router = Router();
 
@@ -201,6 +202,9 @@ router.post("/conversations", async (req, res) => {
       return created;
     });
 
+    if (projectId) {
+      await logActivity(projectId, "conversation_started", `Conversation "${row.title}" created`);
+    }
     res.status(201).json(row);
   } catch (err) {
     req.log.error({ err }, "Failed to create conversation");

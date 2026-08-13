@@ -11,10 +11,12 @@ import {
   projectFiles,
   projectInstructions,
   projectMemories,
+  projectTasks,
   projects,
   shareLinks,
 } from "@workspace/db";
 import { filesDb, files } from "@workspace/db";
+import { logActivity } from "./project-activity";
 
 const router = Router();
 
@@ -55,7 +57,7 @@ async function findProject(id: string) {
 
 async function findConversation(id: string) {
   const [conversation] = await db
-    .select({ id: conversations.id })
+    .select({ id: conversations.id, title: conversations.title })
     .from(conversations)
     .where(eq(conversations.id, id));
   return conversation;
@@ -82,6 +84,9 @@ async function moveConversation(conversationId: string, projectId: string): Prom
       }
     }
   });
+
+  // Log activity for conversation moved to project
+  await logActivity(projectId, "conversation_started", `Conversation moved to project`);
 }
 
 async function removeConversationLinks(conversationId: string, projectId?: string): Promise<number> {
@@ -193,7 +198,16 @@ router.get("/projects/:id/home", async (req, res) => {
       return;
     }
 
-    const [conversationCountRows, conversationLatest, fileCountRows, fileRows, memoryCountRows, memoryLatest] = await Promise.all([
+    const [
+      conversationCountRows,
+      conversationLatest,
+      fileCountRows,
+      fileRows,
+      memoryCountRows,
+      memoryLatest,
+      taskCountRows,
+      taskRows,
+    ] = await Promise.all([
       db
         .select({ count: sql<number>`count(*)` })
         .from(projectChats)
@@ -243,6 +257,22 @@ router.get("/projects/:id/home", async (req, res) => {
         .where(eq(projectMemories.projectId, project.id))
         .orderBy(desc(projectMemories.pinned), desc(projectMemories.updatedAt))
         .limit(5),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(projectTasks)
+        .where(eq(projectTasks.projectId, project.id)),
+      db
+        .select({
+          id: projectTasks.id,
+          title: projectTasks.title,
+          status: projectTasks.status,
+          dueAt: projectTasks.dueAt,
+          createdAt: projectTasks.createdAt,
+        })
+        .from(projectTasks)
+        .where(eq(projectTasks.projectId, project.id))
+        .orderBy(desc(projectTasks.createdAt))
+        .limit(5),
     ]);
 
     const fileIds = fileRows.map((r) => r.fileId);
@@ -270,6 +300,14 @@ router.get("/projects/:id/home", async (req, res) => {
       };
     });
 
+    const taskLatest = taskRows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      dueAt: r.dueAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
     // Phase I/M will add first-class research, task, and activity tables. Until
     // those phases land, derive a useful activity feed from the
     // project and the relationships that already exist.
@@ -294,6 +332,11 @@ router.get("/projects/:id/home", async (req, res) => {
         description: memory.content,
         createdAt: memory.updatedAt,
       })),
+      ...taskLatest.map((task) => ({
+        type: "task",
+        description: task.title,
+        createdAt: task.createdAt,
+      })),
     ]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
@@ -304,7 +347,7 @@ router.get("/projects/:id/home", async (req, res) => {
         conversations: Number(conversationCountRows[0]?.count ?? 0),
         files: Number(fileCountRows[0]?.count ?? 0),
         research: 0,
-        tasks: 0,
+        tasks: Number(taskCountRows[0]?.count ?? 0),
         memory: Number(memoryCountRows[0]?.count ?? 0),
       },
       latest: {
@@ -365,6 +408,7 @@ router.post("/projects", async (req, res) => {
         color,
         instructions,
       }).returning();
+      await logActivity(row.id, "project_created", row.name);
       res.status(201).json(row);
       return;
     }
@@ -386,6 +430,7 @@ router.post("/projects", async (req, res) => {
       return created;
     });
 
+    await logActivity(row.id, "project_created", row.name);
     res.status(201).json({ ...row, fromConversationId: sourceConversation.id });
   } catch (err) {
     req.log.error({ err }, "Failed to create project");
@@ -458,7 +503,7 @@ router.patch("/projects/:id", async (req, res) => {
 router.delete("/projects/:id", async (req, res) => {
   try {
     const [existing] = await db
-      .select({ id: projects.id })
+      .select({ id: projects.id, name: projects.name })
       .from(projects)
       .where(eq(projects.id, req.params.id));
     if (!existing) {
@@ -467,6 +512,7 @@ router.delete("/projects/:id", async (req, res) => {
     }
 
     await db.delete(projects).where(eq(projects.id, req.params.id));
+    await logActivity(existing.id, "project_created", `Project "${existing.name}" deleted`);
     res.json({ ok: true, id: existing.id });
   } catch (err) {
     req.log.error({ err }, "Failed to delete project");
@@ -609,6 +655,7 @@ router.post("/projects/:id/chats", async (req, res) => {
         eq(projectChats.projectId, project.id),
         eq(projectChats.conversationId, conversation.id),
       ));
+    await logActivity(project.id, "conversation_started", `Conversation "${conversation.title}" added to project`);
     res.status(201).json(membership);
   } catch (err) {
     req.log.error({ err }, "Failed to move chat to project");
@@ -630,6 +677,7 @@ router.delete("/projects/:id/chats/:conversationId", async (req, res) => {
     }
 
     const removed = await removeConversationLinks(req.params.conversationId, req.params.id);
+    await logActivity(project.id, "conversation_started", `Conversation "${conversation.title}" removed from project`);
     res.json({ ok: true, removed });
   } catch (err) {
     req.log.error({ err }, "Failed to remove chat from project");
@@ -659,6 +707,7 @@ router.post("/conversations/:id/project", async (req, res) => {
     }
 
     await moveConversation(conversation.id, project.id);
+    await logActivity(project.id, "conversation_started", `Conversation "${conversation.title}" moved to project`);
     res.json({ conversationId: conversation.id, project });
   } catch (err) {
     req.log.error({ err }, "Failed to move conversation to project");
@@ -675,6 +724,8 @@ router.delete("/conversations/:id/project", async (req, res) => {
     }
 
     const removed = await removeConversationLinks(conversation.id);
+    // Note: We don't know which project(s) it was removed from in this endpoint,
+    // but the removeConversationLinks already updates project updatedAt timestamps
     res.json({ ok: true, removed });
   } catch (err) {
     req.log.error({ err }, "Failed to remove conversation from project");

@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db, projectMemories, projects, type ProjectMemory } from "@workspace/db";
 import { canonicalProjectMemoryKey } from "../../lib/project-memory";
+import { logActivity } from "./project-activity";
 
 const router = Router();
 
@@ -107,6 +108,9 @@ async function updateScopedMemory(
       ))
       .returning();
 
+    if (updated) {
+      await logActivity(projectId, "memory_updated", `Memory updated: ${updated.content.slice(0, 100)}`);
+    }
     res.json(updated ?? existing);
   } catch (err) {
     req.log.error({ err }, "Failed to update project memory");
@@ -236,6 +240,7 @@ router.post("/projects/:id/memories", async (req, res) => {
         },
       })
       .returning();
+    await logActivity(projectId, "memory_added", `Memory added: ${content.slice(0, 100)}`);
     res.status(201).json(row);
   } catch (err) {
     req.log.error({ err }, "Failed to save project memory");
@@ -253,12 +258,20 @@ router.patch("/projects/:projectId/memories/:memoryId", async (req, res) => {
 });
 
 router.delete("/projects/:projectId/memories/:memoryId", async (req, res) => {
-  await deleteScopedMemory(
-    cleanText(req.params.projectId, 80),
-    cleanText(req.params.memoryId, 80),
-    req,
-    res,
-  );
+  const projectId = cleanText(req.params.projectId, 80);
+  const memoryId = cleanText(req.params.memoryId, 80);
+  try {
+    const existing = await findScopedMemory(projectId, memoryId);
+    if (!existing) {
+      res.status(404).json({ error: "Project memory not found" });
+      return;
+    }
+    await deleteScopedMemory(projectId, memoryId, req, res);
+    await logActivity(projectId, "memory_added", `Memory deleted: ${existing.content.slice(0, 100)}`);
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete project memory");
+    res.status(500).json({ error: "Failed to delete project memory" });
+  }
 });
 
 router.post("/projects/:projectId/memories/:memoryId/pin", async (req, res) => {
@@ -305,7 +318,19 @@ router.delete("/memories/:memoryId", async (req, res, next: NextFunction) => {
     next();
     return;
   }
-  await deleteScopedMemory(projectId, cleanText(req.params.memoryId, 80), req, res);
+  const memoryId = cleanText(req.params.memoryId, 80);
+  try {
+    const existing = await findScopedMemory(projectId, memoryId);
+    if (!existing) {
+      res.status(404).json({ error: "Project memory not found" });
+      return;
+    }
+    await deleteScopedMemory(projectId, memoryId, req, res);
+    await logActivity(projectId, "memory_added", `Memory deleted: ${existing.content.slice(0, 100)}`);
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete project memory");
+    res.status(500).json({ error: "Failed to delete project memory" });
+  }
 });
 
 router.post("/memories/:memoryId/pin", async (req, res) => {

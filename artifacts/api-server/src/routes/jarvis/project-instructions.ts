@@ -7,6 +7,7 @@ import {
   projects,
   type ProjectInstruction,
 } from "@workspace/db";
+import { logActivity } from "./project-activity";
 
 const router = Router();
 type InstructionBody = Record<string, unknown>;
@@ -106,6 +107,7 @@ router.post("/projects/:id/instructions", async (req, res) => {
       .values({ projectId, text, sortOrder: current.length })
       .returning();
     await syncLegacyInstructions(projectId);
+    await logActivity(projectId, "instruction_added", `Instruction added: ${text.slice(0, 100)}`);
     res.status(201).json(created);
   } catch (err) {
     req.log.error({ err }, "Failed to add project instruction");
@@ -154,6 +156,9 @@ router.patch("/projects/:projectId/instructions/:instructionId", async (req, res
       return;
     }
     await syncLegacyInstructions(projectId);
+    if (hasText) {
+      await logActivity(projectId, "instruction_added", `Instruction updated: ${text.slice(0, 100)}`);
+    }
     res.json(updated);
   } catch (err) {
     req.log.error({ err }, "Failed to update project instruction");
@@ -166,6 +171,15 @@ router.delete("/projects/:projectId/instructions/:instructionId", async (req, re
   const instructionId = cleanText(req.params.instructionId, 80);
   try {
     if (!(await requireProject(projectId, res))) return;
+    const [existing] = await db
+      .select({ text: projectInstructions.text })
+      .from(projectInstructions)
+      .where(and(
+        eq(projectInstructions.id, instructionId),
+        eq(projectInstructions.projectId, projectId),
+      ))
+      .limit(1);
+
     const [deleted] = await db
       .delete(projectInstructions)
       .where(and(
@@ -178,6 +192,7 @@ router.delete("/projects/:projectId/instructions/:instructionId", async (req, re
       return;
     }
     await syncLegacyInstructions(projectId);
+    await logActivity(projectId, "instruction_added", `Instruction deleted: ${existing?.text?.slice(0, 100) || "unknown"}`);
     res.json({ ok: true, id: deleted.id });
   } catch (err) {
     req.log.error({ err }, "Failed to delete project instruction");
@@ -223,6 +238,7 @@ async function reorderInstructions(req: Request, res: Response): Promise<void> {
     });
 
     await syncLegacyInstructions(projectId);
+    await logActivity(projectId, "instruction_added", `Instructions reordered`);
     res.json({ instructions: await listRows(projectId) });
   } catch (err) {
     req.log.error({ err }, "Failed to reorder project instructions");

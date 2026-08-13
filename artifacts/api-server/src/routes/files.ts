@@ -14,6 +14,7 @@ import { db, projectFiles, projects } from "@workspace/db";
 import { eq, desc, and, ilike } from "drizzle-orm";
 import { getStorage, persistFile, storageBackend, type FileKind, type FileOwner } from "../lib/storage";
 import { buildErrorDetail } from "../lib/error-detail";
+import { logActivity } from "./jarvis/project-activity";
 
 const router = Router();
 
@@ -76,6 +77,7 @@ router.post("/", upload.single("file"), async (req, res) => {
           fileId: result.fileId,
           name: req.file.originalname || "file",
         }).catch(() => undefined);
+        await logActivity(projectId, "file_uploaded", `File uploaded: ${req.file.originalname || "file"}`);
       }
     }
 
@@ -143,6 +145,15 @@ router.patch("/:id", async (req, res) => {
       res.status(404).json({ error: "File not found" });
       return;
     }
+    // Log activity for file rename if it's associated with a project
+    const [projectFile] = await db
+      .select({ projectId: projectFiles.projectId })
+      .from(projectFiles)
+      .where(eq(projectFiles.fileId, id))
+      .limit(1);
+    if (projectFile) {
+      await logActivity(projectFile.projectId, "file_changed", `File renamed: ${name}`);
+    }
     res.json({
       id: updated.id,
       name: updated.name,
@@ -177,9 +188,20 @@ router.delete("/:id", async (req, res) => {
       res.status(404).json({ error: "File not found" });
       return;
     }
+    // Check for project association before deleting
+    const [projectFile] = await db
+      .select({ projectId: projectFiles.projectId })
+      .from(projectFiles)
+      .where(eq(projectFiles.fileId, id))
+      .limit(1);
+
     await filesDb.delete(files).where(eq(files.id, id)).catch(() => undefined);
     await getStorage().remove(row.storageKey).catch(() => undefined);
     await db.delete(projectFiles).where(eq(projectFiles.fileId, id)).catch(() => undefined);
+
+    if (projectFile) {
+      await logActivity(projectFile.projectId, "file_changed", `File deleted: ${row.name}`);
+    }
     res.json({ ok: true, id });
   } catch (err) {
     req.log.error({ err }, "File delete failed");

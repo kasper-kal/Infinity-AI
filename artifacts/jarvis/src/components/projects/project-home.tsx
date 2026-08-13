@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 
-export type ProjectHomeAction = 'conversations' | 'files' | 'research' | 'tasks' | 'memory' | 'instructions';
+export type ProjectHomeAction = 'conversations' | 'files' | 'research' | 'tasks' | 'memory' | 'instructions' | 'activity';
 
 interface ProjectSummary {
   id: string;
@@ -47,6 +47,7 @@ interface FileSummary {
 }
 
 interface ActivityItem {
+  id: string;
   type: string;
   description: string;
   createdAt: string;
@@ -62,7 +63,6 @@ interface ProjectHomePayload {
     tasks: unknown[];
     memory: unknown[];
   };
-  recentActivity: ActivityItem[];
 }
 
 interface ProjectHomeProps {
@@ -103,6 +103,7 @@ export function ProjectHome({
 }: ProjectHomeProps) {
   const { t, lang } = useI18n();
   const [payload, setPayload] = useState<ProjectHomePayload | null>(null);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [busyAction, setBusyAction] = useState<'newChat' | 'continue' | null>(null);
@@ -122,9 +123,23 @@ export function ProjectHome({
     }
   }, [projectId]);
 
+  const loadActivity = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
+      if (!response.ok) throw new Error('Project activity request failed');
+      const data = await response.json();
+      const activity = Array.isArray(data.activity) ? data.activity : [];
+      setRecentActivity(activity);
+    } catch {
+      // Activity loading is non-critical, don't show error
+      setRecentActivity([]);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     void loadHome();
-  }, [loadHome]);
+    void loadActivity();
+  }, [loadHome, loadActivity]);
 
   const cards = useMemo(() => {
     if (!payload) return [];
@@ -169,8 +184,16 @@ export function ProjectHome({
         count: payload.counts.memory,
         accent: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
       },
+      {
+        action: 'activity' as const,
+        icon: Activity,
+        label: t('projectHome.recentActivity'),
+        description: t('projectHome.recentActivityDesc'),
+        count: recentActivity.length,
+        accent: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+      },
     ];
-  }, [payload, t]);
+  }, [payload, recentActivity, t]);
 
   const runNewChat = async () => {
     if (busyAction) return;
@@ -193,7 +216,7 @@ export function ProjectHome({
   };
 
   const isEmpty = payload
-    ? Object.values(payload.counts).every((count) => count === 0) && payload.recentActivity.length <= 1
+    ? Object.values(payload.counts).every((count) => count === 0) && recentActivity.length <= 1
     : false;
 
   return (
@@ -394,12 +417,12 @@ export function ProjectHome({
                     </div>
                     <Activity className="h-5 w-5 text-primary/70" />
                   </div>
-                  {payload.recentActivity.length > 0 ? (
+                  {recentActivity.length > 0 ? (
                     <div className="space-y-4">
-                      {payload.recentActivity.slice(0, 6).map((item, index) => {
+                      {recentActivity.slice(0, 6).map((item, index) => {
                         const labelKey = activityLabelKeys[item.type] ?? 'projectHome.activity.projectCreated';
                         return (
-                          <div className="flex gap-3" key={`${item.type}-${item.createdAt}-${index}`}>
+                          <div className="flex gap-3" key={`${item.id}-${index}`}>
                             <span className="relative mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full bg-primary/70 ring-4 ring-primary/10" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-xs text-foreground">
