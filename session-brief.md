@@ -4,21 +4,29 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-12 20:45
+LAST_UPDATED: 2026-08-13 00:15
 
 ## Just did (last action)
-- Implemented Phase L (AI Context Pipeline): created `lib/project-context.ts` assembling all six scoped sources (identity, instructions, memory, files, history, research) into the PROJECT CONTEXT block; refactored `chat.ts` `buildProjectContext` to delegate to it; fixed Phase I rename bug (was keying on join id instead of files.id); typecheck + build pass for both packages.
+- Completed Phase M (step 15) — Project Activity feed frontend component with i18n, navigation integration, and logActivity wiring across all 7 mutating route files:
+  - Created `artifacts/jarvis/src/components/projects/project-activity.tsx` with ActivityRecord interface, cursor-based pagination, search filtering, load more, emoji icons per type, localized date formatting
+  - Added `projectActivity.*` i18n namespace (17 keys EN + NL) to `artifacts/jarvis/src/lib/i18n.tsx`
+  - Wired into project gallery (`activity` section + Activity icon), project home (`activity` action + recent activity card), and home page (`handleProjectAction` for 'activity')
+  - Fixed TypeScript errors in project-home.tsx (replaced payload.recentActivity with recentActivity state) and home.tsx (added 'activity' to activeProjectView union)
+  - logActivity integrated across: projects.ts, project-memories.ts, project-instructions.ts, project-tasks.ts, project-research.ts, conversations.ts, files.ts
+  - Fixed Drizzle enum typing in project-activity.ts VALID_TYPES with `as const`
+  - Build passes (typecheck + vite build)
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup is implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors were converted to theme tokens (user bubble, header actions, voice/camera back buttons, settings avatar badge).
 - **Build Studio progress work:** complete. The transcript is portaled out of the notice content, screenshot requests settle safely, accepted plans leave plan mode immediately, plan requests preserve earlier updates, pipeline terminal states remain visible, progress messages avoid nested state updates, and dismissed questions cannot strand the run.
 - **Continuity system:** `CLAUDE.md` routine + `KNOWLEDGE.md` (how it works) + `session-brief.md` (live state) replace the old 3 logs (archived in `archive/`). `source-code.ts` blocks KNOWLEDGE/session-brief from Jarvis-the-app's source reading.
-- **Projects System:** 32-step user brief "persistent workspaces with isolated project memory". Steps 1–20 remain planned in `docs/projects-system-plan.md`, with **Phases B–H + I (project files) + L (AI Context Pipeline) implemented**. Phases J–O remain planned. Awaiting steps 21–32.
+- **Projects System:** 32-step user brief "persistent workspaces with isolated project memory". Steps 1–20 remain planned in `docs/projects-system-plan.md`, with **Phases B–H + I (project files) + L (AI Context Pipeline) + M (project activity) implemented**. Phases J–O remain planned. Awaiting steps 21–32.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Pending: one live end-to-end run (needs server `.env`).
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-13 Phase M (project activity) completed: frontend ActivityRecord component with cursor pagination + search + load-more + emoji icons, `projectActivity.*` i18n (17 keys EN/NL), gallery/home/home-page wiring for 'activity' section; logActivity integrated across all 7 mutating route files (projects, memories, instructions, tasks, research, conversations, files); Drizzle enum typing fixed with `as const`. Build passes.
 - 2026-08-12 Phase L (AI Context Pipeline) implemented: `lib/project-context.ts` assembles six scoped sources (identity, instructions, memory, files w/ text excerpt, history from other project chats, research runs) into the PROJECT CONTEXT block; `chat.ts` `buildProjectContext` now delegates to it; all queries strictly filtered by projectId. Phase I rename bug fixed (keyed on files.id, not join id). typecheck + build pass for both packages.
 - 2026-08-12 Chat-shell hardcoded-color cleanup verified: `pnpm run typecheck` and `git diff --check` pass; user bubble, header actions (GroupSettings/ConversationActions), voice/camera back buttons, and the settings avatar badge now use theme tokens instead of hardcoded light/dark hexes.
 - 2026-08-12 Jarvis composer cleanup: the input now uses a centered max-width surface with neutral theme tokens instead of competing hardcoded light/dark pill styles.
@@ -120,7 +128,7 @@ LAST_UPDATED: 2026-08-12 20:45
 
 ## Next actions
 1. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
-2. On the next Projects System request, read `docs/projects-system-plan.md` first and continue with Phase I project files or the user-selected phase.
+2. On the next Projects System request, read `docs/projects-system-plan.md` first and continue with Phase I project files, Phase J (project research), Phase K (project tasks), or the user-selected phase.
 3. When the user supplies steps 21–32, extend the plan faithfully and reconcile phases before implementing any newly affected scope.
 4. Optional: delete now-inert `.cron_watchdog.sh` / `.tmux_runner.sh` if user wants.
 
