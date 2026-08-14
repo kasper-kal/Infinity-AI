@@ -185,6 +185,18 @@
   ring-offset-color: var(--build-bg);
 }
 
+/* ===== Skeleton ===== */
+.build-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--build-border) 25%,
+    var(--build-bg-hover) 50%,
+    var(--build-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: build-shimmer 1.5s ease-in-out infinite;
+}
+
 /* ===== Animation Keyframes ===== */
 @keyframes build-pulse {
   0%, 100% { opacity: 1; }
@@ -209,6 +221,15 @@
 @keyframes build-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes build-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .build-skeleton { animation: none; background: var(--build-border); }
 }
 
 .build-animate-pulse { animation: build-pulse 2s ease-in-out infinite; }

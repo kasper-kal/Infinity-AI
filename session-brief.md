@@ -45,7 +45,7 @@ LAST_UPDATED: 2026-08-14 00:45
 - 2026-08-12 Build Studio pipeline failures no longer overwrite the progress transcript with a separate toast; preview/screenshot notices are suppressed during the pipeline.
 
 ## Active threads
-- **Build Mode (Infinity) Phase 0: UI Unfuck** — mobile-first Build Studio UI overhaul per `BUILD_MODE_COMPLETION_PLAN.md`. Next: implement transcript bottom sheet, plan horizontal cards, tool call cards, diff modal, progress ring, keyboard avoidance, desktop three-pane layout, tool call tree, live preview, diff view, shortcuts, theme, skeletons, error toasts, accessibility.
+- **Build Mode (Infinity) Phase 0: UI Unfuck** — mobile-first Build Studio UI overhaul per `BUILD_MODE_COMPLETION_PLAN.md`. **Transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) DONE.** Next: implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout, tool call tree, live preview, diff view, shortcuts, theme, skeletons, error toasts, accessibility.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, and bounded self-review pipeline are implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — live end-to-end run pending (needs server `.env`).

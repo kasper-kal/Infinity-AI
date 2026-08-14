@@ -624,6 +624,17 @@ const en = {
   "studio.build.transcriptFeed": "Build transcript",
   "studio.build.transcriptEmpty": "No tool calls yet",
 
+  /* Build Studio - Phase 0 Command Palette */
+  "studio.build.commandPaletteTitle": "Command Palette",
+  "studio.build.commandPalettePlaceholder": "Type a command…",
+  "studio.build.commandPaletteResults": "command(s)",
+  "studio.build.commandPaletteNavigate": "Navigate",
+  "studio.build.commandPaletteSelect": "Select",
+  "studio.build.commandPaletteClose": "Close",
+
+  /* Build Studio - Phase 0 Progress Ring */
+  "studio.build.progressRingLabel": "Build progress",
+
   /* Project home */
   "projectHome.back": "Back to chat",
   "projectHome.loading": "Opening project workspace…",
@@ -1082,6 +1093,17 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.filterAll": "Alles",
   "studio.build.transcriptFeed": "Bouw transcript",
   "studio.build.transcriptEmpty": "Nog geen tool calls",
+
+  /* Build Studio - Phase 0 Command Palette */
+  "studio.build.commandPaletteTitle": "Commando-palet",
+  "studio.build.commandPalettePlaceholder": "Typ een commando…",
+  "studio.build.commandPaletteResults": "commando('s)",
+  "studio.build.commandPaletteNavigate": "Navigeren",
+  "studio.build.commandPaletteSelect": "Selecteren",
+  "studio.build.commandPaletteClose": "Sluiten",
+
+  /* Build Studio - Phase 0 Progress Ring */
+  "studio.build.progressRingLabel": "Bouwvoortgang",
   ...projectMemoryNl,
   ...projectInstructionsNl,
   ...projectFilesNl,
