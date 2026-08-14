@@ -1,147 +1,420 @@
-# 🟢 Jarvis — Your Personal AI Voice Assistant
+♾️ Infinity AI
 
-A polished, all-in-one AI assistant — **talk to Jarvis, chat with it, have it research deep topics, build code, edit photos, compose music, fact-check answers, and more.** Built as a monorepo with a React frontend, Express API backend, and PostgreSQL database.
+«One AI. Infinite possibilities.»
 
-> **One app to replace: ChatGPT · Gemini · Grok · Claude · Replit · Claude Code · Suno · Canva · Snopes — and more.**
+Infinity AI is an all-in-one AI workspace designed to bring conversation, research, coding, creativity, automation, and everyday tools into a single application.
 
----
-
-## ✨ Features
-
-### 🎙️ Voice & Chat
-- **Voice mode** — press the mic, speak, Jarvis answers out loud (Whisper STT → LLM → ElevenLabs TTS, British male voice)
-- **Chat mode** — streaming markdown conversations with SSE token-by-token output
-- **Wake word + clap detection** — hands-free activation (Chrome/Edge)
-- **Thinking mode** — Jarvis reasons privately first, shown in a collapsible `>` block before answering
-- **Agent mode** — research-style answers with live web search via Tavily
-
-### 🧭 Studios Hub (Cmd+K or + menu → All Studios)
-An organized launcher for every capability — no overwhelming menus:
-
-| Studio | Replaces |
-|---|---|
-| **Chat** | ChatGPT · Gemini · Grok · Claude |
-| **Voice** | Siri · Alexa · Google Assistant |
-| **Camera** | Google Lens |
-| **Deep Research** | Perplexity · ResearchGPT |
-| **Build Mode** | Replit · Claude Code · Cursor |
-| **Design Studio** | Canva · Photo editors |
-| **Music Studio** | Suno · Udio |
-| **Fact Check** | Snopes · Fact-check sites |
-| **Data Lab** | Excel AI · NotebookLM |
-
-### 🔬 Deep Research
-Multi-hour autonomous investigations: Jarvis plans phases, searches the web (Tavily), critiques gaps, replans, and grows its knowledge over time. Produces a definitive report and spawns a **Gem** — an expert persona chat grounded in the research dossier.
-
-### 🔨 Build Mode
-A Linux workspace Jarvis can code in. The AI runs shell commands, creates files, and shows output in clean minimal **command cards** (no raw terminal clutter). Includes a file browser for the workspace.
-
-### 🎨 Design Studio
-Client-side photo editor — upload or generate an image, then apply filters, crop, rotate, flip, add text, and download as PNG. Fully in-browser.
-
-### 🎵 Music Studio
-Compose original tracks — pick a mood (Happy/Chill/Epic/Sad) and listen to a live Web Audio composition with pads, bass, plucks, and drums. 100% free, no server needed.
-
-### ✅ Fact Check
-Every assistant message has a **ShieldCheck** button. Tap it and Jarvis splits the answer into claims, searches each against the web (Tavily), and shows per-claim verdicts with source links.
-
-### 🧮 Smart Widgets
-Auto-detected from conversation and rendered inline:
-
-| You say... | Widget |
-|---|---|
-| "what's the time" / "time in Tokyo" | Live clock with ticking seconds |
-| "weather in London" | Weather card (Open-Meteo, no API key) |
-| "set a timer for 5 minutes" | Live countdown timer |
-| "what's 15% of 200" | **Interactive calculator** — real keypad, not just the answer |
-| "convert 5 miles to km" | Unit converter (length, weight, temp, etc.) |
-| "convert 100 usd to eur" | Currency converter (live rates, open.er-api.com) |
-| "where is Paris" | Map widget (OSM embed) |
-| "show me an image of a dog" | Real web images (Flickr/Wikimedia via Openverse) |
-| "define serendipity" | Dictionary (dictionaryapi.dev) |
-| "roll a dice" / "flip a coin" | Animated random generator |
-| "compose me a happy song" | Music composition player |
-
-### 🤖 Agent Browser
-Give Jarvis a goal and it drives a real, visible browser — looking at screenshots, clicking, typing, scrolling, navigating step by step via a vision LLM.
-
-### 🗃️ Long-term Memory
-Jarvis remembers facts about you, supports 8 personality modes, custom system prompts, and reveals its identity as **Jarvis, built by Stark Industries** (never the real model name).
+Instead of switching between ChatGPT, Claude, Perplexity, Replit, Canva, Suno, Google Lens, and a dozen other tools, Infinity AI brings those experiences together under one interface.
 
 ---
 
-## 🏗️ Architecture
+✨ What is Infinity AI?
 
-Monorepo with **pnpm workspaces**:
+Infinity AI is built around a simple idea:
 
-```
+AI shouldn't be a collection of disconnected tools. It should be one environment that can actually get things done.
+
+You can have a normal conversation, ask Infinity to research a complicated subject, build software, analyze information, edit images, generate music, operate a browser, verify claims, or use interactive tools — all from the same application.
+
+Everything in one place
+
+Capability| What it does
+💬 Chat| Stream conversations with an AI assistant
+🎙️ Voice| Talk naturally and receive spoken responses
+🔬 Deep Research| Conduct multi-step web research and produce detailed reports
+🔨 Build Mode| Give the AI a coding task and let it work inside a real Linux workspace
+🌐 Agent Browser| Let the AI navigate websites using a real browser
+🎨 Design Studio| Edit and manipulate images directly in the browser
+🎵 Music Studio| Create and play original compositions
+🛡️ Fact Check| Break answers into claims and verify them against web sources
+📊 Data Lab| Work with information using interactive tools
+📷 Camera| Analyze visual information
+🧠 Memory| Maintain useful long-term context about the user
+🧩 Smart Widgets| Turn natural-language requests into interactive UI
+
+---
+
+🧠 AI That Can Actually Do Things
+
+Infinity isn't limited to generating text.
+
+🔬 Deep Research
+
+Give Infinity a complicated question and it can approach it as a research task rather than simply answering from its existing knowledge.
+
+The research system can:
+
+1. Plan the investigation
+2. Search the web
+3. Analyze sources
+4. Identify gaps
+5. Continue researching
+6. Re-evaluate the direction of the investigation
+7. Compile the findings into a final report
+
+Research can also produce a persistent Gem — an expert-style conversational interface grounded in the resulting research.
+
+---
+
+🔨 Build Mode
+
+Build Mode turns Infinity into a coding agent.
+
+The AI can work inside a Linux workspace where it can:
+
+- Create files
+- Read and modify existing files
+- Execute shell commands
+- Install packages
+- Inspect project structure
+- Run development tools
+- Iterate on its implementation
+
+Instead of dumping a terminal into the UI, commands and their output are presented through clean, focused command cards.
+
+Build Mode also includes a workspace file browser and tooling specifically designed around autonomous software development.
+
+---
+
+🌐 Agent Browser
+
+Infinity can control a real browser to complete tasks.
+
+The browser agent operates visually, allowing it to:
+
+- Navigate websites
+- Read pages
+- Click elements
+- Type into forms
+- Scroll
+- Inspect screenshots
+- Decide what to do next
+
+This turns the AI from something that simply describes actions into something capable of performing them.
+
+---
+
+🎨 Creative Studios
+
+Infinity includes dedicated environments for different kinds of creative work.
+
+🎨 Design Studio
+
+A browser-based image editor supporting operations such as:
+
+- Uploading images
+- Image generation
+- Filters
+- Cropping
+- Rotation
+- Flipping
+- Text
+- PNG export
+
+The editor runs client-side, keeping basic image manipulation directly in the browser.
+
+🎵 Music Studio
+
+Create original music without requiring a dedicated external music service.
+
+The Music Studio includes:
+
+- Mood selection
+- Drums
+- Bass
+- Plucks
+- Pads
+- Live Web Audio playback
+
+The composition engine runs locally in the browser.
+
+---
+
+🛡️ Built-In Fact Checking
+
+AI can be wrong.
+
+Infinity includes a built-in verification workflow that lets you challenge an answer instead of simply trusting it.
+
+When a response is fact-checked, Infinity can:
+
+1. Extract individual claims
+2. Search for supporting or contradicting evidence
+3. Evaluate each claim
+4. Present individual verdicts
+5. Provide the relevant sources
+
+This makes verification part of the conversation rather than a separate workflow.
+
+---
+
+🧩 Smart Widgets
+
+Infinity can turn certain natural-language requests into interactive components.
+
+For example:
+
+«"What's the weather in London?"»
+
+→ Live weather interface
+
+«"What's 15% of 200?"»
+
+→ Interactive calculator
+
+«"Set a timer for 5 minutes."»
+
+→ Live countdown timer
+
+«"Convert 5 miles to kilometers."»
+
+→ Unit converter
+
+«"What time is it in Tokyo?"»
+
+→ Live clock
+
+«"Where is Paris?"»
+
+→ Map
+
+«"Show me an image of a dog."»
+
+→ Image search
+
+Other supported experiences include dictionaries, currency conversion, random generators, and music composition.
+
+The goal is simple:
+
+The AI doesn't just answer — it can choose the right interface for the task.
+
+---
+
+🎙️ Voice
+
+Infinity supports conversational voice interaction.
+
+The voice pipeline can combine:
+
+Speech → Whisper → LLM → ElevenLabs → Speech
+
+It also includes hands-free activation features such as wake-word and clap detection in supported browsers.
+
+---
+
+🧠 Memory & Personalization
+
+Infinity can maintain long-term information and adapt the assistant experience around the user.
+
+The system supports:
+
+- Long-term memory
+- Multiple personality modes
+- Custom system prompts
+- Persistent user preferences
+
+This allows Infinity to behave more like a personal assistant than a stateless chatbot.
+
+---
+
+🏗️ Architecture
+
+Infinity AI is structured as a pnpm monorepo.
+
+Infinity-AI/
+│
 ├── artifacts/
 │   ├── jarvis/            # React + Vite frontend
-│   └── api-server/        # Express 5 backend (port 8080)
+│   └── api-server/        # Express backend
+│
 ├── lib/
-│   ├── api-client-react/  # Generated React hooks (OpenAPI)
-│   ├── api-spec/          # OpenAPI contract
+│   ├── api-client-react/  # Generated React API hooks
+│   ├── api-spec/          # OpenAPI definitions
 │   ├── api-zod/           # Generated Zod schemas
-│   └── db/                # Drizzle ORM + PostgreSQL schema
-└── scripts/
-```
+│   └── db/                # Database layer
+│
+├── docs/                  # Project documentation
+├── scripts/               # Development and utility scripts
+└── README.md
 
-**Stack:** React 19 · Vite 7 · TypeScript 5.9 · Tailwind CSS 4 · Framer Motion · Express 5 · Drizzle ORM · Neon PostgreSQL · NVIDIA NIM · Puppeteer
+Core stack
 
-### Key backend routes
-
-| Route | Purpose |
-|---|---|
-| `/chat` | Streaming LLM conversation (SSE) |
-| `/transcribe` | Whisper speech-to-text |
-| `/speak` | ElevenLabs TTS |
-| `/research` | Deep research job management |
-| `/verify` | Tavily fact-check of a message |
-| `/terminal` | Linux shell in sandboxed workspace |
-| `/workspace` | Build Mode file listing |
-| `/generate-image` | Flux image generation |
-| `/browse/agent-run` | Autonomous agent browser loop |
-| `/spotify` · `/gmail` | OAuth integrations |
+- React 19
+- Vite 7
+- TypeScript 5.9
+- Tailwind CSS 4
+- Framer Motion
+- Express 5
+- Drizzle ORM
+- PostgreSQL
+- Puppeteer
+- NVIDIA NIM
+- Whisper
+- ElevenLabs
+- Tavily
 
 ---
 
-## 🚀 Getting Started
+🔌 Backend Capabilities
 
-```bash
+The API provides dedicated systems for the major AI capabilities.
+
+Endpoint| Purpose
+"/chat"| Streaming AI conversations
+"/transcribe"| Speech-to-text
+"/speak"| Text-to-speech
+"/research"| Research jobs
+"/verify"| Claim verification
+"/terminal"| Workspace shell
+"/workspace"| Workspace files
+"/generate-image"| Image generation
+"/browse/agent-run"| Browser agent
+"/spotify"| Spotify integration
+"/gmail"| Gmail integration
+
+---
+
+🚀 Getting Started
+
+Requirements
+
+You'll need:
+
+- Node.js
+- pnpm
+- PostgreSQL
+- The API credentials for the services you want to use
+
+Installation
+
+git clone https://github.com/kasper-kal/Infinity-AI.git
+cd Infinity-AI
+
 pnpm install
-cp .env.local .env   # fill in your API keys
+
+cp .env.local .env
+
+Configure the required environment variables, then initialize the database:
+
 pnpm --filter @workspace/db run push
+
+Start the development environment:
+
 sh scripts/start-dev.sh
-```
 
-Open **http://localhost:5173**.
+The application will be available at:
 
-| Command | Purpose |
-|---|---|
-| `pnpm run typecheck` | Typecheck all workspaces |
-| `pnpm run build` | Typecheck + build everything |
+http://localhost:5173
 
 ---
 
-## 🔑 Environment Variables
+🔑 Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Neon PostgreSQL connection string |
-| `DATABASE_URL_FILES` | Optional separate PostgreSQL connection string for Gallery metadata |
-| `B2_KEY_ID` / `B2_APPLICATION_KEY` / `B2_BUCKET_NAME` | Optional Backblaze B2 S3-compatible Gallery storage; endpoint defaults to `https://s3.eu-central-003.backblazeb2.com` |
-| `B2_ENDPOINT` / `B2_REGION` | Optional Backblaze endpoint/region overrides; defaults to `eu-central-003` |
-| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY` / `R2_SECRET_KEY` / `R2_BUCKET` | Optional Cloudflare R2 fallback; no cloud keys means local `data/files/` storage |
-| `OPENAI_LLM_API_KEY` | NVIDIA NIM — LLM + vision |
-| `OPENAI_WHISPER_API_KEY` | NVIDIA NIM — Whisper large-v3 |
-| `NVIDIA_IMAGE_API_KEY` | NVIDIA NIM — Flux image generation |
-| `ELEVENLABS_API_KEY` | ElevenLabs TTS |
-| `TAVILY_API_KEY` | Tavily web search (research + fact-check) |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify OAuth |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (Gmail/Calendar) |
+Infinity can connect to several external services.
+
+Variable| Service
+"DATABASE_URL"| PostgreSQL
+"DATABASE_URL_FILES"| Optional file metadata database
+"B2_KEY_ID"| Backblaze B2
+"B2_APPLICATION_KEY"| Backblaze B2
+"B2_BUCKET_NAME"| Backblaze B2
+"R2_ACCOUNT_ID"| Cloudflare R2
+"R2_ACCESS_KEY"| Cloudflare R2
+"R2_SECRET_KEY"| Cloudflare R2
+"R2_BUCKET"| Cloudflare R2
+"OPENAI_LLM_API_KEY"| LLM / vision provider
+"OPENAI_WHISPER_API_KEY"| Whisper
+"NVIDIA_IMAGE_API_KEY"| Image generation
+"ELEVENLABS_API_KEY"| Text-to-speech
+"TAVILY_API_KEY"| Web search
+"SPOTIFY_CLIENT_ID"| Spotify OAuth
+"SPOTIFY_CLIENT_SECRET"| Spotify OAuth
+"GOOGLE_CLIENT_ID"| Google OAuth
+"GOOGLE_CLIENT_SECRET"| Google OAuth
+
+Not every integration is required to run the application. Configure the services corresponding to the features you want to use.
 
 ---
 
-## 📄 License
+🛠️ Development
 
-MIT — free to use, modify, and extend.
+Type checking
+
+pnpm run typecheck
+
+Production build
+
+pnpm run build
+
+Development server
+
+sh scripts/start-dev.sh
+
+---
+
+🗺️ Project Philosophy
+
+Infinity AI is built around a few principles:
+
+One workspace
+
+AI capabilities shouldn't be scattered across dozens of applications.
+
+Action over conversation
+
+The best AI isn't only capable of explaining how to do something.
+
+It should be capable of doing it.
+
+Tools should feel native
+
+Research, coding, browsing, images, music, and utilities should feel like parts of the same product rather than unrelated integrations.
+
+The interface should adapt to the task
+
+A calculator should look like a calculator.
+
+A timer should look like a timer.
+
+A research report should look like a research report.
+
+The AI should be able to choose the appropriate interface instead of returning everything as plain text.
+
+---
+
+📚 Documentation
+
+Project documentation and development notes can be found throughout the repository.
+
+Useful areas include:
+
+- ""docs/"" (./docs)
+- ""KNOWLEDGE.md"" (./KNOWLEDGE.md)
+- ""BUILD_MODE_COMPLETION_PLAN.md"" (./BUILD_MODE_COMPLETION_PLAN.md)
+- ""CLAUDE.md"" (./CLAUDE.md)
+
+---
+
+🤝 Contributing
+
+Infinity AI is an evolving project.
+
+Contributions, ideas, bug reports, and improvements are welcome.
+
+If you're working on a significant change, consider opening an issue first so the approach can be discussed before implementation.
+
+---
+
+📄 License
+
+Infinity AI is released under the MIT License.
+
+You are free to use, modify, distribute, and build upon the project in accordance with the license.
+
+---
+
+<div align="center">♾️ Infinity AI
+
+One AI. Infinite possibilities.
+
+</div>
