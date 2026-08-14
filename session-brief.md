@@ -4,17 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-14 00:05
+LAST_UPDATED: 2026-08-14 00:30
 
 ## Just did (last action)
-- Completed Project Activity feed frontend component with i18n, navigation integration, and logActivity wiring across all 7 mutating route files:
-  - Created `artifacts/jarvis/src/components/projects/project-activity.tsx` with ActivityRecord interface, cursor-based pagination, search filtering, load more, emoji icons per type, localized date formatting
-  - Added `projectActivity.*` i18n namespace (17 keys EN + NL) to `artifacts/jarvis/src/lib/i18n.tsx`
-  - Wired into project gallery (`activity` section + Activity icon), project home (`activity` action + recent activity card), and home page (`handleProjectAction` for 'activity')
-  - Fixed TypeScript errors in project-home.tsx (replaced payload.recentActivity with recentActivity state) and home.tsx (added 'activity' to activeProjectView union)
-  - logActivity integrated across: projects.ts, project-memories.ts, project-instructions.ts, project-tasks.ts, project-research.ts, conversations.ts, files.ts
-  - Fixed Drizzle enum typing in project-activity.ts VALID_TYPES with `as const`
-  - Build passes (typecheck + vite build)
+- Added 8 missing i18n keys for Build Studio Phase 0 to `artifacts/jarvis/src/lib/i18n.tsx` (EN + NL): `studio.build.consoleTitle`, `studio.build.of`, `studio.build.planSteps`, `studio.build.planRisks`, `studio.build.transcriptTitle`, `studio.build.filterAll`, `studio.build.transcriptFeed`, `studio.build.transcriptEmpty`.
+- Fixed 3 TypeScript build errors blocking `pnpm run typecheck`:
+  - `build-diff-preview.tsx`: added `Check` to lucide-react imports.
+  - `build-plan-view.tsx`: exported `PlanStep` and `BuildPlan` interfaces (were local only).
+  - `home.tsx`: corrected `playTTS` callback param types (`SpeakOutput` for onSuccess, `unknown` for onError with safe cast).
+- Verified full build passes: `pnpm run typecheck` + `pnpm -r --if-present run build` (jarvis vite build clean).
 - Removed all Phase A–O and steps 1–20/11–20 references from KNOWLEDGE.md and session-brief.md per user request
 - Updated KNOWLEDGE.md and session-brief.md to reflect current work: **Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md** — Build Mode (Infinity) mobile-first UI overhaul
 
@@ -29,6 +27,7 @@ LAST_UPDATED: 2026-08-14 00:05
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-14 Added 8 missing i18n keys for Build Studio Phase 0 (EN + NL); fixed 3 TypeScript errors in build-diff-preview.tsx, build-plan-view.tsx, home.tsx; full build passes (typecheck + vite build).
 - 2026-08-14 Updated KNOWLEDGE.md and session-brief.md to reflect current work: Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md — Build Mode mobile-first UI overhaul
 - 2026-08-14 Removed all Phase A–O and steps 1–20/11–20 references from KNOWLEDGE.md and session-brief.md per user request
 - 2026-08-13 Project Activity feed completed: frontend ActivityRecord component with cursor pagination + search + load-more + emoji icons, `projectActivity.*` i18n (17 keys EN/NL), gallery/home/home-page wiring for 'activity' section; logActivity integrated across all 7 mutating route files (projects, memories, instructions, tasks, research, conversations, files); Drizzle enum typing fixed with `as const`. Build passes.
@@ -53,7 +52,7 @@ LAST_UPDATED: 2026-08-14 00:05
 - **Book Studio** — live end-to-end run pending (needs server `.env`).
 
 ## Next actions
-1. **Start Phase 0 (UI Unfuck) implementation** — begin with mobile transcript bottom sheet, plan horizontal cards, tool call collapsible cards, diff preview modal, progress ring, keyboard avoidance, safe areas (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
+1. **Continue Phase 0 (UI Unfuck) implementation** — i18n keys added, TypeScript errors fixed. Next: implement mobile transcript bottom sheet with 50%/90% snap points + drag handle + swipe dismiss, plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
 2. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
 3. On the next Projects System request, continue with Project Files, Project Research, Project Tasks, or the user-selected area.
 4. When the user supplies additional requirements, extend the plan faithfully and reconcile before implementing any newly affected scope.
