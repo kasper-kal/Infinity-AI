@@ -1,8 +1,6 @@
 # Jarvis Projects System — Build Plan (Steps 1–20 of 32)
 
-> **Status:** Phases B–H implemented; remaining phases are still planned only.
-> **Source:** User's 32-step brief, first 20 steps captured in full below.
-> **Living document:** will be extended when steps 21–32 are handed over; phases may be re-cut then.
+> **Status:** Doing Phase 0 of BUILD_MODE_COMPLETION_PLAN.md
 
 ---
 

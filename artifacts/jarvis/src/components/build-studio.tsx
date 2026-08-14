@@ -7,6 +7,11 @@ import { useTheme } from '@/lib/use-theme';
 import CodeEditor from '@/components/code-editor';
 import { ParticleSpherePreview } from '@/components/particle-sphere-preview';
 import { BuildProgressPanel } from '@/components/build-progress-panel';
+import { BuildPlanView } from '@/components/build-plan-view';
+import { BuildTranscript, type ToolCall } from '@/components/build-transcript';
+import { BuildDiffPreview, type FileDiff } from '@/components/build-diff-preview';
+import { BuildLivePreview, type ConsoleEntry } from '@/components/build-live-preview';
+import '@/lib/build-ui-theme.css';
 
 interface WorkspaceFile { path: string; type: 'file' | 'dir'; size: number; }
 interface SavedApp { id: string; name: string; description: string; metadata?: { fileCount?: number; envKeys?: string[]; previewPort?: number | null }; }
