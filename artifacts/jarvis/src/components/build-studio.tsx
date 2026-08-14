@@ -74,6 +74,129 @@ interface BuildStudioProps {
   runKey?: number;
 }
 
+/**
+ * Mobile transcript bottom sheet — Phase 0 UI Unfuck.
+ * Fixed bottom sheet with 50%/90% snap points, drag handle, swipe-to-dismiss.
+ */
+function TranscriptBottomSheet({
+  toolCalls,
+  open,
+  snap,
+  onSnapChange,
+  onClose,
+}: {
+  toolCalls: ToolCall[];
+  open: boolean;
+  snap: 'peek' | 'expanded';
+  onSnapChange: (snap: 'peek' | 'expanded') => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const dragCurrentY = useRef<number>(0);
+  const [dragging, setDragging] = useState(false);
+
+  const handleDragStart = (clientY: number) => {
+    dragStartY.current = clientY;
+    dragCurrentY.current = 0;
+    setDragging(true);
+  };
+
+  const handleDragMove = (clientY: number) => {
+    if (dragStartY.current === null) return;
+    dragCurrentY.current = clientY - dragStartY.current;
+    const sheet = sheetRef.current;
+    if (sheet) {
+      const clamped = Math.max(-200, Math.min(200, dragCurrentY.current));
+      sheet.style.transform = `translateY(${clamped}px)`;
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (dragStartY.current === null) return;
+    setDragging(false);
+    const sheet = sheetRef.current;
+    if (sheet) sheet.style.transform = '';
+
+    const delta = dragCurrentY.current;
+    if (delta < -60) {
+      // Swipe up → expand
+      onSnapChange('expanded');
+    } else if (delta > 60) {
+      // Swipe down → collapse to peek, or dismiss if already at peek
+      if (snap === 'expanded') {
+        onSnapChange('peek');
+      } else {
+        onClose();
+      }
+    } else if (snap === 'peek') {
+      onSnapChange('expanded');
+    } else {
+      onSnapChange('peek');
+    }
+    dragStartY.current = null;
+  };
+
+  if (!open) return null;
+
+  const height = snap === 'expanded' ? 'var(--build-sheet-expanded)' : 'var(--build-sheet-peek)';
+
+  return (
+    <div
+      ref={sheetRef}
+      className="fixed inset-x-0 bottom-0 z-[85] flex flex-col rounded-t-3xl border-t border-border bg-card shadow-2xl md:hidden"
+      style={{
+        height: `calc(${height} + var(--build-safe-bottom))`,
+        paddingBottom: 'var(--build-safe-bottom)',
+        transition: dragging ? 'none' : 'transform var(--build-transition-normal), height var(--build-transition-normal)',
+        touchAction: 'none',
+      }}
+      role="dialog"
+      aria-label={t('studio.build.transcriptTitle') || 'Transcript'}
+    >
+      {/* Drag handle */}
+      <div
+        className="flex shrink-0 cursor-grab touch-none items-center justify-center py-3 active:cursor-grabbing"
+        onTouchStart={(e) => handleDragStart(e.touches[0].clientY)}
+        onTouchMove={(e) => handleDragMove(e.touches[0].clientY)}
+        onTouchEnd={handleDragEnd}
+        onMouseDown={(e) => handleDragStart(e.clientY)}
+        onMouseMove={(e) => dragging && handleDragMove(e.clientY)}
+        onMouseUp={handleDragEnd}
+        onMouseLeave={() => dragging && handleDragEnd()}
+        aria-label="Drag to resize transcript"
+      >
+        <span
+          className="h-1.5 w-10 rounded-full bg-muted-foreground/30"
+          style={{ height: 'var(--build-sheet-handle-height)' }}
+        />
+      </div>
+
+      {/* Header with snap toggle */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {t('studio.build.transcriptTitle') || 'Transcript'}
+        </span>
+        <button
+          type="button"
+          onClick={() => onSnapChange(snap === 'expanded' ? 'peek' : 'expanded')}
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+          style={{ minHeight: 'var(--build-touch-target)', minWidth: 'var(--build-touch-target)' }}
+          aria-label={snap === 'expanded' ? 'Collapse transcript' : 'Expand transcript'}
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${snap === 'expanded' ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {/* Transcript feed */}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <BuildTranscript toolCalls={toolCalls} autoScroll />
+      </div>
+    </div>
+  );
+}
+
 const languageFor = (path: string) => {
   if (/\.(html?|vue|svelte)$/i.test(path)) return 'HTML';
   if (/\.tsx?$/i.test(path)) return 'TypeScript';
@@ -150,6 +273,11 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [progressItems, setProgressItems] = useState<BuildProgressItem[]>([]);
   const progressItemsRef = useRef<BuildProgressItem[]>([]);
   const [progressStartedAt, setProgressStartedAt] = useState<number | null>(null);
+
+  // Transcript / tool calls (for bottom sheet on mobile)
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
+  const [transcriptSheetOpen, setTranscriptSheetOpen] = useState(false);
+  const [transcriptSheetSnap, setTranscriptSheetSnap] = useState<'peek' | 'expanded'>('peek');
   const [progressClock, setProgressClock] = useState(() => Date.now());
   const buildAbortRef = useRef<AbortController | null>(null);
   const buildCancelRequestedRef = useRef(false);
@@ -1167,5 +1295,14 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
           <div className="rounded-xl border border-border bg-secondary p-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Request</p><div className="flex flex-wrap gap-2"><select value={apiMethod} onChange={(event) => setApiMethod(event.target.value)} className="rounded-lg border border-border bg-input px-2 py-2 text-xs text-foreground outline-none">{['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => <option key={m}>{m}</option>)}</select><input value={apiBaseUrl} onChange={(event) => setApiBaseUrl(event.target.value)} placeholder="Base URL (http://localhost:PORT)" className="w-52 rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-muted-foreground" /><input value={apiEndpointPath} onChange={(event) => setApiEndpointPath(event.target.value)} placeholder="/api/items" className="min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 py-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground" /><button type="button" disabled={apiBusy} onClick={() => void sendApiRequest()} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{apiBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}Send</button></div><textarea value={apiBody} onChange={(event) => setApiBody(event.target.value)} placeholder="JSON body (for POST / PUT / PATCH)" rows={2} className="mt-2 w-full resize-y rounded-lg border border-border bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground" /></div>
           {apiResponse && <div className="rounded-xl border border-border bg-secondary p-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Response</p><pre className="max-h-64 overflow-auto rounded-lg style={{ backgroundColor: 'var(--build-code-bg)' }} p-2 font-mono text-[10px] text-foreground">{apiResponse}</pre></div>}
         </div>}
-      </main></div>{plan && <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-2xl border border-primary/30 bg-card p-6 shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-xl bg-primary/15 p-2.5 text-primary"><Sparkles className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Plan Mode</p><h3 className="mt-1 text-lg font-semibold text-foreground">{plan.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{plan.summary}</p></div></div><div className="mt-5 grid gap-4 md:grid-cols-[1fr_0.8fr]"><section className="rounded-xl border border-border bg-secondary p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Requirements understood</p><ol className="mt-3 space-y-3">{plan.steps.map((step, index) => <li key={`${step}-${index}`} className="flex gap-2 text-xs leading-5 text-foreground"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary">{index + 1}</span><span>{step}</span></li>)}</ol></section><section className="space-y-3"><div className="rounded-xl border border-border bg-secondary p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Workspace context</p>{plan.files.length > 0 ? <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">{plan.files.map((file) => <li key={file} className="truncate">{file}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">No existing files selected. Jarvis will scaffold the workspace.</p>}</div>{plan.risks.length > 0 && <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-amber-300">Notes</p><ul className="mt-2 space-y-1 text-[11px] text-amber-200/80">{plan.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul></div>}</section></div><div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={changePlan} className="rounded-lg border border-border px-4 py-2.5 text-xs font-medium text-foreground hover:bg-input">Change plan</button><button type="button" disabled={busy || planBusy} onClick={() => void acceptPlan()} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Accept plan</button></div></div></div>}{wizardOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setWizardOpen(false)}><div className="max-h-[85vh] w-full max-w-md overflow-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">{t('studio.build.askTitle')}</h3></div><p className="mt-1 text-xs text-muted-foreground">{t('studio.build.askDesc')}</p><div className="mt-4 space-y-4">{featureInventory.length > 0 && <div className="rounded-xl border border-border bg-secondary p-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t('studio.build.inventoryTitle')}</p><div className="flex flex-wrap gap-1.5">{featureInventory.map((item) => <span key={item.key} className={`rounded-full border px-2 py-1 text-[10px] ${item.selected ? 'border-[var(--build-accent-read)]/40 bg-primary/15 text-primary' : 'border-border text-muted-foreground/50 line-through'}`}>{item.label}</span>)}</div></div>}{wizardQuestions.map((question) => <div key={question.key}><p className="mb-1.5 text-xs font-medium text-foreground">{question.label}</p><div className="flex flex-wrap gap-1.5">{question.options?.map((option) => { const selected = wizardAnswers[question.key] === option; return <button type="button" key={option} onClick={() => setWizardAnswers((current) => ({ ...current, [question.key]: option }))} className={`rounded-full border px-2.5 py-1 text-[11px] transition ${selected ? 'border-[var(--build-accent-read)] bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-[var(--build-accent-read)]/40 hover:text-foreground'}`}>{option}</button>; })}<button type="button" onClick={() => setWizardAnswers((current) => { const next = { ...current }; delete next[question.key]; return next; })} className="rounded-full px-2 py-1 text-[11px] text-muted-foreground/60 hover:text-foreground">{t('studio.build.skip')}</button></div></div>)}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setWizardOpen(false); void continueBuild(wizardPrompt, {}, null); }} className="rounded-lg border border-border px-3 py-2 text-xs text-foreground">{t('studio.build.skipAll')}</button><button type="button" disabled={wizardBusy || planBusy} onClick={() => { setWizardOpen(false); void continueBuild(wizardPrompt, wizardAnswers, null); }} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-50"><Hammer className="h-3.5 w-3.5" />{t('studio.build.buildIt')}</button></div></div></div>}{notice && <button type="button" onClick={() => setNotice(null)} className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-border/50 bg-background/95 px-4 py-2 text-xs shadow-lg">{notice} <Check className="ml-1 inline h-3 w-3 text-emerald-400" /></button>}{busy && <Loader2 className="absolute bottom-5 right-5 h-4 w-4 animate-spin text-primary" />}</motion.div></motion.div></AnimatePresence>;
+      </main></div>{plan && <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-2xl border border-primary/30 bg-card p-6 shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-xl bg-primary/15 p-2.5 text-primary"><Sparkles className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Plan Mode</p><h3 className="mt-1 text-lg font-semibold text-foreground">{plan.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{plan.summary}</p></div></div><div className="mt-5 grid gap-4 md:grid-cols-[1fr_0.8fr]"><section className="rounded-xl border border-border bg-secondary p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Requirements understood</p><ol className="mt-3 space-y-3">{plan.steps.map((step, index) => <li key={`${step}-${index}`} className="flex gap-2 text-xs leading-5 text-foreground"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-semibold text-primary">{index + 1}</span><span>{step}</span></li>)}</ol></section><section className="space-y-3"><div className="rounded-xl border border-border bg-secondary p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Workspace context</p>{plan.files.length > 0 ? <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">{plan.files.map((file) => <li key={file} className="truncate">{file}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">No existing files selected. Jarvis will scaffold the workspace.</p>}</div>{plan.risks.length > 0 && <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"><p className="text-[10px] font-semibold uppercase tracking-widest text-amber-300">Notes</p><ul className="mt-2 space-y-1 text-[11px] text-amber-200/80">{plan.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul></div>}</section></div><div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={changePlan} className="rounded-lg border border-border px-4 py-2.5 text-xs font-medium text-foreground hover:bg-input">Change plan</button><button type="button" disabled={busy || planBusy} onClick={() => void acceptPlan()} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Accept plan</button></div></div></div>}{wizardOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setWizardOpen(false)}><div className="max-h-[85vh] w-full max-w-md overflow-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">{t('studio.build.askTitle')}</h3></div><p className="mt-1 text-xs text-muted-foreground">{t('studio.build.askDesc')}</p><div className="mt-4 space-y-4">{featureInventory.length > 0 && <div className="rounded-xl border border-border bg-secondary p-3"><p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t('studio.build.inventoryTitle')}</p><div className="flex flex-wrap gap-1.5">{featureInventory.map((item) => <span key={item.key} className={`rounded-full border px-2 py-1 text-[10px] ${item.selected ? 'border-[var(--build-accent-read)]/40 bg-primary/15 text-primary' : 'border-border text-muted-foreground/50 line-through'}`}>{item.label}</span>)}</div></div>}{wizardQuestions.map((question) => <div key={question.key}><p className="mb-1.5 text-xs font-medium text-foreground">{question.label}</p><div className="flex flex-wrap gap-1.5">{question.options?.map((option) => { const selected = wizardAnswers[question.key] === option; return <button type="button" key={option} onClick={() => setWizardAnswers((current) => ({ ...current, [question.key]: option }))} className={`rounded-full border px-2.5 py-1 text-[11px] transition ${selected ? 'border-[var(--build-accent-read)] bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:border-[var(--build-accent-read)]/40 hover:text-foreground'}`}>{option}</button>; })}<button type="button" onClick={() => setWizardAnswers((current) => { const next = { ...current }; delete next[question.key]; return next; })} className="rounded-full px-2 py-1 text-[11px] text-muted-foreground/60 hover:text-foreground">{t('studio.build.skip')}</button></div></div>)}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setWizardOpen(false); void continueBuild(wizardPrompt, {}, null); }} className="rounded-lg border border-border px-3 py-2 text-xs text-foreground">{t('studio.build.skipAll')}</button><button type="button" disabled={wizardBusy || planBusy} onClick={() => { setWizardOpen(false); void continueBuild(wizardPrompt, wizardAnswers, null); }} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-50"><Hammer className="h-3.5 w-3.5" />{t('studio.build.buildIt')}</button></div></div></div>}{notice && <button type="button" onClick={() => setNotice(null)} className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-border/50 bg-background/95 px-4 py-2 text-xs shadow-lg">{notice} <Check className="ml-1 inline h-3 w-3 text-emerald-400" /></button>}{busy && <Loader2 className="absolute bottom-5 right-5 h-4 w-4 animate-spin text-primary" />}{/* Transcript Bottom Sheet - Mobile */}
+        {toolCalls.length > 0 && (
+          <TranscriptBottomSheet
+            toolCalls={toolCalls}
+            open={transcriptSheetOpen}
+            snap={transcriptSheetSnap}
+            onSnapChange={setTranscriptSheetSnap}
+            onClose={() => setTranscriptSheetOpen(false)}
+          />
+        )}</motion.div></motion.div></AnimatePresence>;
 }

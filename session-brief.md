@@ -4,15 +4,13 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-14 00:30
+LAST_UPDATED: 2026-08-14 00:45
 
 ## Just did (last action)
-- Added 8 missing i18n keys for Build Studio Phase 0 to `artifacts/jarvis/src/lib/i18n.tsx` (EN + NL): `studio.build.consoleTitle`, `studio.build.of`, `studio.build.planSteps`, `studio.build.planRisks`, `studio.build.transcriptTitle`, `studio.build.filterAll`, `studio.build.transcriptFeed`, `studio.build.transcriptEmpty`.
-- Fixed 3 TypeScript build errors blocking `pnpm run typecheck`:
-  - `build-diff-preview.tsx`: added `Check` to lucide-react imports.
-  - `build-plan-view.tsx`: exported `PlanStep` and `BuildPlan` interfaces (were local only).
-  - `home.tsx`: corrected `playTTS` callback param types (`SpeakOutput` for onSuccess, `unknown` for onError with safe cast).
+- Rendered `TranscriptBottomSheet` component in `build-studio.tsx` return statement — mobile transcript bottom sheet with 50%/90% snap points, drag handle, and swipe-to-dismiss is now active when tool calls exist.
 - Verified full build passes: `pnpm run typecheck` + `pnpm -r --if-present run build` (jarvis vite build clean).
+- Added 8 missing i18n keys for Build Studio Phase 0 to `artifacts/jarvis/src/lib/i18n.tsx` (EN + NL): `studio.build.consoleTitle`, `studio.build.of`, `studio.build.planSteps`, `studio.build.planRisks`, `studio.build.transcriptTitle`, `studio.build.filterAll`, `studio.build.transcriptFeed`, `studio.build.transcriptEmpty`.
+- Fixed 3 TypeScript build errors blocking `pnpm run typecheck`.
 - Removed all Phase A–O and steps 1–20/11–20 references from KNOWLEDGE.md and session-brief.md per user request
 - Updated KNOWLEDGE.md and session-brief.md to reflect current work: **Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md** — Build Mode (Infinity) mobile-first UI overhaul
 
@@ -27,6 +25,7 @@ LAST_UPDATED: 2026-08-14 00:30
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-14 Rendered TranscriptBottomSheet in build-studio.tsx return; full build passes (typecheck + vite build). Phase 0 transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) now active on mobile.
 - 2026-08-14 Added 8 missing i18n keys for Build Studio Phase 0 (EN + NL); fixed 3 TypeScript errors in build-diff-preview.tsx, build-plan-view.tsx, home.tsx; full build passes (typecheck + vite build).
 - 2026-08-14 Updated KNOWLEDGE.md and session-brief.md to reflect current work: Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md — Build Mode mobile-first UI overhaul
 - 2026-08-14 Removed all Phase A–O and steps 1–20/11–20 references from KNOWLEDGE.md and session-brief.md per user request
@@ -52,7 +51,7 @@ LAST_UPDATED: 2026-08-14 00:30
 - **Book Studio** — live end-to-end run pending (needs server `.env`).
 
 ## Next actions
-1. **Continue Phase 0 (UI Unfuck) implementation** — i18n keys added, TypeScript errors fixed. Next: implement mobile transcript bottom sheet with 50%/90% snap points + drag handle + swipe dismiss, plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
+1. **Continue Phase 0 (UI Unfuck) implementation** — transcript bottom sheet (mobile) now rendered. Next: implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
 2. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
 3. On the next Projects System request, continue with Project Files, Project Research, Project Tasks, or the user-selected area.
 4. When the user supplies additional requirements, extend the plan faithfully and reconcile before implementing any newly affected scope.
