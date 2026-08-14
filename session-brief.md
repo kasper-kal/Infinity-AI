@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-14 01:10
+LAST_UPDATED: 2026-08-14 01:25
 
 ## Just did (last action)
 - **Fixed all remaining Phase 0 TypeScript errors** blocking `pnpm run typecheck`:
@@ -13,6 +13,7 @@ LAST_UPDATED: 2026-08-14 01:10
   - Fixed `createPortal` import in `build-toast.tsx`: changed from `import { createPortal } from 'react'` to `import { createPortal } from 'react-dom'`
   - Fixed effect cleanup return type in `build-toast.tsx`: removed boolean return from cleanup function, now returns `void`
 - **Typecheck passes**: `pnpm run typecheck` completes with zero errors
+- **Full build passes**: `pnpm run build` completes successfully (vite build + api-server build) — 3707 modules transformed, dist artifacts generated
 - **Created 5 new Phase 0 components** (all following conventions: CSS variables, framer-motion, lucide-react, i18n):
   - `build-progress-ring.tsx` — Progress ring with pulse animation
   - `build-toast.tsx` — Toast system with 5 variants
@@ -33,6 +34,7 @@ LAST_UPDATED: 2026-08-14 01:10
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-14 **Full build passes** (typecheck + vite build) — Phase 0 TypeScript fixes complete, 3707 modules transformed, dist artifacts generated
 - 2026-08-14 Fixed all remaining Phase 0 TypeScript errors (hoisting, BuildPlan type, createPortal import, effect cleanup); typecheck passes with zero errors; 5 new Phase 0 components created and integrated
 - 2026-08-14 Rendered TranscriptBottomSheet in build-studio.tsx return; full build passes (typecheck + vite build). Phase 0 transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) now active on mobile.
 - 2026-08-14 Added 8 missing i18n keys for Build Studio Phase 0 (EN + NL); fixed 3 TypeScript errors in build-diff-preview.tsx, build-plan-view.tsx, home.tsx; full build passes (typecheck + vite build).
@@ -54,13 +56,13 @@ LAST_UPDATED: 2026-08-14 01:10
 - 2026-08-12 Build Studio pipeline failures no longer overwrite the progress transcript with a separate toast; preview/screenshot notices are suppressed during the pipeline.
 
 ## Active threads
-- **Build Mode (Infinity) Phase 0: UI Unfuck** — **Core infrastructure complete**: 5 new components created (progress ring, toast system, skeleton loading, keyboard shortcuts, command palette), i18n keys added, TypeScript errors fixed, typecheck passes. **Transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) DONE.** Next: wire progress ring into mobile header, verify toast system renders, verify skeleton loading states, verify command palette opens via shortcut, then implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, keyboard avoidance, safe areas, desktop three-pane resizable layout, tool call tree, live preview, diff view, accessibility.
+- **Build Mode (Infinity) Phase 0: UI Unfuck** — **Core infrastructure COMPLETE**: 5 new components created (progress ring, toast system, skeleton loading, keyboard shortcuts, command palette), i18n keys added, **TypeScript errors fixed, typecheck passes, full build passes**. **Transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) DONE.** **Progress ring rendered on mobile header. Command palette portal + toast system integrated.** Next: verify skeleton loading states render, verify command palette opens via shortcut (Cmd/Ctrl+Shift+P), then implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, keyboard avoidance, safe areas, desktop three-pane resizable layout, tool call tree, live preview, diff view, accessibility.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, and bounded self-review pipeline are implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — live end-to-end run pending (needs server `.env`).
 
 ## Next actions
-1. **Verify Phase 0 components render correctly** — progress ring in mobile header, toast system via BuildToaster portal, skeleton loading states, command palette opens via shortcut (Cmd/Ctrl+K)
+1. **Verify Phase 0 components render correctly** — progress ring in mobile header (visible during build), toast system via BuildToaster portal, skeleton loading states, command palette opens via shortcut (Cmd/Ctrl+Shift+P)
 2. **Continue Phase 0 (UI Unfuck) implementation** — implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
 3. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
 4. On the next Projects System request, continue with Project Files, Project Research, Project Tasks, or the user-selected area.
