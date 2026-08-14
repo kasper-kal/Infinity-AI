@@ -4,15 +4,23 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-14 00:45
+LAST_UPDATED: 2026-08-14 01:10
 
 ## Just did (last action)
-- Rendered `TranscriptBottomSheet` component in `build-studio.tsx` return statement — mobile transcript bottom sheet with 50%/90% snap points, drag handle, and swipe-to-dismiss is now active when tool calls exist.
-- Verified full build passes: `pnpm run typecheck` + `pnpm -r --if-present run build` (jarvis vite build clean).
-- Added 8 missing i18n keys for Build Studio Phase 0 to `artifacts/jarvis/src/lib/i18n.tsx` (EN + NL): `studio.build.consoleTitle`, `studio.build.of`, `studio.build.planSteps`, `studio.build.planRisks`, `studio.build.transcriptTitle`, `studio.build.filterAll`, `studio.build.transcriptFeed`, `studio.build.transcriptEmpty`.
-- Fixed 3 TypeScript build errors blocking `pnpm run typecheck`.
-- Removed all Phase A–O and steps 1–20/11–20 references from KNOWLEDGE.md and session-brief.md per user request
-- Updated KNOWLEDGE.md and session-brief.md to reflect current work: **Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md** — Build Mode (Infinity) mobile-first UI overhaul
+- **Fixed all remaining Phase 0 TypeScript errors** blocking `pnpm run typecheck`:
+  - Fixed hoisting issue in `build-studio.tsx`: moved Phase 0 keyboard shortcuts and command palette setup (lines 427-469) after function declarations (`beginScaffold`, `createCheckpoint`, `loadFiles`)
+  - Fixed `BuildPlan` type compatibility: changed `steps: string[]` to `steps: PlanStep[]` and imported `PlanStep` from `build-plan-view`
+  - Fixed `createPortal` import in `build-toast.tsx`: changed from `import { createPortal } from 'react'` to `import { createPortal } from 'react-dom'`
+  - Fixed effect cleanup return type in `build-toast.tsx`: removed boolean return from cleanup function, now returns `void`
+- **Typecheck passes**: `pnpm run typecheck` completes with zero errors
+- **Created 5 new Phase 0 components** (all following conventions: CSS variables, framer-motion, lucide-react, i18n):
+  - `build-progress-ring.tsx` — Progress ring with pulse animation
+  - `build-toast.tsx` — Toast system with 5 variants
+  - `build-skeleton.tsx` — Skeleton loading components
+  - `use-build-shortcuts.ts` — Keyboard shortcut hook
+  - `build-command-palette.tsx` — Fuzzy-search command palette
+- **Integrated new components** into `build-studio.tsx` (imports, state, hooks, render)
+- **Added 8 missing i18n keys** for Phase 0 components (EN + NL)
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup is implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors were converted to theme tokens (user bubble, header actions, voice/camera back buttons, settings avatar badge).
@@ -25,6 +33,7 @@ LAST_UPDATED: 2026-08-14 00:45
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-14 Fixed all remaining Phase 0 TypeScript errors (hoisting, BuildPlan type, createPortal import, effect cleanup); typecheck passes with zero errors; 5 new Phase 0 components created and integrated
 - 2026-08-14 Rendered TranscriptBottomSheet in build-studio.tsx return; full build passes (typecheck + vite build). Phase 0 transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) now active on mobile.
 - 2026-08-14 Added 8 missing i18n keys for Build Studio Phase 0 (EN + NL); fixed 3 TypeScript errors in build-diff-preview.tsx, build-plan-view.tsx, home.tsx; full build passes (typecheck + vite build).
 - 2026-08-14 Updated KNOWLEDGE.md and session-brief.md to reflect current work: Phase 0 (UI Unfuck) from BUILD_MODE_COMPLETION_PLAN.md — Build Mode mobile-first UI overhaul
@@ -45,17 +54,18 @@ LAST_UPDATED: 2026-08-14 00:45
 - 2026-08-12 Build Studio pipeline failures no longer overwrite the progress transcript with a separate toast; preview/screenshot notices are suppressed during the pipeline.
 
 ## Active threads
-- **Build Mode (Infinity) Phase 0: UI Unfuck** — mobile-first Build Studio UI overhaul per `BUILD_MODE_COMPLETION_PLAN.md`. **Transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) DONE.** Next: implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout, tool call tree, live preview, diff view, shortcuts, theme, skeletons, error toasts, accessibility.
+- **Build Mode (Infinity) Phase 0: UI Unfuck** — **Core infrastructure complete**: 5 new components created (progress ring, toast system, skeleton loading, keyboard shortcuts, command palette), i18n keys added, TypeScript errors fixed, typecheck passes. **Transcript bottom sheet (50%/90% snap, drag handle, swipe dismiss) DONE.** Next: wire progress ring into mobile header, verify toast system renders, verify skeleton loading states, verify command palette opens via shortcut, then implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, keyboard avoidance, safe areas, desktop three-pane resizable layout, tool call tree, live preview, diff view, accessibility.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, and bounded self-review pipeline are implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — live end-to-end run pending (needs server `.env`).
 
 ## Next actions
-1. **Continue Phase 0 (UI Unfuck) implementation** — transcript bottom sheet (mobile) now rendered. Next: implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, progress ring top-center, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
-2. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
-3. On the next Projects System request, continue with Project Files, Project Research, Project Tasks, or the user-selected area.
-4. When the user supplies additional requirements, extend the plan faithfully and reconcile before implementing any newly affected scope.
-5. Optional: delete now-inert `.cron_watchdog.sh` / `.tmux_runner.sh` if user wants.
+1. **Verify Phase 0 components render correctly** — progress ring in mobile header, toast system via BuildToaster portal, skeleton loading states, command palette opens via shortcut (Cmd/Ctrl+K)
+2. **Continue Phase 0 (UI Unfuck) implementation** — implement plan horizontal scroll cards, tool call collapsible cards (color-coded), diff preview full-screen modal, keyboard avoidance, safe areas, desktop three-pane resizable layout (see `BUILD_MODE_COMPLETION_PLAN.md` Phase 0 checklist).
+3. On the next UI-cleanup request, continue with the remaining overlay surfaces (settings panel rows, command palette, toasts) and the hardcoded terminal dark surfaces in Build Studio only if the user flags them.
+4. On the next Projects System request, continue with Project Files, Project Research, Project Tasks, or the user-selected area.
+5. When the user supplies additional requirements, extend the plan faithfully and reconcile before implementing any newly affected scope.
+6. Optional: delete now-inert `.cron_watchdog.sh` / `.tmux_runner.sh` if user wants.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
