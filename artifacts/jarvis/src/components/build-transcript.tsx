@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react';
+import { useState, useRef, useEffect, type RefObject } from 'react';
 import { ChevronDown, Code2, Copy, FileText, Loader2, Terminal, Globe, Check, X, Sparkles, Clock } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import '@/lib/build-ui-theme.css';
@@ -37,13 +37,13 @@ export interface BuildTranscriptProps {
 }
 
 const TYPE_CONFIG: Record<ToolCallType, { icon: typeof Code2; label: string; color: string; bgColor: string }> = {
-  read: { icon: FileText, label: 'Read', color: 'text-blue-400', bgColor: 'bg-blue-400/10 border-blue-400/30' },
-  write: { icon: FileText, label: 'Write', color: 'text-emerald-400', bgColor: 'bg-emerald-400/10 border-emerald-400/30' },
-  edit: { icon: Code2, label: 'Edit', color: 'text-sky-400', bgColor: 'bg-sky-400/10 border-sky-400/30' },
-  shell: { icon: Terminal, label: 'Shell', color: 'text-amber-400', bgColor: 'bg-amber-400/10 border-amber-400/30' },
-  browser: { icon: Globe, label: 'Browser', color: 'text-purple-400', bgColor: 'bg-purple-400/10 border-purple-400/30' },
-  search: { icon: Sparkles, label: 'Search', color: 'text-cyan-400', bgColor: 'bg-cyan-400/10 border-cyan-400/30' },
-  task: { icon: Code2, label: 'Task', color: 'text-indigo-400', bgColor: 'bg-indigo-400/10 border-indigo-400/30' },
+  read: { icon: FileText, label: 'Read', color: 'text-[var(--build-accent-read)]', bgColor: 'bg-[var(--build-accent-read)]/10 border-[var(--build-accent-read)]/30' },
+  write: { icon: FileText, label: 'Write', color: 'text-[var(--build-accent-write)]', bgColor: 'bg-[var(--build-accent-write)]/10 border-[var(--build-accent-write)]/30' },
+  edit: { icon: Code2, label: 'Edit', color: 'text-[var(--build-accent-edit)]', bgColor: 'bg-[var(--build-accent-edit)]/10 border-[var(--build-accent-edit)]/30' },
+  shell: { icon: Terminal, label: 'Shell', color: 'text-[var(--build-accent-shell)]', bgColor: 'bg-[var(--build-accent-shell)]/10 border-[var(--build-accent-shell)]/30' },
+  browser: { icon: Globe, label: 'Browser', color: 'text-[var(--build-accent-browser)]', bgColor: 'bg-[var(--build-accent-browser)]/10 border-[var(--build-accent-browser)]/30' },
+  search: { icon: Sparkles, label: 'Search', color: 'text-[var(--build-accent-search)]', bgColor: 'bg-[var(--build-accent-search)]/10 border-[var(--build-accent-search)]/30' },
+  task: { icon: Code2, label: 'Task', color: 'text-[var(--build-accent-task)]', bgColor: 'bg-[var(--build-accent-task)]/10 border-[var(--build-accent-task)]/30' },
   other: { icon: Sparkles, label: 'Tool', color: 'text-muted-foreground', bgColor: 'bg-secondary border-border' },
 };
 
@@ -135,10 +135,10 @@ function ToolCallCard({
               {typeConfig.label}
             </span>
             <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${
-              call.status === 'completed' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400' :
-              call.status === 'running' ? 'border-primary/30 bg-primary/10 text-primary' :
-              call.status === 'error' ? 'border-rose-400/30 bg-rose-400/10 text-rose-400' :
-              call.status === 'cancelled' ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' :
+              call.status === 'completed' ? 'border-[var(--build-status-done)]/30 bg-[var(--build-status-done)]/10 text-[var(--build-status-done)]' :
+              call.status === 'running' ? 'border-[var(--build-status-working)]/30 bg-[var(--build-status-working)]/10 text-[var(--build-status-working)]' :
+              call.status === 'error' ? 'border-[var(--build-status-error)]/30 bg-[var(--build-status-error)]/10 text-[var(--build-status-error)]' :
+              call.status === 'cancelled' ? 'border-[var(--build-status-cancelled)]/30 bg-[var(--build-status-cancelled)]/10 text-[var(--build-status-cancelled)]' :
               'border-border bg-secondary text-muted-foreground'
             }`}>
               {statusConfig.label}
@@ -204,7 +204,8 @@ function ToolCallCard({
               setExpandedCalls={setExpandedCalls}
             />
           ))}
-        </div)}
+        </div>
+      )}
     </div>
   );
 }
@@ -375,7 +376,7 @@ export function BuildTranscript({
       </div>
 
       {/* Bottom hint on mobile */}
-      <style jsx>{`
+      <style>{`
         .build-transcript-card {
           animation: build-fade-in var(--build-transition-normal);
         }

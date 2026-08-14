@@ -614,6 +614,16 @@ const en = {
   "studio.build.pipelineFailed": "The build pipeline stopped unexpectedly. Check the progress transcript and preview output.",
   "studio.build.questionsFailed": "I could not prepare the optional questions. You can retry the request.",
 
+  /* Build Studio - Missing keys from Phase0 */
+  "studio.build.consoleTitle": "Console",
+  "studio.build.of": "of",
+  "studio.build.planSteps": "Plan steps",
+  "studio.build.planRisks": "Risks & Notes",
+  "studio.build.transcriptTitle": "Transcript",
+  "studio.build.filterAll": "All",
+  "studio.build.transcriptFeed": "Build transcript",
+  "studio.build.transcriptEmpty": "No tool calls yet",
+
   /* Project home */
   "projectHome.back": "Back to chat",
   "projectHome.loading": "Opening project workspace…",
@@ -1062,6 +1072,16 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.progressComplete": "De bouwlus is klaar. Bekijk hieronder het rapport en previewbewijs.",
   "studio.build.pipelineFailed": "De bouwpipeline is onverwacht gestopt. Bekijk het voortgangsoverzicht en de preview-uitvoer.",
   "studio.build.questionsFailed": "De optionele vragen konden niet worden voorbereid. Je kunt het verzoek opnieuw proberen.",
+
+  /* Build Studio - Missing keys from Phase0 */
+  "studio.build.consoleTitle": "Console",
+  "studio.build.of": "van",
+  "studio.build.planSteps": "Planstappen",
+  "studio.build.planRisks": "Risico's & Notities",
+  "studio.build.transcriptTitle": "Transcript",
+  "studio.build.filterAll": "Alles",
+  "studio.build.transcriptFeed": "Bouw transcript",
+  "studio.build.transcriptEmpty": "Nog geen tool calls",
   ...projectMemoryNl,
   ...projectInstructionsNl,
   ...projectFilesNl,

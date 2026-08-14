@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   RefreshCw, Maximize2, Minimize2, X, Monitor, Smartphone, Tablet,
   Terminal, WifiOff, RotateCcw, Bug, Trash2, Download, Copy,
-  ChevronLeft, ChevronRight, Check, AlertTriangle
+  ChevronLeft, ChevronRight, Check, AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import '@/lib/build-ui-theme.css';
@@ -230,7 +230,7 @@ function ConsolePanel({
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .build-scrollbar-thin {
           scrollbar-width: thin;
           scrollbar-color: var(--build-border) transparent;

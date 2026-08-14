@@ -37,8 +37,11 @@
   /* Accent colors for tool call types */
   --build-accent-read: hsl(217, 91%, 60%);    /* blue */
   --build-accent-write: hsl(142, 76%, 36%);   /* green */
+  --build-accent-edit: hsl(199, 89%, 48%);    /* sky */
   --build-accent-shell: hsl(38, 92%, 50%);    /* amber */
   --build-accent-browser: hsl(262, 83%, 58%); /* purple */
+  --build-accent-search: hsl(189, 94%, 43%);  /* cyan */
+  --build-accent-task: hsl(239, 84%, 67%);    /* indigo */
   --build-accent-error: hsl(0, 84%, 60%);     /* red */
   --build-accent-success: hsl(142, 76%, 36%); /* green */
   --build-accent-warning: hsl(38, 92%, 50%);  /* amber */
@@ -49,6 +52,22 @@
   --build-status-done: var(--build-accent-success);
   --build-status-error: var(--build-accent-error);
   --build-status-cancelled: var(--build-accent-warning);
+
+  /* Semantic UI colors (mapped to theme tokens) */
+  --build-completion-border: var(--build-accent-success);
+  --build-completion-bg: var(--build-accent-success);
+  --build-completion-text: var(--build-accent-success);
+  --build-warning-text: var(--build-accent-warning);
+  --build-error-border: var(--build-accent-error);
+  --build-error-bg: var(--build-accent-error);
+  --build-error-text: var(--build-accent-error);
+  --build-primary-border: var(--build-accent-read);
+  --build-primary-bg: var(--build-accent-read);
+  --build-primary-text: var(--build-accent-read);
+  --build-info-border: var(--build-accent-read);
+  --build-info-bg: var(--build-accent-read);
+  --build-info-text: var(--build-accent-read);
+  --build-code-bg: var(--build-bg);
 
   /* ===== Spacing Scale ===== */
   --build-space-xs: 4px;

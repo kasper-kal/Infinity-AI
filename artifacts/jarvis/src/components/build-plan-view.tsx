@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Check, FileText, Loader2, Sparkles, X } from
 import { useI18n } from '@/lib/i18n';
 import '@/lib/build-ui-theme.css';
 
-interface PlanStep {
+export interface PlanStep {
   id: string;
   title: string;
   description?: string;
@@ -12,14 +12,16 @@ interface PlanStep {
   duration?: number;
 }
 
+export interface BuildPlan {
+  title: string;
+  summary: string;
+  steps: PlanStep[];
+  files?: string[];
+  risks?: string[];
+}
+
 interface BuildPlanViewProps {
-  plan: {
-    title: string;
-    summary: string;
-    steps: PlanStep[];
-    files?: string[];
-    risks?: string[];
-  } | null;
+  plan: BuildPlan | null;
   onStepClick?: (stepId: string) => void;
   onClose?: () => void;
   activeStepId?: string | null;
@@ -262,7 +264,7 @@ export function BuildPlanView({ plan, onStepClick, onClose, activeStepId }: Buil
       </div>
 
       {/* Desktop: always vertical list, Mobile: horizontal cards */}
-      <style jsx>{`
+      <style>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;

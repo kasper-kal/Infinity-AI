@@ -29,6 +29,41 @@ const formatElapsed = (milliseconds: number) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
+function ProgressRing({ completed, total, active }: { completed: number; total: number; active: boolean }) {
+  const size = 28;
+  const stroke = 3;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = total > 0 ? Math.min(1, completed / total) : 0;
+  const offset = circumference * (1 - pct);
+  const displayTotal = total > 0 ? total : Math.max(completed, 1);
+  return (
+    <span
+      className={`relative inline-flex shrink-0 items-center justify-center ${active ? 'build-animate-pulse' : ''}`}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`Progress: ${completed} of ${displayTotal} steps complete`}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--build-border)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--build-accent-read)"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset var(--build-transition-normal)' }}
+        />
+      </svg>
+      <span className="absolute font-mono text-[8px] font-semibold text-foreground">{completed}/{displayTotal}</span>
+    </span>
+  );
+}
+
 export function BuildProgressPanel({ open, items, status, startedAt, clock, onOpen, onClose, onCancel }: BuildProgressPanelProps) {
   const { t } = useI18n();
   const [liveClock, setLiveClock] = useState(clock);
@@ -42,14 +77,16 @@ export function BuildProgressPanel({ open, items, status, startedAt, clock, onOp
 
   if (!open) {
     if (items.length === 0) return null;
+    const completed = items.filter(i => i.status === 'done').length;
     return createPortal(
       <button
         type="button"
         onClick={(event) => { event.stopPropagation(); onOpen(); }}
         className="fixed bottom-5 right-5 z-[90] flex items-center gap-2 rounded-full border border-primary/30 bg-card px-3 py-2 text-xs text-foreground shadow-2xl"
+        style={{ paddingBottom: 'calc(12px + var(--build-safe-bottom))' }}
       >
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
-        {t('studio.build.progressOpen')}
+        <ProgressRing completed={completed} total={items.length} active={status === 'working'} />
+        <span>{t('studio.build.progressOpen')}</span>
       </button>,
       document.body,
     );
@@ -65,16 +102,20 @@ export function BuildProgressPanel({ open, items, status, startedAt, clock, onOp
           ? t('studio.build.progressCancelled')
           : t('studio.build.progressError');
 
+  const completed = items.filter(i => i.status === 'done').length;
+
   return createPortal(
     <aside
       onClick={(event) => event.stopPropagation()}
       className="fixed bottom-4 right-4 z-[90] flex max-h-[min(72vh,560px)] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-2xl border border-primary/30 bg-card/95 shadow-2xl backdrop-blur-xl"
       aria-label={t('studio.build.progressTitle')}
       aria-live="polite"
+      style={{ paddingBottom: 'var(--build-safe-bottom)' }}
     >
       <header className="flex items-center gap-2 border-b border-border px-3 py-3">
         <span className="rounded-lg bg-primary/15 p-1.5 text-primary"><Sparkles className="h-3.5 w-3.5" /></span>
         <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-foreground">{t('studio.build.progressTitle')}</p><p className="text-[10px] text-muted-foreground">{statusLabel}</p></div>
+        <ProgressRing completed={completed} total={items.length} active={status === 'working'} />
         <span className="font-mono text-[10px] text-muted-foreground">{startedAt ? formatElapsed(liveClock - startedAt) : '00:00'}</span>
         <button type="button" onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground" aria-label={t('studio.build.progressClose')}><X className="h-3.5 w-3.5" /></button>
       </header>

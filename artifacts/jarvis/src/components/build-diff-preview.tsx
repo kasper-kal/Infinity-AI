@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, createPortal } from 'react';
-import { ChevronLeft, ChevronRight, Code2, Copy, Download, Maximize2, Minimize2, X, Search, FileText, RotateCcw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, Code2, Copy, Download, Maximize2, Minimize2, X, Search, FileText, RotateCcw, Check } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import '@/lib/build-ui-theme.css';
 
@@ -518,7 +519,7 @@ export function BuildDiffPreview({
           </div>
         )}
 
-        <style jsx>{`
+        <style>{`
           .diff-line {
             white-space: pre;
             word-break: break-all;
@@ -529,7 +530,8 @@ export function BuildDiffPreview({
             }
           }
         `}</style>
-      </div>,
+      </div>
+    </div>,
     document.body
   );
 }

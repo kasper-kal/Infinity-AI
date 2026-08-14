@@ -3,6 +3,7 @@ import { useSpeechRecognition, isSpeechRecognitionSupported } from '@/hooks/use-
 import { useWakeWord, isWakeWordSupported } from '@/hooks/use-wake-word';
 import { useClapDetection } from '@/hooks/use-clap-detection';
 import { useSynthesizeSpeech } from '@workspace/api-client-react';
+import type { SpeakOutput } from '@workspace/api-client-react';
 import type { AppState } from '@/components/orb';
 import type { ChatMessage } from '@/components/conversation-feed';
 import { ChatSidebar } from '@/components/chat-sidebar';
@@ -777,7 +778,7 @@ export default function Home() {
     synthesizeSpeech.mutate(
       { data: { text: jarvisText } },
       {
-        onSuccess: (speechData) => {
+        onSuccess: (speechData: SpeakOutput) => {
           try {
             const binaryString = atob(speechData.audio);
             const bytes = new Uint8Array(binaryString.length);
@@ -852,13 +853,14 @@ export default function Home() {
               .catch(() => { URL.revokeObjectURL(url); handleError("Audio playback failed"); });
           } catch { handleError("Failed to decode audio"); }
         },
-        onError: (err) => {
+        onError: (err: unknown) => {
           // Surface TTS failures instead of silently returning to idle, a
           // missing/invalid ElevenLabs key otherwise looks like "voice mode
           // errors when I talk".
-          const detail = (err as any)?.error?.detail as ErrorDetail | undefined;
+          const apiErr = err as { error?: { error?: string; detail?: ErrorDetail } };
+          const detail = apiErr.error?.detail as ErrorDetail | undefined;
           handleError(
-            (err as any)?.error?.error || 'Speech synthesis failed. Check your ElevenLabs API key.',
+            apiErr.error?.error || 'Speech synthesis failed. Check your ElevenLabs API key.',
             detail,
           );
           onDone();
