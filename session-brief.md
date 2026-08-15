@@ -4,22 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-15 21:10
+LAST_UPDATED: 2026-08-15 21:35
 
 ## Just did (last action)
-- **Gem → Expert rename COMPLETE**: Renamed the "Gem" feature (custom expert personas / deep-research-spawned expert chats) to "Expert" across the entire codebase, and updated README.md to fit the current project state.
-  - Frontend: `GemDialog` → `ExpertDialog` component (file renamed gem-dialog.tsx → expert-dialog.tsx), route `POST /conversations/gem` → `POST /conversations/expert`
-  - i18n: `gem.*` keys → `expert.*` keys (EN + NL), `research.openGem` → `research.openExpert`, `projectResearch.openGem` → `projectResearch.openExpert`
-  - `PlusMenu`: `new-gem` → `new-expert` action, `labels.newGem` → `labels.newExpert`
-  - `CommandPalette`: `gem` action → `expert` action
-  - `ResearchPanel`: `onOpenGem` → `onOpenExpert` prop + label
-  - `ProjectResearch`: `openGem` → `openExpert` label
-  - `ChatComposer`: `newGem` → `newExpert` label
-  - `DataLab`: `GemDialogProps` → `DataLabDialogProps` (internal interface name fix)
-  - `AppOverlays` + `home.tsx`: `gemDialogOpen`/`onCloseGem`/`onGemCreated`/`onOpenGem`/`onOpenGemFromPalette` → `expertDialogOpen`/`onCloseExpert`/`onExpertCreated`/`onOpenExpert`/`onOpenExpertFromPalette`
-  - README: "Gem" → "Expert" terminology; added "Experts" to capabilities table + a new Experts section under Deep Research
-  - **Backward-compat KEPT:** DB `kind: "gem"`, columns `gem_system_prompt`/`gem_conversation_id`, and API response fields `gemSystemPrompt`/`gemConversationId` are preserved (internal contract, not user-facing)
+- **Gem → Expert rename → 10/10**: Completed the internal backend rename so terminology is fully consistent (10/10, not just user-facing).
+  - `research-engine.ts`: `createGem()` → `createExpert()`, internal `gemSystemPrompt` var → `expertSystemPrompt`, conversation title emoji 💎→🧠, log "Expert chat created"
+  - Backward-compat header comment + inline comments documenting DB/API legacy fields (kind:"gem", gem_system_prompt, gem_conversation_id, gemSystemPrompt/gemConversationId API fields)
+  - `conversations.ts` + `chat.ts` comments clarified the legacy DB value vs new "Expert" terminology
+  - Only remaining "gem" strings: Ruby `gem` package manager type, DB `kind: "gem"` (legacy, documented), API response fields `gemSystemPrompt`/`gemConversationId` (contract, documented)
   - Typecheck passes, full build passes, pushed to GitHub
+
+## Previous action (Gem→Expert rename, user-facing)
+- Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -34,6 +30,7 @@ LAST_UPDATED: 2026-08-15 21:10
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-15 **Gem→Expert 10/10 — internal backend rename complete**: createGem→createExpert, expertSystemPrompt var, 💎→🧠 emoji, BACKWARD COMPAT header + inline comments, conversations.ts/chat.ts comments clarified legacy DB value; only remaining "gem": Ruby gem pkg mgr, kind:"gem" (legacy, documented), API gemSystemPrompt/gemConversationId (contract, documented)
 - 2026-08-15 **Gem → Expert rename COMPLETE**: Renamed "Gem" to "Expert" across codebase (15 files, component rename, route, i18n, props, README); typecheck + build pass, pushed
 - 2026-08-15 **Phase 2 COMPLETE**: All 3 tasks done (UI diff modal ✓, retry loop with fixer ✓, wire /build/execute-plan ✓); typecheck + build pass
 - 2026-08-15 **Phase 2 Task #2 COMPLETE**: Retry loop with fixer prompt on verification failure implemented in `/build/iterate`; typecheck + build pass
@@ -61,7 +58,7 @@ LAST_UPDATED: 2026-08-15 21:10
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
-- **Gem → Expert rename** — **COMPLETE**: Feature renamed across codebase + README updated; DB/API contract preserved for backward compatibility.
+- **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
 1. **Phase 3: Context & Memory** — Smart working context (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction), project-scoped memory injection into build loop.
