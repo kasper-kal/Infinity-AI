@@ -214,9 +214,10 @@ router.post("/conversations", async (req, res) => {
 
 /**
  * POST /conversations/expert
- * Create a user-defined expert, a conversation with kind "gem" and a
- * custom system prompt. The chat route already prefers systemPrompt when set,
- * so chatting in this conversation makes Jarvis behave as the crafted expert.
+ * Create a user-defined expert, a conversation with kind "gem" (DB legacy value,
+ * kept for backward compatibility) and a custom system prompt. The chat route
+ * already prefers systemPrompt when set, so chatting in this conversation makes
+ * Jarvis behave as the crafted expert.
  */
 router.post("/conversations/expert", async (req, res) => {
   try {

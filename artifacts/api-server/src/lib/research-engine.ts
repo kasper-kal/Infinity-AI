@@ -18,6 +18,10 @@
  *
  * Everything is persisted to Postgres on every step, so the frontend can
  * poll progress and a server restart resumes the job (via recoverStuckJobs).
+ *
+ * BACKWARD COMPAT: DB column `kind` remains "gem", columns `gem_system_prompt`
+ * and `gem_conversation_id`, and API response fields `gemSystemPrompt`/`gemConversationId`
+ * are preserved. Internal terminology uses "expert" throughout.
  */
 
 import OpenAI from "openai";
@@ -95,6 +99,7 @@ interface JobPatch {
   log?: string;
   notes?: string;
   report?: string;
+  // BACKWARD COMPAT: API/DB fields keep "gem" prefix
   gemSystemPrompt?: string;
   gemConversationId?: string;
   phasesCompleted?: number;
@@ -444,7 +449,7 @@ async function runPhase(
  * Expert creation
  * ──────────────────────────────────────────────────────────────── */
 
-async function createGem(
+async function createExpert(
   jobId: string,
   job: JobMeta & { notes: string },
 ): Promise<{ gemConversationId: string; gemSystemPrompt: string; report: string }> {
@@ -482,23 +487,23 @@ async function createGem(
       "Ground every answer in the research dossier attached to this conversation. Reason rigorously, structure your answers, and acknowledge uncertainty honestly.";
   }
 
-  const gemSystemPrompt =
+  const expertSystemPrompt =
     persona +
     "\n\n== RESEARCH DOSSIER (ground truth, distilled over many hours of investigation) ==\n" +
     job.notes.slice(-80_000) +
     "\n\nRules:\n- Reason like a senior expert: define terms, state assumptions, weigh evidence, then conclude.\n- When the dossier is silent, reason from first principles and say so.\n- Be rigorous, precise, and appropriately humble about uncertainty.\n- Format long answers with clear markdown structure.";
 
-  // Create the gem conversation + seed messages
+  // Create the expert conversation + seed messages
   const [conv] = await db
     .insert(conversations)
-    .values({ title: `💎 ${job.title.slice(0, 120)}`, kind: "gem", systemPrompt: gemSystemPrompt })
+    .values({ title: `🧠 ${job.title.slice(0, 120)}`, kind: "gem", systemPrompt: expertSystemPrompt })
     .returning();
   await db.insert(messages).values([
     { conversationId: conv.id, role: "user", content: job.prompt },
     { conversationId: conv.id, role: "assistant", content: report },
   ]);
   await appendLog(jobId, `Expert chat created (${conv.id}).`);
-  return { gemConversationId: conv.id, gemSystemPrompt, report };
+  return { gemConversationId: conv.id, gemSystemPrompt: expertSystemPrompt, report };
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -612,10 +617,10 @@ async function runJob(jobId: string): Promise<void> {
 
   // Final synthesis uses the key pool too, if every key is cooling, pause
   // and retry rather than failing the whole job at the last step.
-  let gemResult: { gemConversationId: string; gemSystemPrompt: string; report: string } | null = null;
-  for (let attempt = 0; attempt < 3 && !gemResult; attempt++) {
+  let expertResult: { gemConversationId: string; gemSystemPrompt: string; report: string } | null = null;
+  for (let attempt = 0; attempt < 3 && !expertResult; attempt++) {
     try {
-      gemResult = await createGem(
+      expertResult = await createExpert(
         jobId,
         { prompt: finalRow.prompt, title: finalRow.title, notes: finalRow.notes, mode: finalRow.mode, depth: finalRow.depth },
       );
@@ -629,7 +634,7 @@ async function runJob(jobId: string): Promise<void> {
       }
     }
   }
-  const { gemConversationId, gemSystemPrompt, report } = gemResult!;
+  const { gemConversationId, gemSystemPrompt, report } = expertResult!;
   try {
     await updateJob(jobId, {
       status: "completed",

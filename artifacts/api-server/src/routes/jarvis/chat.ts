@@ -895,7 +895,8 @@ router.post("/chat", async (req, res) => {
         .orderBy(asc(messages.createdAt)),
       getSettings(),
       buildMemoryContext(),
-      // Expert conversations carry their own system prompt (created by deep research)
+      // Expert conversations carry their own system prompt (created via /conversations/expert
+      // or spawned by deep research; persisted with DB kind "gem" for backward compatibility)
       db.select().from(conversations).where(eq(conversations.id, convId)).then(rows => rows[0] ?? null),
       buildProjectContext(convId, sanitizedMessage, requestId, agentMode !== "true"),
     ]);
@@ -996,8 +997,8 @@ router.post("/chat", async (req, res) => {
 
     // When personality is "custom", the user's prompt IS the entire system
     // prompt, it fully replaces the Jarvis base instructions.
-    // Expert conversations (created by deep research) also carry their own
-    // expert system prompt, which replaces the default Jarvis instructions.
+    // Expert conversations (created via /conversations/expert or spawned by deep research)
+    // also carry their own expert system prompt, which replaces the default Jarvis instructions.
     const basePrompt =
       personalitySetting === "custom" && customPrompt
         ? customPrompt
