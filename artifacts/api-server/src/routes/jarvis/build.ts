@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { desc, eq } from "drizzle-orm";
 import { buildApps, db } from "@workspace/db";
+import { logActivity } from "./project-activity";
 import {
   ensureWorkspace,
   getSessionCwd,
@@ -39,6 +40,11 @@ import {
   serializeContext,
   refreshFileMap,
 } from "../../lib/build-context";
+import { buildFullProjectContext } from "../../lib/project-context";
+import {
+  buildProjectContextForBuild,
+  combineBuildMemory,
+} from "../../lib/build-project-context";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -789,6 +795,8 @@ router.post("/build/scaffold", async (req, res) => {
       workingContext: { prompt, workspaceId },
       tokenUsage: { prompt: 0, completion: 0, total: 0 },
     });
+    // Phase 3.2: Log build activity to project (no-op if projectId isn't a real project)
+    await logActivity(projectId, "agent_ran", `Build scaffold: ${prompt.slice(0, 100)}`);
     res.status(201).json({ ok: true, files: Object.keys(files), runtime: "static", previewCommand: "python3 -m http.server ${PORT}" });
   } catch (err) {
     req.log.error({ err }, "Failed to scaffold starter");
@@ -875,6 +883,8 @@ router.post("/build/iterate", async (req, res) => {
       workingContext: { prompt, workspaceId, passNumber, verifyOk: verifyResult, fixAttempts },
       tokenUsage: { prompt: 0, completion: 0, total: 0 },
     });
+    // Phase 3.2: Log build activity
+    await logActivity(projectId, "agent_ran", `Build iterate #${passNumber}: ${result.done ? "done" : "continued"} — ${result.summary?.slice(0, 80) ?? prompt.slice(0, 80)}`);
     res.json({ ok: true, passNumber, verifyOk: verifyResult, verifyFeedback, fixAttempts, ...result });
   } catch (err) {
     req.log.error({ err }, "Build self-review failed");
@@ -1077,6 +1087,15 @@ router.post("/build/execute-plan", async (req, res) => {
     setProjectGoal(projectId, prompt);
     await refreshFileMap(projectId, workspaceId);
 
+    // Phase 3.2: Build project-scoped context (instructions, memory, activity, files)
+    // Only injects when projectId matches a real Projects row — safe no-op otherwise.
+    const projectContext = await buildProjectContextForBuild(projectId, prompt, {
+      includeActivity: true,
+      includeFiles: true,
+      activityLimit: 20,
+      fileLimit: 50,
+    });
+
     // Phase 2.3: Get parallelizable batches from plan steps
     const steps = plan.steps.map(s => ({
       id: s.id,
@@ -1095,7 +1114,7 @@ router.post("/build/execute-plan", async (req, res) => {
       req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
 
       // Get serialized working context for injection
-      const contextPrompt = serializeContext(projectId);
+      const contextPrompt = combineBuildMemory(serializeContext(projectId), projectContext);
 
       // Run steps in this batch in parallel
       const batchResults = await Promise.all(batch.map(async (step) => {
@@ -1121,7 +1140,7 @@ router.post("/build/execute-plan", async (req, res) => {
                 `Answers: ${JSON.stringify(answers)}`,
                 `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
                 "",
-                `## WORKING CONTEXT (from prior steps & decisions):`,
+                `## CONTEXT (working + project):`,
                 contextPrompt,
               ].join("\n\n"),
             },
@@ -1197,7 +1216,8 @@ router.post("/build/execute-plan", async (req, res) => {
       workingContext: { prompt, workspaceId },
       tokenUsage: { prompt: 0, completion: 0, total: 0 },
     });
-
+    // Phase 3.2: Log build activity
+    await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${allResults.length} steps, ${overallOk ? "success" : "partial"}`);
     res.json({ ok: overallOk, results: allResults, batches: batches.length });
   } catch (err) {
     req.log.error({ err }, "Plan execution failed");
