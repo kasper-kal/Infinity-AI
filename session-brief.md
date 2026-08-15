@@ -4,14 +4,22 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-15 20:35
+LAST_UPDATED: 2026-08-15 21:10
 
 ## Just did (last action)
-- **Phase 2 (Loop Intelligence) - COMPLETE**: All 3 tasks done (UI diff modal ✓, retry loop with fixer ✓, wire /build/execute-plan ✓)
-  - Task #3: Wired `/build/execute-plan` into build-studio — `executePlan()` function calls server-side parallel step fan-out with topological batches and working-context injection
-  - `acceptPlan()` now uses `executePlan` directly for structured plans with steps; `doScaffold` and `applyDiffPreview` also execute the plan when steps are present
-  - Added `progressExecutingPlan` i18n key (EN + NL)
-  - Typecheck passes, full build passes
+- **Gem → Expert rename COMPLETE**: Renamed the "Gem" feature (custom expert personas / deep-research-spawned expert chats) to "Expert" across the entire codebase, and updated README.md to fit the current project state.
+  - Frontend: `GemDialog` → `ExpertDialog` component (file renamed gem-dialog.tsx → expert-dialog.tsx), route `POST /conversations/gem` → `POST /conversations/expert`
+  - i18n: `gem.*` keys → `expert.*` keys (EN + NL), `research.openGem` → `research.openExpert`, `projectResearch.openGem` → `projectResearch.openExpert`
+  - `PlusMenu`: `new-gem` → `new-expert` action, `labels.newGem` → `labels.newExpert`
+  - `CommandPalette`: `gem` action → `expert` action
+  - `ResearchPanel`: `onOpenGem` → `onOpenExpert` prop + label
+  - `ProjectResearch`: `openGem` → `openExpert` label
+  - `ChatComposer`: `newGem` → `newExpert` label
+  - `DataLab`: `GemDialogProps` → `DataLabDialogProps` (internal interface name fix)
+  - `AppOverlays` + `home.tsx`: `gemDialogOpen`/`onCloseGem`/`onGemCreated`/`onOpenGem`/`onOpenGemFromPalette` → `expertDialogOpen`/`onCloseExpert`/`onExpertCreated`/`onOpenExpert`/`onOpenExpertFromPalette`
+  - README: "Gem" → "Expert" terminology; added "Experts" to capabilities table + a new Experts section under Deep Research
+  - **Backward-compat KEPT:** DB `kind: "gem"`, columns `gem_system_prompt`/`gem_conversation_id`, and API response fields `gemSystemPrompt`/`gemConversationId` are preserved (internal contract, not user-facing)
+  - Typecheck passes, full build passes, pushed to GitHub
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -20,11 +28,13 @@ LAST_UPDATED: 2026-08-15 20:35
 - **Projects System:** brief "persistent workspaces with isolated project memory". Core backend (project CRUD, management, conversation scoping, project home backend), Project Memory (isolated storage, CRUD/pin APIs, keyword retrieval, project-scoped extraction), Project Instructions (ordered rules, scoped API, bilingual UI, chat injection), first-class Projects navigation (search/sort/archive/pin/rename/delete/create-from-chat/move + quick-access rail), AI Context Pipeline (six scoped sources assembled into PROJECT CONTEXT block), and Project Activity feed (cursor pagination, search, load-more, emoji icons, i18n, logActivity wired across all mutating routes). All verified with typecheck + build passing.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Live end-to-end run ready (server `.env` now configured).
 - **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — COMPLETE** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry-with-fixer ✓, UI diff modal ✓, wire execute-plan ✓). Next: Phase 3 (Context & Memory), Phase 4 (DevEx), Phase 5 (Polish).
+- **Gem → Expert rename:** COMPLETE. User-facing "Gem" feature (custom expert personas + deep-research-spawned expert chats) renamed to "Expert" everywhere. DB/API contract preserved: `kind: "gem"`, `gem_system_prompt`, `gem_conversation_id`, `gemSystemPrompt`, `gemConversationId` fields kept for backward compatibility.
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
-- **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
+- **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette, **Experts** (custom personas + research-spawned specialists).
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-15 **Gem → Expert rename COMPLETE**: Renamed "Gem" to "Expert" across codebase (15 files, component rename, route, i18n, props, README); typecheck + build pass, pushed
 - 2026-08-15 **Phase 2 COMPLETE**: All 3 tasks done (UI diff modal ✓, retry loop with fixer ✓, wire /build/execute-plan ✓); typecheck + build pass
 - 2026-08-15 **Phase 2 Task #2 COMPLETE**: Retry loop with fixer prompt on verification failure implemented in `/build/iterate`; typecheck + build pass
 - 2026-08-15 **Phase 2 PARTIAL**: Diff preview, verification loop, parallel fan-out, modular prompts implemented; typecheck + build pass
@@ -51,6 +61,7 @@ LAST_UPDATED: 2026-08-15 20:35
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
+- **Gem → Expert rename** — **COMPLETE**: Feature renamed across codebase + README updated; DB/API contract preserved for backward compatibility.
 
 ## Next actions
 1. **Phase 3: Context & Memory** — Smart working context (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction), project-scoped memory injection into build loop.
