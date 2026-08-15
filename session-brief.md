@@ -7,21 +7,12 @@
 LAST_UPDATED: 2026-08-15 18:25
 
 ## Just did (last action)
-- **Phase 1 COMPLETE**: Git worktree isolation + checkpoint/resume system implemented and pushed
-  - `workspace.ts`: `createIsolated()`, `hasIsolated()`, `isolatedPath()`, `commitIteration()`, `rollbackIteration()`
-  - Each project gets own git repo at `WORKSPACE_ROOT/worktrees/<project-id>`
-  - Branch: `infinity/build/<project-id>`
-  - `node_modules` symlinked to global pnpm store (0-euro reuse)
-  - Atomic commits per iteration with `infinity: step N/M - message`
-  - Instant rollback via `git reset --hard HEAD~1`
-  - `lib/db/src/schema/build-checkpoints.ts`: `build_checkpoints` table (plan, completedSteps, workingContext, fileSnapshots, tokenUsage)
-  - `lib/db/src/auto-migrate.ts`: `CREATE TABLE` for `build_checkpoints`
-  - `artifacts/api-server/src/lib/build-checkpoints.ts`: save/get/list/delete/markComplete
-  - `artifacts/api-server/src/routes/jarvis/build-checkpoints.ts`: REST API (POST/GET/DELETE)
-  - `build.ts`: `/build/start`, `/build/rollback`, `/build/resume/:projectId`
-  - Scaffold + iterate save checkpoints + commit iterations
-  - Resume endpoint fetches latest incomplete checkpoint for "Resume from step N?"
-- Typecheck passes, full build passes
+- **Phase 2 (Loop Intelligence) - PARTIAL**: Diff preview, verification loop, parallel fan-out, modular prompts
+  - `structured-tools.ts`: `generateUnifiedDiff()`, `verifyWorkspace()`, `formatVerificationFeedback()`, `getParallelizableSteps()`, TypeScript/vitest/eslint parsers
+  - `build-prompts.ts`: Modular versioned prompts (planner.v2, coder.v2, reviewer.v2, fixer.v2)
+  - `build.ts`: Added `/build/diff` (diff preview endpoint), `/build/verify` (verification loop with auto-retry max 3), `/build/execute-plan` (parallel step fan-out with topological batches)
+  - Integrated verification into `/build/iterate` — runs tsc/vitest/eslint/build after each iteration
+  - Typecheck passes, full build passes
 
 ## Project state — right now
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -29,12 +20,13 @@ LAST_UPDATED: 2026-08-15 18:25
 - **Continuity system:** `CLAUDE.md` routine + `KNOWLEDGE.md` (how it works) + `session-brief.md` (live state) replace the old 3 logs (archived in `archive/`). `source-code.ts` blocks KNOWLEDGE/session-brief from Jarvis-the-app's source reading.
 - **Projects System:** brief "persistent workspaces with isolated project memory". Core backend (project CRUD, management, conversation scoping, project home backend), Project Memory (isolated storage, CRUD/pin APIs, keyword retrieval, project-scoped extraction), Project Instructions (ordered rules, scoped API, bilingual UI, chat injection), first-class Projects navigation (search/sort/archive/pin/rename/delete/create-from-chat/move + quick-access rail), AI Context Pipeline (six scoped sources assembled into PROJECT CONTEXT block), and Project Activity feed (cursor pagination, search, load-more, emoji icons, i18n, logActivity wired across all mutating routes). All verified with typecheck + build passing.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Live end-to-end run ready (server `.env` now configured).
-- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. Next: Phase 2 (Loop Intelligence), Phase 3 (Context & Memory), Phase 4 (DevEx), Phase 5 (Polish).
+- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — PARTIAL** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓; remaining: UI diff modal integration, retry with fixer prompt). Next: Phase 3 (Context & Memory), Phase 4 (DevEx), Phase 5 (Polish).
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-15 **Phase 2 PARTIAL**: Diff preview, verification loop, parallel fan-out, modular prompts implemented; typecheck + build pass
 - 2026-08-15 **Phase 1 COMPLETE**: Git worktree isolation + checkpoint/resume system implemented, typecheck + build pass, pushed to GitHub
 - 2026-08-15 Server `.env` written with all credentials (gitignored)
 - 2026-08-14 **Full build passes** (typecheck + vite build) — Phase 0 TypeScript fixes complete, 3707 modules transformed, dist artifacts generated
@@ -54,13 +46,13 @@ LAST_UPDATED: 2026-08-15 18:25
 ## Active threads
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
-- **Build Mode (Infinity) Phase 2: Loop Intelligence** — **NEXT**: Diff preview + confirmation, real verification loop (tsc/vitest/eslint/build), parallel step fan-out, prompt engineering overhaul. Partial backend exists in `build.ts` (preview agent, walkthrough, self-review).
+- **Build Mode (Infinity) Phase 2: Loop Intelligence** — **IN PROGRESS**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓. Remaining: UI diff modal integration in build-studio.tsx, retry loop with fixer prompt, wire /build/execute-plan into build-studio.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
 
 ## Next actions
-1. **Phase 2: Loop Intelligence** — Start with diff preview + optional confirmation (before writeFile commits), then real verification loop (tsc --noEmit, vitest, eslint, npm run build), then parallel step fan-out, then prompt engineering overhaul.
+1. **Phase 2: Loop Intelligence** — Complete remaining: UI diff modal integration in build-studio.tsx (connect /build/diff to BuildDiffPreview), retry loop with fixer prompt on verification failure, wire /build/execute-plan into build-studio plan execution.
 2. **Phase 3: Context & Memory** — Smart working context (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction), project-scoped memory injection into build loop.
 3. **Phase 4: Developer Experience** — Workspace snapshots + one-click rollback (history.ts already has snapshots, need build-specific export), browser pool (puppeteer-browser.ts exists, need pooling), resource limits + cost tracking, command palette (build-command-palette.tsx exists, need server-side actions).
 4. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
