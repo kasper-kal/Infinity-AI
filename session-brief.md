@@ -4,16 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-15 22:15
+LAST_UPDATED: 2026-08-16 00:15
 
 ## Just did (last action)
-- **Phase 3.2 — Project-Scoped Memory Integration**: Wired the existing Projects system (instructions, memory, activity, files) into the build loop.
-  - Created `build-project-context.ts`: assembles PROJECT CONTEXT for build projects (guarded by real projectId)
-  - `execute-plan`: injects combined working + project context into each step; refreshes fileMap; logs activity
-  - `scaffold`: logs "agent_ran" activity on scaffold
-  - `iterate`: logs "agent_ran" activity on each iteration with summary
-  - Strict scoping: only real `projects.id` rows contribute context; no cross-project leakage
-  - Typecheck passes, full build passes
+- **Fixed TypeScript errors in Phase 4.4 Command Palette routes** (build.ts): 
+  - `ctx.steps` → `ctx.completedSteps` (WorkingContext uses `completedSteps` not `steps`)
+  - `refreshFileMap` now accepts only `projectId` (it lists files internally)
+  - `completedSteps` serialized to `Record<string, unknown>[]` for checkpoint compatibility
+  - `fileMap` (Map) converted to `Object.fromEntries()` for checkpoint storage
+  - Typecheck + full build pass
 
 ## Previous action (Gem→Expert rename, user-facing)
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
@@ -24,13 +23,17 @@ LAST_UPDATED: 2026-08-15 22:15
 - **Continuity system:** `CLAUDE.md` routine + `KNOWLEDGE.md` (how it works) + `session-brief.md` (live state) replace the old 3 logs (archived in `archive/`). `source-code.ts` blocks KNOWLEDGE/session-brief from Jarvis-the-app's source reading.
 - **Projects System:** brief "persistent workspaces with isolated project memory". Core backend (project CRUD, management, conversation scoping, project home backend), Project Memory (isolated storage, CRUD/pin APIs, keyword retrieval, project-scoped extraction), Project Instructions (ordered rules, scoped API, bilingual UI, chat injection), first-class Projects navigation (search/sort/archive/pin/rename/delete/create-from-chat/move + quick-access rail), AI Context Pipeline (six scoped sources assembled into PROJECT CONTEXT block), and Project Activity feed (cursor pagination, search, load-more, emoji icons, i18n, logActivity wired across all mutating routes). All verified with typecheck + build passing.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Live end-to-end run ready (server `.env` now configured).
-- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — COMPLETE** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry-with-fixer ✓, UI diff modal ✓, wire execute-plan ✓). **Phase 3.1: Smart Working Context — COMPLETE** (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction). **Phase 3.2: Project-Scoped Memory Integration — COMPLETE** (instructions, memory, activity, files wired into build loop). Next: Phase 4 (DevEx), Phase 5 (Polish).
+- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — COMPLETE** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry-with-fixer ✓, UI diff modal ✓, wire execute-plan ✓). **Phase 3.1: Smart Working Context — COMPLETE** (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction). **Phase 3.2: Project-Scoped Memory Integration — COMPLETE** (instructions, memory, activity, files wired into build loop). **Phase 4.1: Workspace Snapshots + Rollback — COMPLETE** (tar.gz snapshots at checkpoints, history timeline, restore/export). **Phase 4.2: Browser Pool — COMPLETE** (3-5 pre-warmed Chromium, session persistence, screenshot diffing, CDP accessibility). **Phase 4.3: Resource Limits + Cost Tracking — COMPLETE** (per-workspace budgets, token/cost tracking, daily aggregates, dashboard). **Phase 4.4: Command Palette + Keyboard Mastery — COMPLETE** (10 server-side command routes backing client palette). Next: Phase 5 (Polish).
 - **Gem → Expert rename:** COMPLETE. User-facing "Gem" feature (custom expert personas + deep-research-spawned expert chats) renamed to "Expert" everywhere. DB/API contract preserved: `kind: "gem"`, `gem_system_prompt`, `gem_conversation_id`, `gemSystemPrompt`, `gemConversationId` fields kept for backward compatibility.
-- **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
+- **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-budgets** · **build-costs** · **build-daily-aggregates** · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette, **Experts** (custom personas + research-spawned specialists).
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-15 **Phase 4.4 — Command Palette + Keyboard Mastery COMPLETE**: Fixed TypeScript errors in build.ts command routes (`ctx.steps`→`completedSteps`, `refreshFileMap` signature, `StepResult[]` serialization, `Map`→`Object` for checkpoint); all 10 server-side command routes working (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status, budget set); typecheck + build pass
+- 2026-08-15 **Phase 4.2 — Browser Pool COMPLETE**: Created `browser-pool.ts`; added 10 browser pool routes (status, acquire/release, navigate, action, state, screenshot, elements, captcha, accessibility, scale); 3-5 pre-warmed Chromium, session persistence, idle scaling; typecheck + build pass
+- 2026-08-15 **Phase 4.1 — Workspace Snapshots + One-Click Rollback COMPLETE**: Created `workspace-snapshots.ts`; added 4 snapshot routes (list, create, restore, delete); auto-snapshot after checkpoint; tar.gz + JSON sidecars; typecheck + build pass
+- 2026-08-15 **Phase 4.3 — Resource Limits + Cost Tracking COMPLETE**: Created `build-budgets.ts` schema + lib; added 7 budget routes to build.ts; per-workspace budgets, token/cost tracking, daily aggregates, dashboard; typecheck + build pass
 - 2026-08-15 **Phase 3.2 — Project-Scoped Memory Integration COMPLETE**: Created `build-project-context.ts`; wired project instructions, memory, activity, files into `/build/execute-plan`, `/build/scaffold`, `/build/iterate`; strict projectId guarding prevents cross-project leakage; typecheck + build pass
 - 2026-08-15 **Gem→Expert 10/10 — internal backend rename complete**: createGem→createExpert, expertSystemPrompt var, 💎→🧠 emoji, BACKWARD COMPAT header + inline comments, conversations.ts/chat.ts comments clarified legacy DB value; only remaining "gem": Ruby gem pkg mgr, kind:"gem" (legacy, documented), API gemSystemPrompt/gemConversationId (contract, documented)
 - 2026-08-15 **Gem → Expert rename COMPLETE**: Renamed "Gem" to "Expert" across codebase (15 files, component rename, route, i18n, props, README); typecheck + build pass, pushed
@@ -58,14 +61,17 @@ LAST_UPDATED: 2026-08-15 22:15
 - **Build Mode (Infinity) Phase 2: Loop Intelligence** — **COMPLETE**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry loop with fixer prompt ✓, UI diff modal integration ✓, wire /build/execute-plan ✓.
 - **Build Mode (Infinity) Phase 3.1: Smart Working Context** — **COMPLETE**: fileMap, keyDecisions, errorPatterns, tokenBudget, compaction implemented in `build-context.ts`.
 - **Build Mode (Infinity) Phase 3.2: Project-Scoped Memory Integration** — **COMPLETE**: Created `build-project-context.ts`; wired project instructions, memory, activity, files into `/build/execute-plan`, `/build/scaffold`, `/build/iterate`; strict projectId guarding.
+- **Build Mode (Infinity) Phase 4.1: Workspace Snapshots + Rollback** — **COMPLETE**: Tar.gz snapshots at checkpoints, history timeline, restore/export actions, 4 REST routes; typecheck + build pass.
+- **Build Mode (Infinity) Phase 4.2: Browser Pool** — **COMPLETE**: 3-5 pre-warmed Chromium, session persistence, screenshot diffing, CDP accessibility, 10 REST routes; typecheck + build pass.
+- **Build Mode (Infinity) Phase 4.3: Resource Limits + Cost Tracking** — **COMPLETE**: Per-workspace budgets, token/cost tracking, daily aggregates, dashboard stats, 7 REST routes; typecheck + build pass.
+- **Build Mode (Infinity) Phase 4.4: Command Palette + Keyboard Mastery** — **COMPLETE**: 10 server-side command routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set) backing client palette; typecheck + build pass.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 4: Developer Experience** — Workspace snapshots + one-click rollback (history.ts already has snapshots, need build-specific export), browser pool (puppeteer-browser.ts exists, need pooling), resource limits + cost tracking, command palette (build-command-palette.tsx exists, need server-side actions).
-2. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
+1. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

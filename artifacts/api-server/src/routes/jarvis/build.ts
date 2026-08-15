@@ -45,6 +45,34 @@ import {
   buildProjectContextForBuild,
   combineBuildMemory,
 } from "../../lib/build-project-context";
+import {
+  getOrCreateBudget,
+  updateBudget,
+  recordBuildCost,
+  checkBudgetBeforeBuild,
+  getBudgetStatus,
+  getCostHistory,
+  getDailyAggregates,
+  getBudgetDashboardStats,
+  estimateCostCents,
+  type BudgetLimits,
+} from "../../lib/build-budgets";
+import {
+  createSnapshot,
+  restoreSnapshot,
+  listSnapshots,
+  deleteSnapshot,
+  snapshotAfterCheckpoint,
+  type SnapshotMetadata,
+} from "../../lib/workspace-snapshots";
+import {
+  getBrowserPool,
+  BrowserPool,
+  type PoolConfig,
+  type BrowserSlot,
+  type ScreenshotDiff,
+  type AccessibilitySnapshot,
+} from "../../lib/browser-pool";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -1616,6 +1644,644 @@ router.get("/build/preview/status", async (req, res) => {
   const workspaceId = cleanText(req.query.workspaceId, 64) || "default";
   const entry = previewProcesses.get(previewKey(workspaceId, sessionId));
   res.json(entry ? { running: true, workspaceId, port: entry.port, command: entry.command, output: entry.output.slice(-4000) } : { running: false, workspaceId });
+});
+
+/**
+ * Phase 4.3: Resource Limits + Cost Tracking — Budget Management Routes
+ */
+
+// GET /build/budget/:projectId — Get budget config and current status
+router.get("/build/budget/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const status = await getBudgetStatus(projectId);
+    res.json({ ok: true, ...status });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to get budget status");
+    res.status(500).json({ error: "Failed to get budget status" });
+  }
+});
+
+// PATCH /build/budget/:projectId — Update budget limits
+router.patch("/build/budget/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const limits = req.body as Partial<BudgetLimits>;
+  if (!limits || typeof limits !== "object") {
+    res.status(400).json({ error: "Valid limits object required" });
+    return;
+  }
+  try {
+    const updated = await updateBudget(projectId, limits);
+    res.json({ ok: true, limits: updated });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to update budget");
+    res.status(500).json({ error: "Failed to update budget" });
+  }
+});
+
+// GET /build/budget/:projectId/dashboard — Dashboard stats (today, 7d, 30d, limits)
+router.get("/build/budget/:projectId/dashboard", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const stats = await getBudgetDashboardStats(projectId);
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to get dashboard stats");
+    res.status(500).json({ error: "Failed to get dashboard stats" });
+  }
+});
+
+// GET /build/budget/:projectId/history — Cost history (paginated)
+router.get("/build/budget/:projectId/history", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  try {
+    const history = await getCostHistory(projectId, limit, offset);
+    res.json({ ok: true, history });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to get cost history");
+    res.status(500).json({ error: "Failed to get cost history" });
+  }
+});
+
+// GET /build/budget/:projectId/daily — Daily aggregates (last N days)
+router.get("/build/budget/:projectId/daily", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+  try {
+    const daily = await getDailyAggregates(projectId, days);
+    res.json({ ok: true, daily });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to get daily aggregates");
+    res.status(500).json({ error: "Failed to get daily aggregates" });
+  }
+});
+
+// POST /build/budget/:projectId/check — Pre-flight budget check
+router.post("/build/budget/:projectId/check", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const { estimatedTokens, estimatedCostCents, estimatedDurationMs } = req.body as {
+    estimatedTokens?: number;
+    estimatedCostCents?: number;
+    estimatedDurationMs?: number;
+  };
+  if (typeof estimatedTokens !== "number" || typeof estimatedCostCents !== "number" || typeof estimatedDurationMs !== "number") {
+    res.status(400).json({ error: "estimatedTokens, estimatedCostCents, estimatedDurationMs required" });
+    return;
+  }
+  try {
+    const status = await checkBudgetBeforeBuild(projectId, estimatedTokens, estimatedCostCents, estimatedDurationMs);
+    res.json({ ok: true, ...status });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to check budget");
+    res.status(500).json({ error: "Failed to check budget" });
+  }
+});
+
+// POST /build/budget/:projectId/record — Record actual cost after a build iteration
+router.post("/build/budget/:projectId/record", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const {
+    checkpointId,
+    iteration,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    estimatedCostCents,
+    durationMs,
+    limitHit,
+    model,
+    metadata,
+  } = req.body as {
+    checkpointId?: string;
+    iteration?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    estimatedCostCents?: number;
+    durationMs?: number;
+    limitHit?: "none" | "tokens" | "cost" | "duration" | "builds";
+    model?: string;
+    metadata?: Record<string, unknown>;
+  };
+  if (typeof promptTokens !== "number" || typeof completionTokens !== "number" || typeof estimatedCostCents !== "number" || typeof durationMs !== "number") {
+    res.status(400).json({ error: "promptTokens, completionTokens, estimatedCostCents, durationMs required" });
+    return;
+  }
+  try {
+    const status = await recordBuildCost({
+      projectId,
+      checkpointId,
+      iteration,
+      promptTokens,
+      completionTokens,
+      totalTokens: totalTokens ?? (promptTokens + completionTokens),
+      estimatedCostCents,
+      durationMs,
+      limitHit,
+      model,
+      metadata,
+    });
+    res.json({ ok: true, ...status });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to record build cost");
+    res.status(500).json({ error: "Failed to record build cost" });
+  }
+});
+
+/**
+ * Phase 4.1: Workspace Snapshots + One-Click Rollback
+ */
+
+// GET /build/snapshots/:projectId — List snapshots (newest first)
+router.get("/build/snapshots/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  try {
+    const snapshots = await listSnapshots(projectId, limit);
+    res.json({ ok: true, snapshots });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to list snapshots");
+    res.status(500).json({ error: "Failed to list snapshots" });
+  }
+});
+
+// POST /build/snapshots/:projectId — Create a snapshot on demand
+router.post("/build/snapshots/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const checkpointId = cleanText(req.body?.checkpointId, 36) || null;
+  const iteration = Number(req.body?.iteration) || 0;
+  try {
+    const meta = await createSnapshot(projectId, checkpointId, iteration);
+    if (!meta) {
+      res.status(500).json({ error: "Snapshot creation failed" });
+      return;
+    }
+    const { writeSnapshotSidecar } = await import("../../lib/workspace-snapshots");
+    await writeSnapshotSidecar(meta);
+    if (checkpointId) await snapshotAfterCheckpoint(projectId, checkpointId, iteration);
+    res.json({ ok: true, snapshot: meta });
+  } catch (err) {
+    console.error({ err, projectId }, "Failed to create snapshot");
+    res.status(500).json({ error: "Failed to create snapshot" });
+  }
+});
+
+// POST /build/snapshots/:projectId/:snapshotId/restore — Restore a snapshot to workspace
+router.post("/build/snapshots/:projectId/:snapshotId/restore", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  const snapshotId = cleanText(req.params.snapshotId, 36);
+  if (!projectId || !snapshotId) {
+    res.status(400).json({ error: "projectId and snapshotId required" });
+    return;
+  }
+  try {
+    const ok = await restoreSnapshot(projectId, snapshotId);
+    if (!ok) {
+      res.status(500).json({ error: "Restore failed" });
+      return;
+    }
+    res.json({ ok: true, message: "Snapshot restored to workspace" });
+  } catch (err) {
+    console.error({ err, projectId, snapshotId }, "Failed to restore snapshot");
+    res.status(500).json({ error: "Failed to restore snapshot" });
+  }
+});
+
+// DELETE /build/snapshots/:projectId/:snapshotId — Delete a snapshot
+router.delete("/build/snapshots/:projectId/:snapshotId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  const snapshotId = cleanText(req.params.snapshotId, 36);
+  if (!projectId || !snapshotId) {
+    res.status(400).json({ error: "projectId and snapshotId required" });
+    return;
+  }
+  try {
+    const ok = await deleteSnapshot(projectId, snapshotId);
+    res.json({ ok: true, deleted: ok });
+  } catch (err) {
+    console.error({ err, projectId, snapshotId }, "Failed to delete snapshot");
+    res.status(500).json({ error: "Failed to delete snapshot" });
+  }
+});
+
+/**
+ * Phase 4.2: Browser Pool
+ */
+
+let browserPoolInstance: BrowserPool | null = null;
+
+// Initialize browser pool on first use
+function getBrowserPoolInstance(): BrowserPool {
+  if (!browserPoolInstance) {
+    browserPoolInstance = getBrowserPool({ minSize: 3, maxSize: 5 });
+    browserPoolInstance.initialize().catch((err) => console.error({ err }, "Browser pool init failed"));
+  }
+  return browserPoolInstance;
+}
+
+// GET /build/browser/pool/status — Get pool status
+router.get("/build/browser/pool/status", async (req, res) => {
+  try {
+    const pool = getBrowserPoolInstance();
+    const status = pool.getStatus();
+    const config = pool.getConfig();
+    res.json({ ok: true, status, config: { minSize: config.minSize, maxSize: config.maxSize } });
+  } catch (err) {
+    console.error({ err }, "Failed to get browser pool status");
+    res.status(500).json({ error: "Failed to get browser pool status" });
+  }
+});
+
+// POST /build/browser/pool/acquire — Acquire a browser for a task
+router.post("/build/browser/pool/acquire", async (req, res) => {
+  const taskId = cleanText(req.body?.taskId, 64) || `task-${Date.now()}`;
+  try {
+    const pool = getBrowserPoolInstance();
+    const slot = await pool.acquire(taskId);
+    res.json({ ok: true, browser: { id: slot.id, wsPort: slot.wsPort, state: slot.state } });
+  } catch (err) {
+    console.error({ err, taskId }, "Failed to acquire browser");
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// POST /build/browser/pool/release — Release a browser
+router.post("/build/browser/pool/release", async (req, res) => {
+  const browserId = cleanText(req.body?.browserId, 64);
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const ok = pool.release(browserId);
+    res.json({ ok: true, released: ok });
+  } catch (err) {
+    console.error({ err, browserId }, "Failed to release browser");
+    res.status(500).json({ error: "Failed to release browser" });
+  }
+});
+
+// POST /build/browser/:browserId/navigate — Navigate a browser to a URL
+router.post("/build/browser/:browserId/navigate", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  const url = cleanText(req.body?.url, 2048);
+  if (!browserId || !url) {
+    res.status(400).json({ error: "browserId and url required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const result = await pool.navigate(browserId, url);
+    res.json(result);
+  } catch (err) {
+    console.error({ err, browserId, url }, "Navigate failed");
+    res.status(500).json({ error: "Navigate failed" });
+  }
+});
+
+// POST /build/browser/:browserId/action — Execute an action on a browser
+router.post("/build/browser/:browserId/action", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  const action = req.body?.action as any;
+  if (!browserId || !action) {
+    res.status(400).json({ error: "browserId and action required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const result = await pool.executeAction(browserId, action);
+    res.json(result);
+  } catch (err) {
+    console.error({ err, browserId, action }, "Action failed");
+    res.status(500).json({ error: "Action failed" });
+  }
+});
+
+// GET /build/browser/:browserId/state — Get browser state
+router.get("/build/browser/:browserId/state", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const state = pool.getState(browserId);
+    res.json({ ok: true, state });
+  } catch (err) {
+    console.error({ err, browserId }, "Failed to get browser state");
+    res.status(500).json({ error: "Failed to get browser state" });
+  }
+});
+
+// POST /build/browser/:browserId/screenshot — Take a grid screenshot
+router.post("/build/browser/:browserId/screenshot", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  const cellSize = Number(req.body?.cellSize) || 24;
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const result = await pool.takeGridScreenshot(browserId, cellSize);
+    res.json(result);
+  } catch (err) {
+    console.error({ err, browserId }, "Screenshot failed");
+    res.status(500).json({ error: "Screenshot failed" });
+  }
+});
+
+// POST /build/browser/:browserId/elements — Get interactive elements
+router.post("/build/browser/:browserId/elements", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  const maxItems = Math.min(Number(req.body?.maxItems) || 30, 100);
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const result = await pool.getInteractiveElements(browserId, maxItems);
+    res.json(result);
+  } catch (err) {
+    console.error({ err, browserId }, "Get elements failed");
+    res.status(500).json({ error: "Get elements failed" });
+  }
+});
+
+// GET /build/browser/:browserId/captcha — Check for captcha
+router.get("/build/browser/:browserId/captcha", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const result = await pool.hasCaptcha(browserId);
+    res.json(result);
+  } catch (err) {
+    console.error({ err, browserId }, "Captcha check failed");
+    res.status(500).json({ error: "Captcha check failed" });
+  }
+});
+
+// POST /build/browser/:browserId/accessibility — Capture accessibility tree
+router.post("/build/browser/:browserId/accessibility", async (req, res) => {
+  const browserId = cleanText(req.params.browserId, 64);
+  if (!browserId) {
+    res.status(400).json({ error: "browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const snapshot = await pool.captureAccessibility(browserId);
+    res.json({ ok: true, snapshot });
+  } catch (err) {
+    console.error({ err, browserId }, "Accessibility capture failed");
+    res.status(500).json({ error: "Accessibility capture failed" });
+  }
+});
+
+// POST /build/browser/pool/scale — Scale pool size
+router.post("/build/browser/pool/scale", async (req, res) => {
+  const min = Math.max(1, Math.min(Number(req.body?.min) || 3, 10));
+  const max = Math.max(min, Math.min(Number(req.body?.max) || 5, 10));
+  try {
+    const pool = getBrowserPoolInstance();
+    await pool.setSize(min, max);
+    res.json({ ok: true, config: { minSize: min, maxSize: max } });
+  } catch (err) {
+    console.error({ err }, "Scale pool failed");
+    res.status(500).json({ error: "Scale pool failed" });
+  }
+});
+
+/**
+ * Phase 4.4: Command Palette + Keyboard Mastery — Server-side Actions
+ *
+ * These endpoints back the client-side command palette with server-side actions
+ * that can run longer operations (checkpoint, rollback, export, browser control).
+ */
+
+// POST /build/command/:projectId/create-checkpoint — Create a checkpoint with snapshot
+router.post("/build/command/:projectId/create-checkpoint", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const { saveCheckpoint } = await import("../../lib/build-checkpoints");
+    const { snapshotAfterCheckpoint } = await import("../../lib/workspace-snapshots");
+    const ctx = getWorkingContext(projectId);
+    const completedSteps = ctx.completedSteps.map((s) => ({
+      stepId: s.stepId,
+      description: s.description,
+      ok: s.ok,
+      filesChanged: s.filesChanged,
+      timestamp: s.timestamp,
+      notes: s.notes,
+    }));
+    const checkpointId = await saveCheckpoint({
+      projectId,
+      iteration: ctx.completedSteps.length + 1,
+      completed: 0,
+      plan: ctx.projectGoal ? { title: ctx.projectGoal } : {},
+      completedSteps,
+      workingContext: {
+        fileMap: Object.fromEntries(ctx.fileMap),
+        keyDecisions: ctx.keyDecisions,
+        errorPatterns: ctx.errorPatterns,
+        tokenBudget: ctx.tokenBudget,
+      },
+      fileSnapshots: {},
+      tokenUsage: { ...ctx.tokenBudget, history: ctx.tokenBudget.history.slice(-10) },
+    });
+    await snapshotAfterCheckpoint(projectId, checkpointId, ctx.completedSteps.length + 1);
+    res.json({ ok: true, checkpointId, message: "Checkpoint created with snapshot" });
+  } catch (err) {
+    console.error({ err, projectId }, "Create checkpoint failed");
+    res.status(500).json({ error: "Create checkpoint failed" });
+  }
+});
+
+// POST /build/command/:projectId/rollback — Rollback to previous iteration
+router.post("/build/command/:projectId/rollback", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const snapshotId = cleanText(req.body?.snapshotId, 36);
+  try {
+    const { rollbackIteration } = await import("../../lib/workspace");
+    const { restoreSnapshot } = await import("../../lib/workspace-snapshots");
+    if (snapshotId) {
+      const ok = await restoreSnapshot(projectId, snapshotId);
+      if (!ok) {
+        res.status(500).json({ error: "Snapshot restore failed" });
+        return;
+      }
+    } else {
+      await rollbackIteration(projectId);
+    }
+    res.json({ ok: true, message: snapshotId ? "Restored from snapshot" : "Rolled back one iteration" });
+  } catch (err) {
+    console.error({ err, projectId }, "Rollback failed");
+    res.status(500).json({ error: "Rollback failed" });
+  }
+});
+
+// POST /build/command/:projectId/export — Export workspace as ZIP
+router.post("/build/command/:projectId/export", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const { createSnapshot } = await import("../../lib/workspace-snapshots");
+    const meta = await createSnapshot(projectId, null, 0);
+    if (!meta) {
+      res.status(500).json({ error: "Export failed" });
+      return;
+    }
+    // Return the snapshot path for the client to download
+    res.json({ ok: true, snapshotId: meta.id, path: meta.path, message: "Workspace exported" });
+  } catch (err) {
+    console.error({ err, projectId }, "Export failed");
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+
+// POST /build/command/:projectId/refresh-files — Refresh file map
+router.post("/build/command/:projectId/refresh-files", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const { refreshFileMap } = await import("../../lib/build-context");
+    const fileMap = await refreshFileMap(projectId);
+    res.json({ ok: true, count: fileMap.size, message: "File map refreshed" });
+  } catch (err) {
+    console.error({ err, projectId }, "Refresh files failed");
+    res.status(500).json({ error: "Refresh files failed" });
+  }
+});
+
+// POST /build/command/:projectId/browser/open — Acquire browser and navigate
+router.post("/build/command/:projectId/browser/open", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  const url = cleanText(req.body?.url, 2048);
+  if (!projectId || !url) {
+    res.status(400).json({ error: "projectId and url required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const slot = await pool.acquire(`build-${projectId}-${Date.now()}`);
+    const result = await pool.navigate(slot.id, url);
+    res.json({ ok: true, browserId: slot.id, wsPort: slot.wsPort, ...result });
+  } catch (err) {
+    console.error({ err, projectId }, "Browser open failed");
+    res.status(500).json({ error: "Browser open failed" });
+  }
+});
+
+// POST /build/command/:projectId/browser/close — Release browser
+router.post("/build/command/:projectId/browser/close", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  const browserId = cleanText(req.body?.browserId, 64);
+  if (!projectId || !browserId) {
+    res.status(400).json({ error: "projectId and browserId required" });
+    return;
+  }
+  try {
+    const pool = getBrowserPoolInstance();
+    const ok = pool.release(browserId);
+    res.json({ ok: true, released: ok });
+  } catch (err) {
+    console.error({ err, projectId }, "Browser close failed");
+    res.status(500).json({ error: "Browser close failed" });
+  }
+});
+
+// GET /build/command/:projectId/budget/status — Quick budget check
+router.get("/build/command/:projectId/budget/status", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  try {
+    const { getBudgetStatus } = await import("../../lib/build-budgets");
+    const status = await getBudgetStatus(projectId);
+    res.json({ ok: true, ...status });
+  } catch (err) {
+    console.error({ err, projectId }, "Budget status failed");
+    res.status(500).json({ error: "Budget status failed" });
+  }
+});
+
+// POST /build/command/:projectId/budget/set — Update budget limits
+router.post("/build/command/:projectId/budget/set", async (req, res) => {
+  const projectId = cleanText(req.params.projectId, 64);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId required" });
+    return;
+  }
+  const limits = req.body as any;
+  try {
+    const { updateBudget } = await import("../../lib/build-budgets");
+    const updated = await updateBudget(projectId, limits);
+    res.json({ ok: true, limits: updated });
+  } catch (err) {
+    console.error({ err, projectId }, "Budget update failed");
+    res.status(500).json({ error: "Budget update failed" });
+  }
 });
 
 export default router;
