@@ -614,6 +614,15 @@ const en = {
   "studio.build.pipelineFailed": "The build pipeline stopped unexpectedly. Check the progress transcript and preview output.",
   "studio.build.questionsFailed": "I could not prepare the optional questions. You can retry the request.",
 
+  /* Build Studio - Phase 2.1 Diff Preview */
+  "studio.build.progressFilesGenerated": "Generated {n} proposed file(s) for review.",
+  "studio.build.activityDiffPreview": "Showing a diff preview of the proposed changes",
+  "studio.build.activityDiffRejected": "You rejected the proposed changes",
+  "studio.build.diffRejected": "Changes rejected. Nothing was written to the workspace.",
+  "studio.build.diffPreviewTitle": "Review proposed changes",
+  "studio.build.diffApply": "Apply changes",
+  "studio.build.diffReject": "Reject",
+
   /* Build Studio - Missing keys from Phase0 */
   "studio.build.consoleTitle": "Console",
   "studio.build.of": "of",
@@ -1729,6 +1738,15 @@ const nl: Record<keyof typeof en, string> = {
   "emotion.frustrated": "gefrustreerd",
   "emotion.stressed": "gestrest",
   "emotion.tired": "moe",
+
+  /* Build Studio - Phase 2.1 Diff Preview (NL) */
+  "studio.build.progressFilesGenerated": "{n} voorgestelde bestand(en) gegenereerd voor beoordeling.",
+  "studio.build.activityDiffPreview": "Toont een diff-voorbeeld van de voorgestelde wijzigingen",
+  "studio.build.activityDiffRejected": "Je hebt de voorgestelde wijzigingen geweigerd",
+  "studio.build.diffRejected": "Wijzigingen geweigerd. Er is niets naar de werkruimte geschreven.",
+  "studio.build.diffPreviewTitle": "Beoordeel voorgestelde wijzigingen",
+  "studio.build.diffApply": "Wijzigingen toepassen",
+  "studio.build.diffReject": "Weigeren",
 };
 
 export type TranslationKey = keyof typeof en;

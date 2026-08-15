@@ -19,6 +19,7 @@ import {
   hasIsolated,
   isolatedPath,
   readWorkspaceFileText,
+  safeWorkspacePath,
 } from "../../lib/workspace";
 import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
 import { getStorage, persistFile } from "../../lib/storage";
@@ -26,7 +27,18 @@ import { jarvisConfig } from "../../config/jarvis";
 import { pooledClient } from "../../lib/llm-client";
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps, type PlanStep } from "../../lib/structured-tools";
+import { fixerPromptV2 } from "../../lib/build-prompts";
 import { coderPromptV2 } from "../../lib/build-prompts";
+import {
+  getWorkingContext,
+  setProjectGoal,
+  recordStep,
+  recordDecision,
+  recordErrorPattern,
+  trackTokens,
+  serializeContext,
+  refreshFileMap,
+} from "../../lib/build-context";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -542,12 +554,6 @@ function withExtraBuildInstructions(basePrompt: string, extraPrompt: string): st
   return `${basePrompt}\n\nAdditional Jarvis Build instructions from the user (additive only; preserve the original Jarvis Build requirements and safety rules):\n${extra}`;
 }
 
-function safeWorkspacePath(relPath: string, workspaceId = "default"): string | null {
-  const root = getWorkspaceRoot(workspaceId);
-  const target = path.resolve(root, relPath);
-  return target.startsWith(`${root}${path.sep}`) ? target : null;
-}
-
 async function readWorkspaceEnv(workspaceId = "default"): Promise<Record<string, string>> {
   try {
     const content = await fs.readFile(path.join(getWorkspaceRoot(workspaceId), ".jarvis.env.json"), "utf8");
@@ -751,12 +757,21 @@ router.post("/build/scaffold", async (req, res) => {
   const plan = rawPlan && typeof rawPlan === "object" && !Array.isArray(rawPlan)
     ? parseBuildPlan(JSON.stringify(rawPlan), prompt, [])
     : null;
+  const dryRun = Boolean(req.body?.dryRun);
   try {
     await ensureWorkspace(workspaceId);
     const existingFiles = (await listWorkspaceFiles(workspaceId))
       .filter((entry) => entry.type === "file")
       .map((entry) => entry.path);
     const files = await generateStarterFiles(prompt, answers, feedback, existingFiles, extraSystemPrompt, plan);
+
+    // Phase 2.1: Diff Preview — when dryRun, return the proposed files without
+    // writing them so the UI can show a confirmation modal before applying.
+    if (dryRun) {
+      res.status(200).json({ ok: true, dryRun: true, files, runtime: "static", previewCommand: "python3 -m http.server ${PORT}" });
+      return;
+    }
+
     for (const [relPath, content] of Object.entries(files)) {
       if (!safeWorkspacePath(relPath, workspaceId)) continue;
       await writeWorkspaceFile(relPath, content, workspaceId);
@@ -814,12 +829,38 @@ router.post("/build/iterate", async (req, res) => {
     // Phase 2.2: Run verification loop after iteration if project has structured checks
     let verifyResult = null;
     let verifyFeedback = null;
+    let fixAttempts = 0;
+    const maxFixAttempts = 3;
     if (hasIsolated(projectId) && req.body?.verify !== false) {
       try {
         const verify = await verifyWorkspace(projectId, workspaceId);
         verifyResult = verify.ok;
         verifyFeedback = formatVerificationFeedback(verify);
         req.log.info({ projectId, passNumber, ok: verify.ok }, "Verification loop completed");
+
+        // Phase 2.2: Retry loop with fixer prompt on verification failure
+        while (!verifyResult && fixAttempts < maxFixAttempts) {
+          fixAttempts++;
+          req.log.info({ projectId, passNumber, fixAttempts }, "Verification failed, running fixer loop");
+          const fixRes = await fetch(new URL(`/api/jarvis/build/fix`, `${req.protocol}://${req.get("host")}`).toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workspaceId, projectId, prompt, failure: verifyFeedback ?? "Verification failed", extraSystemPrompt }),
+          });
+          if (fixRes.ok) {
+            // Re-run verification after fix
+            const retryVerify = await verifyWorkspace(projectId, workspaceId);
+            verifyResult = retryVerify.ok;
+            verifyFeedback = formatVerificationFeedback(retryVerify);
+            if (verifyResult) {
+              req.log.info({ projectId, passNumber, fixAttempts }, "Fixer resolved verification failure");
+              break;
+            }
+          } else {
+            req.log.warn({ projectId, passNumber, fixAttempts }, "Fixer endpoint failed");
+            break;
+          }
+        }
       } catch (verifyErr) {
         req.log.warn({ err: verifyErr }, "Verification skipped (no checks configured)");
       }
@@ -831,10 +872,10 @@ router.post("/build/iterate", async (req, res) => {
       completed: result.done ? 1 : 0,
       plan: plan ? { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks } : {},
       completedSteps: [{ step: `iteration ${passNumber}`, done: result.done, filesChanged: result.filesChanged ?? [] }],
-      workingContext: { prompt, workspaceId, passNumber, verifyOk: verifyResult },
+      workingContext: { prompt, workspaceId, passNumber, verifyOk: verifyResult, fixAttempts },
       tokenUsage: { prompt: 0, completion: 0, total: 0 },
     });
-    res.json({ ok: true, passNumber, verifyOk: verifyResult, verifyFeedback, ...result });
+    res.json({ ok: true, passNumber, verifyOk: verifyResult, verifyFeedback, fixAttempts, ...result });
   } catch (err) {
     req.log.error({ err }, "Build self-review failed");
     res.status(500).json({ error: "Build self-review failed" });
@@ -945,6 +986,68 @@ router.post("/build/verify", async (req, res) => {
  * Phase 2.3: Parallel Step Fan-out — Execute plan steps in topological batches.
  * Plan schema adds dependsOn[] and parallel flag. Independent steps run concurrently.
  */
+/**
+ * Phase 2.2: Fixer Loop — Apply the smallest fix to resolve a verification or
+ * review failure using the fixer prompt. Returns the files that changed.
+ */
+router.post("/build/fix", async (req, res) => {
+  const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
+  const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
+  const failure = cleanText(req.body?.failure, 4000);
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
+  if (!failure) {
+    res.status(400).json({ error: "failure description is required" });
+    return;
+  }
+  try {
+    await ensureWorkspace(workspaceId);
+    const entries = (await listWorkspaceFiles(workspaceId)).filter((entry) => entry.type === "file").map((entry) => entry.path).slice(0, 120);
+    const client = pooledClient();
+    const completion = await client.chat.completions.create({
+      model: jarvisConfig.llmModel,
+      messages: [
+        { role: "system", content: fixerPromptV2({ extraSystemPrompt }) },
+        {
+          role: "user",
+          content: [
+            `Original request: ${prompt}`,
+            `Failure to resolve:`,
+            failure,
+            ``,
+            `Workspace files:`,
+            entries.join("\n") || "(none)",
+          ].join("\n\n"),
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 6000,
+      response_format: { type: "json_object" as const },
+    });
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    let parsed: { files?: Record<string, string>; notes?: string } | null = null;
+    try { parsed = JSON.parse(raw); } catch { /* ignore */ }
+    if (!parsed?.files) {
+      res.status(422).json({ ok: false, error: "Fixer returned no changes", raw });
+      return;
+    }
+    const filesChanged: string[] = [];
+    for (const [relPath, content] of Object.entries(parsed.files)) {
+      const safePath = safeWorkspacePath(relPath, workspaceId);
+      if (!safePath) continue;
+      await writeWorkspaceFile(relPath, content, workspaceId);
+      filesChanged.push(relPath);
+    }
+    if (hasIsolated(projectId)) {
+      await commitIteration(projectId, 1, 1, "auto-fix");
+    }
+    res.json({ ok: true, filesChanged, notes: parsed.notes ?? "" });
+  } catch (err) {
+    req.log.error({ err }, "Fixer loop failed");
+    res.status(500).json({ error: "Fixer loop failed" });
+  }
+});
+
 router.post("/build/execute-plan", async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
@@ -970,6 +1073,10 @@ router.post("/build/execute-plan", async (req, res) => {
   try {
     await ensureWorkspace(workspaceId);
 
+    // Phase 3.1: Initialize working context
+    setProjectGoal(projectId, prompt);
+    await refreshFileMap(projectId, workspaceId);
+
     // Phase 2.3: Get parallelizable batches from plan steps
     const steps = plan.steps.map(s => ({
       id: s.id,
@@ -986,6 +1093,9 @@ router.post("/build/execute-plan", async (req, res) => {
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
+
+      // Get serialized working context for injection
+      const contextPrompt = serializeContext(projectId);
 
       // Run steps in this batch in parallel
       const batchResults = await Promise.all(batch.map(async (step) => {
@@ -1010,6 +1120,9 @@ router.post("/build/execute-plan", async (req, res) => {
                 `User Prompt: ${prompt}`,
                 `Answers: ${JSON.stringify(answers)}`,
                 `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
+                "",
+                `## WORKING CONTEXT (from prior steps & decisions):`,
+                contextPrompt,
               ].join("\n\n"),
             },
           ],
@@ -1031,7 +1144,6 @@ router.post("/build/execute-plan", async (req, res) => {
             filesChanged.push(relPath);
           }
         }
-
         // Verify this step if workspace has checks
         let feedback: string | undefined;
         if (hasIsolated(projectId)) {
@@ -1057,6 +1169,14 @@ router.post("/build/execute-plan", async (req, res) => {
 
       for (const result of batchResults) {
         allResults.push(result);
+        // Phase 3.1: Record step in working context
+        recordStep(projectId, {
+          stepId: result.stepId,
+          description: steps.find(s => s.id === result.stepId)?.description ?? result.stepId,
+          ok: result.ok,
+          filesChanged: result.filesChanged,
+          notes: result.feedback,
+        });
         if (!result.ok) overallOk = false;
       }
 
@@ -1082,6 +1202,113 @@ router.post("/build/execute-plan", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Plan execution failed");
     res.status(500).json({ error: "Plan execution failed" });
+  }
+});
+
+/**
+ * Phase 3.1: Smart Working Context — Get the current context for a build project.
+ */
+router.get("/build/context/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  const workspaceId = cleanText(req.query.workspaceId, 64) || projectId;
+  try {
+    const ctx = getWorkingContext(projectId);
+    if (req.query.refresh === "true") {
+      await refreshFileMap(projectId, workspaceId);
+    }
+    const serialized = serializeContext(projectId);
+    res.json({
+      ok: true,
+      projectGoal: ctx.projectGoal,
+      completedSteps: ctx.completedSteps,
+      keyDecisions: ctx.keyDecisions,
+      errorPatterns: ctx.errorPatterns,
+      tokenBudget: ctx.tokenBudget,
+      fileMapSize: ctx.fileMap.size,
+      compactedSummary: ctx.compactedSummary,
+      prompt: serialized,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get build context");
+    res.status(500).json({ error: "Failed to get build context" });
+  }
+});
+
+/**
+ * Phase 3.1: Update project goal for a build project.
+ */
+router.post("/build/context/goal", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64);
+  const goal = cleanText(req.body?.goal, 500);
+  if (!projectId || !goal) {
+    res.status(400).json({ error: "projectId and goal are required" });
+    return;
+  }
+  try {
+    setProjectGoal(projectId, goal);
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "Failed to set project goal");
+    res.status(500).json({ error: "Failed to set project goal" });
+  }
+});
+
+/**
+ * Phase 3.1: Record a decision made during the build.
+ */
+router.post("/build/context/decision", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64);
+  const decision = cleanText(req.body?.decision, 500);
+  const rationale = cleanText(req.body?.rationale, 500);
+  if (!projectId || !decision) {
+    res.status(400).json({ error: "projectId and decision are required" });
+    return;
+  }
+  try {
+    const entry = recordDecision(projectId, decision, rationale);
+    res.json({ ok: true, decision: entry });
+  } catch (err) {
+    req.log.error({ err }, "Failed to record decision");
+    res.status(500).json({ error: "Failed to record decision" });
+  }
+});
+
+/**
+ * Phase 3.1: Record an error pattern and its resolution.
+ */
+router.post("/build/context/error-pattern", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64);
+  const pattern = cleanText(req.body?.pattern, 500);
+  const resolution = cleanText(req.body?.resolution, 500);
+  if (!projectId || !pattern) {
+    res.status(400).json({ error: "projectId and pattern are required" });
+    return;
+  }
+  try {
+    const entry = recordErrorPattern(projectId, pattern, resolution);
+    res.json({ ok: true, pattern: entry });
+  } catch (err) {
+    req.log.error({ err }, "Failed to record error pattern");
+    res.status(500).json({ error: "Failed to record error pattern" });
+  }
+});
+
+/**
+ * Phase 3.1: Track token usage for budget monitoring.
+ */
+router.post("/build/context/tokens", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64);
+  const tokens = Math.max(0, Number(req.body?.tokens) || 0);
+  if (!projectId) {
+    res.status(400).json({ error: "projectId is required" });
+    return;
+  }
+  try {
+    const budget = trackTokens(projectId, tokens);
+    res.json({ ok: true, used: budget.used, limit: budget.limit, exhausted: budget.used >= budget.limit });
+  } catch (err) {
+    req.log.error({ err }, "Failed to track tokens");
+    res.status(500).json({ error: "Failed to track tokens" });
   }
 });
 

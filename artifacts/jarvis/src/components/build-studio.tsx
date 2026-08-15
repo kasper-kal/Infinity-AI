@@ -309,6 +309,16 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [commitMessage, setCommitMessage] = useState('');
   const [gitDiff, setGitDiff] = useState('');
   const [gitDiffOpen, setGitDiffOpen] = useState(false);
+
+  // Phase 2.1: Diff preview modal for scaffold confirmation
+  const [diffPreviewOpen, setDiffPreviewOpen] = useState(false);
+  const [diffPreviewDiffs, setDiffPreviewDiffs] = useState<FileDiff[]>([]);
+  const [diffPreviewFiles, setDiffPreviewFiles] = useState<Record<string, string>>({});
+  const [diffPreviewPending, setDiffPreviewPending] = useState<{
+    prompt: string;
+    answers: Record<string, string>;
+    approvedPlan: BuildPlan | null;
+  } | null>(null);
   const [gitBranches, setGitBranches] = useState<string[]>([]);
   const [gitCurrentBranch, setGitCurrentBranch] = useState<string | null>(null);
   const [newBranchName, setNewBranchName] = useState('');
@@ -757,6 +767,57 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const renamePath = async (path: string) => { const next = window.prompt('Rename to', path.replace(/\/$/, '')); if (next && next !== path.replace(/\/$/, '')) { await fetch('/api/jarvis/workspace', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, from: path, to: next }) }); void loadFiles(); } };
   const deletePath = async (path: string) => { if (window.confirm(`Delete ${path}?`)) { await fetch(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' }); if (selectedPath === path) { setSelectedPath(null); setContent(''); } void loadFiles(); } };
 
+  // Phase 2.1: Helpers for diff preview parsing
+  const parseDiffHunks = (diffText: string): FileDiff['hunks'] => {
+    const hunks: FileDiff['hunks'] = [];
+    const lines = diffText.split('\n');
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith('@@ ')) {
+        const match = line.match(/^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/);
+        if (match) {
+          const oldStart = parseInt(match[1], 10);
+          const oldLines = match[2] ? parseInt(match[2], 10) : 1;
+          const newStart = parseInt(match[3], 10);
+          const newLines = match[4] ? parseInt(match[4], 10) : 1;
+          const hunkLines: FileDiff['hunks'][0]['lines'] = [];
+          let oldLineNum = oldStart;
+          let newLineNum = newStart;
+          let j = i + 1;
+          while (j < lines.length && !lines[j].startsWith('@@ ')) {
+            const l = lines[j];
+            if (l.startsWith('+')) {
+              hunkLines.push({ type: 'add', newLineNumber: newLineNum++, content: l.slice(1) });
+            } else if (l.startsWith('-')) {
+              hunkLines.push({ type: 'remove', oldLineNumber: oldLineNum++, content: l.slice(1) });
+            } else {
+              hunkLines.push({ type: 'context', oldLineNumber: oldLineNum, newLineNumber: newLineNum, content: l.slice(1) });
+              oldLineNum++;
+              newLineNum++;
+            }
+            j++;
+          }
+          hunks.push({ oldStart, oldLines, newStart, newLines, lines: hunkLines });
+          i = j - 1;
+        }
+      }
+      i++;
+    }
+    return hunks;
+  };
+
+  const countAdditions = (diffText: string): number => diffText.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++')).length;
+  const countDeletions = (diffText: string): number => diffText.split('\n').filter(l => l.startsWith('-') && !l.startsWith('---')).length;
+
+  const writeScaffoldFiles = async (files: Record<string, string>): Promise<string[]> => {
+    const createdFiles = Object.keys(files);
+    for (const [relPath, content] of Object.entries(files)) {
+      await fetch('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: relPath, content }) });
+    }
+    return createdFiles;
+  };
+
   const doScaffold = async (prompt: string, answers: Record<string, string>, feedbackText: string | null, approvedPlan: BuildPlan | null = plan) => {
     const controller = beginBuildRequest();
     setBusy(true);
@@ -765,7 +826,8 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     addActivity(feedbackText ? t('studio.build.activityApplying') : t('studio.build.activityScaffolding'), 'sparkles', 2);
     addProgressMessage(feedbackText ? t('studio.build.progressApplyingChanges') : t('studio.build.progressScaffolding'));
     try {
-      const { response, data } = await apiJson<{ files?: string[]; previewCommand?: string; error?: string }>('/api/jarvis/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan }), signal: controller.signal });
+      // Phase 2.1: Generate in dry-run mode so we can preview the diff before writing.
+      const { response, data } = await apiJson<{ files?: Record<string, string>; previewCommand?: string; error?: string }>('/api/jarvis/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan, dryRun: true }), signal: controller.signal });
       if (!response.ok) {
         const message = data.error ?? t('studio.build.scaffoldFailed');
         addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
@@ -773,10 +835,34 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         setProgressResult(message, 'error');
         return;
       }
-      const createdFiles = data.files ?? [];
-      addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
+      const proposedFiles = data.files ?? {};
+      addProgressMessage(t('studio.build.progressFilesGenerated', { n: Object.keys(proposedFiles).length }));
       setScaffoldPrompt(''); setLastPrompt(prompt); setLastAnswers(answers); setFeedback(''); setPlan(null);
       if (data.previewCommand) setPreviewCommand(data.previewCommand);
+
+      // Fetch unified diff for the proposed files.
+      const diffRes = await apiJson<{ diffs?: Array<{ filePath: string; diff: string; oldContent: string; newContent: string }> }>('/api/jarvis/build/diff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, files: proposedFiles }), signal: controller.signal });
+      if (diffRes.response.ok && (diffRes.data.diffs ?? []).length > 0) {
+        const fileDiffs: FileDiff[] = diffRes.data.diffs!.map((d) => ({
+          filePath: d.filePath,
+          isNew: d.oldContent.length === 0,
+          isDeleted: d.newContent.length === 0,
+          isBinary: false,
+          hunks: parseDiffHunks(d.diff),
+          additions: countAdditions(d.diff),
+          deletions: countDeletions(d.diff),
+        }));
+        setDiffPreviewDiffs(fileDiffs);
+        setDiffPreviewFiles(proposedFiles);
+        setDiffPreviewPending({ prompt, answers, approvedPlan });
+        setDiffPreviewOpen(true);
+        addActivity(t('studio.build.activityDiffPreview'), 'terminal', fileDiffs.length);
+        return; // wait for user to Apply/Reject via modal
+      }
+
+      // No diff available — write directly and continue.
+      const createdFiles = await writeScaffoldFiles(proposedFiles);
+      addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
       await loadFiles();
       await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
     } catch (error) {
@@ -790,6 +876,37 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       setBusy(false);
       releaseBuildRequest(controller);
     }
+  };
+
+  const applyDiffPreview = async () => {
+    if (!diffPreviewPending) return;
+    const { prompt, answers, approvedPlan } = diffPreviewPending;
+    setDiffPreviewOpen(false);
+    const controller = beginBuildRequest();
+    setBusy(true);
+    try {
+      const createdFiles = await writeScaffoldFiles(diffPreviewFiles);
+      addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
+      await loadFiles();
+      await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
+    } catch (error) {
+      if (!wasBuildCancelled(error)) {
+        setNotice(t('studio.build.scaffoldFailed'));
+      }
+    } finally {
+      setBusy(false);
+      setDiffPreviewPending(null);
+      releaseBuildRequest(controller);
+    }
+  };
+
+  const rejectDiffPreview = () => {
+    setDiffPreviewOpen(false);
+    setDiffPreviewPending(null);
+    setDiffPreviewDiffs([]);
+    setDiffPreviewFiles({});
+    addActivity(t('studio.build.activityDiffRejected'), 'check', 1);
+    setNotice(t('studio.build.diffRejected'));
   };
 
   const isSmallBuildRequest = (prompt: string): boolean => {
@@ -1377,6 +1494,16 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
           onClose={() => setCommandPaletteOpen(false)}
           items={commandPaletteItems}
           placeholder={t('studio.build.commandPalettePlaceholder') || 'Type a command…'}
+        />
+
+        {/* Phase 2.1: Diff Preview Modal */}
+        <BuildDiffPreview
+          diffs={diffPreviewDiffs}
+          open={diffPreviewOpen}
+          onClose={rejectDiffPreview}
+          onApply={() => void applyDiffPreview()}
+          onReject={() => void rejectDiffPreview()}
+          title={t('studio.build.diffPreviewTitle') || 'Review proposed changes'}
         />
 
         {/* Transcript Bottom Sheet - Mobile */}

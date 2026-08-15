@@ -74,6 +74,13 @@ export function getWorkspaceRoot(workspaceId = "default"): string {
   return id === "default" ? WORKSPACE_ROOT : path.join(WORKSPACE_ROOT, "projects", id);
 }
 
+/** Safely resolve a workspace-relative path to an absolute path inside the root. */
+export function safeWorkspacePath(relPath: string, workspaceId = "default"): string | null {
+  const root = getWorkspaceRoot(workspaceId);
+  const target = path.resolve(root, relPath);
+  return target.startsWith(`${root}${path.sep}`) ? target : null;
+}
+
 function resolveWorkspacePath(workspaceId: string, relPath: string): string | null {
   const root = getWorkspaceRoot(workspaceId);
   const target = path.resolve(root, relPath || ".");
