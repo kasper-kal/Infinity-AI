@@ -864,7 +864,13 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       const createdFiles = await writeScaffoldFiles(proposedFiles);
       addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
       await loadFiles();
-      await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
+      let allFiles = [...createdFiles];
+      if (approvedPlan?.steps?.length) {
+        addProgressMessage(t('studio.build.progressExecutingPlan', { n: approvedPlan.steps.length }));
+        const planFiles = await executePlan(prompt, answers, approvedPlan, controller.signal);
+        allFiles = [...new Set([...allFiles, ...planFiles])];
+      }
+      await runAutoPipeline(prompt, answers, allFiles, approvedPlan, controller.signal);
     } catch (error) {
       if (!wasBuildCancelled(error)) {
         const message = t('studio.build.scaffoldFailed');
@@ -888,7 +894,13 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       const createdFiles = await writeScaffoldFiles(diffPreviewFiles);
       addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
       await loadFiles();
-      await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
+      let allFiles = [...createdFiles];
+      if (approvedPlan?.steps?.length) {
+        addProgressMessage(t('studio.build.progressExecutingPlan', { n: approvedPlan.steps.length }));
+        const planFiles = await executePlan(prompt, answers, approvedPlan, controller.signal);
+        allFiles = [...new Set([...allFiles, ...planFiles])];
+      }
+      await runAutoPipeline(prompt, answers, allFiles, approvedPlan, controller.signal);
     } catch (error) {
       if (!wasBuildCancelled(error)) {
         setNotice(t('studio.build.scaffoldFailed'));
@@ -907,6 +919,51 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setDiffPreviewFiles({});
     addActivity(t('studio.build.activityDiffRejected'), 'check', 1);
     setNotice(t('studio.build.diffRejected'));
+  };
+
+  /**
+   * Phase 2.3: Wire /build/execute-plan into build-studio plan execution.
+   * Calls the server-side parallel step fan-out with topological batches and
+   * working-context injection. Returns the list of files changed.
+   */
+  const executePlan = async (
+    prompt: string,
+    answers: Record<string, string>,
+    approvedPlan: BuildPlan,
+    signal?: AbortSignal,
+  ): Promise<string[]> => {
+    const { response, data } = await apiJson<{ ok?: boolean; results?: Array<{ stepId: string; ok: boolean; filesChanged: string[] }>; error?: string }>(
+      '/api/jarvis/build/execute-plan',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId,
+          projectId: workspaceId,
+          prompt,
+          answers,
+          plan: {
+            title: approvedPlan.title,
+            summary: approvedPlan.summary,
+            steps: approvedPlan.steps.map((s) => ({
+              id: s.id,
+              description: s.description ?? s.title,
+              dependsOn: [],
+              parallel: false,
+            })),
+            files: approvedPlan.files ?? [],
+            risks: approvedPlan.risks ?? [],
+          },
+          extraSystemPrompt,
+        }),
+        signal,
+      },
+    );
+    if (!response.ok) {
+      throw new Error(data.error ?? t('studio.build.scaffoldFailed'));
+    }
+    const filesChanged = (data.results ?? []).flatMap((r) => r.filesChanged);
+    return [...new Set(filesChanged)];
   };
 
   const isSmallBuildRequest = (prompt: string): boolean => {
@@ -1016,8 +1073,35 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     }
     setPlan(null);
     setWizardOpen(false);
-    addProgressMessage(t('studio.build.progressApplyingPlan'));
-    await doScaffold(prompt, answers, null, approvedPlan);
+    setLastPrompt(prompt);
+    setLastAnswers(answers);
+    setScaffoldPrompt('');
+    setFeedback('');
+    if (approvedPlan?.steps?.length) {
+      // Phase 2.3: Execute structured plan via /build/execute-plan parallel fan-out
+      const controller = beginBuildRequest();
+      setBusy(true);
+      try {
+        addProgressMessage(t('studio.build.progressExecutingPlan', { n: approvedPlan.steps.length }));
+        addActivity(t('studio.build.activityApplying'), 'sparkles', 2);
+        const createdFiles = await executePlan(prompt, answers, approvedPlan, controller.signal);
+        addProgressMessage(t('studio.build.progressFilesWritten', { n: createdFiles.length }));
+        await loadFiles();
+        await runAutoPipeline(prompt, answers, createdFiles, approvedPlan, controller.signal);
+      } catch (error) {
+        if (!wasBuildCancelled(error)) {
+          const message = error instanceof Error ? error.message : t('studio.build.scaffoldFailed');
+          addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
+          setCompletion({ summary: message, deferred: [], files: [] });
+          setProgressResult(message, 'error');
+        }
+      } finally {
+        setBusy(false);
+        releaseBuildRequest(controller);
+      }
+    } else {
+      await doScaffold(prompt, answers, null, approvedPlan);
+    }
   };
 
   const changePlan = () => {

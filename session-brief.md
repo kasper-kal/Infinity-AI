@@ -4,13 +4,13 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-15 20:10
+LAST_UPDATED: 2026-08-15 20:35
 
 ## Just did (last action)
-- **Phase 2 (Loop Intelligence) - IN PROGRESS**: Completed retry loop with fixer prompt on verification failure
-  - Modified `/build/iterate` endpoint in `build.ts` to run verification after each iteration
-  - Added retry loop (max 3 attempts): on verification failure, calls `/build/fix` endpoint with failure feedback, then re-verifies
-  - `/build/fix` endpoint uses `fixerPromptV2` to generate fixes from verification feedback
+- **Phase 2 (Loop Intelligence) - COMPLETE**: All 3 tasks done (UI diff modal ✓, retry loop with fixer ✓, wire /build/execute-plan ✓)
+  - Task #3: Wired `/build/execute-plan` into build-studio — `executePlan()` function calls server-side parallel step fan-out with topological batches and working-context injection
+  - `acceptPlan()` now uses `executePlan` directly for structured plans with steps; `doScaffold` and `applyDiffPreview` also execute the plan when steps are present
+  - Added `progressExecutingPlan` i18n key (EN + NL)
   - Typecheck passes, full build passes
 
 ## Project state — right now
@@ -19,12 +19,13 @@ LAST_UPDATED: 2026-08-15 20:10
 - **Continuity system:** `CLAUDE.md` routine + `KNOWLEDGE.md` (how it works) + `session-brief.md` (live state) replace the old 3 logs (archived in `archive/`). `source-code.ts` blocks KNOWLEDGE/session-brief from Jarvis-the-app's source reading.
 - **Projects System:** brief "persistent workspaces with isolated project memory". Core backend (project CRUD, management, conversation scoping, project home backend), Project Memory (isolated storage, CRUD/pin APIs, keyword retrieval, project-scoped extraction), Project Instructions (ordered rules, scoped API, bilingual UI, chat injection), first-class Projects navigation (search/sort/archive/pin/rename/delete/create-from-chat/move + quick-access rail), AI Context Pipeline (six scoped sources assembled into PROJECT CONTEXT block), and Project Activity feed (cursor pagination, search, load-more, emoji icons, i18n, logActivity wired across all mutating routes). All verified with typecheck + build passing.
 - **Book Studio:** fully built + wired (schema, engine, routes, wizard, polling, A5 PDF verified). Live end-to-end run ready (server `.env` now configured).
-- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — PARTIAL** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry-with-fixer ✓; remaining: UI diff modal integration, wire execute-plan into build-studio). Next: Phase 3 (Context & Memory), Phase 4 (DevEx), Phase 5 (Polish).
+- **Build Mode (Infinity):** completion plan in `BUILD_MODE_COMPLETION_PLAN.md` with Phase 0–5. **Phase 0: UI Unfuck — COMPLETE**. **Phase 1: Foundation (worktree isolation + checkpoints) — COMPLETE**. **Phase 2: Loop Intelligence — COMPLETE** (diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry-with-fixer ✓, UI diff modal ✓, wire execute-plan ✓). Next: Phase 3 (Context & Memory), Phase 4 (DevEx), Phase 5 (Polish).
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette.
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-15 **Phase 2 COMPLETE**: All 3 tasks done (UI diff modal ✓, retry loop with fixer ✓, wire /build/execute-plan ✓); typecheck + build pass
 - 2026-08-15 **Phase 2 Task #2 COMPLETE**: Retry loop with fixer prompt on verification failure implemented in `/build/iterate`; typecheck + build pass
 - 2026-08-15 **Phase 2 PARTIAL**: Diff preview, verification loop, parallel fan-out, modular prompts implemented; typecheck + build pass
 - 2026-08-15 **Phase 1 COMPLETE**: Git worktree isolation + checkpoint/resume system implemented, typecheck + build pass, pushed to GitHub
@@ -46,16 +47,15 @@ LAST_UPDATED: 2026-08-15 20:10
 ## Active threads
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
-- **Build Mode (Infinity) Phase 2: Loop Intelligence** — **IN PROGRESS**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, **retry loop with fixer prompt ✓**. Remaining: UI diff modal integration in build-studio.tsx, wire /build/execute-plan into build-studio.
+- **Build Mode (Infinity) Phase 2: Loop Intelligence** — **COMPLETE**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry loop with fixer prompt ✓, UI diff modal integration ✓, wire /build/execute-plan ✓.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
 
 ## Next actions
-1. **Phase 2: Loop Intelligence** — Complete remaining: UI diff modal integration in build-studio.tsx (connect /build/diff to BuildDiffPreview), wire /build/execute-plan into build-studio plan execution.
-2. **Phase 3: Context & Memory** — Smart working context (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction), project-scoped memory injection into build loop.
-3. **Phase 4: Developer Experience** — Workspace snapshots + one-click rollback (history.ts already has snapshots, need build-specific export), browser pool (puppeteer-browser.ts exists, need pooling), resource limits + cost tracking, command palette (build-command-palette.tsx exists, need server-side actions).
-4. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
+1. **Phase 3: Context & Memory** — Smart working context (fileMap, keyDecisions, errorPatterns, tokenBudget, compaction), project-scoped memory injection into build loop.
+2. **Phase 4: Developer Experience** — Workspace snapshots + one-click rollback (history.ts already has snapshots, need build-specific export), browser pool (puppeteer-browser.ts exists, need pooling), resource limits + cost tracking, command palette (build-command-palette.tsx exists, need server-side actions).
+3. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
