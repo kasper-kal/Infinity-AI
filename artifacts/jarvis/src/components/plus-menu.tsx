@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Paperclip, Camera, Sparkles, ImageIcon, LayoutGrid, Palette, Music2 } from 'lucide-react';
 
 export type PlusAction =
-  | 'attach-file' | 'camera' | 'new-gem' | 'generate-image'
+  | 'attach-file' | 'camera' | 'new-expert' | 'generate-image'
   | 'studios' | 'design-studio' | 'music-studio'
   | 'thinking' | 'agent-mode' | 'web-search' | 'screen-share'
   | 'build-mode' | 'research' | 'data-lab';
@@ -42,7 +42,7 @@ interface PlusMenuProps {
   labels: {
     attachFile: string;
     camera: string;
-    newGem: string;
+    newExpert: string;
     generateImage: string;
     thinking?: string;
     agentMode?: string;
@@ -102,13 +102,13 @@ export function PlusMenu({ open, onClose, onAction, coords, labels, query = '' }
     dataLab: labels.dataLab ?? 'Data Lab',
   };
   const showAttach = !isPluginAutocomplete || !normalizedQuery || matches(labels.attachFile) || matches(labels.camera);
-  const showCreate = !isPluginAutocomplete || !normalizedQuery || matches(labels.newGem) || matches(labels.generateImage);
+  const showCreate = !isPluginAutocomplete || !normalizedQuery || matches(labels.newExpert) || matches(labels.generateImage);
   const showTools = isPluginAutocomplete && Object.values(toolLabels).some(matches);
   const showStudios = !isPluginAutocomplete || !normalizedQuery || ['All Studios', 'Design Studio', 'Music Studio'].some(matches);
   const pluginActions: readonly [string, PlusAction][] = [
     [labels.attachFile, 'attach-file'],
     [labels.camera, 'camera'],
-    [labels.newGem, 'new-gem'],
+    [labels.newExpert, 'new-expert'],
     [labels.generateImage, 'generate-image'],
     [toolLabels.thinking, 'thinking'],
     [toolLabels.agentMode, 'agent-mode'],
@@ -192,7 +192,7 @@ export function PlusMenu({ open, onClose, onAction, coords, labels, query = '' }
             {showCreate && (
               <>
                 <p className="px-3 pt-2 pb-0.5 text-[9px] font-mono tracking-widest text-muted-foreground/40 uppercase">Create</p>
-                {matches(labels.newGem) && <Item icon={Sparkles} label={labels.newGem} onClick={() => invoke('new-gem')} />}
+                {matches(labels.newExpert) && <Item icon={Sparkles} label={labels.newExpert} onClick={() => invoke('new-expert')} />}
                 {matches(labels.generateImage) && <Item icon={ImageIcon} label={labels.generateImage} onClick={() => invoke('generate-image')} />}
               </>
             )}

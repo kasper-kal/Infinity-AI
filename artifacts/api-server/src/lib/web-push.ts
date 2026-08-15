@@ -5,7 +5,7 @@
  * How it works (all free, no external service account needed):
  *   - The browser subscribes via PushManager using our VAPID public key.
  *   - The subscription (endpoint + keys) is stored in Postgres.
- *   - When something finishes (deep research gem ready), we send an
+ *   - When something finishes (deep research expert ready), we send an
  *     encrypted push message to each endpoint with the `web-push` library.
  *     The browser's built-in push service (FCM/autopush/APNs) delivers it and
  *     wakes the service worker, which shows the system notification.

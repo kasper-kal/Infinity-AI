@@ -13,7 +13,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { haptics } from '@/lib/haptics';
 
-interface GemDialogProps {
+interface DataLabDialogProps {
   open: boolean;
   onClose: () => void;
   /** Ask Jarvis to analyze the loaded data, payload is a text summary. */
@@ -98,7 +98,7 @@ function buildChartData(data: ParsedData) {
 
 const CHART_COLORS = ['#007AFF', '#5856D6', '#FF9F0A', '#34C759', '#FF2D55', '#64D2FF', '#BF5AF2'];
 
-export function DataLab({ open, onClose, onAskJarvis }: GemDialogProps) {
+export function DataLab({ open, onClose, onAskJarvis }: DataLabDialogProps) {
   const { t } = useI18n();
   const [data, setData] = useState<ParsedData | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);

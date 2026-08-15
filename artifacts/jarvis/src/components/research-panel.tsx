@@ -41,8 +41,8 @@ export interface ResearchJob {
 interface ResearchPanelProps {
   jobs: ResearchJob[];
   onClose: () => void;
-  /** Open a conversation (the finished gem chat) in the main feed. */
-  onOpenGem: (conversationId: string) => void;
+  /** Open a conversation (the finished expert chat) in the main feed. */
+  onOpenExpert: (conversationId: string) => void;
   /** Fired right after a job is started, lets Home refresh + notify. */
   onStarted?: (job: ResearchJob) => void;
   /** Fired when the user cancels a running job. */
@@ -73,7 +73,7 @@ const STATUS_STYLE: Record<ResearchJob['status'], { color: string; icon: 'spin' 
   cancelled: { color: 'text-muted-foreground/50', icon: 'err' },
 };
 
-export function ResearchPanel({ jobs, onClose, onOpenGem, onStarted, onCancel }: ResearchPanelProps) {
+export function ResearchPanel({ jobs, onClose, onOpenExpert, onStarted, onCancel }: ResearchPanelProps) {
   const { t } = useI18n();
   const [goal, setGoal] = useState('');
   const [depth, setDepth] = useState<ResearchJob['depth']>('standard');
@@ -266,7 +266,7 @@ export function ResearchPanel({ jobs, onClose, onOpenGem, onStarted, onCancel }:
                 {t('research.start')}
               </button>
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed text-center">
-                Runs in the background for hours, you can close this tab. Jarvis notifies you when the gem is ready.
+                Runs in the background for hours, you can close this tab. Jarvis notifies you when the expert is ready.
               </p>
             </motion.div>
           )}
@@ -328,10 +328,10 @@ export function ResearchPanel({ jobs, onClose, onOpenGem, onStarted, onCancel }:
                     )}
                     {job.status === 'completed' && job.gemConversationId && (
                       <button
-                        onClick={() => { haptics.light(); onOpenGem(job.gemConversationId!); }}
+                        onClick={() => { haptics.light(); onOpenExpert(job.gemConversationId!); }}
                         className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 text-[10px] font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1"
                       >
-                        <Sparkles className="w-3 h-3" /> {t('research.openGem')}
+                        <Sparkles className="w-3 h-3" /> {t('research.openExpert')}
                       </button>
                     )}
                   </div>

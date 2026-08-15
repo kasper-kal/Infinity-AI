@@ -283,7 +283,7 @@ export function ChatComposer(props: ChatComposerProps) {
         labels={{
           attachFile: t('input.attachFile'),
           camera: t('header.mode.camera'),
-          newGem: t('gem.menuItem'),
+          newExpert: t('expert.menuItem'),
           generateImage: t('input.generateImage'),
           buildMode: t('build.menuItem'),
         }}

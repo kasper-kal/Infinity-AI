@@ -26,7 +26,7 @@ interface PaletteProps {
   onClose: () => void;
   onNavigate: (mode: 'voice' | 'chat' | 'agent' | 'camera') => void;
   onOpenResearch: () => void;
-  onOpenGem: () => void;
+  onOpenExpert: () => void;
   onOpenDataLab: () => void;
   onToggleWebSearch: () => void;
   onToggleTheme: () => void;
@@ -54,7 +54,7 @@ export function CommandPalette({
   onClose,
   onNavigate,
   onOpenResearch,
-  onOpenGem,
+  onOpenExpert,
   onOpenDataLab,
   onToggleWebSearch,
   onToggleTheme,
@@ -77,7 +77,7 @@ export function CommandPalette({
     { id: 'agent', label: t('header.mode.agent'), hint: 'A', icon: Globe, run: () => onNavigate('agent') },
     { id: 'camera', label: t('header.mode.camera'), hint: 'C', icon: Webcam, run: () => onNavigate('camera') },
     { id: 'research', label: t('research.title'), hint: 'R', icon: BrainCircuit, run: onOpenResearch },
-    { id: 'gem', label: t('gem.menuItem'), hint: 'N', icon: Sparkles, run: onOpenGem },
+    { id: 'expert', label: t('expert.menuItem'), hint: 'N', icon: Sparkles, run: onOpenExpert },
     { id: 'datalab', label: t('datalab.menuItem'), hint: 'D', icon: BarChart3, run: onOpenDataLab },
     { id: 'image', label: t('input.generateImage'), hint: 'I', icon: ImageIcon, run: () => onNavigate('chat') },
   ];

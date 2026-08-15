@@ -22,7 +22,7 @@ import { haptics } from '@/lib/haptics';
 import { useEmotionDetection, type EmotionLabel } from '@/hooks/use-emotion-detection';
 import type { ResearchJob } from '@/components/research-panel';
 import type { BookJob } from '@/components/book-studio';
-import { GemDialog } from '@/components/gem-dialog';
+import { ExpertDialog } from '@/components/expert-dialog';
 import type { StudioId } from '@/components/studios-hub';
 import { ensurePushSubscription } from '@/lib/push';
 import { KeyRetryBanner } from '@/components/home/key-retry-banner';
@@ -128,7 +128,7 @@ export default function Home() {
     try { localStorage.setItem('jarvis-mic-intent', 'true'); } catch { /* noop */ }
   }, []);
 
-  // Deep research, background jobs + gem chats
+  // Deep research, background jobs + expert chats
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchJobs, setResearchJobs] = useState<ResearchJob[]>([]);
   const researchNotifiedRef = useRef<Set<string>>(new Set());
@@ -136,8 +136,8 @@ export default function Home() {
   const [bookJobs, setBookJobs] = useState<BookJob[]>([]);
   const bookNotifiedRef = useRef<Set<string>>(new Set());
 
-  // Wave 2, user-defined gems + Data Lab
-  const [gemDialogOpen, setGemDialogOpen] = useState(false);
+  // Wave 2, user-defined experts + Data Lab
+  const [expertDialogOpen, setExpertDialogOpen] = useState(false);
   const [dataLabOpen, setDataLabOpen] = useState(false);
   const [buildPanelOpen, setBuildPanelOpen] = useState(false);
   const [buildTab, setBuildTab] = useState<string>('terminal');
@@ -519,7 +519,7 @@ export default function Home() {
 
   const refreshSidebar = useCallback(() => setSidebarRefreshTick(t => t + 1), []);
 
-  // ── Deep research: poll background jobs + fire browser notification when a gem is ready ──
+  // ── Deep research: poll background jobs + fire browser notification when an expert is ready ──
   useEffect(() => {
     let cancelled = false;
     const loadResearch = async () => {
@@ -529,7 +529,7 @@ export default function Home() {
         const jobs = (await res.json()) as ResearchJob[];
         if (cancelled) return;
         setResearchJobs(jobs);
-        // Newly completed job → notify + refresh sidebar so the gem chat appears
+        // Newly completed job → notify + refresh sidebar so the expert chat appears
         for (const job of jobs) {
           if (job.status === 'completed' && !researchNotifiedRef.current.has(job.id)) {
             researchNotifiedRef.current.add(job.id);
@@ -756,14 +756,14 @@ export default function Home() {
     }
   }, []);
 
-  // Wave 2, a freshly created gem opens straight into chat mode
-  const handleGemCreated = useCallback((conv: { id: string; title: string }) => {
+  // Wave 2, a freshly created expert opens straight into chat mode
+  const handleExpertCreated = useCallback((conv: { id: string; title: string }) => {
     haptics.medium?.();
     setMode('chat');
     setActiveConversationId(conv.id);
     setMessages([]);
     setSuggestions([]);
-    toast({ title: conv.title, description: t('gem.createdToast') });
+    toast({ title: conv.title, description: t('expert.createdToast') });
     void loadConversation(conv.id);
   }, [loadConversation, toast, t]);
 
@@ -1086,13 +1086,13 @@ export default function Home() {
   const pendingBuildRef = useRef<{ userText: string; file: AttachedFile | null; speak: boolean } | null>(null);
 
   /** Reduced +-menu handler used by the chat composer (the composer menu only
-      offers attach/camera/gem/image/studios entries; the full handler below is
+      offers attach/camera/expert/image/studios entries; the full handler below is
       for plugin actions & the command palette). */
   const handleComposerPlusAction = useCallback((action: PlusAction) => {
     switch (action) {
       case 'attach-file': fileInputRef.current?.click(); break;
       case 'camera': setMode('camera'); break;
-      case 'new-gem': setGemDialogOpen(true); break;
+      case 'new-expert': setExpertDialogOpen(true); break;
       case 'generate-image': setTimeout(() => inputRef.current?.focus(), 50); break;
       case 'studios': setStudiosOpen(true); break;
       case 'design-studio': setDesignStudioOpen(true); break;
@@ -1109,8 +1109,8 @@ export default function Home() {
       case 'camera':
         setMode('camera');
         break;
-      case 'new-gem':
-        setGemDialogOpen(true);
+      case 'new-expert':
+        setExpertDialogOpen(true);
         break;
       case 'generate-image':
         setChatInput(prev => prev || 'Create an image of ');
@@ -1162,7 +1162,7 @@ export default function Home() {
     const actions: readonly [string, PlusAction][] = [
       [t('input.attachFile'), 'attach-file'],
       [t('header.mode.camera'), 'camera'],
-      [t('gem.menuItem'), 'new-gem'],
+      [t('expert.menuItem'), 'new-expert'],
       [t('input.generateImage'), 'generate-image'],
       [t('input.thinking'), 'thinking'],
       [t('input.agentMode'), 'agent-mode'],
@@ -1635,11 +1635,11 @@ export default function Home() {
         />
       </div>
 
-      {/* ── New Gem dialog ── */}
-      <GemDialog
-        open={gemDialogOpen}
-        onClose={() => setGemDialogOpen(false)}
-        onCreated={handleGemCreated}
+      {/* ── New Expert dialog ── */}
+      <ExpertDialog
+        open={expertDialogOpen}
+        onClose={() => setExpertDialogOpen(false)}
+        onCreated={handleExpertCreated}
       />
 
       {/* ── All modal overlays ── */}
@@ -1649,14 +1649,14 @@ export default function Home() {
         errorDetail={errorDetail} onCloseError={() => setErrorDetail(null)}
         researchPanelOpen={researchPanelOpen} researchJobs={researchJobs}
         onCloseResearch={() => setResearchPanelOpen(false)}
-        onOpenGem={(convId) => { loadConversation(convId); setResearchPanelOpen(false); }}
+        onOpenExpert={(convId) => { loadConversation(convId); setResearchPanelOpen(false); }}
         onStartResearch={() => { refreshSidebar(); }}
         onCancelResearch={async (jobId) => { try { await fetch(`/api/jarvis/research/${jobId}/cancel`, { method: 'POST' }); refreshSidebar(); } catch { /* noop */ } }}
-        gemDialogOpen={gemDialogOpen} onCloseGem={() => setGemDialogOpen(false)}
-        onGemCreated={handleGemCreated}
+        expertDialogOpen={expertDialogOpen} onCloseExpert={() => setExpertDialogOpen(false)}
+        onExpertCreated={handleExpertCreated}
         dataLabOpen={dataLabOpen} onCloseDataLab={() => setDataLabOpen(false)} onDataLabAsk={handleDataLabAsk}
         paletteOpen={paletteOpen} onClosePalette={() => setPaletteOpen(false)}
-        onOpenGemFromPalette={() => setGemDialogOpen(true)} onOpenDataLabFromPalette={() => setDataLabOpen(true)}
+        onOpenExpertFromPalette={() => setExpertDialogOpen(true)} onOpenDataLabFromPalette={() => setDataLabOpen(true)}
         onOpenConversation={(id) => { void loadConversation(id); setMode('chat'); }}
         onNewChat={handleNewChat}
         onNavigate={(m) => { haptics.light(); setMode(m); }}

@@ -31,12 +31,17 @@ Capability| What it does
 📷 Camera| Analyze visual information
 🧠 Memory| Maintain useful long-term context about the user
 🧩 Smart Widgets| Turn natural-language requests into interactive UI
+🧑‍🔬 Experts| Create custom AI personas or spawn them from deep research
 
 ---
 
 🧠 AI That Can Actually Do Things
 
 Infinity isn't limited to generating text.
+
+🧑‍🔬 Experts
+
+Create custom AI personas with your own system prompts, or let Deep Research spawn a specialized Expert grounded in its findings. These persistent conversations carry their own context and behave as dedicated specialists — quantum engineers, legal analysts, creative writers, or any domain you define.
 
 🔬 Deep Research
 
@@ -52,7 +57,7 @@ The research system can:
 6. Re-evaluate the direction of the investigation
 7. Compile the findings into a final report
 
-Research can also produce a persistent Gem — an expert-style conversational interface grounded in the resulting research.
+Research can also produce a persistent Expert — an expert-style conversational interface grounded in the resulting research.
 
 ---
 

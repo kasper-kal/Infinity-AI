@@ -13,7 +13,7 @@
  *   6. Repeat… sleep between phases scales with the chosen depth.
  *
  * When the loop finally converges, the engine writes a deep report and
- * spawns a "gem" conversation, a special chat whose system prompt makes
+ * spawns an "expert" conversation, a special chat whose system prompt makes
  * Jarvis behave like a 30-year veteran of the researched field.
  *
  * Everything is persisted to Postgres on every step, so the frontend can
@@ -441,7 +441,7 @@ async function runPhase(
 }
 
 /* ────────────────────────────────────────────────────────────────
- * Gem creation
+ * Expert creation
  * ──────────────────────────────────────────────────────────────── */
 
 async function createGem(
@@ -453,7 +453,7 @@ async function createGem(
     "Structure it like a world-class expert monograph: executive summary, fundamentals, state of the art, evidence and sources, " +
     "controversies and open questions, expert perspectives, practical implications, future outlook, and a conclusion. " +
     "Be exhaustively thorough, this is the capstone deliverable of a multi-hour investigation. Use markdown with headings and citations [source: domain]. " +
-    "Then, on a separate line, output a JSON block with the identity for the resulting expert 'gem': " +
+    "Then, on a separate line, output a JSON block with the identity for the resulting expert: " +
     '{"persona": string (a powerful system-prompt persona of a 30-year veteran expert who can reason like a world authority), "expertise": string (their specialty summary)}. ' +
     "The persona must instruct the expert to: reason rigorously like a senior researcher; use the attached knowledge base as ground truth; stay humble about uncertainty; answer with deep, structured reasoning.";
   const finalUser =
@@ -497,7 +497,7 @@ async function createGem(
     { conversationId: conv.id, role: "user", content: job.prompt },
     { conversationId: conv.id, role: "assistant", content: report },
   ]);
-  await appendLog(jobId, `Gem chat created (${conv.id}).`);
+  await appendLog(jobId, `Expert chat created (${conv.id}).`);
   return { gemConversationId: conv.id, gemSystemPrompt, report };
 }
 
@@ -604,11 +604,11 @@ async function runJob(jobId: string): Promise<void> {
     await sleep((lo + Math.random() * (hi - lo)) * 1000);
   }
 
-  // 2. Final synthesis + gem
+  // 2. Final synthesis + expert
   const [finalRow] = await db.select().from(researchJobs).where(eq(researchJobs.id, jobId));
   if (!finalRow) return;
-  await updateJob(jobId, { progress: 99, phase: "Final synthesis, writing the gem…" });
-  await appendLog(jobId, "Phases complete. Writing final report and spawning the gem chat…");
+  await updateJob(jobId, { progress: 99, phase: "Final synthesis, writing the expert…" });
+  await appendLog(jobId, "Phases complete. Writing final report and spawning the expert chat…");
 
   // Final synthesis uses the key pool too, if every key is cooling, pause
   // and retry rather than failing the whole job at the last step.
@@ -640,18 +640,18 @@ async function runJob(jobId: string): Promise<void> {
       gemConversationId,
       completedAt: new Date(),
     });
-    await appendLog(jobId, "Done. The gem chat is ready.");
+    await appendLog(jobId, "Done. The expert chat is ready.");
     void notifyAll(
       `Research complete: ${job.title}`,
-      "Your deep research finished, the expert gem is ready to open.",
+      "Your deep research finished, the expert chat is ready to open.",
       "/",
     );
   } catch (gemErr) {
-    logger.error({ err: gemErr, jobId }, "Gem creation failed");
+    logger.error({ err: gemErr, jobId }, "Expert creation failed");
     await updateJob(jobId, { status: "failed", error: gemErr instanceof Error ? gemErr.message : String(gemErr) });
     void notifyAll(
       `Research finished with an error: ${job.title}`,
-      "Something went wrong while creating your gem.",
+      "Something went wrong while creating your expert.",
       "/",
     );
   }

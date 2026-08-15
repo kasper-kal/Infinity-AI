@@ -281,7 +281,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
                   className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground"
                 >
                   <Link2 className="h-3.5 w-3.5" />
-                  {t("projectResearch.openGem")}
+                  {t("projectResearch.openExpert")}
                 </button>
               )}
             </div>

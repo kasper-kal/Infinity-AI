@@ -5,7 +5,7 @@ import { SettingsPanel } from '@/components/settings-panel';
 import { ErrorDetailPanel, type ErrorDetail } from '@/components/error-detail-panel';
 import { ResearchPanel, type ResearchJob } from '@/components/research-panel';
 import { DataLab } from '@/components/data-lab';
-import { GemDialog } from '@/components/gem-dialog';
+import { ExpertDialog } from '@/components/expert-dialog';
 import { CommandPalette } from '@/components/command-palette';
 import { DesignStudio } from '@/components/design-studio';
 import { MusicStudio } from '@/components/music-studio';
@@ -28,19 +28,19 @@ interface AppOverlaysProps {
   researchPanelOpen: boolean;
   researchJobs: ResearchJob[];
   onCloseResearch: () => void;
-  onOpenGem: (convId: string) => void;
+  onOpenExpert: (convId: string) => void;
   onStartResearch: () => void;
   onCancelResearch: (jobId: string) => Promise<void>;
-  // Gem + DataLab + CommandPalette
-  gemDialogOpen: boolean;
-  onCloseGem: () => void;
-  onGemCreated: (conv: { id: string; title: string }) => void;
+  // Expert + DataLab + CommandPalette
+  expertDialogOpen: boolean;
+  onCloseExpert: () => void;
+  onExpertCreated: (conv: { id: string; title: string }) => void;
   dataLabOpen: boolean;
   onCloseDataLab: () => void;
   onDataLabAsk: (summaryText: string) => void;
   paletteOpen: boolean;
   onClosePalette: () => void;
-  onOpenGemFromPalette: () => void;
+  onOpenExpertFromPalette: () => void;
   onOpenDataLabFromPalette: () => void;
   onOpenConversation: (id: string) => void;
   onNewChat: () => void;
@@ -141,15 +141,15 @@ export function AppOverlays(props: AppOverlaysProps) {
           <ResearchPanel
             jobs={props.researchJobs}
             onClose={props.onCloseResearch}
-            onOpenGem={props.onOpenGem}
+            onOpenExpert={props.onOpenExpert}
             onStarted={props.onStartResearch}
             onCancel={props.onCancelResearch}
           />
         )}
       </AnimatePresence>
 
-      {/* ── Gem Dialog ── */}
-      <GemDialog open={props.gemDialogOpen} onClose={props.onCloseGem} onCreated={props.onGemCreated} />
+      {/* ── Expert Dialog ── */}
+      <ExpertDialog open={props.expertDialogOpen} onClose={props.onCloseExpert} onCreated={props.onExpertCreated} />
 
       {/* ── Data Lab ── */}
       <DataLab open={props.dataLabOpen} onClose={props.onCloseDataLab} onAskJarvis={props.onDataLabAsk} />
@@ -160,7 +160,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         onClose={props.onClosePalette}
         onNavigate={props.onNavigate}
         onOpenResearch={props.onOpenResearch}
-        onOpenGem={props.onOpenGemFromPalette}
+        onOpenExpert={props.onOpenExpertFromPalette}
         onOpenDataLab={props.onOpenDataLabFromPalette}
         onToggleWebSearch={props.onToggleWebSearch}
         onToggleTheme={props.onToggleTheme as any}

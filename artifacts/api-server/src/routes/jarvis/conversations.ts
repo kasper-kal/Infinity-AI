@@ -213,12 +213,12 @@ router.post("/conversations", async (req, res) => {
 });
 
 /**
- * POST /conversations/gem
- * Create a user-defined expert gem, a conversation with kind "gem" and a
+ * POST /conversations/expert
+ * Create a user-defined expert, a conversation with kind "gem" and a
  * custom system prompt. The chat route already prefers systemPrompt when set,
  * so chatting in this conversation makes Jarvis behave as the crafted expert.
  */
-router.post("/conversations/gem", async (req, res) => {
+router.post("/conversations/expert", async (req, res) => {
   try {
     const { title, systemPrompt } = req.body as {
       title?: string;
@@ -237,15 +237,15 @@ router.post("/conversations/gem", async (req, res) => {
     const [row] = await db
       .insert(conversations)
       .values({
-        title: cleanTitle || "New gem",
+        title: cleanTitle || "New expert",
         kind: "gem",
         systemPrompt: cleanPrompt,
       })
       .returning();
     res.json(row);
   } catch (err) {
-    req.log.error({ err }, "Failed to create gem");
-    res.status(500).json({ error: "Failed to create gem" });
+    req.log.error({ err }, "Failed to create expert");
+    res.status(500).json({ error: "Failed to create expert" });
   }
 });
 
