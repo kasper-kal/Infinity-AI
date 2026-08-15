@@ -352,6 +352,20 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+  // ── Phase 1.2: Build Checkpoints (resume system) ────────────────
+  `CREATE TABLE IF NOT EXISTS "build_checkpoints" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" text NOT NULL,
+    "iteration" integer NOT NULL DEFAULT 1,
+    "completed" integer NOT NULL DEFAULT 0,
+    "plan" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "completed_steps" jsonb NOT NULL DEFAULT '[]'::jsonb,
+    "working_context" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "file_snapshots" jsonb,
+    "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
 ];
 
 /**

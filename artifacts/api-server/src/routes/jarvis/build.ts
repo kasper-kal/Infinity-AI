@@ -13,7 +13,13 @@ import {
   readWorkspaceFile,
   writeWorkspaceFile,
   WORKSPACE_ROOT,
+  createIsolated,
+  commitIteration,
+  rollbackIteration,
+  hasIsolated,
+  isolatedPath,
 } from "../../lib/workspace";
+import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
 import { getStorage, persistFile } from "../../lib/storage";
 import { jarvisConfig } from "../../config/jarvis";
 import { pooledClient } from "../../lib/llm-client";
@@ -712,8 +718,21 @@ router.post("/build/plan", async (req, res) => {
   }
 });
 
+router.post("/build/start", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64) || "default";
+  const prompt = cleanText(req.body?.prompt, 300);
+  try {
+    const iso = await createIsolated(projectId);
+    res.json({ ok: true, projectId, worktreePath: iso.worktreePath, branch: iso.branch });
+  } catch (err) {
+    req.log.error({ err }, "Failed to create isolated build workspace");
+    res.status(500).json({ error: "Could not create isolated build workspace" });
+  }
+});
+
 router.post("/build/scaffold", async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
+  const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
   const rawAnswers = (req.body?.answers && typeof req.body.answers === "object" && !Array.isArray(req.body.answers))
     ? req.body.answers as Record<string, unknown>
@@ -739,6 +758,19 @@ router.post("/build/scaffold", async (req, res) => {
       if (!safeWorkspacePath(relPath, workspaceId)) continue;
       await writeWorkspaceFile(relPath, content, workspaceId);
     }
+    // Phase 1.1 + 1.2: commit iteration + save checkpoint
+    if (hasIsolated(projectId)) {
+      await commitIteration(projectId, 1, plan?.steps.length ?? 1, "scaffold starter");
+    }
+    await saveCheckpoint({
+      projectId,
+      iteration: 1,
+      completed: 0,
+      plan: plan ? { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks } : {},
+      completedSteps: [{ step: "scaffold", files: Object.keys(files) }],
+      workingContext: { prompt, workspaceId },
+      tokenUsage: { prompt: 0, completion: 0, total: 0 },
+    });
     res.status(201).json({ ok: true, files: Object.keys(files), runtime: "static", previewCommand: "python3 -m http.server ${PORT}" });
   } catch (err) {
     req.log.error({ err }, "Failed to scaffold starter");
@@ -748,6 +780,7 @@ router.post("/build/scaffold", async (req, res) => {
 
 router.post("/build/iterate", async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
+  const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
   const previewOutput = cleanText(req.body?.previewOutput, 6000);
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
@@ -770,10 +803,65 @@ router.post("/build/iterate", async (req, res) => {
       req.log.warn({ workspaceId, passNumber }, "Iteration count is very high, possibly infinite loop");
     }
     const result = await reviewAndFixWorkspace(prompt, answers, workspaceId, previewOutput, passNumber, extraSystemPrompt, plan);
+    // Phase 1.1 + 1.2: commit iteration + update checkpoint
+    if (hasIsolated(projectId)) {
+      await commitIteration(projectId, passNumber, plan?.steps.length ?? passNumber, `iteration ${passNumber}`);
+    }
+    await saveCheckpoint({
+      projectId,
+      iteration: passNumber,
+      completed: result.done ? 1 : 0,
+      plan: plan ? { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks } : {},
+      completedSteps: [{ step: `iteration ${passNumber}`, done: result.done, filesChanged: result.filesChanged ?? [] }],
+      workingContext: { prompt, workspaceId, passNumber },
+      tokenUsage: { prompt: 0, completion: 0, total: 0 },
+    });
     res.json({ ok: true, passNumber, ...result });
   } catch (err) {
     req.log.error({ err }, "Build self-review failed");
     res.status(500).json({ error: "Build self-review failed" });
+  }
+});
+
+router.post("/build/rollback", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64) || "default";
+  try {
+    if (!hasIsolated(projectId)) {
+      res.status(404).json({ error: "No isolated workspace for this project" });
+      return;
+    }
+    const ok = await rollbackIteration(projectId);
+    res.json({ ok, message: ok ? "Rolled back one iteration" : "Rollback failed (no previous commit?)" });
+  } catch (err) {
+    req.log.error({ err }, "Failed to rollback build");
+    res.status(500).json({ error: "Failed to rollback build" });
+  }
+});
+
+router.get("/build/resume/:projectId", async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  try {
+    const checkpoint = await getLatestCheckpoint(projectId);
+    if (!checkpoint) {
+      res.status(404).json({ error: "No checkpoint found to resume" });
+      return;
+    }
+    res.json({
+      ok: true,
+      resume: !checkpoint.completed,
+      checkpoint: {
+        id: checkpoint.id,
+        iteration: checkpoint.iteration,
+        completed: checkpoint.completed,
+        plan: checkpoint.plan,
+        completedSteps: checkpoint.completedSteps,
+        workingContext: checkpoint.workingContext,
+        createdAt: checkpoint.createdAt,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get resume state");
+    res.status(500).json({ error: "Failed to get resume state" });
   }
 });
 

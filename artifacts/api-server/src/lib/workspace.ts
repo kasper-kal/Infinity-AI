@@ -1,5 +1,6 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { promises as fs } from "node:fs";
+import * as fsSync from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -293,4 +294,103 @@ export async function deleteWorkspacePath(relPath: string, workspaceId = "defaul
   if (!target || target === getWorkspaceRoot(workspaceId)) return { ok: false as const, error: "Cannot delete workspace root." };
   await fs.rm(target, { recursive: true, force: false });
   return { ok: true as const };
+}
+
+/**
+ * Phase 1.1 — Git Worktree Isolation.
+ *
+ * Each build project gets its own isolated git repository under
+ * WORKSPACE_ROOT/worktrees/<project-id> so a build can be committed per
+ * iteration and rolled back instantly without touching the host repo or any
+ * other project. node_modules is symlinked to the global pnpm store so builds
+ * resolve dependencies without a fresh install (0-euro, reuses on-disk deps).
+ */
+const WORKTREES_ROOT = path.resolve(WORKSPACE_ROOT, "worktrees");
+
+export interface IsolatedWorkspace {
+  projectId: string;
+  worktreePath: string;
+  branch: string;
+  cleanup: () => Promise<void>;
+}
+
+/** Run a git command inside a worktree, capturing stdout/stderr. */
+function runGit(worktreePath: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn("git", args, { cwd: worktreePath, env: getWorkspaceCommandEnvironment() });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("exit", (code) => resolve({ ok: code === 0, stdout, stderr }));
+    child.on("error", () => resolve({ ok: false, stdout, stderr }));
+  });
+}
+
+/** True when a project already has an isolated worktree repo. */
+export function hasIsolated(projectId: string): boolean {
+  const id = workspaceKey(projectId);
+  return fsSync.existsSync(path.join(WORKTREES_ROOT, id, ".git"));
+}
+
+export function isolatedPath(projectId: string): string {
+  return path.join(WORKTREES_ROOT, workspaceKey(projectId));
+}
+
+/**
+ * Create (or reconnect to) an isolated git worktree for a build project.
+ * Returns the worktree path, its branch, and a cleanup fn that removes it.
+ */
+export async function createIsolated(projectId: string): Promise<IsolatedWorkspace> {
+  const id = workspaceKey(projectId);
+  const branch = `infinity/build/${id}`;
+  const worktreePath = isolatedPath(id);
+  await fs.mkdir(worktreePath, { recursive: true });
+
+  if (!hasIsolated(id)) {
+    // Fresh standalone repo with an initial empty commit so reset/rollback work.
+    await runGit(worktreePath, ["init", "-q"]);
+    await runGit(worktreePath, ["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    await fs.writeFile(path.join(worktreePath, ".infinity"), `# Infinity build workspace for ${id}\n`);
+    await runGit(worktreePath, ["add", "."]);
+    await runGit(worktreePath, ["commit", "-q", "-m", "infinity: init workspace"]);
+  } else {
+    // Switch to (or create) the project branch.
+    const { stdout } = await runGit(worktreePath, ["rev-parse", "--verify", branch]);
+    if (stdout.trim()) {
+      await runGit(worktreePath, ["checkout", "-q", branch]);
+    } else {
+      await runGit(worktreePath, ["checkout", "-q", "-b", branch]);
+    }
+  }
+
+  // Symlink node_modules to the global pnpm store (best-effort, 0-euro reuse).
+  const nmLink = path.join(worktreePath, "node_modules");
+  try {
+    if (!fsSync.existsSync(nmLink)) await fs.symlink("/workspaces/.pnpm-store/v10", nmLink, "dir");
+  } catch { /* best-effort */ }
+
+  const cleanup = async () => {
+    try { await fs.rm(worktreePath, { recursive: true, force: true }); } catch { /* ignore */ }
+  };
+
+  return { projectId: id, worktreePath, branch, cleanup };
+}
+
+/** Commit the current state as one iteration step: "infinity: step N/M - message". */
+export async function commitIteration(projectId: string, stepNumber: number, totalSteps: number, message: string): Promise<boolean> {
+  const worktreePath = isolatedPath(projectId);
+  if (!hasIsolated(projectId)) return false;
+  await runGit(worktreePath, ["add", "-A"]);
+  const label = message.trim() || `step ${stepNumber}/${totalSteps}`;
+  const { ok } = await runGit(worktreePath, ["commit", "-q", "-m", `infinity: step ${stepNumber}/${totalSteps} - ${label}`]);
+  return ok;
+}
+
+/** Instant rollback to the previous iteration (git reset --hard HEAD~1). */
+export async function rollbackIteration(projectId: string): Promise<boolean> {
+  const worktreePath = isolatedPath(projectId);
+  if (!hasIsolated(projectId)) return false;
+  const { ok } = await runGit(worktreePath, ["reset", "--hard", "HEAD~1"]);
+  return ok;
 }
