@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -74,6 +74,22 @@ import {
   type ScreenshotDiff,
   type AccessibilitySnapshot,
 } from "../../lib/browser-pool";
+import {
+  preflightCheck,
+  waitForDiskSpace,
+  recordEdgeCase,
+  resolveEdgeCase,
+  getUnresolvedEdgeCases,
+  withRetry,
+  detectWorkspaceCorruption,
+  repairWorkspace,
+  handleGitConflict,
+  enqueueBuild,
+  getBuildQueueStatus,
+  checkRateLimit,
+  waitForRateLimit,
+  checkDiskSpace,
+} from "../../lib/build-edge-cases";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -1690,7 +1706,7 @@ router.get("/build/budget/:projectId", async (req, res) => {
   }
   try {
     const status = await getBudgetStatus(projectId);
-    res.json({ ok: true, ...status });
+    res.json({ ...status });
   } catch (err) {
     console.error({ err, projectId }, "Failed to get budget status");
     res.status(500).json({ error: "Failed to get budget status" });
@@ -1787,7 +1803,7 @@ router.post("/build/budget/:projectId/check", async (req, res) => {
   }
   try {
     const status = await checkBudgetBeforeBuild(projectId, estimatedTokens, estimatedCostCents, estimatedDurationMs);
-    res.json({ ok: true, ...status });
+    res.json({ ...status });
   } catch (err) {
     console.error({ err, projectId }, "Failed to check budget");
     res.status(500).json({ error: "Failed to check budget" });
@@ -1842,7 +1858,7 @@ router.post("/build/budget/:projectId/record", async (req, res) => {
       model,
       metadata,
     });
-    res.json({ ok: true, ...status });
+    res.json({ ...status });
   } catch (err) {
     console.error({ err, projectId }, "Failed to record build cost");
     res.status(500).json({ error: "Failed to record build cost" });
@@ -2346,7 +2362,7 @@ router.get("/build/command/:projectId/budget/status", async (req, res) => {
   try {
     const { getBudgetStatus } = await import("../../lib/build-budgets");
     const status = await getBudgetStatus(projectId);
-    res.json({ ok: true, ...status });
+    res.json({ ...status });
   } catch (err) {
     console.error({ err, projectId }, "Budget status failed");
     res.status(500).json({ error: "Budget status failed" });
@@ -2371,6 +2387,231 @@ router.post("/build/command/:projectId/budget/set", async (req, res) => {
     console.error({ err, projectId }, "Budget update failed");
     await logBuildEvent(projectId, "error", "Budget update failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Budget update failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Pre-flight check before build operations
+ * GET /api/jarvis/build/preflight/:projectId
+ */
+router.get("/build/preflight/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const requiredDiskBytes = Number(req.query.requiredDiskBytes) || 50 * 1024 * 1024;
+    const result = await preflightCheck(projectId, requiredDiskBytes);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Preflight check failed");
+    res.status(500).json({ error: "Preflight check failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Disk space status
+ * GET /api/jarvis/build/disk-space/:projectId
+ */
+router.get("/build/disk-space/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const disk = await checkDiskSpace(projectId);
+    res.json({ ok: true, ...disk });
+  } catch (err) {
+    req.log.error({ err }, "Disk space check failed");
+    res.status(500).json({ error: "Disk space check failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Wait for disk space (pause build until space available)
+ * POST /api/jarvis/build/wait-disk/:projectId
+ */
+router.post("/build/wait-disk/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const requiredBytes = Number(req.body?.requiredBytes) || 50 * 1024 * 1024;
+    const maxWaitMs = Number(req.body?.maxWaitMs) || 300000;
+    const result = await waitForDiskSpace(projectId, requiredBytes, maxWaitMs);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Wait for disk space failed");
+    res.status(500).json({ error: "Wait for disk space failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Workspace corruption detection
+ * GET /api/jarvis/build/corruption/:projectId
+ */
+router.get("/build/corruption/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const result = await detectWorkspaceCorruption(projectId);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Corruption detection failed");
+    res.status(500).json({ error: "Corruption detection failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Workspace auto-repair
+ * POST /api/jarvis/build/repair/:projectId
+ */
+router.post("/build/repair/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const corruption = await detectWorkspaceCorruption(projectId);
+    if (!corruption.corrupted) {
+      res.json({ ok: true, message: "No corruption detected", repaired: [], failed: [] });
+      return;
+    }
+    const result = await repairWorkspace(projectId, corruption.issues);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Workspace repair failed");
+    res.status(500).json({ error: "Workspace repair failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Git conflict handling
+ * POST /api/jarvis/build/git-conflict/:projectId
+ */
+router.post("/build/git-conflict/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const operation = cleanText(req.body?.operation, 100) || "build";
+    const result = await handleGitConflict(projectId, operation);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Git conflict handling failed");
+    res.status(500).json({ error: "Git conflict handling failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Build queue status
+ * GET /api/jarvis/build/queue/:projectId
+ */
+router.get("/build/queue/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const status = getBuildQueueStatus(projectId);
+    res.json({ ...status });
+  } catch (err) {
+    req.log.error({ err }, "Queue status failed");
+    res.status(500).json({ error: "Queue status failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Edge cases list (unresolved)
+ * GET /api/jarvis/build/edge-cases/:projectId
+ */
+router.get("/build/edge-cases/:projectId", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    if (!projectId) {
+      res.status(400).json({ error: "projectId required" });
+      return;
+    }
+    const edgeCases = await getUnresolvedEdgeCases(projectId);
+    res.json({ ok: true, edgeCases });
+  } catch (err) {
+    req.log.error({ err }, "Edge cases list failed");
+    res.status(500).json({ error: "Edge cases list failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Resolve edge case
+ * POST /api/jarvis/build/edge-cases/:projectId/:edgeCaseId/resolve
+ */
+router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", async (req: Request, res: Response) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    const edgeCaseId = cleanText(req.params.edgeCaseId as string, 64);
+    const resolution = cleanText(req.body?.resolution, 500) || "Manually resolved";
+    if (!projectId || !edgeCaseId) {
+      res.status(400).json({ error: "projectId and edgeCaseId required" });
+      return;
+    }
+    await resolveEdgeCase(projectId, edgeCaseId, resolution);
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "Edge case resolve failed");
+    res.status(500).json({ error: "Edge case resolve failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Rate limit check
+ * GET /api/jarvis/build/rate-limit/:key
+ */
+router.get("/build/rate-limit/:key", async (req: Request, res: Response) => {
+  try {
+    const key = cleanText(req.params.key as string, 100);
+    const maxRequests = Number(req.query.maxRequests) || 10;
+    const windowMs = Number(req.query.windowMs) || 60000;
+    if (!key) {
+      res.status(400).json({ error: "key required" });
+      return;
+    }
+    const result = checkRateLimit(key, maxRequests, windowMs);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Rate limit check failed");
+    res.status(500).json({ error: "Rate limit check failed" });
+  }
+});
+
+/**
+ * Phase 5.3: Edge Cases — Wait for rate limit
+ * POST /api/jarvis/build/wait-rate-limit/:key
+ */
+router.post("/build/wait-rate-limit/:key", async (req: Request, res: Response) => {
+  try {
+    const key = cleanText(req.params.key as string, 100);
+    const maxRequests = Number(req.body?.maxRequests) || 10;
+    const windowMs = Number(req.body?.windowMs) || 60000;
+    const maxWaitMs = Number(req.body?.maxWaitMs) || 60000;
+    if (!key) {
+      res.status(400).json({ error: "key required" });
+      return;
+    }
+    const ok = await waitForRateLimit(key, maxRequests, windowMs, maxWaitMs);
+    res.json({ ok });
+  } catch (err) {
+    req.log.error({ err }, "Wait rate limit failed");
+    res.status(500).json({ error: "Wait rate limit failed" });
   }
 });
 

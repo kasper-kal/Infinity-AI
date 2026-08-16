@@ -59,7 +59,7 @@ const SAFE_ENV_KEYS = new Set([
   "NODE_PATH", "NPM_CONFIG_USERCONFIG", "PNPM_HOME", "HOSTNAME",
 ]);
 
-function workspaceKey(workspaceId: string): string {
+export function workspaceKey(workspaceId: string): string {
   const value = workspaceId || "default";
   if (!PROJECT_ID.test(value)) throw new Error("Invalid workspace id");
   return value;
@@ -322,7 +322,7 @@ export interface IsolatedWorkspace {
 }
 
 /** Run a git command inside a worktree, capturing stdout/stderr. */
-function runGit(worktreePath: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+export function runGit(worktreePath: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn("git", args, { cwd: worktreePath, env: getWorkspaceCommandEnvironment() });
     let stdout = "";
