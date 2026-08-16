@@ -4,28 +4,21 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 16:30
+LAST_UPDATED: 2026-08-16 17:55
 
 ## Just did (last action)
-- **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly):
-  - Created `artifacts/jarvis/src/hooks/use-face-tracking.ts` — hook with FaceLandmarker, tracks 478 landmarks per face, detects bounding box, key facial features (eyes, nose, mouth, ears, face center), estimates head pose (yaw/pitch/roll)
-  - Modified `artifacts/jarvis/src/components/camera-feed.tsx` — added `enableFaceTracking` prop, `faceCanvasRef`, `drawFaceOverlay` with face mesh connections, bounding box, key feature points (eyes=red, nose=gold, mouth=green, ears=cyan, center=white), head pose indicator line + text
-  - Modified `artifacts/jarvis/src/components/home/camera-mode-view.tsx` — enabled `enableFaceTracking` on CameraFeed
-  - Works alongside existing object detection and hand tracking
-  - Typecheck passes (only pre-existing api-client-react build error)
-
-- **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation (`generateStarterFiles()`) with a tool-using autonomous coding agent that progressively explores, modifies, and verifies the workspace:
-  - Created `artifacts/api-server/src/lib/build-tools.ts` — complete tool execution framework (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) with JSON schema definitions, executeTool(), executeToolSequence(), formatToolResults()
-  - Created `artifacts/api-server/src/lib/build-agent.ts` — autonomous agent state machine (planning → exploring → implementing → verifying → fixing → done/error) with AgentState, PlanStep, AgentConfig, runAutonomousAgent(), runAgentForStep(), runAgentIteration(), parseToolCalls(), checkDone(), runVerification()
-  - Added 3 new routes to `artifacts/api-server/src/routes/jarvis/build.ts`: `/build/agent/run` (run autonomous agent for a goal), `/build/agent/step` (run agent for specific plan step), `/build/agent/tools` (return available tool definitions)
-  - Fixed TypeScript errors: added `ScreenshotViewport` export to browser-pool.ts, added agent event types to build-telemetry.ts, resolved PlanStep type conflict by renaming import to `AgentPlanStep`
-  - Typecheck + build pass
-  - Created `artifacts/jarvis/src/lib/file-system-access.ts` — complete FS API service (pickDirectory, verifyPermission, requestPermission, ensurePermission, readFile, writeFile, readDirectoryRecursive, readAllTextFiles, writeFileTree, deletePath, renamePath, createDirectory, storeHandleMeta, loadStoredHandleMeta, clearStoredHandleMeta, reconnectWorkspace, connectAndStoreWorkspace, disconnectWorkspace, getBrowserSupportMessage, FileSystemAccessError)
-  - Created `artifacts/jarvis/src/lib/indexed-db.ts` — IndexedDB utility for persisting folder metadata (handles can't be serialized directly; stores name + timestamp, requires user gesture to re-pick on reload)
-  - Modified `build-studio.tsx`: added fsHandle/fsSupported/fsPermissionState/fsFolderName/fsReconnecting/fsError state; useEffect initializes FS API and calls reconnectWorkspace(); file operations (openFile, saveFile, loadFiles, createFile, createFolder, renamePath, deletePath) use FS API when handle exists, fallback to backend API
-  - Added Explorer sidebar UI: "Connect Local Folder" button with folder picker, "Disconnect" button, connection status indicator (green dot + folder name), reconnecting spinner, permission prompts
-  - Added browser unsupported warning banner for Safari/Firefox with specific messages
-  - Updated `i18n.tsx` with 11 new keys (EN+NL) under `studio.build.*` namespace: connectLocalFolder, disconnectFolder, folderConnected, folderDisconnected, folderPermissionDenied, folderPermissionPrompt, folderUnsupported, folderReconnecting, folderReconnectFailed, folderSelectTitle, folderReadOnly
+- **Browser extension for Infinity COMPLETE**: Created complete Manifest V3 browser extension enabling Infinity to control user's actual browser:
+  - Added WebSocket endpoint `/api/jarvis/extension/ws` to API server with `extension.ts` route — handles extension connections, ping/pong heartbeat, message routing
+  - Added REST endpoints: `/extension/status` (list connected extensions), `/extension/send` (send message to specific extension), `/extension/broadcast` (broadcast to all extensions)
+  - Updated `server.ts` to handle WebSocket upgrades for extension connections
+  - Created complete extension at `artifacts/infinity-extension/`:
+    - `manifest.json` — Manifest V3 with permissions (tabs, scripting, storage, webNavigation, host_permissions for API server + all URLs)
+    - `background.js` — Service worker connecting to `ws://127.0.0.1:8080/api/jarvis/extension/ws` with auto-reconnect, handles execute_action, navigate, get_tabs, get_tab_content, evaluate_script, screenshot, get_interactive_elements
+    - `content-script.js` — Runs in all pages, provides DOM interaction: get_interactive_elements, click_element, type_text, select_option, press_key, scroll_page, hover_element, focus_element, clear_input, get_page_content, evaluate
+    - `popup.html` + `popup.js` — Clean UI with connection status, tab list, activity log, connect/disconnect/refresh tabs/clear log buttons
+    - `injected.js` — Page-context script for cookies, localStorage, sessionStorage, performance timing, network info
+    - SVG icons (16, 32, 48, 128px) — Infinity ∞ logo with gradient
+  - Verified working: WebSocket connection + ping/pong + REST message send/broadcast + status endpoint all functional
   - Typecheck + build pass
 
 ## Previous action (Gem→Expert rename, user-facing)
@@ -91,6 +84,7 @@ LAST_UPDATED: 2026-08-16 16:30
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Autonomous Coding Agent (NEW)** — **COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous agent. Created build-tools.ts (9 tools), build-agent.ts (state machine + runAutonomousAgent/runAgentForStep), 3 new API routes (/build/agent/run, /build/agent/step, /build/agent/tools). Typecheck + build pass.
 - **Facial recognition in camera mode** — **COMPLETE**: MediaPipe Face Landmarker (478 landmarks, bounding box, key features, head pose) integrated alongside object detection + hand tracking. 100% free, browser-based.
+- **Browser extension for Infinity** — **COMPLETE**: Created full Manifest V3 extension with WebSocket endpoint, background service worker, content script, popup UI, and injected script. API server has /api/jarvis/extension/ws + REST endpoints. Verified working end-to-end.
 - **Build Mode (Infinity) Phase 2: Loop Intelligence** — **COMPLETE**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry loop with fixer prompt ✓, UI diff modal integration ✓, wire /build/execute-plan ✓.
 - **Build Mode (Infinity) Phase 3.1: Smart Working Context** — **COMPLETE**: fileMap, keyDecisions, errorPatterns, tokenBudget, compaction implemented in `build-context.ts`.
 - **Build Mode (Infinity) Phase 3.2: Project-Scoped Memory Integration** — **COMPLETE**: Created `build-project-context.ts`; wired project instructions, memory, activity, files into `/build/execute-plan`, `/build/scaffold`, `/build/iterate`; strict projectId guarding.
@@ -108,10 +102,9 @@ LAST_UPDATED: 2026-08-16 16:30
 
 ## Next actions
 1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this - the build agent has edit_file tool)
-2. **Browser extension for Infinity** — Control user's actual browser
-3. **Auth system** — Check if accounts/sessions tables exist in schema (they do)
-4. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
-5. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+2. **Auth system** — Check if accounts/sessions tables exist in schema (they do) — implement login/register using existing tables
+3. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
+4. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
