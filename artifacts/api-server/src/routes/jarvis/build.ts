@@ -872,81 +872,102 @@ router.post("/build/iterate", async (req, res) => {
   const answers = Object.fromEntries(Object.entries(rawAnswers)
     .map(([key, value]) => [key, cleanText(value, 200)])
     .filter(([, value]) => value));
+  const skipPreflight = Boolean(req.body?.skipPreflight);
   try {
-    await ensureWorkspace(workspaceId);
-    await logBuildEvent(projectId, "step_start", `Iteration ${passNumber}: ${prompt.slice(0, 80)}`, { data: { passNumber, previewOutput: previewOutput.slice(0, 200) }, step: `iteration-${passNumber}` });
-    // If passNumber exceeds 100, warn but allow the iteration
-    if (passNumber > 100) {
-      req.log.warn({ workspaceId, passNumber }, "Iteration count is very high, possibly infinite loop");
-    }
-    const result = await reviewAndFixWorkspace(prompt, answers, workspaceId, previewOutput, passNumber, extraSystemPrompt, plan);
-    await logBuildEvent(projectId, "tool_result", `Iteration ${passNumber} review: ${result.done ? "done" : "continued"}`, { data: { done: result.done, summary: result.summary?.slice(0, 200), filesChanged: result.filesChanged ?? [] }, step: `iteration-${passNumber}` });
-    // Phase 1.1 + 1.2: commit iteration + update checkpoint
-    if (hasIsolated(projectId)) {
-      await commitIteration(projectId, passNumber, plan?.steps.length ?? passNumber, `iteration ${passNumber}`);
-    }
+    // Phase 5.3 Integration: Queue the iteration to handle concurrent builds
+    const iterationResult = await enqueueBuild(projectId, async () => {
+      await ensureWorkspace(workspaceId);
 
-    // Phase 2.2: Run verification loop after iteration if project has structured checks
-    let verifyResult = null;
-    let verifyFeedback = null;
-    let fixAttempts = 0;
-    const maxFixAttempts = 3;
-    if (hasIsolated(projectId) && req.body?.verify !== false) {
-      try {
-        await logBuildEvent(projectId, "verify_start", `Verification loop (iteration ${passNumber})`, { step: `iteration-${passNumber}` });
-        const verify = await verifyWorkspace(projectId, workspaceId);
-        verifyResult = verify.ok;
-        verifyFeedback = formatVerificationFeedback(verify);
-        req.log.info({ projectId, passNumber, ok: verify.ok }, "Verification loop completed");
-        await logBuildEvent(projectId, "verify_result", verifyResult ? "Verification passed" : "Verification failed", { data: { ok: verifyResult, feedback: verifyFeedback?.slice(0, 400) }, step: `iteration-${passNumber}` });
+      // Phase 5.3 Integration: Pre-flight check before iteration
+      if (!skipPreflight) {
+        const preflight = await preflightCheck(projectId);
+        await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
+        if (!preflight.ok) {
+          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+        }
+      }
 
-        // Phase 2.2: Retry loop with fixer prompt on verification failure
-        while (!verifyResult && fixAttempts < maxFixAttempts) {
-          fixAttempts++;
-          req.log.info({ projectId, passNumber, fixAttempts }, "Verification failed, running fixer loop");
-          await logBuildEvent(projectId, "retry", `Fixer attempt ${fixAttempts}/${maxFixAttempts}`, { step: `iteration-${passNumber}` });
-          const fixRes = await fetch(new URL(`/api/jarvis/build/fix`, `${req.protocol}://${req.get("host")}`).toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ workspaceId, projectId, prompt, failure: verifyFeedback ?? "Verification failed", extraSystemPrompt }),
-          });
-          if (fixRes.ok) {
-            // Re-run verification after fix
-            const retryVerify = await verifyWorkspace(projectId, workspaceId);
-            verifyResult = retryVerify.ok;
-            verifyFeedback = formatVerificationFeedback(retryVerify);
-            await logBuildEvent(projectId, "verify_result", verifyResult ? "Fixer resolved verification failure" : "Still failing after fixer", { data: { ok: verifyResult }, step: `iteration-${passNumber}` });
-            if (verifyResult) {
-              req.log.info({ projectId, passNumber, fixAttempts }, "Fixer resolved verification failure");
+      await logBuildEvent(projectId, "step_start", `Iteration ${passNumber}: ${prompt.slice(0, 80)}`, { data: { passNumber, previewOutput: previewOutput.slice(0, 200) }, step: `iteration-${passNumber}` });
+      // If passNumber exceeds 100, warn but allow the iteration
+      if (passNumber > 100) {
+        req.log.warn({ workspaceId, passNumber }, "Iteration count is very high, possibly infinite loop");
+      }
+      const result = await reviewAndFixWorkspace(prompt, answers, workspaceId, previewOutput, passNumber, extraSystemPrompt, plan);
+      await logBuildEvent(projectId, "tool_result", `Iteration ${passNumber} review: ${result.done ? "done" : "continued"}`, { data: { done: result.done, summary: result.summary?.slice(0, 200), filesChanged: result.filesChanged ?? [] }, step: `iteration-${passNumber}` });
+      // Phase 1.1 + 1.2: commit iteration + update checkpoint
+      if (hasIsolated(projectId)) {
+        await commitIteration(projectId, passNumber, plan?.steps.length ?? passNumber, `iteration ${passNumber}`);
+      }
+
+      // Phase 2.2: Run verification loop after iteration if project has structured checks
+      let verifyResult = null;
+      let verifyFeedback = null;
+      let fixAttempts = 0;
+      const maxFixAttempts = 3;
+      if (hasIsolated(projectId) && req.body?.verify !== false) {
+        try {
+          await logBuildEvent(projectId, "verify_start", `Verification loop (iteration ${passNumber})`, { step: `iteration-${passNumber}` });
+          const verify = await verifyWorkspace(projectId, workspaceId);
+          verifyResult = verify.ok;
+          verifyFeedback = formatVerificationFeedback(verify);
+          req.log.info({ projectId, passNumber, ok: verify.ok }, "Verification loop completed");
+          await logBuildEvent(projectId, "verify_result", verifyResult ? "Verification passed" : "Verification failed", { data: { ok: verifyResult, feedback: verifyFeedback?.slice(0, 400) }, step: `iteration-${passNumber}` });
+
+          // Phase 2.2: Retry loop with fixer prompt on verification failure
+          while (!verifyResult && fixAttempts < maxFixAttempts) {
+            fixAttempts++;
+            req.log.info({ projectId, passNumber, fixAttempts }, "Verification failed, running fixer loop");
+            await logBuildEvent(projectId, "retry", `Fixer attempt ${fixAttempts}/${maxFixAttempts}`, { step: `iteration-${passNumber}` });
+            const fixRes = await fetch(new URL(`/api/jarvis/build/fix`, `${req.protocol}://${req.get("host")}`).toString(), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ workspaceId, projectId, prompt, failure: verifyFeedback ?? "Verification failed", extraSystemPrompt }),
+            });
+            if (fixRes.ok) {
+              // Re-run verification after fix
+              const retryVerify = await verifyWorkspace(projectId, workspaceId);
+              verifyResult = retryVerify.ok;
+              verifyFeedback = formatVerificationFeedback(retryVerify);
+              await logBuildEvent(projectId, "verify_result", verifyResult ? "Fixer resolved verification failure" : "Still failing after fixer", { data: { ok: verifyResult }, step: `iteration-${passNumber}` });
+              if (verifyResult) {
+                req.log.info({ projectId, passNumber, fixAttempts }, "Fixer resolved verification failure");
+                break;
+              }
+            } else {
+              req.log.warn({ projectId, passNumber, fixAttempts }, "Fixer endpoint failed");
+              await logBuildEvent(projectId, "error", "Fixer endpoint failed during verification retry", { step: `iteration-${passNumber}` });
               break;
             }
-          } else {
-            req.log.warn({ projectId, passNumber, fixAttempts }, "Fixer endpoint failed");
-            await logBuildEvent(projectId, "error", "Fixer endpoint failed during verification retry", { step: `iteration-${passNumber}` });
-            break;
           }
+        } catch (verifyErr) {
+          req.log.warn({ err: verifyErr }, "Verification skipped (no checks configured)");
+          await logBuildEvent(projectId, "info", "Verification skipped (no checks configured)", { step: `iteration-${passNumber}` });
         }
-      } catch (verifyErr) {
-        req.log.warn({ err: verifyErr }, "Verification skipped (no checks configured)");
-        await logBuildEvent(projectId, "info", "Verification skipped (no checks configured)", { step: `iteration-${passNumber}` });
       }
-    }
 
-    await saveCheckpoint({
-      projectId,
-      iteration: passNumber,
-      completed: result.done ? 1 : 0,
-      plan: plan ? { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks } : {},
-      completedSteps: [{ step: `iteration ${passNumber}`, done: result.done, filesChanged: result.filesChanged ?? [] }],
-      workingContext: { prompt, workspaceId, passNumber, verifyOk: verifyResult, fixAttempts },
-      tokenUsage: { prompt: 0, completion: 0, total: 0 },
-    });
-    // Phase 3.2: Log build activity
-    await logActivity(projectId, "agent_ran", `Build iterate #${passNumber}: ${result.done ? "done" : "continued"} — ${result.summary?.slice(0, 80) ?? prompt.slice(0, 80)}`);
-    res.json({ ok: true, passNumber, verifyOk: verifyResult, verifyFeedback, fixAttempts, ...result });
+      await saveCheckpoint({
+        projectId,
+        iteration: passNumber,
+        completed: result.done ? 1 : 0,
+        plan: plan ? { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks } : {},
+        completedSteps: [{ step: `iteration ${passNumber}`, done: result.done, filesChanged: result.filesChanged ?? [] }],
+        workingContext: { prompt, workspaceId, passNumber, verifyOk: verifyResult, fixAttempts },
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+      // Phase 3.2: Log build activity
+      await logActivity(projectId, "agent_ran", `Build iterate #${passNumber}: ${result.done ? "done" : "continued"} — ${result.summary?.slice(0, 80) ?? prompt.slice(0, 80)}`);
+      return { ok: true, passNumber, verifyOk: verifyResult, verifyFeedback, fixAttempts, ...result };
+    }, { priority: "normal" });
+
+    res.json(iterationResult);
   } catch (err) {
     req.log.error({ err }, "Build self-review failed");
-    res.status(500).json({ error: "Build self-review failed" });
+    const message = err instanceof Error ? err.message : "Build self-review failed";
+    if (message.includes("Pre-flight check failed")) {
+      res.status(409).json({ error: message });
+    } else {
+      res.status(500).json({ error: message });
+    }
   }
 });
 
@@ -1076,27 +1097,35 @@ router.post("/build/fix", async (req, res) => {
     await ensureWorkspace(workspaceId);
     await logBuildEvent(projectId, "tool_call", "Fixer loop started", { data: { failure: failure.slice(0, 200) }, step: `fix` });
     const entries = (await listWorkspaceFiles(workspaceId)).filter((entry) => entry.type === "file").map((entry) => entry.path).slice(0, 120);
-    const client = pooledClient();
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        { role: "system", content: fixerPromptV2({ extraSystemPrompt }) },
-        {
-          role: "user",
-          content: [
-            `Original request: ${prompt}`,
-            `Failure to resolve:`,
-            failure,
-            ``,
-            `Workspace files:`,
-            entries.join("\n") || "(none)",
-          ].join("\n\n"),
-        },
-      ],
-      temperature: 0.2,
-      max_tokens: 6000,
-      response_format: { type: "json_object" as const },
-    });
+
+    // Use withRetry for network resilience
+    const completion = await withRetry(
+      async () => {
+        const client = pooledClient();
+        return client.chat.completions.create({
+          model: jarvisConfig.llmModel,
+          messages: [
+            { role: "system", content: fixerPromptV2({ extraSystemPrompt }) },
+            {
+              role: "user",
+              content: [
+                `Original request: ${prompt}`,
+                `Failure to resolve:`,
+                failure,
+                ``,
+                `Workspace files:`,
+                entries.join("\n") || "(none)",
+              ].join("\n\n"),
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 6000,
+          response_format: { type: "json_object" as const },
+        });
+      },
+      { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
+      { projectId, operation: "fixer" }
+    );
     const raw = completion.choices[0]?.message?.content?.trim() ?? "";
     let parsed: { files?: Record<string, string>; notes?: string } | null = null;
     try { parsed = JSON.parse(raw); } catch { /* ignore */ }
@@ -1139,6 +1168,7 @@ router.post("/build/execute-plan", async (req, res) => {
     : null;
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
   const maxRetries = Math.min(3, Math.max(0, Number(req.body?.maxRetries) || 1));
+  const skipPreflight = Boolean(req.body?.skipPreflight);
 
   if (!plan || !plan.steps || !Array.isArray(plan.steps)) {
     res.status(400).json({ error: "Valid plan with steps is required" });
@@ -1146,157 +1176,182 @@ router.post("/build/execute-plan", async (req, res) => {
   }
 
   try {
-    await ensureWorkspace(workspaceId);
+    // Phase 5.3 Integration: Queue the build to handle concurrent builds
+    const result = await enqueueBuild(projectId, async () => {
+      await ensureWorkspace(workspaceId);
 
-    await logBuildEvent(projectId, "plan_start", `Execute plan: ${plan.title?.slice(0, 80)}`, { data: { steps: plan.steps.map(s => s.id), workspaceId } });
-
-    // Phase 3.1: Initialize working context
-    setProjectGoal(projectId, prompt);
-    await refreshFileMap(projectId, workspaceId);
-
-    // Phase 3.2: Build project-scoped context (instructions, memory, activity, files)
-    // Only injects when projectId matches a real Projects row — safe no-op otherwise.
-    const projectContext = await buildProjectContextForBuild(projectId, prompt, {
-      includeActivity: true,
-      includeFiles: true,
-      activityLimit: 20,
-      fileLimit: 50,
-    });
-
-    // Phase 2.3: Get parallelizable batches from plan steps
-    const steps = plan.steps.map(s => ({
-      id: s.id,
-      description: s.description,
-      dependsOn: s.dependsOn ?? [],
-      parallel: s.parallel ?? false,
-    }));
-    const batches = getParallelizableSteps(steps);
-
-    const allResults: Array<{ stepId: string; ok: boolean; filesChanged: string[]; feedback?: string }> = [];
-    let overallOk = true;
-
-    // Execute each batch (batches run sequentially, steps within batch run in parallel)
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
-      await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length}: ${batch.map(s => s.id).join(", ")}`, { data: { steps: batch.map(s => s.id) }, step: `batch-${batchIndex + 1}` });
-
-      // Get serialized working context for injection
-      const contextPrompt = combineBuildMemory(serializeContext(projectId), projectContext);
-
-      // Run steps in this batch in parallel
-      const batchResults = await Promise.all(batch.map(async (step) => {
-        const iteration = allResults.length + 1;
-
-        // Use the coder prompt to implement this step
-        const client = pooledClient();
-        const completion = await client.chat.completions.create({
-          model: jarvisConfig.llmModel,
-          messages: [
-            {
-              role: "system",
-              content: coderPromptV2({ extraSystemPrompt }),
-            },
-            {
-              role: "user",
-              content: [
-                `Plan: ${plan.title}`,
-                `Current Step: ${step.id} - ${step.description}`,
-                `Step ${iteration} of ${steps.length}`,
-                `Workspace: ${workspaceId}`,
-                `User Prompt: ${prompt}`,
-                `Answers: ${JSON.stringify(answers)}`,
-                `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
-                "",
-                `## CONTEXT (working + project):`,
-                contextPrompt,
-              ].join("\n\n"),
-            },
-          ],
-          temperature: 0.2,
-          max_tokens: 6000,
-          response_format: { type: "json_object" as const },
-        });
-
-        const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-        let parsed: { files?: Record<string, string>; notes?: string } | null = null;
-        try { parsed = JSON.parse(raw); } catch { /* ignore */ }
-
-        const filesChanged: string[] = [];
-        if (parsed?.files) {
-          for (const [relPath, content] of Object.entries(parsed.files)) {
-            const safePath = safeWorkspacePath(relPath, workspaceId);
-            if (!safePath) continue;
-            await writeWorkspaceFile(relPath, content, workspaceId);
-            filesChanged.push(relPath);
-          }
+      // Phase 5.3 Integration: Pre-flight check before starting build
+      if (!skipPreflight) {
+        const preflight = await preflightCheck(projectId);
+        await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
+        if (!preflight.ok) {
+          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
         }
-        await logBuildEvent(projectId, "tool_result", `Step ${step.id} ${filesChanged.length > 0 ? "wrote" : "completed"}: ${filesChanged.length} file(s)`, { data: { filesChanged }, step: step.id });
-        // Verify this step if workspace has checks
-        let feedback: string | undefined;
-        if (hasIsolated(projectId)) {
-          try {
-            await logBuildEvent(projectId, "verify_start", `Verification for step ${step.id}`, { step: step.id });
-            const verify = await verifyWorkspace(projectId, workspaceId);
-            if (!verify.ok) {
-              feedback = formatVerificationFeedback(verify);
-              await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification failed`, { data: { ok: false, feedback: feedback?.slice(0, 400) }, step: step.id });
-              // Retry with feedback if failed
-              for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
-                await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
-                const retryResult = await verifyWorkspace(projectId, workspaceId);
-                if (retryResult.ok) {
-                  feedback = undefined;
-                  await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after retry ${retry + 1}`, { data: { ok: true }, step: step.id });
-                  break;
-                }
-              }
-            } else {
-              await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed`, { data: { ok: true }, step: step.id });
-            }
-          } catch { /* no checks configured */ }
-        }
-
-        return { stepId: step.id, ok: !feedback, filesChanged, feedback };
-      }));
-
-      for (const result of batchResults) {
-        allResults.push(result);
-        // Phase 3.1: Record step in working context
-        recordStep(projectId, {
-          stepId: result.stepId,
-          description: steps.find(s => s.id === result.stepId)?.description ?? result.stepId,
-          ok: result.ok,
-          filesChanged: result.filesChanged,
-          notes: result.feedback,
-        });
-        if (!result.ok) overallOk = false;
       }
 
-      await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length} complete`, { data: { steps: batch.map(s => s.id), overallOk: allResults.slice(-batch.length).every(r => r.ok) }, step: `batch-${batchIndex + 1}` });
-      // If any step in batch failed and we shouldn't continue, stop
-      if (!overallOk && req.body?.failFast) break;
-    }
+      await logBuildEvent(projectId, "plan_start", `Execute plan: ${plan.title?.slice(0, 80)}`, { data: { steps: plan.steps.map(s => s.id), workspaceId } });
 
-    // Final checkpoint
-    if (hasIsolated(projectId)) {
-      await commitIteration(projectId, allResults.length, steps.length, "plan execution complete");
-    }
-    await saveCheckpoint({
-      projectId,
-      iteration: allResults.length,
-      completed: overallOk ? 1 : 0,
-      plan: { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks },
-      completedSteps: allResults.map(r => ({ step: r.stepId, done: r.ok, filesChanged: r.filesChanged, feedback: r.feedback })),
-      workingContext: { prompt, workspaceId },
-      tokenUsage: { prompt: 0, completion: 0, total: 0 },
-    });
-    // Phase 3.2: Log build activity
-    await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${allResults.length} steps, ${overallOk ? "success" : "partial"}`);
-    res.json({ ok: overallOk, results: allResults, batches: batches.length });
+      // Phase 3.1: Initialize working context
+      setProjectGoal(projectId, prompt);
+      await refreshFileMap(projectId, workspaceId);
+
+      // Phase 3.2: Build project-scoped context (instructions, memory, activity, files)
+      // Only injects when projectId matches a real Projects row — safe no-op otherwise.
+      const projectContext = await buildProjectContextForBuild(projectId, prompt, {
+        includeActivity: true,
+        includeFiles: true,
+        activityLimit: 20,
+        fileLimit: 50,
+      });
+
+      // Phase 2.3: Get parallelizable batches from plan steps
+      const steps = plan.steps.map(s => ({
+        id: s.id,
+        description: s.description,
+        dependsOn: s.dependsOn ?? [],
+        parallel: s.parallel ?? false,
+      }));
+      const batches = getParallelizableSteps(steps);
+
+      const allResults: Array<{ stepId: string; ok: boolean; filesChanged: string[]; feedback?: string }> = [];
+      let overallOk = true;
+
+      // Execute each batch (batches run sequentially, steps within batch run in parallel)
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
+        await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length}: ${batch.map(s => s.id).join(", ")}`, { data: { steps: batch.map(s => s.id) }, step: `batch-${batchIndex + 1}` });
+
+        // Get serialized working context for injection
+        const contextPrompt = combineBuildMemory(serializeContext(projectId), projectContext);
+
+        // Run steps in this batch in parallel
+        const batchResults = await Promise.all(batch.map(async (step) => {
+          const iteration = allResults.length + 1;
+
+          // Use the coder prompt to implement this step with retry for network failures
+          const completion = await withRetry(
+            async () => {
+              const client = pooledClient();
+              return client.chat.completions.create({
+                model: jarvisConfig.llmModel,
+                messages: [
+                  {
+                    role: "system",
+                    content: coderPromptV2({ extraSystemPrompt }),
+                  },
+                  {
+                    role: "user",
+                    content: [
+                      `Plan: ${plan.title}`,
+                      `Current Step: ${step.id} - ${step.description}`,
+                      `Step ${iteration} of ${steps.length}`,
+                      `Workspace: ${workspaceId}`,
+                      `User Prompt: ${prompt}`,
+                      `Answers: ${JSON.stringify(answers)}`,
+                      `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
+                      "",
+                      `## CONTEXT (working + project):`,
+                      contextPrompt,
+                    ].join("\n\n"),
+                  },
+                ],
+                temperature: 0.2,
+                max_tokens: 6000,
+                response_format: { type: "json_object" as const },
+              });
+            },
+            { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
+            { projectId, operation: `coder-step-${step.id}` }
+          );
+
+          const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+          let parsed: { files?: Record<string, string>; notes?: string } | null = null;
+          try { parsed = JSON.parse(raw); } catch { /* ignore */ }
+
+          const filesChanged: string[] = [];
+          if (parsed?.files) {
+            for (const [relPath, content] of Object.entries(parsed.files)) {
+              const safePath = safeWorkspacePath(relPath, workspaceId);
+              if (!safePath) continue;
+              await writeWorkspaceFile(relPath, content, workspaceId);
+              filesChanged.push(relPath);
+            }
+          }
+          await logBuildEvent(projectId, "tool_result", `Step ${step.id} ${filesChanged.length > 0 ? "wrote" : "completed"}: ${filesChanged.length} file(s)`, { data: { filesChanged }, step: step.id });
+          // Verify this step if workspace has checks
+          let feedback: string | undefined;
+          if (hasIsolated(projectId)) {
+            try {
+              await logBuildEvent(projectId, "verify_start", `Verification for step ${step.id}`, { step: step.id });
+              const verify = await verifyWorkspace(projectId, workspaceId);
+              if (!verify.ok) {
+                feedback = formatVerificationFeedback(verify);
+                await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification failed`, { data: { ok: false, feedback: feedback?.slice(0, 400) }, step: step.id });
+                // Retry with feedback if failed
+                for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
+                  await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
+                  const retryResult = await verifyWorkspace(projectId, workspaceId);
+                  if (retryResult.ok) {
+                    feedback = undefined;
+                    await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after retry ${retry + 1}`, { data: { ok: true }, step: step.id });
+                    break;
+                  }
+                }
+              } else {
+                await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed`, { data: { ok: true }, step: step.id });
+              }
+            } catch { /* no checks configured */ }
+          }
+
+          return { stepId: step.id, ok: !feedback, filesChanged, feedback };
+        }));
+
+        for (const result of batchResults) {
+          allResults.push(result);
+          // Phase 3.1: Record step in working context
+          recordStep(projectId, {
+            stepId: result.stepId,
+            description: steps.find(s => s.id === result.stepId)?.description ?? result.stepId,
+            ok: result.ok,
+            filesChanged: result.filesChanged,
+            notes: result.feedback,
+          });
+          if (!result.ok) overallOk = false;
+        }
+
+        await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length} complete`, { data: { steps: batch.map(s => s.id), overallOk: allResults.slice(-batch.length).every(r => r.ok) }, step: `batch-${batchIndex + 1}` });
+        // If any step in batch failed and we shouldn't continue, stop
+        if (!overallOk && req.body?.failFast) break;
+      }
+
+      // Final checkpoint
+      if (hasIsolated(projectId)) {
+        await commitIteration(projectId, allResults.length, steps.length, "plan execution complete");
+      }
+      await saveCheckpoint({
+        projectId,
+        iteration: allResults.length,
+        completed: overallOk ? 1 : 0,
+        plan: { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks },
+        completedSteps: allResults.map(r => ({ step: r.stepId, done: r.ok, filesChanged: r.filesChanged, feedback: r.feedback })),
+        workingContext: { prompt, workspaceId },
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+      // Phase 3.2: Log build activity
+      await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${allResults.length} steps, ${overallOk ? "success" : "partial"}`);
+      return { ok: overallOk, results: allResults, batches: batches.length };
+    }, { priority: "normal" });
+
+    res.json(result);
   } catch (err) {
     req.log.error({ err }, "Plan execution failed");
-    res.status(500).json({ error: "Plan execution failed" });
+    const message = err instanceof Error ? err.message : "Plan execution failed";
+    if (message.includes("Pre-flight check failed")) {
+      res.status(409).json({ error: message });
+    } else {
+      res.status(500).json({ error: message });
+    }
   }
 });
 
