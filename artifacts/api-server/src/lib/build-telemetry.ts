@@ -27,7 +27,11 @@ export type BuildEventType =
   | "snapshot"
   | "error"
   | "retry"
-  | "info";
+  | "info"
+  | "agent_start"
+  | "agent_end"
+  | "agent_error"
+  | "agent_step_start";
 
 export interface BuildEvent {
   ts: string;

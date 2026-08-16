@@ -31,7 +31,7 @@ import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factor
 import { buildInfinityPrompt, sanitizePrompt, validateInfinityPrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 import type { Browser, Page } from "puppeteer";
-import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps, type PlanStep } from "../../lib/structured-tools";
+import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
 import { fixerPromptV2 } from "../../lib/build-prompts";
 import { coderPromptV2 } from "../../lib/build-prompts";
 import {
@@ -93,6 +93,8 @@ import {
   waitForRateLimit,
   checkDiskSpace,
 } from "../../lib/build-edge-cases";
+import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, TOOL_DEFINITIONS } from "../../lib/build-tools";
+import { runAutonomousAgent, runAgentForStep, type AgentConfig, type PlanStep as AgentPlanStep } from "../../lib/build-agent";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -1355,6 +1357,216 @@ router.post("/build/execute-plan", async (req, res) => {
       res.status(500).json({ error: message });
     }
   }
+});
+
+/**
+ * Phase 1: Autonomous Agent — Run the tool-using agent for a goal
+ * This replaces the single-shot JSON generation with a progressive tool-use loop
+ */
+router.post("/build/agent/run", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64) || "default";
+  const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
+  const previewPort = Number(req.body?.previewPort);
+  const maxIterations = Math.min(30, Math.max(1, Number(req.body?.maxIterations) || 20));
+  const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
+  const verifyAfterSteps = Boolean(req.body?.verifyAfterSteps !== false);
+  const failFast = Boolean(req.body?.failFast);
+  const skipPreflight = Boolean(req.body?.skipPreflight);
+
+  if (!prompt) {
+    res.status(400).json({ error: "A build prompt/goal is required" });
+    return;
+  }
+
+  try {
+    // Phase 5.3 Integration: Queue the build to handle concurrent builds
+    const result = await enqueueBuild(projectId, async () => {
+      await ensureWorkspace(workspaceId);
+
+      // Phase 5.3 Integration: Pre-flight check before starting build
+      if (!skipPreflight) {
+        const preflight = await preflightCheck(projectId);
+        await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
+        if (!preflight.ok) {
+          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+        }
+      }
+
+      await logBuildEvent(projectId, "agent_start", `Autonomous agent: ${prompt.slice(0, 80)}`, { data: { workspaceId, maxIterations, temperature } });
+
+      // Initialize working context
+      setProjectGoal(projectId, prompt);
+      await refreshFileMap(projectId, workspaceId);
+
+      // Build project-scoped context
+      const projectContext = await buildProjectContextForBuild(projectId, prompt, {
+        includeActivity: true,
+        includeFiles: true,
+        activityLimit: 20,
+        fileLimit: 50,
+      });
+
+      // Prepare execution context for the agent
+      const executionContext: ToolExecutionContext = {
+        projectId,
+        workspaceId,
+        previewPort: previewPort || undefined,
+        previewUrl: previewPort ? `http://127.0.0.1:${previewPort}` : undefined,
+      };
+
+      // Run the autonomous agent
+      const agentConfig: AgentConfig = {
+        maxIterations,
+        maxToolCallsPerIteration: 10,
+        temperature,
+        verifyAfterSteps,
+        failFast,
+      };
+
+      const agentResult = await runAutonomousAgent(prompt, executionContext, agentConfig);
+
+      // Final checkpoint
+      if (hasIsolated(projectId)) {
+        await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "agent run complete");
+      }
+      await saveCheckpoint({
+        projectId,
+        iteration: agentResult.iterations,
+        completed: agentResult.success ? 1 : 0,
+        plan: { title: "Autonomous agent run", summary: prompt, steps: [], files: [], risks: [] },
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
+        workingContext: { prompt, workspaceId },
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+
+      await logActivity(projectId, "agent_ran", `Autonomous agent: ${agentResult.success ? "completed" : "stopped"} — ${agentResult.summary}`);
+      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults };
+    }, { priority: "normal" });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Autonomous agent failed");
+    const message = err instanceof Error ? err.message : "Autonomous agent failed";
+    if (message.includes("Pre-flight check failed")) {
+      res.status(409).json({ error: message });
+    } else {
+      res.status(500).json({ error: message });
+    }
+  }
+});
+
+/**
+ * Phase 1: Autonomous Agent — Run agent for a specific plan step
+ */
+router.post("/build/agent/step", async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64) || "default";
+  const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const stepId = cleanText(req.body?.stepId, 64);
+  const stepDescription = cleanText(req.body?.stepDescription, 500);
+  const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
+  const previewPort = Number(req.body?.previewPort);
+  const maxIterations = Math.min(15, Math.max(1, Number(req.body?.maxIterations) || 10));
+  const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
+  const skipPreflight = Boolean(req.body?.skipPreflight);
+
+  if (!prompt || !stepId || !stepDescription) {
+    res.status(400).json({ error: "prompt, stepId, and stepDescription are required" });
+    return;
+  }
+
+  try {
+    // Phase 5.3 Integration: Queue the build to handle concurrent builds
+    const result = await enqueueBuild(projectId, async () => {
+      await ensureWorkspace(workspaceId);
+
+      // Phase 5.3 Integration: Pre-flight check before starting build
+      if (!skipPreflight) {
+        const preflight = await preflightCheck(projectId);
+        await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
+        if (!preflight.ok) {
+          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+        }
+      }
+
+      await logBuildEvent(projectId, "agent_step_start", `Agent step ${stepId}: ${stepDescription.slice(0, 80)}`, { data: { workspaceId, maxIterations } });
+
+      // Initialize working context
+      setProjectGoal(projectId, prompt);
+      await refreshFileMap(projectId, workspaceId);
+
+      // Prepare execution context
+      const executionContext: ToolExecutionContext = {
+        projectId,
+        workspaceId,
+        previewPort: previewPort || undefined,
+        previewUrl: previewPort ? `http://127.0.0.1:${previewPort}` : undefined,
+      };
+
+      // Define the plan step
+      const step: AgentPlanStep = {
+        id: stepId,
+        description: stepDescription,
+        status: "in_progress",
+      };
+
+      // Run agent for this step
+      const agentResult = await runAgentForStep(step, prompt, executionContext, {
+        maxIterations,
+        temperature,
+        verifyAfterSteps: true,
+        failFast: true,
+      });
+
+      // Record step in working context
+      recordStep(projectId, {
+        stepId: step.id,
+        description: step.description,
+        ok: agentResult.success,
+        filesChanged: agentResult.filesChanged,
+        notes: agentResult.summary,
+      });
+
+      // Update step status
+      step.status = agentResult.success ? "done" : "failed";
+
+      // Checkpoint
+      if (hasIsolated(projectId)) {
+        await commitIteration(projectId, 1, 1, `agent step ${stepId}`);
+      }
+      await saveCheckpoint({
+        projectId,
+        iteration: 1,
+        completed: agentResult.success ? 1 : 0,
+        plan: { title: "Agent step", summary: stepDescription, steps: [], files: agentResult.filesChanged, risks: [] },
+        completedSteps: [{ step: stepId, done: agentResult.success, filesChanged: agentResult.filesChanged, feedback: agentResult.summary }],
+        workingContext: { prompt, workspaceId },
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+
+      await logActivity(projectId, "agent_ran", `Agent step ${stepId}: ${agentResult.success ? "completed" : "failed"} — ${agentResult.summary}`);
+      return { ok: agentResult.success, summary: agentResult.summary, stepId, filesChanged: agentResult.filesChanged };
+    }, { priority: "normal" });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Agent step failed");
+    const message = err instanceof Error ? err.message : "Agent step failed";
+    if (message.includes("Pre-flight check failed")) {
+      res.status(409).json({ error: message });
+    } else {
+      res.status(500).json({ error: message });
+    }
+  }
+});
+
+/**
+ * Phase 1: Autonomous Agent — Get available tool definitions
+ */
+router.get("/build/agent/tools", async (req, res) => {
+  res.json({ ok: true, tools: TOOL_DEFINITIONS });
 });
 
 /**

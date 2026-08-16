@@ -50,6 +50,9 @@ export interface AccessibilitySnapshot {
   url: string;
 }
 
+/** Screenshot viewport options. */
+export type ScreenshotViewport = "desktop" | "mobile";
+
 export class BrowserPool extends EventEmitter {
   private slots: BrowserSlot[] = [];
   private config: PoolConfig;
