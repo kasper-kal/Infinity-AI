@@ -4,10 +4,27 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 17:55
+LAST_UPDATED: 2026-08-16 18:30
 
 ## Just did (last action)
-- **Browser extension for Infinity COMPLETE**: Created complete Manifest V3 browser extension enabling Infinity to control user's actual browser:
+- **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema:
+  - Added bcrypt for password hashing (12 rounds)
+  - Created `artifacts/api-server/src/routes/jarvis/auth.ts` with endpoints:
+    - `POST /api/jarvis/auth/register` — register new account (email, password, displayName)
+    - `POST /api/jarvis/auth/login` — login with email/password, returns session cookie
+    - `POST /api/jarvis/auth/logout` — invalidate session, clear cookie
+    - `GET /api/jarvis/auth/me` — get current authenticated account from session cookie
+    - `PUT /api/jarvis/auth/profile` — update displayName/avatarUrl
+    - `PUT /api/jarvis/auth/password` — change password (invalidates all other sessions)
+  - Registered authRouter in `index.ts` (mounted before conversations)
+  - Session cookies: httpOnly, secure in production, 30-day expiry, SameSite=lax
+  - Typecheck + build pass
+
+## Previous action (Gem→Expert rename, user-facing)
+- Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
+
+## Previous action (Browser extension for Infinity COMPLETE)
+- Created complete Manifest V3 browser extension enabling Infinity to control user's actual browser:
   - Added WebSocket endpoint `/api/jarvis/extension/ws` to API server with `extension.ts` route — handles extension connections, ping/pong heartbeat, message routing
   - Added REST endpoints: `/extension/status` (list connected extensions), `/extension/send` (send message to specific extension), `/extension/broadcast` (broadcast to all extensions)
   - Updated `server.ts` to handle WebSocket upgrades for extension connections
@@ -41,6 +58,8 @@ LAST_UPDATED: 2026-08-16 17:55
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema. Added bcrypt (12 rounds), created `auth.ts` with 6 endpoints (register, login, logout, me, profile, password), registered in index.ts, session cookies (httpOnly, secure, 30-day expiry). Typecheck + build pass.
+
 - 2026-08-16 **Chat/voice mode API key fallback logic COMPLETE**: Implemented sequential retry flow per user specification — fail → "Try same key" button (retries same key once) → if fails again → "Try next key" button (tries next key in pool). Backend: modified `artifacts/api-server/src/routes/jarvis/chat.ts` manual key mode (`manualCreate`) for single attempt per key with `llm_manual_retry` error carrying current/next key info. Frontend: modified `artifacts/jarvis/src/hooks/use-chat-stream.ts` with `retryAttempt` state (0=initial, 1=first retry same key, 2=second retry next key), `retrySameKey()`/`retryNextKey()` callbacks, UI shows appropriate buttons per attempt. Typecheck + build pass.
 
 - 2026-08-16 **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly). Created `use-face-tracking.ts` hook (478 landmarks, bounding box, key features, head pose), integrated into `camera-feed.tsx` with `enableFaceTracking` prop and `drawFaceOverlay` (face mesh, feature points, head pose indicator), enabled in `camera-mode-view.tsx`. Typecheck passes (only pre-existing api-client-react build error).

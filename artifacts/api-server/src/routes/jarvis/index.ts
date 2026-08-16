@@ -1,4 +1,5 @@
 import { Router } from "express";
+import authRouter from "./auth";
 import transcribeRouter from "./transcribe";
 import chatRouter from "./chat";
 import speakRouter from "./speak";
@@ -58,6 +59,7 @@ import extensionRouter, { handleExtensionUpgrade } from "./extension";
 
 const router = Router();
 
+router.use(authRouter);
 router.use(conversationsRouter);
 router.use(settingsRouter);
 // Mount before the global memory router so scoped /memories/:id mutations can
