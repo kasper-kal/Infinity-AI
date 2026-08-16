@@ -4,10 +4,12 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 19:45
+LAST_UPDATED: 2026-08-16 20:15
 
 ## Just did (last action)
-- **Tavily research IN PROGRESS**: Continuing 1-hour web research investigation to make Infinity "THE BEST IT CAN BE for $0" by competitive analysis against Claude Code, Replit Agent, and other services. Completed searches for: AI coding assistant comparisons, free local LLM models, open source agent architectures, MCP browser automation, agent architecture best practices, multi-agent coordination, scheduling/cron, messaging connectors, ACP protocol, headless CI/CD, SWE-Bench optimization.
+- **Created PHASES.md** — Master implementation roadmap with 15 phases (Phases 0-5 complete, Phases 6-15 planned). Includes detailed requirements, implementation plans, file lists, and autonomous execution rules.
+- **Updated CLAUDE.md** — Added PHASES.md as mandatory first read, added autonomous execution rules for "go" command.
+- **Updated session-brief.md** — Replaced next actions with phased roadmap from PHASES.md.
 - **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema:
   - Added bcrypt for password hashing (12 rounds)
   - Created `artifacts/api-server/src/routes/jarvis/auth.ts` with endpoints:
@@ -59,6 +61,7 @@ LAST_UPDATED: 2026-08-16 19:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Created PHASES.md + updated CLAUDE.md + session-brief.md**: Master roadmap with 15 phases (0-5 done, 6-15 planned). CLAUDE.md now requires reading PHASES.md first. Autonomous execution rules added.
 - 2026-08-16 **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema. Added bcrypt (12 rounds), created `auth.ts` with 6 endpoints (register, login, logout, me, profile, password), registered in index.ts, session cookies (httpOnly, secure, 30-day expiry). Typecheck + build pass.
 
 - 2026-08-16 **Chat/voice mode API key fallback logic COMPLETE**: Implemented sequential retry flow per user specification — fail → "Try same key" button (retries same key once) → if fails again → "Try next key" button (tries next key in pool). Backend: modified `artifacts/api-server/src/routes/jarvis/chat.ts` manual key mode (`manualCreate`) for single attempt per key with `llm_manual_retry` error carrying current/next key info. Frontend: modified `artifacts/jarvis/src/hooks/use-chat-stream.ts` with `retryAttempt` state (0=initial, 1=first retry same key, 2=second retry next key), `retrySameKey()`/`retryNextKey()` callbacks, UI shows appropriate buttons per attempt. Typecheck + build pass.
@@ -189,9 +192,16 @@ LAST_UPDATED: 2026-08-16 19:45
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this - the build agent has edit_file tool)
-2. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
-3. **Continue Tavily research for Build Mode competitive analysis** — 1-hour investigation to make Infinity "THE BEST IT CAN BE for $0" by comparing to Claude Code, Replit Agent, and other services
+1. **Phase 6: Headless CI/CD Mode** — Create CLI binary, add --headless flag, JSON output, exit codes, GitHub Action template (START HERE per PHASES.md)
+2. **Phase 7: MCP Server Integration** — Expose Infinity tools as MCP tools for any LLM client
+3. **Phase 8: Multi-Agent Orchestration** — Planner→Coder→Reviewer→Fixer pipeline with shared context
+4. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
+5. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+6. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
+7. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
+8. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
+9. **Phase 14: Desktop-First Redesign** — Liquid glass material, theme tokens, keyboard-first
+10. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
    - **Completed searches**: AI coding assistant comparisons (Claude Code, Replit Agent, Cursor), free local LLM models (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral), open source agent architectures (OpenHands, Cline, Aider, Goose), MCP browser automation, agent architecture best practices
    - **Key findings so far**: 
      - Free LLM APIs in 2026: OpenRouter, Groq, Cerebras, Google AI Studio, NVIDIA NIM - all no credit card required
