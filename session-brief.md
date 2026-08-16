@@ -4,10 +4,14 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 00:45
+LAST_UPDATED: 2026-08-16 01:05
 
 ## Just did (last action)
-- **Phase 5.1 — Telemetry + Debugging (backend COMPLETE):** Added `logBuildEvent` telemetry calls to ALL build lifecycle routes in build.ts: scaffold, iterate (self-review + verify loop + fixer), verify, fix, execute-plan (batches, steps, per-step verify), checkpoints (save), snapshots (list/create/restore/delete), browser pool (status/acquire/release/navigate/action/screenshot/elements/scale), and all 10 command-palette routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set). Fixed TypeScript on `result.ok`→`result.success` (browser pool returns `{success}` not `{ok}`), `meta.size`→`meta.sizeBytes` (SnapshotMetadata). Typecheck + full build pass. Telemetry API routes already in build-telemetry.ts (GET recent/all/summary/count, DELETE, POST single/batch). Next: Build Debug panel UI in frontend (build-studio.tsx) to display/filter/replay telemetry, then i18n keys.
+- **Phase 5.1 — Telemetry + Debugging (FULL COMPLETE):** Backend telemetry wiring (all build.ts routes + checkpoints) done prior session. Frontend Debug panel now complete:
+  - Added `debug` tab to `StudioTab` type and `TAB_ORDER` in build-studio.tsx
+  - Created `BuildDebugPanel` component (build-debug-panel.tsx) with Live/Replay mode toggle, filter by 11 event types, summary view, event count header, Refresh/Export/Copy/Clear actions, type-colored event table (seq, time, type, step, label, duration), clear confirmation modal
+  - Added 26 i18n keys (EN + NL): debug, debugTitle, debugDesc, debugCount, debugLive, debugReplay, debugSummary, debugSummaryEmpty, debugSummaryGenerating, debugRefresh, debugClear, debugClearConfirm, debugFilter, debugFilterAll, debugExport, debugEmpty, debugType, debugStep, debugDuration, debugError, debugSeq, debugTime, debugLabel, debugCopy, debugCopied
+  - Typecheck + full build pass
 
 ## Previous action (Gem→Expert rename, user-facing)
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
@@ -28,6 +32,7 @@ LAST_UPDATED: 2026-08-16 00:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Phase 5.1 — Telemetry + Debugging FULL COMPLETE**: Frontend Debug panel added (build-debug-panel.tsx) with Live/Replay toggle, 11-type filter, summary, count, export JSONL, copy summary, clear logs, type-colored event table; debug tab added to StudioTab/TAB_ORDER; 26 i18n keys (EN+NL); typecheck + build pass
 - 2026-08-15 **Phase 4.4 — Command Palette + Keyboard Mastery COMPLETE**: Fixed TypeScript errors in build.ts command routes (`ctx.steps`→`completedSteps`, `refreshFileMap` signature, `StepResult[]` serialization, `Map`→`Object` for checkpoint); all 10 server-side command routes working (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status, budget set); typecheck + build pass
 - 2026-08-15 **Phase 4.2 — Browser Pool COMPLETE**: Created `browser-pool.ts`; added 10 browser pool routes (status, acquire/release, navigate, action, state, screenshot, elements, captcha, accessibility, scale); 3-5 pre-warmed Chromium, session persistence, idle scaling; typecheck + build pass
 - 2026-08-15 **Phase 4.1 — Workspace Snapshots + One-Click Rollback COMPLETE**: Created `workspace-snapshots.ts`; added 4 snapshot routes (list, create, restore, delete); auto-snapshot after checkpoint; tar.gz + JSON sidecars; typecheck + build pass
@@ -63,13 +68,15 @@ LAST_UPDATED: 2026-08-16 00:45
 - **Build Mode (Infinity) Phase 4.2: Browser Pool** — **COMPLETE**: 3-5 pre-warmed Chromium, session persistence, screenshot diffing, CDP accessibility, 10 REST routes; typecheck + build pass.
 - **Build Mode (Infinity) Phase 4.3: Resource Limits + Cost Tracking** — **COMPLETE**: Per-workspace budgets, token/cost tracking, daily aggregates, dashboard stats, 7 REST routes; typecheck + build pass.
 - **Build Mode (Infinity) Phase 4.4: Command Palette + Keyboard Mastery** — **COMPLETE**: 10 server-side command routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set) backing client palette; typecheck + build pass.
+- **Build Mode (Infinity) Phase 5.1: Telemetry + Debugging** — **COMPLETE**: Backend `logBuildEvent` wired to all build lifecycle routes + checkpoints; REST routes (recent/all/summary/count, DELETE, batch POST); frontend Debug panel (build-debug-panel.tsx) with Live/Replay, type filter, summary, export JSONL, clear logs; 26 i18n keys; typecheck + build pass.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 5: Polish** — Telemetry/debug event stream, export/share builds, edge cases (network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue).
+1. **Phase 5.2: Export / Share** — Build export and sharing capabilities (export build as project bundle, share to gallery/link, snapshot archive download).
+2. **Phase 5.3: Edge Cases** — Network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
