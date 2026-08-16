@@ -651,6 +651,12 @@ const en = {
   "studio.build.debugCopy": "Copy summary",
   "studio.build.debugCopied": "Copied",
 
+  /* Build Studio - Phase 5.2 Export / Share / Clone */
+  "studio.build.debugExportZip": "Export ZIP",
+  "studio.build.debugExportTar": "Export tar.gz",
+  "studio.build.debugShare": "Share",
+  "studio.build.debugClone": "Clone",
+
   /* Build Studio - Missing keys from Phase0 */
   "studio.build.consoleTitle": "Console",
   "studio.build.of": "of",
@@ -1803,6 +1809,12 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.debugLabel": "Gebeurtenis",
   "studio.build.debugCopy": "Kopieer samenvatting",
   "studio.build.debugCopied": "Gekopieerd",
+
+  /* Build Studio - Phase 5.2 Export / Share / Clone */
+  "studio.build.debugExportZip": "Exporteer ZIP",
+  "studio.build.debugExportTar": "Exporteer tar.gz",
+  "studio.build.debugShare": "Delen",
+  "studio.build.debugClone": "Klonen",
 };
 
 export type TranslationKey = keyof typeof en;

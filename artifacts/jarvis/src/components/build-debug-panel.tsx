@@ -12,6 +12,11 @@ import {
   ChevronDown,
   Check,
   ExternalLink,
+  Share2,
+  GitBranch,
+  Archive,
+  Link,
+  Loader2,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
@@ -90,6 +95,10 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const [clearConfirm, setClearConfirm] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const loadingRef = useRef(false);
+  const [exportBusy, setExportBusy] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const fetchLive = useCallback(async () => {
     if (loadingRef.current) return;
@@ -192,6 +201,85 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
       console.error('[DebugPanel] clear failed', err);
     }
     setClearConfirm(false);
+  };
+
+  const handleExportZip = async () => {
+    setExportBusy('zip');
+    try {
+      const { response, data } = await apiJson<Blob>(
+        `/api/jarvis/build/export/zip/${encodeURIComponent(workspaceId)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ includeNodeModules: false, includeGit: false }) }
+      );
+      if (response.ok && data) {
+        const blob = data instanceof Blob ? data : new Blob([JSON.stringify(data)], { type: 'application/zip' });
+        downloadBlob(blob, `build-${workspaceId}-${Date.now()}.zip`);
+      } else {
+        console.error('[DebugPanel] zip export failed', data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] zip export failed', err);
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  const handleExportTarGz = async () => {
+    setExportBusy('tar-gz');
+    try {
+      const { response, data } = await apiJson<Blob>(
+        `/api/jarvis/build/export/tar-gz/${encodeURIComponent(workspaceId)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ includeNodeModules: false, includeGit: false }) }
+      );
+      if (response.ok && data) {
+        const blob = data instanceof Blob ? data : new Blob([JSON.stringify(data)], { type: 'application/gzip' });
+        downloadBlob(blob, `build-${workspaceId}-${Date.now()}.tar.gz`);
+      } else {
+        console.error('[DebugPanel] tar.gz export failed', data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] tar.gz export failed', err);
+    } finally {
+      setExportBusy(null);
+    }
+  };
+
+  const handleShare = async () => {
+    setShareBusy(true);
+    try {
+      const { response, data } = await apiJson<ShareResponse>(
+        `/api/jarvis/build/share/${encodeURIComponent(workspaceId)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
+      );
+      if (response.ok && data.shareUrl) {
+        setShareUrl(data.shareUrl);
+        await navigator.clipboard.writeText(data.shareUrl);
+        setCopyFlash(true);
+        setTimeout(() => setCopyFlash(false), 2000);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] share failed', err);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const handleClone = async () => {
+    const targetProjectId = window.prompt('Target project ID (optional, leave blank for auto-generated):');
+    if (targetProjectId === null) return; // user cancelled
+    setCloneBusy(true);
+    try {
+      const { response, data } = await apiJson<CloneResponse>(
+        `/api/jarvis/build/clone/${encodeURIComponent(workspaceId)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetProjectId: targetProjectId || undefined }) }
+      );
+      if (response.ok && data.targetProjectId) {
+        alert(`Build cloned to ${data.targetProjectId}`);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] clone failed', err);
+    } finally {
+      setCloneBusy(false);
+    }
   };
 
   const filteredEvents = events.filter((e) => filterType === 'all' || e.type === filterType);
@@ -335,6 +423,50 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
             <Trash2 className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{t('studio.build.debugClear')}</span>
           </button>
+
+          {/* Export / Share / Clone */}
+          <div className="flex items-center gap-1.5 border-l border-border pl-2.5 ml-2">
+            <button
+              type="button"
+              onClick={handleExportZip}
+              disabled={exportBusy === 'zip'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.debugExportZip') || 'Export ZIP'}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {exportBusy === 'zip' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">ZIP</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportTarGz}
+              disabled={exportBusy === 'tar-gz'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.debugExportTar') || 'Export tar.gz'}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              {exportBusy === 'tar-gz' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">tar.gz</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={shareBusy}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.debugShare') || 'Share'}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              {shareBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.debugShare') || 'Share'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleClone}
+              disabled={cloneBusy}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.debugClone') || 'Clone'}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              {cloneBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.debugClone') || 'Clone'}</span>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -460,6 +592,60 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     </div>
   );
 }
+
+interface ExportManifest {
+  timestamp: string;
+  version: string;
+  projectId: string;
+  workspaceId: string;
+  fileCount: number;
+  totalSize: number;
+  files: Array<{
+    path: string;
+    size: number;
+    type: "file" | "directory";
+    modified?: string;
+  }>;
+  checkpoints?: Array<{
+    id: string;
+    iteration: number;
+    completed: number;
+    createdAt: string;
+  }>;
+  snapshots?: Array<{
+    id: string;
+    iteration: number;
+    sizeBytes: number;
+    createdAt: string;
+  }>;
+  telemetryEventCount?: number;
+}
+
+interface ShareResponse {
+  ok: boolean;
+  shareUrl?: string;
+  shareToken?: string;
+  expiresAt?: string;
+  error?: string;
+}
+
+interface CloneResponse {
+  ok: boolean;
+  targetProjectId?: string;
+  worktreePath?: string;
+  branch?: string;
+  checkpointId?: string;
+  error?: string;
+}
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const apiJson = async <T,>(url: string, init?: RequestInit): Promise<{ response: Response; data: T }> => {
   const response = await fetch(url, init);
