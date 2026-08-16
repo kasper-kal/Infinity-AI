@@ -4,7 +4,7 @@
 
 Infinity AI is an all-in-one AI workspace built to bring conversation, research, coding, browsing, creativity, automation, and everyday tools into one place.
 
-Instead of jumping between separate AI products for every task, Infinity gives you a single interface that can **think, research, build, browse, create, verify, and act**.
+Instead of jumping between separate AI products for every task, Infinity gives you a single interface that can **think, research, build, browse, create, verify, act, and evolve**.
 
 ## ✨ What can Infinity do?
 
@@ -14,6 +14,7 @@ Instead of jumping between separate AI products for every task, Infinity gives y
 | 🎙️ **Voice** | Talk to Infinity and receive spoken responses. |
 | 🔬 **Deep Research** | Perform multi-step web research and turn findings into detailed reports. |
 | 🔨 **Build Mode** | Give the AI a coding task and let it work inside a real Linux workspace. |
+| 🧬 **Evolving** | Infinity can inspect and modify its own codebase, allowing it to implement changes and evolve its capabilities. |
 | 🌐 **Agent Browser** | Navigate real websites, click, type, scroll, and inspect pages. |
 | 🎨 **Design Studio** | Edit, manipulate, and export images directly in the browser. |
 | 🎵 **Music Studio** | Create and play compositions using browser-based audio. |
@@ -61,6 +62,16 @@ The agent can:
 - Iterate on implementations
 
 A built-in workspace file browser makes it possible to inspect the project while the agent works.
+
+### 🧬 Evolving
+
+**Evolving** is Infinity's ability to work on its own source code.
+
+Rather than being limited to generating code for the user, Infinity can operate inside its own development environment and modify the codebase it runs from. This allows it to work toward improvements, fixes, new functionality, and architectural changes through its coding capabilities.
+
+Evolving builds on Build Mode: the same ability that lets Infinity work inside a user's project can be used to work on **Infinity itself**.
+
+This makes Infinity more than a coding assistant — it is designed to be a system that can **improve and expand itself over time**.
 
 ### 🌐 Agent Browser
 
@@ -305,6 +316,8 @@ Infinity AI is built around a few principles:
 **One workspace** — AI capabilities shouldn't be scattered across dozens of applications.
 
 **Action over conversation** — The best AI isn't only capable of explaining how to do something. It should be capable of doing it.
+
+**Evolution over stagnation** — Infinity should be capable of improving itself rather than remaining permanently fixed at the moment it was built.
 
 **Tools should feel native** — Research, coding, browsing, images, music, and utilities should feel like parts of the same product.
 
