@@ -43,7 +43,7 @@ export interface LlmKeyEntry {
   model: string;
   enabled: boolean;
   priority: number;
-  source: "env" | "db";
+  source: "env" | "llm-provider" | "user-api";
   status: KeyStatus;
   coolDownUntil: number | null; // epoch ms
   uses: number;
@@ -141,6 +141,26 @@ interface PoolRow {
   coolDownUntil: Date | null;
   uses: number;
   failures: number;
+  source: "llm-provider" | "user-api";
+  projectId: string | null;
+  scopes: string[] | null;
+}
+
+function toEntry(r: PoolRow): LlmKeyEntry {
+  return {
+    id: r.id,
+    name: r.name,
+    baseUrl: r.baseUrl,
+    apiKey: r.apiKey,
+    model: r.model,
+    enabled: r.enabled,
+    priority: r.priority,
+    source: r.source === "user-api" ? "user-api" : "llm-provider",
+    status: r.status,
+    coolDownUntil: r.coolDownUntil ? r.coolDownUntil.getTime() : null,
+    uses: r.uses,
+    failures: r.failures,
+  };
 }
 
 let poolCache: { rows: PoolRow[]; at: number } | null = null;
@@ -169,6 +189,9 @@ async function dbKeyEntries(): Promise<LlmKeyEntry[]> {
       coolDownUntil: r.coolDownUntil,
       uses: r.uses,
       failures: r.failures,
+      source: r.source as "llm-provider" | "user-api",
+      projectId: r.projectId,
+      scopes: r.scopes,
     }));
     poolCache = { rows: mapped, at: Date.now() };
     return mapped.map((r) => toEntry(r));
@@ -176,23 +199,6 @@ async function dbKeyEntries(): Promise<LlmKeyEntry[]> {
     // DB unavailable (e.g. migration not run yet), fall back to env keys only.
     return [];
   }
-}
-
-function toEntry(r: PoolRow): LlmKeyEntry {
-  return {
-    id: r.id,
-    name: r.name,
-    baseUrl: r.baseUrl,
-    apiKey: r.apiKey,
-    model: r.model,
-    enabled: r.enabled,
-    priority: r.priority,
-    source: "db",
-    status: r.status,
-    coolDownUntil: r.coolDownUntil ? r.coolDownUntil.getTime() : null,
-    uses: r.uses,
-    failures: r.failures,
-  };
 }
 
 /** Effective status, a key whose cooldown has passed is healthy again. */
@@ -238,7 +244,7 @@ function classifyError(err: unknown): { status: KeyStatus; minutes: number } {
 }
 
 async function reportSuccess(key: LlmKeyEntry): Promise<void> {
-  if (key.source === "db" && key.id) {
+  if (key.source === "llm-provider" && key.id) {
     try {
       await db
         .update(llmKeys)
@@ -264,7 +270,7 @@ async function reportSuccess(key: LlmKeyEntry): Promise<void> {
 async function reportFailure(key: LlmKeyEntry, err: unknown): Promise<void> {
   const { status, minutes } = classifyError(err);
   const until = new Date(Date.now() + minutes * 60_000);
-  if (key.source === "db" && key.id) {
+  if (key.source === "llm-provider" && key.id) {
     try {
       await db
         .update(llmKeys)

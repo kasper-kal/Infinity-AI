@@ -64,7 +64,7 @@ router.post("/llm-keys", async (req, res) => {
     req.log.info({ keyId: row.id, name: row.name }, "LLM key added");
     res.json(publicEntry({
       id: row.id, name: row.name, baseUrl: row.baseUrl, apiKey: row.apiKey, model: row.model,
-      enabled: row.enabled, priority: row.priority, source: "db", status: row.status,
+      enabled: row.enabled, priority: row.priority, source: "llm-provider", status: row.status,
       coolDownUntil: row.coolDownUntil ? row.coolDownUntil.getTime() : null,
       uses: row.uses, failures: row.failures,
     }));
@@ -94,7 +94,7 @@ router.put("/llm-keys/:id", async (req, res) => {
     invalidateKeyPool();
     res.json(publicEntry({
       id: row.id, name: row.name, baseUrl: row.baseUrl, apiKey: row.apiKey, model: row.model,
-      enabled: row.enabled, priority: row.priority, source: "db", status: row.status,
+      enabled: row.enabled, priority: row.priority, source: "llm-provider", status: row.status,
       coolDownUntil: row.coolDownUntil ? row.coolDownUntil.getTime() : null,
       uses: row.uses, failures: row.failures,
     }));

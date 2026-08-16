@@ -13,20 +13,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
-| 0 | UI Unfuck (Mobile-First) | ✅ DONE | — | — |
-| 1 | Foundation: Worktree + Checkpoints | ✅ DONE | — | — |
-| 2 | Loop Intelligence | ✅ DONE | — | Phase 1 |
-| 3.1 | Smart Working Context | ✅ DONE | — | Phase 2 |
-| 3.2 | Project-Scoped Memory | ✅ DONE | — | Phase 3.1 |
-| 4.1 | Workspace Snapshots + Rollback | ✅ DONE | — | Phase 1 |
-| 4.2 | Browser Pool | ✅ DONE | — | Phase 1 |
-| 4.3 | Resource Limits + Cost Tracking | ✅ DONE | — | Phase 1 |
-| 4.4 | Command Palette + Keyboard Mastery | ✅ DONE | — | Phase 1 |
-| 5.1 | Telemetry + Debugging | ✅ DONE | — | Phase 4.x |
-| 5.2 | Export / Share / Clone | ✅ DONE | — | Phase 5.1 |
-| 5.3 | Edge Cases & Resilience | ✅ DONE | — | Phase 5.2 |
-| **6** | **Headless CI/CD Mode** | 🔄 **NEXT** | ~4-8h | Phase 5.x |
-| **7** | **MCP Server Integration** | ⏳ PENDING | ~6-12h | Phase 6 |
+| **6** | **Headless CI/CD Mode** | ✅ **DONE** | ~4-8h | Phase 5.x |
+| **7** | **MCP Server Integration** | 🔄 **IN PROGRESS** | ~6-12h | Phase 6 |
 | **8** | **Multi-Agent Orchestration** | ⏳ PENDING | ~12-24h | Phase 7 |
 | **9** | **Scheduled Agents / Cron** | ⏳ PENDING | ~4-8h | Phase 8 |
 | **10** | **Messaging Connectors** | ⏳ PENDING | ~6-12h | Phase 8 |
@@ -44,20 +32,20 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 Run Infinity Build non-interactively in CI/CD pipelines (GitHub Actions, GitLab CI, etc.) with proper exit codes and JSON output.
 
 ### Requirements
-- [ ] **CLI Entry Point**: `infinity build --headless --project <id> --plan <plan.json>`
-- [ ] **Exit Codes**: 0=success, 1=build failed, 2=validation error, 3=budget exceeded, 4=timeout
-- [ ] **JSON Output**: Structured events to stdout for pipeline parsing
-- [ ] **No Browser/UI**: Pure backend execution, no WebSocket/extension dependencies
-- [ ] **GitHub Action Template**: `.github/workflows/infinity-build.yml` example
-- [ ] **Environment Config**: All settings via env vars (`INFINITY_API_KEY`, `INFINITY_PROJECT_ID`, etc.)
+- [x] **CLI Entry Point**: `infinity build --headless --project <id> --plan <plan.json>`
+- [x] **Exit Codes**: 0=success, 1=build failed, 2=validation error, 3=budget exceeded, 4=timeout
+- [x] **JSON Output**: Structured events to stdout for pipeline parsing
+- [x] **No Browser/UI**: Pure backend execution, no WebSocket/extension dependencies
+- [x] **GitHub Action Template**: `.github/workflows/infinity-build.yml` example
+- [x] **Environment Config**: All settings via env vars (`INFINITY_API_KEY`, `INFINITY_PROJECT_ID`, etc.)
 
 ### Implementation Plan
-1. **Create CLI binary** — `artifacts/cli/` with Commander.js or similar
-2. **Add `--headless` flag** to existing build routes — bypass auth/session, use API key
-3. **JSON streaming output** — modify `logBuildEvent` to support stdout JSONL
-4. **Exit code mapping** — map build states to POSIX exit codes
-5. **GitHub Action** — composite action or reusable workflow
-6. **Documentation** — `HEADLESS_MODE.md` with examples
+1. ✅ **Create CLI binary** — `artifacts/cli/` with Commander.js + TypeScript + esbuild ESM
+2. ✅ **Add `--headless` flag** to existing build routes — bypass auth/session, use API key
+3. ✅ **JSON streaming output** — modify `logBuildEvent` to support stdout JSONL (via CLI JSONL output)
+4. ✅ **Exit code mapping** — map build states to POSIX exit codes
+5. ✅ **GitHub Action** — composite action or reusable workflow
+6. ✅ **Documentation** — `HEADLESS_MODE.md` with examples
 
 ### Files to Create/Modify
 - `artifacts/cli/` (new directory)

@@ -1,10 +1,11 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { desc, eq } from "drizzle-orm";
 import { buildApps, db } from "@workspace/db";
 import { logActivity } from "./project-activity";
+import { apiKeyAuth, requireScope, optionalApiKeyAuth } from "../../middlewares/api-key-auth";
 import {
   ensureWorkspace,
   getSessionCwd,
@@ -431,7 +432,21 @@ function serializeSavedApp(row: typeof buildApps.$inferSelect) {
   return { ...row, metadata: row.metadata ?? {} };
 }
 
-router.get("/build/apps", async (req, res) => {
+/** Middleware: require either session auth or valid API key */
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const hasSession = !!(req as any).accountId || req.cookies?.jarvis_session;
+  const hasApiKey = !!(req as any).apiKeyInfo;
+  if (!hasSession && !hasApiKey) {
+    res.status(401).json({ error: "Authentication required (session or API key)" });
+    return;
+  }
+  next();
+}
+
+// Apply optional API key auth to all build routes, then requireAuth
+router.use(optionalApiKeyAuth);
+
+router.get("/build/apps", requireAuth, async (req, res) => {
   try {
     const rows = await db.select().from(buildApps).orderBy(desc(buildApps.updatedAt));
     res.json(rows.map(serializeSavedApp));
@@ -441,7 +456,7 @@ router.get("/build/apps", async (req, res) => {
   }
 });
 
-router.post("/build/apps", async (req, res) => {
+router.post("/build/apps", requireAuth, async (req, res) => {
   const name = cleanText(req.body?.name, 100) || "Untitled build";
   const description = cleanText(req.body?.description, 500);
   const metadata = {
@@ -485,9 +500,9 @@ router.post("/build/apps", async (req, res) => {
   }
 });
 
-router.post("/build/apps/:id/restore", async (req, res) => {
+router.post("/build/apps/:id/restore", requireAuth, async (req, res) => {
   try {
-    const [app] = await db.select().from(buildApps).where(eq(buildApps.id, req.params.id));
+    const [app] = await db.select().from(buildApps).where(eq(buildApps.id, req.params.id as string));
     const metadata = (app?.metadata ?? {}) as { storageKey?: string };
     if (!app || !metadata.storageKey) {
       res.status(404).json({ error: "Saved build app not found" });
@@ -512,12 +527,12 @@ router.post("/build/apps/:id/restore", async (req, res) => {
   }
 });
 
-router.get("/build/env", async (req, res) => {
+router.get("/build/env", requireAuth, async (req, res) => {
   const workspaceId = cleanText(req.query.workspaceId, 64) || "default";
   res.json({ workspaceId, env: await readWorkspaceEnv(workspaceId) });
 });
 
-router.put("/build/env", async (req, res) => {
+router.put("/build/env", requireAuth, async (req, res) => {
   const raw = req.body?.env;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     res.status(400).json({ error: "env must be an object" });
@@ -531,7 +546,7 @@ router.put("/build/env", async (req, res) => {
   res.json({ env });
 });
 
-router.post("/build/ask", async (req, res) => {
+router.post("/build/ask", requireAuth, async (req, res) => {
   const prompt = cleanText(req.body?.prompt, 300).toLowerCase();
   const inventory = [
     { key: "interface", label: "Professional responsive interface", selected: true },
@@ -553,7 +568,7 @@ router.post("/build/ask", async (req, res) => {
   });
 });
 
-router.post("/build/plan", async (req, res) => {
+router.post("/build/plan", requireAuth, async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const prompt = cleanText(req.body?.prompt, 300);
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
@@ -581,7 +596,7 @@ router.post("/build/plan", async (req, res) => {
   }
 });
 
-router.post("/build/start", async (req, res) => {
+router.post("/build/start", requireAuth, async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const prompt = cleanText(req.body?.prompt, 300);
   try {
@@ -593,7 +608,7 @@ router.post("/build/start", async (req, res) => {
   }
 });
 
-router.post("/build/scaffold", async (req, res) => {
+router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
@@ -696,7 +711,7 @@ router.post("/build/scaffold", async (req, res) => {
   }
 });
 
-router.post("/build/iterate", async (req, res) => {
+router.post("/build/iterate", requireAuth, requireScope("build:write"), async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
@@ -798,7 +813,7 @@ router.post("/build/iterate", async (req, res) => {
   }
 });
 
-router.post("/build/rollback", async (req, res) => {
+router.post("/build/rollback", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   try {
     if (!hasIsolated(projectId)) {
@@ -813,7 +828,7 @@ router.post("/build/rollback", async (req, res) => {
   }
 });
 
-router.get("/build/resume/:projectId", async (req, res) => {
+router.get("/build/resume/:projectId", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId as string, 64);
   try {
     const checkpoint = await getLatestCheckpoint(projectId);
@@ -844,7 +859,7 @@ router.get("/build/resume/:projectId", async (req, res) => {
  * Phase 2.1: Diff Preview — Generate unified diff between current workspace
  * and proposed file changes. Returns structured diff for UI confirmation modal.
  */
-router.post("/build/diff", async (req, res) => {
+router.post("/build/diff", requireAuth, async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const files = req.body?.files as Record<string, string> | undefined;
@@ -876,7 +891,7 @@ router.post("/build/diff", async (req, res) => {
  * Phase 2.2: Verification Loop — Run tsc, vitest, eslint, and build in parallel.
  * Returns structured results for the model to fix issues. Supports auto-retry.
  */
-router.post("/build/verify", async (req, res) => {
+router.post("/build/verify", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
   const maxRetries = Math.min(5, Math.max(0, Number(req.body?.maxRetries) || 3));
@@ -910,7 +925,7 @@ router.post("/build/verify", async (req, res) => {
  * Phase 2.2: Fixer Loop — Apply the smallest fix to resolve a verification or
  * review failure using the fixer prompt. Returns the files that changed.
  */
-router.post("/build/fix", async (req, res) => {
+router.post("/build/fix", requireAuth, requireScope("build:write"), async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const failure = cleanText(req.body?.failure, 4000);
@@ -982,7 +997,7 @@ router.post("/build/fix", async (req, res) => {
   }
 });
 
-router.post("/build/execute-plan", async (req, res) => {
+router.post("/build/execute-plan", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
@@ -1188,7 +1203,7 @@ router.post("/build/execute-plan", async (req, res) => {
  * Phase 1: Autonomous Agent — Run the tool-using agent for a goal
  * This replaces the single-shot JSON generation with a progressive tool-use loop
  */
-router.post("/build/agent/run", async (req, res) => {
+router.post("/build/agent/run", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
@@ -1285,7 +1300,7 @@ router.post("/build/agent/run", async (req, res) => {
 /**
  * Phase 1: Autonomous Agent — Run agent for a specific plan step
  */
-router.post("/build/agent/step", async (req, res) => {
+router.post("/build/agent/step", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
   const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
@@ -1390,14 +1405,14 @@ router.post("/build/agent/step", async (req, res) => {
 /**
  * Phase 1: Autonomous Agent — Get available tool definitions
  */
-router.get("/build/agent/tools", async (req, res) => {
+router.get("/build/agent/tools", requireAuth, async (req, res) => {
   res.json({ ok: true, tools: TOOL_DEFINITIONS });
 });
 
 /**
  * Phase 3.1: Smart Working Context — Get the current context for a build project.
  */
-router.get("/build/context/:projectId", async (req, res) => {
+router.get("/build/context/:projectId", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId as string, 64);
   const workspaceId = cleanText(req.query.workspaceId, 64) || projectId;
   try {
@@ -1426,7 +1441,7 @@ router.get("/build/context/:projectId", async (req, res) => {
 /**
  * Phase 3.1: Update project goal for a build project.
  */
-router.post("/build/context/goal", async (req, res) => {
+router.post("/build/context/goal", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64);
   const goal = cleanText(req.body?.goal, 500);
   if (!projectId || !goal) {
@@ -1445,7 +1460,7 @@ router.post("/build/context/goal", async (req, res) => {
 /**
  * Phase 3.1: Record a decision made during the build.
  */
-router.post("/build/context/decision", async (req, res) => {
+router.post("/build/context/decision", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64);
   const decision = cleanText(req.body?.decision, 500);
   const rationale = cleanText(req.body?.rationale, 500);
@@ -1465,7 +1480,7 @@ router.post("/build/context/decision", async (req, res) => {
 /**
  * Phase 3.1: Record an error pattern and its resolution.
  */
-router.post("/build/context/error-pattern", async (req, res) => {
+router.post("/build/context/error-pattern", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64);
   const pattern = cleanText(req.body?.pattern, 500);
   const resolution = cleanText(req.body?.resolution, 500);
@@ -1485,7 +1500,7 @@ router.post("/build/context/error-pattern", async (req, res) => {
 /**
  * Phase 3.1: Track token usage for budget monitoring.
  */
-router.post("/build/context/tokens", async (req, res) => {
+router.post("/build/context/tokens", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64);
   const tokens = Math.max(0, Number(req.body?.tokens) || 0);
   if (!projectId) {
@@ -1501,7 +1516,7 @@ router.post("/build/context/tokens", async (req, res) => {
   }
 });
 
-router.post("/build/preview/agent", async (req, res) => {
+router.post("/build/preview/agent", requireAuth, requireScope("build:write"), async (req, res) => {
   const sessionId = cleanText(req.body?.sessionId, 100) || "studio-preview";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const goal = cleanText(req.body?.goal, 1200);
@@ -1613,7 +1628,7 @@ router.post("/build/preview/agent", async (req, res) => {
   }
 });
 
-router.post("/build/walkthrough", async (req, res) => {
+router.post("/build/walkthrough", requireAuth, async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const sessionId = cleanText(req.body?.sessionId, 100) || "studio-preview";
   const port = Number(req.body?.port);
@@ -1708,7 +1723,7 @@ router.post("/build/walkthrough", async (req, res) => {
   }
 });
 
-router.post("/build/screenshot", async (req, res) => {
+router.post("/build/screenshot", requireAuth, async (req, res) => {
   const sessionId = cleanText(req.body?.sessionId, 100) || "studio-preview";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const requestedUrl = cleanText(req.body?.url, 500);
@@ -1740,7 +1755,7 @@ router.post("/build/screenshot", async (req, res) => {
   res.json({ ok: true, url: desktop?.url ?? screenshots.mobile?.url ?? "", dataUrl: desktop?.dataUrl ?? screenshots.mobile?.dataUrl ?? "", screenshots });
 });
 
-router.post("/build/preview/start", async (req, res) => {
+router.post("/build/preview/start", requireAuth, requireScope("build:write"), async (req, res) => {
   const sessionId = cleanText(req.body?.sessionId, 100) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const command = cleanText(req.body?.command, 500);
@@ -1769,7 +1784,7 @@ router.post("/build/preview/start", async (req, res) => {
   res.status(201).json({ sessionId, workspaceId, port, url: `http://localhost:${port}`, running: true });
 });
 
-router.post("/build/preview/stop", async (req, res) => {
+router.post("/build/preview/stop", requireAuth, requireScope("build:write"), async (req, res) => {
   const sessionId = cleanText(req.body?.sessionId, 100) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const entry = previewProcesses.get(previewKey(workspaceId, sessionId));
@@ -1780,7 +1795,7 @@ router.post("/build/preview/stop", async (req, res) => {
   res.json({ ok: true });
 });
 
-router.get("/build/preview/status", async (req, res) => {
+router.get("/build/preview/status", requireAuth, async (req, res) => {
   const sessionId = cleanText(req.query.sessionId, 100) || "default";
   const workspaceId = cleanText(req.query.workspaceId, 64) || "default";
   const entry = previewProcesses.get(previewKey(workspaceId, sessionId));
@@ -1792,7 +1807,7 @@ router.get("/build/preview/status", async (req, res) => {
  */
 
 // GET /build/budget/:projectId — Get budget config and current status
-router.get("/build/budget/:projectId", async (req, res) => {
+router.get("/build/budget/:projectId", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1808,7 +1823,7 @@ router.get("/build/budget/:projectId", async (req, res) => {
 });
 
 // PATCH /build/budget/:projectId — Update budget limits
-router.patch("/build/budget/:projectId", async (req, res) => {
+router.patch("/build/budget/:projectId", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1829,7 +1844,7 @@ router.patch("/build/budget/:projectId", async (req, res) => {
 });
 
 // GET /build/budget/:projectId/dashboard — Dashboard stats (today, 7d, 30d, limits)
-router.get("/build/budget/:projectId/dashboard", async (req, res) => {
+router.get("/build/budget/:projectId/dashboard", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1845,7 +1860,7 @@ router.get("/build/budget/:projectId/dashboard", async (req, res) => {
 });
 
 // GET /build/budget/:projectId/history — Cost history (paginated)
-router.get("/build/budget/:projectId/history", async (req, res) => {
+router.get("/build/budget/:projectId/history", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1863,7 +1878,7 @@ router.get("/build/budget/:projectId/history", async (req, res) => {
 });
 
 // GET /build/budget/:projectId/daily — Daily aggregates (last N days)
-router.get("/build/budget/:projectId/daily", async (req, res) => {
+router.get("/build/budget/:projectId/daily", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1880,7 +1895,7 @@ router.get("/build/budget/:projectId/daily", async (req, res) => {
 });
 
 // POST /build/budget/:projectId/check — Pre-flight budget check
-router.post("/build/budget/:projectId/check", async (req, res) => {
+router.post("/build/budget/:projectId/check", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1905,7 +1920,7 @@ router.post("/build/budget/:projectId/check", async (req, res) => {
 });
 
 // POST /build/budget/:projectId/record — Record actual cost after a build iteration
-router.post("/build/budget/:projectId/record", async (req, res) => {
+router.post("/build/budget/:projectId/record", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1964,7 +1979,7 @@ router.post("/build/budget/:projectId/record", async (req, res) => {
  */
 
 // GET /build/snapshots/:projectId — List snapshots (newest first)
-router.get("/build/snapshots/:projectId", async (req, res) => {
+router.get("/build/snapshots/:projectId", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -1982,7 +1997,7 @@ router.get("/build/snapshots/:projectId", async (req, res) => {
 });
 
 // POST /build/snapshots/:projectId — Create a snapshot on demand
-router.post("/build/snapshots/:projectId", async (req, res) => {
+router.post("/build/snapshots/:projectId", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2011,7 +2026,7 @@ router.post("/build/snapshots/:projectId", async (req, res) => {
 });
 
 // POST /build/snapshots/:projectId/:snapshotId/restore — Restore a snapshot to workspace
-router.post("/build/snapshots/:projectId/:snapshotId/restore", async (req, res) => {
+router.post("/build/snapshots/:projectId/:snapshotId/restore", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   const snapshotId = cleanText(req.params.snapshotId, 36);
   if (!projectId || !snapshotId) {
@@ -2036,7 +2051,7 @@ router.post("/build/snapshots/:projectId/:snapshotId/restore", async (req, res) 
 });
 
 // DELETE /build/snapshots/:projectId/:snapshotId — Delete a snapshot
-router.delete("/build/snapshots/:projectId/:snapshotId", async (req, res) => {
+router.delete("/build/snapshots/:projectId/:snapshotId", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   const snapshotId = cleanText(req.params.snapshotId, 36);
   if (!projectId || !snapshotId) {
@@ -2071,7 +2086,7 @@ function getBrowserPoolInstance(): BrowserPool {
 }
 
 // GET /build/browser/pool/status — Get pool status
-router.get("/build/browser/pool/status", async (req, res) => {
+router.get("/build/browser/pool/status", requireAuth, async (req, res) => {
   try {
     const pool = getBrowserPoolInstance();
     const status = pool.getStatus();
@@ -2087,7 +2102,7 @@ router.get("/build/browser/pool/status", async (req, res) => {
 });
 
 // POST /build/browser/pool/acquire — Acquire a browser for a task
-router.post("/build/browser/pool/acquire", async (req, res) => {
+router.post("/build/browser/pool/acquire", requireAuth, requireScope("build:write"), async (req, res) => {
   const taskId = cleanText(req.body?.taskId, 64) || `task-${Date.now()}`;
   try {
     const pool = getBrowserPoolInstance();
@@ -2103,7 +2118,7 @@ router.post("/build/browser/pool/acquire", async (req, res) => {
 });
 
 // POST /build/browser/pool/release — Release a browser
-router.post("/build/browser/pool/release", async (req, res) => {
+router.post("/build/browser/pool/release", requireAuth, requireScope("build:write"), async (req, res) => {
   const browserId = cleanText(req.body?.browserId, 64);
   if (!browserId) {
     res.status(400).json({ error: "browserId required" });
@@ -2123,7 +2138,7 @@ router.post("/build/browser/pool/release", async (req, res) => {
 });
 
 // POST /build/browser/:browserId/navigate — Navigate a browser to a URL
-router.post("/build/browser/:browserId/navigate", async (req, res) => {
+router.post("/build/browser/:browserId/navigate", requireAuth, requireScope("build:write"), async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   const url = cleanText(req.body?.url, 2048);
   if (!browserId || !url) {
@@ -2144,7 +2159,7 @@ router.post("/build/browser/:browserId/navigate", async (req, res) => {
 });
 
 // POST /build/browser/:browserId/action — Execute an action on a browser
-router.post("/build/browser/:browserId/action", async (req, res) => {
+router.post("/build/browser/:browserId/action", requireAuth, requireScope("build:write"), async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   const action = req.body?.action as any;
   if (!browserId || !action) {
@@ -2165,7 +2180,7 @@ router.post("/build/browser/:browserId/action", async (req, res) => {
 });
 
 // GET /build/browser/:browserId/state — Get browser state
-router.get("/build/browser/:browserId/state", async (req, res) => {
+router.get("/build/browser/:browserId/state", requireAuth, async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   if (!browserId) {
     res.status(400).json({ error: "browserId required" });
@@ -2182,7 +2197,7 @@ router.get("/build/browser/:browserId/state", async (req, res) => {
 });
 
 // POST /build/browser/:browserId/screenshot — Take a grid screenshot
-router.post("/build/browser/:browserId/screenshot", async (req, res) => {
+router.post("/build/browser/:browserId/screenshot", requireAuth, requireScope("build:write"), async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   const cellSize = Number(req.body?.cellSize) || 24;
   if (!browserId) {
@@ -2203,7 +2218,7 @@ router.post("/build/browser/:browserId/screenshot", async (req, res) => {
 });
 
 // POST /build/browser/:browserId/elements — Get interactive elements
-router.post("/build/browser/:browserId/elements", async (req, res) => {
+router.post("/build/browser/:browserId/elements", requireAuth, async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   const maxItems = Math.min(Number(req.body?.maxItems) || 30, 100);
   if (!browserId) {
@@ -2223,7 +2238,7 @@ router.post("/build/browser/:browserId/elements", async (req, res) => {
 });
 
 // GET /build/browser/:browserId/captcha — Check for captcha
-router.get("/build/browser/:browserId/captcha", async (req, res) => {
+router.get("/build/browser/:browserId/captcha", requireAuth, async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   if (!browserId) {
     res.status(400).json({ error: "browserId required" });
@@ -2240,7 +2255,7 @@ router.get("/build/browser/:browserId/captcha", async (req, res) => {
 });
 
 // POST /build/browser/:browserId/accessibility — Capture accessibility tree
-router.post("/build/browser/:browserId/accessibility", async (req, res) => {
+router.post("/build/browser/:browserId/accessibility", requireAuth, async (req, res) => {
   const browserId = cleanText(req.params.browserId, 64);
   if (!browserId) {
     res.status(400).json({ error: "browserId required" });
@@ -2257,7 +2272,7 @@ router.post("/build/browser/:browserId/accessibility", async (req, res) => {
 });
 
 // POST /build/browser/pool/scale — Scale pool size
-router.post("/build/browser/pool/scale", async (req, res) => {
+router.post("/build/browser/pool/scale", requireAuth, requireScope("build:write"), async (req, res) => {
   const min = Math.max(1, Math.min(Number(req.body?.min) || 3, 10));
   const max = Math.max(min, Math.min(Number(req.body?.max) || 5, 10));
   try {
@@ -2280,7 +2295,7 @@ router.post("/build/browser/pool/scale", async (req, res) => {
  */
 
 // POST /build/command/:projectId/create-checkpoint — Create a checkpoint with snapshot
-router.post("/build/command/:projectId/create-checkpoint", async (req, res) => {
+router.post("/build/command/:projectId/create-checkpoint", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2325,7 +2340,7 @@ router.post("/build/command/:projectId/create-checkpoint", async (req, res) => {
 });
 
 // POST /build/command/:projectId/rollback — Rollback to previous iteration
-router.post("/build/command/:projectId/rollback", async (req, res) => {
+router.post("/build/command/:projectId/rollback", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2358,7 +2373,7 @@ router.post("/build/command/:projectId/rollback", async (req, res) => {
 });
 
 // POST /build/command/:projectId/export — Export workspace as ZIP
-router.post("/build/command/:projectId/export", async (req, res) => {
+router.post("/build/command/:projectId/export", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2384,7 +2399,7 @@ router.post("/build/command/:projectId/export", async (req, res) => {
 });
 
 // POST /build/command/:projectId/refresh-files — Refresh file map
-router.post("/build/command/:projectId/refresh-files", async (req, res) => {
+router.post("/build/command/:projectId/refresh-files", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2404,7 +2419,7 @@ router.post("/build/command/:projectId/refresh-files", async (req, res) => {
 });
 
 // POST /build/command/:projectId/browser/open — Acquire browser and navigate
-router.post("/build/command/:projectId/browser/open", async (req, res) => {
+router.post("/build/command/:projectId/browser/open", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   const url = cleanText(req.body?.url, 2048);
   if (!projectId || !url) {
@@ -2426,7 +2441,7 @@ router.post("/build/command/:projectId/browser/open", async (req, res) => {
 });
 
 // POST /build/command/:projectId/browser/close — Release browser
-router.post("/build/command/:projectId/browser/close", async (req, res) => {
+router.post("/build/command/:projectId/browser/close", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   const browserId = cleanText(req.body?.browserId, 64);
   if (!projectId || !browserId) {
@@ -2447,7 +2462,7 @@ router.post("/build/command/:projectId/browser/close", async (req, res) => {
 });
 
 // GET /build/command/:projectId/budget/status — Quick budget check
-router.get("/build/command/:projectId/budget/status", async (req, res) => {
+router.get("/build/command/:projectId/budget/status", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2464,7 +2479,7 @@ router.get("/build/command/:projectId/budget/status", async (req, res) => {
 });
 
 // POST /build/command/:projectId/budget/set — Update budget limits
-router.post("/build/command/:projectId/budget/set", async (req, res) => {
+router.post("/build/command/:projectId/budget/set", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.params.projectId, 64);
   if (!projectId) {
     res.status(400).json({ error: "projectId required" });
@@ -2488,7 +2503,7 @@ router.post("/build/command/:projectId/budget/set", async (req, res) => {
  * Phase 5.3: Edge Cases — Pre-flight check before build operations
  * GET /api/jarvis/build/preflight/:projectId
  */
-router.get("/build/preflight/:projectId", async (req: Request, res: Response) => {
+router.get("/build/preflight/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2508,7 +2523,7 @@ router.get("/build/preflight/:projectId", async (req: Request, res: Response) =>
  * Phase 5.3: Edge Cases — Disk space status
  * GET /api/jarvis/build/disk-space/:projectId
  */
-router.get("/build/disk-space/:projectId", async (req: Request, res: Response) => {
+router.get("/build/disk-space/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2527,7 +2542,7 @@ router.get("/build/disk-space/:projectId", async (req: Request, res: Response) =
  * Phase 5.3: Edge Cases — Wait for disk space (pause build until space available)
  * POST /api/jarvis/build/wait-disk/:projectId
  */
-router.post("/build/wait-disk/:projectId", async (req: Request, res: Response) => {
+router.post("/build/wait-disk/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2548,7 +2563,7 @@ router.post("/build/wait-disk/:projectId", async (req: Request, res: Response) =
  * Phase 5.3: Edge Cases — Workspace corruption detection
  * GET /api/jarvis/build/corruption/:projectId
  */
-router.get("/build/corruption/:projectId", async (req: Request, res: Response) => {
+router.get("/build/corruption/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2567,7 +2582,7 @@ router.get("/build/corruption/:projectId", async (req: Request, res: Response) =
  * Phase 5.3: Edge Cases — Workspace auto-repair
  * POST /api/jarvis/build/repair/:projectId
  */
-router.post("/build/repair/:projectId", async (req: Request, res: Response) => {
+router.post("/build/repair/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2591,7 +2606,7 @@ router.post("/build/repair/:projectId", async (req: Request, res: Response) => {
  * Phase 5.3: Edge Cases — Git conflict handling
  * POST /api/jarvis/build/git-conflict/:projectId
  */
-router.post("/build/git-conflict/:projectId", async (req: Request, res: Response) => {
+router.post("/build/git-conflict/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2611,7 +2626,7 @@ router.post("/build/git-conflict/:projectId", async (req: Request, res: Response
  * Phase 5.3: Edge Cases — Build queue status
  * GET /api/jarvis/build/queue/:projectId
  */
-router.get("/build/queue/:projectId", async (req: Request, res: Response) => {
+router.get("/build/queue/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2630,7 +2645,7 @@ router.get("/build/queue/:projectId", async (req: Request, res: Response) => {
  * Phase 5.3: Edge Cases — Edge cases list (unresolved)
  * GET /api/jarvis/build/edge-cases/:projectId
  */
-router.get("/build/edge-cases/:projectId", async (req: Request, res: Response) => {
+router.get("/build/edge-cases/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     if (!projectId) {
@@ -2649,7 +2664,7 @@ router.get("/build/edge-cases/:projectId", async (req: Request, res: Response) =
  * Phase 5.3: Edge Cases — Resolve edge case
  * POST /api/jarvis/build/edge-cases/:projectId/:edgeCaseId/resolve
  */
-router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", async (req: Request, res: Response) => {
+router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
     const projectId = cleanText(req.params.projectId as string, 64);
     const edgeCaseId = cleanText(req.params.edgeCaseId as string, 64);
@@ -2670,7 +2685,7 @@ router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", async (req: Requ
  * Phase 5.3: Edge Cases — Rate limit check
  * GET /api/jarvis/build/rate-limit/:key
  */
-router.get("/build/rate-limit/:key", async (req: Request, res: Response) => {
+router.get("/build/rate-limit/:key", requireAuth, async (req: Request, res: Response) => {
   try {
     const key = cleanText(req.params.key as string, 100);
     const maxRequests = Number(req.query.maxRequests) || 10;
@@ -2691,7 +2706,7 @@ router.get("/build/rate-limit/:key", async (req: Request, res: Response) => {
  * Phase 5.3: Edge Cases — Wait for rate limit
  * POST /api/jarvis/build/wait-rate-limit/:key
  */
-router.post("/build/wait-rate-limit/:key", async (req: Request, res: Response) => {
+router.post("/build/wait-rate-limit/:key", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
     const key = cleanText(req.params.key as string, 100);
     const maxRequests = Number(req.body?.maxRequests) || 10;

@@ -9,16 +9,18 @@ import { pgTable, text, timestamp, uuid, integer, boolean } from "drizzle-orm/pg
  *
  * Env-sourced keys (OPENAI_LLM_API_KEY, _2, _3 …) are merged into the pool at
  * runtime and are not stored here.
+ *
+ * Also supports user API keys (source="user-api") for headless CLI access.
  */
 export const llmKeys = pgTable("llm_keys", {
   id: uuid("id").primaryKey().defaultRandom(),
-  /** User-facing label, e.g. "NVIDIA #1" or "OpenRouter free". */
+  /** User-facing label, e.g. "NVIDIA #1" or "OpenRouter free" or "CLI Key - CI". */
   name: text("name").notNull(),
-  /** OpenAI-compatible base URL, e.g. https://integrate.api.nvidia.com/v1 */
+  /** OpenAI-compatible base URL, e.g. https://integrate.api.nvidia.com/v1 (not used for user-api) */
   baseUrl: text("base_url").notNull(),
   /** The API key itself — server-side only, never returned to the client. */
   apiKey: text("api_key").notNull(),
-  /** Model id this key is allowed to run, e.g. meta/llama-3.2-11b-vision-instruct */
+  /** Model id this key is allowed to run (not used for user-api) */
   model: text("model").notNull(),
   enabled: boolean("enabled").notNull().default(true),
   /** Lower = picked first in round-robin. */
@@ -31,6 +33,12 @@ export const llmKeys = pgTable("llm_keys", {
   failures: integer("failures").notNull().default(0),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  /** Source: "llm-provider" for LLM keys, "user-api" for CLI/API keys */
+  source: text("source", { enum: ["llm-provider", "user-api"] }).notNull().default("llm-provider"),
+  /** Project ID this key is scoped to (for user-api keys) */
+  projectId: text("project_id"),
+  /** Scopes/permissions for this key (for user-api keys) */
+  scopes: text("scopes").array(),
 });
 
 export type LlmKey = typeof llmKeys.$inferSelect;

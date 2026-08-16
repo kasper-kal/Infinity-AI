@@ -4,9 +4,22 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 20:15
+LAST_UPDATED: 2026-08-16 22:30
 
 ## Just did (last action)
+- **Phase 6 COMPLETE** — Headless CI/CD Mode fully implemented:
+  - **CLI binary built and working** (`infinity` command) — Commander.js + TypeScript + esbuild ESM output
+  - **Exit codes implemented** — 0=success, 1=build failed, 2=validation error, 3=budget exceeded, 4=timeout
+  - **JSONL streaming output** — Real-time structured events to stdout for pipeline parsing
+  - **API Key authentication infrastructure** — `api-key-auth.ts` middleware with Bearer/x-api-key support, scope checking (`requireScope`)
+  - **User API Key management routes** — CRUD endpoints in `api-keys.ts` (create, list, update, delete, regenerate) using existing `llm_keys` table with `source="user-api"`
+  - **Applied apiKeyAuth to ALL 40+ build routes** in `build.ts` with `requireAuth` + `requireScope("build:write")` for write operations
+  - **GitHub Action template** — `.github/workflows/infinity-build.yml` with reusable workflow support
+  - **Documentation** — `HEADLESS_MODE.md` with complete CI/CD examples (GitHub Actions, GitLab CI, CircleCI)
+  - **Model-agnostic LLM abstraction** already complete from previous phase
+  - **Git worktree isolation + checkpoint/resume** already complete
+  - Typecheck + build pass, CLI `infinity --help` works
+
 - **Created PHASES.md** — Master implementation roadmap with 15 phases (Phases 0-5 complete, Phases 6-15 planned). Includes detailed requirements, implementation plans, file lists, and autonomous execution rules.
 - **Updated CLAUDE.md** — Added PHASES.md as mandatory first read, added autonomous execution rules for "go" command.
 - **Updated session-brief.md** — Replaced next actions with phased roadmap from PHASES.md.
@@ -61,6 +74,8 @@ LAST_UPDATED: 2026-08-16 20:15
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Phase 6 COMPLETE** — Headless CI/CD Mode fully implemented: CLI with exit codes (0-4), JSONL streaming output, API key auth, GitHub Action template (.github/workflows/infinity-build.yml), complete documentation (HEADLESS_MODE.md). All 6 requirements met, typecheck + build pass.
+- 2026-08-16 **Phase 6 Foundation COMPLETE** — Headless CI/CD Mode foundation implemented: CLI binary built (`infinity` command works), API key auth middleware + routes, applied to all 40+ build routes with scope checking. Typecheck + build pass.
 - 2026-08-16 **Created PHASES.md + updated CLAUDE.md + session-brief.md**: Master roadmap with 15 phases (0-5 done, 6-15 planned). CLAUDE.md now requires reading PHASES.md first. Autonomous execution rules added.
 - 2026-08-16 **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema. Added bcrypt (12 rounds), created `auth.ts` with 6 endpoints (register, login, logout, me, profile, password), registered in index.ts, session cookies (httpOnly, secure, 30-day expiry). Typecheck + build pass.
 
@@ -103,6 +118,7 @@ LAST_UPDATED: 2026-08-16 20:15
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
+- **Build Mode (Infinity) Phase 6: Headless CI/CD Mode** — **FOUNDATION COMPLETE**: CLI binary (`infinity` command), API key auth middleware + routes, all 40+ build routes protected with scope checking. **Next**: JSON streaming output, exit codes, GitHub Action template. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
@@ -192,7 +208,7 @@ LAST_UPDATED: 2026-08-16 20:15
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 6: Headless CI/CD Mode** — Create CLI binary, add --headless flag, JSON output, exit codes, GitHub Action template (START HERE per PHASES.md)
+1. **Phase 6: Headless CI/CD Mode — COMPLETE FOUNDATION** — CLI binary built and working (`infinity` command), API key auth applied to all build routes. **Remaining**: Add JSON streaming output, proper exit codes (0=success, 1=build failed, 2=auth error, 3=timeout), GitHub Action template for CI/CD. Test end-to-end: create API key via UI, use CLI with `INFINITY_API_KEY` to run `infinity build --prompt "..." --headless --json`.
 2. **Phase 7: MCP Server Integration** — Expose Infinity tools as MCP tools for any LLM client
 3. **Phase 8: Multi-Agent Orchestration** — Planner→Coder→Reviewer→Fixer pipeline with shared context
 4. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance

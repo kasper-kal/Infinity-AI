@@ -1,0 +1,259 @@
+# Infinity AI - Headless Build CI/CD Workflow
+#
+# This workflow runs Infinity AI builds in headless mode for CI/CD pipelines.
+# It requires the following secrets:
+# - INFINITY_API_KEY: API key created via the Infinity UI (Settings → API Keys)
+# - INFINITY_API_URL: (optional) API server URL, defaults to https://api.infinity.local
+#
+# Usage:
+# 1. Create an API key in Infinity UI with "build:write" scope
+# 2. Add INFINITY_API_KEY to repository secrets
+# 3. Trigger manually or on push/PR
+#
+# For scheduled builds, see the cron schedule below (commented out by default).
+
+name: Infinity AI Headless Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Build prompt/goal"
+        required: true
+        type: string
+        default: "Build a todo app with React and TypeScript"
+      project_id:
+        description: "Project ID (default: default)"
+        required: false
+        type: string
+        default: "default"
+      workspace_id:
+        description: "Workspace ID (default: project_id)"
+        required: false
+        type: string
+        default: "default"
+      max_iterations:
+        description: "Maximum agent iterations (1-30)"
+        required: false
+        type: string
+        default: "20"
+      temperature:
+        description: "LLM temperature 0-1"
+        required: false
+        type: string
+        default: "0.2"
+      extra_system_prompt:
+        description: "Extra system prompt instructions"
+        required: false
+        type: string
+      plan:
+        description: "JSON plan string (for scaffold mode)"
+        required: false
+        type: string
+
+  # Uncomment to enable scheduled builds (daily at 2 AM UTC)
+  # schedule:
+  #   - cron: '0 2 * * *'
+
+  # Uncomment to run on push to main
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'infinity/**'
+  #     - '.github/workflows/infinity-build.yml'
+
+  # Uncomment to run on pull requests
+  # pull_request:
+  #   branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+env:
+  INFINITY_API_URL: ${{ secrets.INFINITY_API_URL || 'https://api.infinity.local' }}
+  INFINITY_API_KEY: ${{ secrets.INFINITY_API_KEY }}
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    name: Headless Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Infinity CLI
+        run: |
+          # Install from the repository (or npm when published)
+          cd artifacts/cli
+          npm ci
+          npm run build
+          # Add to PATH
+          echo "$(pwd)/dist" >> $GITHUB_PATH
+
+      - name: Verify CLI installation
+        run: |
+          infinity --version
+          infinity config
+
+      - name: Run Headless Build (Scaffold)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.plan == ''
+        id: scaffold
+        env:
+          INFINITY_API_KEY: ${{ secrets.INFINITY_API_KEY }}
+          INFINITY_API_URL: ${{ env.INFINITY_API_URL }}
+        run: |
+          infinity build \
+            --headless \
+            --json \
+            --project-id "${{ github.event.inputs.project_id }}" \
+            --workspace-id "${{ github.event.inputs.workspace_id }}" \
+            --prompt "${{ github.event.inputs.prompt }}" \
+            --max-iterations "${{ github.event.inputs.max_iterations }}" \
+            --temperature "${{ github.event.inputs.temperature }}" \
+            ${{
+              github.event.inputs.extra_system_prompt != '' &&
+              format('--extra-system-prompt "{0}"', github.event.inputs.extra_system_prompt) || ''
+            }} \
+            --output build-result.json \
+            --exit-on-failure
+
+      - name: Run Headless Build (Iterate with Plan)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.plan != ''
+        id: iterate
+        env:
+          INFINITY_API_KEY: ${{ secrets.INFINITY_API_KEY }}
+          INFINITY_API_URL: ${{ env.INFINITY_API_URL }}
+        run: |
+          infinity build \
+            --headless \
+            --json \
+            --project-id "${{ github.event.inputs.project_id }}" \
+            --workspace-id "${{ github.event.inputs.workspace_id }}" \
+            --prompt "${{ github.event.inputs.prompt }}" \
+            --plan '${{ github.event.inputs.plan }}' \
+            --max-iterations "${{ github.event.inputs.max_iterations }}" \
+            --temperature "${{ github.event.inputs.temperature }}" \
+            ${{
+              github.event.inputs.extra_system_prompt != '' &&
+              format('--extra-system-prompt "{0}"', github.event.inputs.extra_system_prompt) || ''
+            }} \
+            --output build-result.json \
+            --exit-on-failure
+
+      - name: Upload Build Result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinity-build-result
+          path: artifacts/cli/build-result.json
+          retention-days: 7
+
+      - name: Parse Build Result
+        if: always()
+        id: parse
+        run: |
+          if [ -f artifacts/cli/build-result.json ]; then
+            cat artifacts/cli/build-result.json
+            SUCCESS=$(jq -r '.success // false' artifacts/cli/build-result.json)
+            SUMMARY=$(jq -r '.summary // "No summary"' artifacts/cli/build-result.json)
+            ITERATIONS=$(jq -r '.iterations // 0' artifacts/cli/build-result.json)
+            TOOL_CALLS=$(jq -r '.toolCalls // 0' artifacts/cli/build-result.json)
+
+            echo "success=$SUCCESS" >> $GITHUB_OUTPUT
+            echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+            echo "iterations=$ITERATIONS" >> $GITHUB_OUTPUT
+            echo "tool_calls=$TOOL_CALLS" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "summary=Build result file not found" >> $GITHUB_OUTPUT
+            echo "iterations=0" >> $GITHUB_OUTPUT
+            echo "tool_calls=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Build Summary
+        if: always()
+        run: |
+          echo "# Infinity AI Build Result" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.parse.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Summary:** ${{ steps.parse.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Iterations:** ${{ steps.parse.outputs.iterations }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tool Calls:** ${{ steps.parse.outputs.tool_calls }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Triggered by: ${{ github.actor }}*" >> $GITHUB_STEP_SUMMARY
+          echo "*Workflow: ${{ github.workflow }} #${{ github.run_number }}*" >> $GITHUB_STEP_SUMMARY
+          echo "*Commit: ${{ github.sha }}*" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail job if build failed
+        if: steps.parse.outputs.success != 'true'
+        run: |
+          echo "Build failed: ${{ steps.parse.outputs.summary }}"
+          exit 1
+
+  # Optional: Run verification after build
+  verify:
+    name: Verify Build
+    needs: build
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download build result
+        uses: actions/download-artifact@v4
+        with:
+          name: infinity-build-result
+          path: build-output
+
+      - name: Run verification
+        run: |
+          if [ -f build-output/build-result.json ]; then
+            cat build-output/build-result.json | jq '.'
+            echo "Build verification passed"
+          else
+            echo "No build result to verify"
+            exit 1
+          fi
+
+      - name: Run project tests (if package.json exists)
+        run: |
+          # If the build created a project with tests, run them
+          # This is a placeholder - customize based on your project structure
+          echo "Test step - customize for your project"
+
+  # Optional: Deploy preview (example for Netlify/Vercel)
+  # deploy-preview:
+  #   name: Deploy Preview
+  #   needs: verify
+  #   if: needs.verify.result == 'success'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Deploy to preview
+  #       run: |
+  #         # Example: npx netlify deploy --dir=dist --prod
+  #         echo "Deploy preview step - configure for your platform"
+
+# Reusable workflow for other repositories to call
+# Usage in another repo:
+# jobs:
+#   infinity-build:
+#     uses: kasper-kal/Infinity-AI/.github/workflows/infinity-build.yml@main
+#     secrets:
+#       INFINITY_API_KEY: ${{ secrets.INFINITY_API_KEY }}
+#     with:
+#       prompt: "Build a dashboard with charts"
+#       project_id: "my-project"
