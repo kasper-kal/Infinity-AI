@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 14:05
+LAST_UPDATED: 2026-08-16 14:25
 
 ## Just did (last action)
 - **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation (`generateStarterFiles()`) with a tool-using autonomous coding agent that progressively explores, modifies, and verifies the workspace:
@@ -41,6 +41,7 @@ LAST_UPDATED: 2026-08-16 14:05
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Removed legacy single-shot generation functions**: Deleted `generateStarterFiles()`, `parseStarterFiles()`, `reviewFallback()`, and `reviewAndFixWorkspace()` from `build.ts` — no longer used since `/build/scaffold` and `/build/iterate` now use `runAutonomousAgent` (Phase 1 Autonomous Coding Agent). Typecheck + build pass.
 - 2026-08-16 **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous coding agent. Created `build-tools.ts` (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff), `build-agent.ts` (AgentState machine, runAutonomousAgent, runAgentForStep, runAgentIteration, parseToolCalls, checkDone, runVerification), 3 new routes in build.ts (`/build/agent/run`, `/build/agent/step`, `/build/agent/tools`). Fixed TypeScript errors: ScreenshotViewport export, BuildEventType agent events, PlanStep type conflict. Typecheck + build pass.
 - 2026-08-16 **Model-Agnostic LLM Abstraction COMPLETE**: Implemented strict architectural abstraction layer so Infinity agent NEVER knows which LLM provider powers it. Created `llm-adapter.ts` (LLMAdapter interface, OpenAICompatibleAdapter for any OpenAI-compatible API, LLMAdapterError with sanitization), `infinity-prompt.ts` (INFINITY_IDENTITY immutable prefix + role-specific instructions + buildInfinityPrompt single entry point), `adapter-factory.ts` (createBestAdapter, createManualAdapter, createAdapterFromEntry, adapterFactory). Migrated all 10+ LLM call sites in build.ts, chat.ts, browse.ts, debug.ts to new abstraction. Fixed TypeScript errors in llm-adapter.ts (OpenAIClient interface→class, tool call chunk index), browse.ts (LLMContentPart import), debug.ts (completion.content access). Typecheck + build pass. All providers (Claude, GPT, Gemini, OpenRouter, NVIDIA NIM, local vLLM, future) now work identically.
 - 2026-08-16 **File System Access API Integration COMPLETE**: Added browser-native File System Access API (`window.showDirectoryPicker`) to Infinity Build for persistent local folder workspace; created `file-system-access.ts` + `indexed-db.ts`; modified `build-studio.tsx` with FS API integration (fallback to backend API); Explorer sidebar UI (Connect/Disconnect, status indicator, reconnecting spinner); browser unsupported warning for Safari/Firefox; 11 i18n keys (EN+NL); typecheck + build pass
