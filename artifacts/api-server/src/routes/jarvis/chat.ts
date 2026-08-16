@@ -1082,8 +1082,10 @@ router.post("/chat", async (req, res) => {
     // Chat and voice do NOT auto-loop through API keys (that is the rule for
     // every other mode: 10 attempts per key with a 10s cooldown, then the next
     // key). Here we do ONE attempt on the requested key (or the best healthy
-    // key), and on failure the user decides: try the same key again, or move
-    // to the next key. The choices come from the `llm_manual_retry` error.
+    // key). On failure the user decides via UI:
+    // fail → "Try same key" button (retries same key once)
+    // → if fails again → "Try next key" button (tries next key in pool).
+    // The choices come from the `llm_manual_retry` error.
     let manualKey: LlmKeyEntry | null = null;
     try {
       manualKey = await resolveManualKey(keyId);
@@ -1103,6 +1105,8 @@ router.post("/chat", async (req, res) => {
     if (!manualKey) return; // unreachable, resolveManualKey throws or returns a key
     // One-shot create against the chosen key. `runOnceWithKey` reports
     // success/failure to the health pool but never retries or fails over.
+    // Manual create - single attempt per key. User controls retries via UI:
+    // fail → retry button (same key) → if fail again → retry button (next key)
     const manualCreate = (params: unknown) =>
       runOnceWithKey(manualKey!, (c, m) =>
         c.chat.completions.create({

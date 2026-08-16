@@ -102,7 +102,9 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
 
   // Manual LLM-key retry (chat/voice): when the chosen key fails, remember the
   // last send so "Try same key" / "Try next key" can re-send with a keyId.
+  // User wants: fail → "Try same key" button → if fails again → "Try next key" button
   const [keyRetry, setKeyRetry] = useState<ManualKeyRetry | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState<0 | 1 | 2>(0); // 0=initial, 1=first retry (same key), 2=second retry (next key)
   const lastSendArgsRef = useRef<{
     userText: string; file: AttachedFile | null; speak: boolean;
     codeAllowance?: boolean; researchMode?: boolean; buildAllowance?: boolean; keyId?: string;
@@ -130,6 +132,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
     // Remember the send so the manual key-retry buttons can re-send it.
     lastSendArgsRef.current = { userText, file: file ?? null, speak, codeAllowance, researchMode, buildAllowance, keyId };
     setKeyRetry(null);
+    setRetryAttempt(0);
     // Optimistically add message (with file preview if any)
     setMessages(prev => [...prev, { role: 'user', content: userText, file: file ?? undefined, timestamp: Date.now(), id: nextMsgId() }]);
     setSuggestions([]);
@@ -171,15 +174,32 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
           // "Try next key" instead of a plain error.
           if (errBody?.code === 'llm_manual_retry') {
             if (errBody?.key?.id) {
-              setKeyRetry({
-                message: errBody.error || 'LLM key failed',
-                keyId: errBody.key.id,
-                keyName: errBody.key.name ?? errBody.key.id,
-                nextKeyId: errBody.nextKey?.id ?? null,
-                nextKeyName: errBody.nextKey?.name ?? null,
-              });
-              setStatus('idle');
-              return;
+              // First failure: show "Try same key" only
+              // After retrySameKey is clicked and fails again: show "Try next key"
+              if (retryAttempt === 0) {
+                setKeyRetry({
+                  message: errBody.error || 'LLM key failed',
+                  keyId: errBody.key.id,
+                  keyName: errBody.key.name ?? errBody.key.id,
+                  nextKeyId: null, // Hide next key on first failure
+                  nextKeyName: null,
+                });
+                setRetryAttempt(1);
+                setStatus('idle');
+                return;
+              } else if (retryAttempt === 1) {
+                // Second failure: now show "Try next key"
+                setKeyRetry({
+                  message: errBody.error || 'LLM key failed again',
+                  keyId: errBody.key.id,
+                  keyName: errBody.key.name ?? errBody.key.id,
+                  nextKeyId: errBody.nextKey?.id ?? null,
+                  nextKeyName: errBody.nextKey?.name ?? null,
+                });
+                setRetryAttempt(2);
+                setStatus('idle');
+                return;
+              }
             }
             handleError(errBody.error || 'No LLM key available', errBody.detail);
             return;
@@ -516,24 +536,28 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
   useEffect(() => { processUserTextRef.current = processUserText; }, [processUserText]);
 
   // Re-send the last failed message against a specific key (manual mode).
-  const retryWithKey = useCallback((keyId: string | null) => {
+  const retryWithKey = useCallback((keyId: string | null, attempt: 1 | 2) => {
     const a = lastSendArgsRef.current;
     if (!a || !keyId) return;
     setKeyRetry(null);
+    setRetryAttempt(attempt);
     void processUserTextRef.current?.(a.userText, a.file, a.speak, a.codeAllowance, a.researchMode, a.buildAllowance, keyId);
   }, []);
 
   const retrySameKey = useCallback(() => {
     if (!keyRetry?.keyId) return;
-    retryWithKey(keyRetry.keyId);
+    retryWithKey(keyRetry.keyId, 1); // First retry - same key
   }, [keyRetry, retryWithKey]);
 
   const retryNextKey = useCallback(() => {
     if (!keyRetry?.nextKeyId) return;
-    retryWithKey(keyRetry.nextKeyId);
+    retryWithKey(keyRetry.nextKeyId, 2); // Second retry - next key
   }, [keyRetry, retryWithKey]);
 
-  const dismissKeyRetry = useCallback(() => setKeyRetry(null), []);
+  const dismissKeyRetry = useCallback(() => {
+    setKeyRetry(null);
+    setRetryAttempt(0);
+  }, []);
 
   return {
     processUserText,
