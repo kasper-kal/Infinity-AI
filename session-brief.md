@@ -121,7 +121,19 @@ LAST_UPDATED: 2026-08-16 18:30
 
 ## Next actions
 1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this - the build agent has edit_file tool)
-2. **Auth system** — Check if accounts/sessions tables exist in schema (they do) — implement login/register using existing tables
+2. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
+3. **Continue Tavily research for Build Mode competitive analysis** — 1-hour investigation to make Infinity "THE BEST IT CAN BE for $0" by comparing to Claude Code, Replit Agent, and other services
+   - **Completed searches**: AI coding assistant comparisons (Claude Code, Replit Agent, Cursor), free local LLM models (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral), open source agent architectures (OpenHands, Cline, Aider, Goose), MCP browser automation, agent architecture best practices
+   - **Key findings so far**: 
+     - Free LLM APIs in 2026: OpenRouter, Groq, Cerebras, Google AI Studio, NVIDIA NIM - all no credit card required
+     - Best free tier combination: OpenRouter (model variety + failover) + Groq/Cerebras (speed) + Google AI Studio (context) + local Ollama (unlimited)
+     - Top local coding models: Devstral (46.8% SWE-Bench Verified, 24B params, 128k context), Codestral (22B, 80+ languages, 32k context), Qwen3-Coder, DeepSeek-Coder-V2
+     - OpenHands: Self-hosted control center, multiple agent backends, ACP-compatible, Docker/VM/local
+     - Cline: Model-agnostic (200+ providers via OpenRouter), Plan/Act modes, .clinerules, MCP servers, multi-agent teams
+     - Aider: Repo mapping, auto-git commits, voice-to-code, linting/testing, terminal CLI
+     - Goose: Rust-based, desktop/CLI/API, 15+ LLM providers, 70+ MCP extensions, ACP protocol
+     - Infinity already has: Autonomous agent with 9 tools, worktree isolation, checkpoint/resume, browser pool, model-agnostic LLM abstraction, file system access API, extension for browser control
+     - **Gaps to address**: Multi-agent coordination, scheduled agents/cron, messaging connectors (Slack/Discord/Telegram), headless CI/CD mode, ACP protocol support, MCP server integration, deeper SWE-Bench optimization
 3. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
 4. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
