@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 03:15
+LAST_UPDATED: 2026-08-16 13:27
 
 ## Just did (last action)
 - **File System Access API Integration COMPLETE**: Added browser-native File System Access API (`window.showDirectoryPicker`) to Infinity Build so users can select a local directory as a persistent workspace, removing manual file uploads:
@@ -36,6 +36,7 @@ LAST_UPDATED: 2026-08-16 03:15
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Model-Agnostic LLM Abstraction COMPLETE**: Implemented strict architectural abstraction layer so Infinity agent NEVER knows which LLM provider powers it. Created `llm-adapter.ts` (LLMAdapter interface, OpenAICompatibleAdapter for any OpenAI-compatible API, LLMAdapterError with sanitization), `infinity-prompt.ts` (INFINITY_IDENTITY immutable prefix + role-specific instructions + buildInfinityPrompt single entry point), `adapter-factory.ts` (createBestAdapter, createManualAdapter, createAdapterFromEntry, adapterFactory). Migrated all 10+ LLM call sites in build.ts, chat.ts, browse.ts, debug.ts to new abstraction. Fixed TypeScript errors in llm-adapter.ts (OpenAIClient interface→class, tool call chunk index), browse.ts (LLMContentPart import), debug.ts (completion.content access). Typecheck + build pass. All providers (Claude, GPT, Gemini, OpenRouter, NVIDIA NIM, local vLLM, future) now work identically.
 - 2026-08-16 **File System Access API Integration COMPLETE**: Added browser-native File System Access API (`window.showDirectoryPicker`) to Infinity Build for persistent local folder workspace; created `file-system-access.ts` + `indexed-db.ts`; modified `build-studio.tsx` with FS API integration (fallback to backend API); Explorer sidebar UI (Connect/Disconnect, status indicator, reconnecting spinner); browser unsupported warning for Safari/Firefox; 11 i18n keys (EN+NL); typecheck + build pass
 - 2026-08-16 **Phase 5.3 — Edge Cases INTEGRATION COMPLETE**: Wired preflightCheck, enqueueBuild, withRetry into `/build/execute-plan` and `/build/iterate` in build.ts; pre-flight validation before builds, concurrent build queuing per project, LLM call retry with exponential backoff; typecheck + build pass — Phase 5.3 now FULL COMPLETE
 - 2026-08-16 **Phase 5.3 — Edge Cases FRONTEND COMPLETE**: Debug panel wired with 5 Edge Cases action buttons (Preflight, Disk Space, Queue, Edge Cases, Rate Limit) + status grid display; loading states; 9 new i18n keys EN+NL; typecheck + build pass
@@ -86,7 +87,7 @@ LAST_UPDATED: 2026-08-16 03:15
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Build Mode (Infinity) COMPLETE** — All Phase 0-5 tasks finished + File System Access API integration complete. Next: verify end-to-end functionality or move to Projects System (Project Files, Project Research, Project Tasks, UI cleanup) or Book Studio live end-to-end run.
+1. **Build Mode (Infinity) COMPLETE** — All Phase 0-5 tasks finished + File System Access API integration complete + **Model-Agnostic LLM Abstraction complete**. Next: verify end-to-end functionality or move to Projects System (Project Files, Project Research, Project Tasks, UI cleanup) or Book Studio live end-to-end run.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
