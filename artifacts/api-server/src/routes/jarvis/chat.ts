@@ -27,6 +27,9 @@ import { buildErrorDetail } from "../../lib/error-detail";
 import { listSourceFiles, readSourceFile, writeSourceFile } from "../../lib/source-code";
 import { fetchFigmaDesignTokens, figmaTokensToContext } from "../../lib/figma";
 import { pooledClient, LLMAllKeysCoolingError, listKeys, resolveManualKey, runOnceWithKey, type LlmKeyEntry } from "../../lib/llm-client";
+import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
+import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
+import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -487,13 +490,10 @@ async function extractAndStoreMemories(
   }
 
   try {
-    const client = pooledClient();
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "system",
-          content: `You extract personal facts worth remembering long-term from a conversation snippet.
+    const adapter = await createBestAdapter();
+    const systemPrompt = buildInfinityPrompt({
+      role: "chat",
+      extraInstructions: `You extract personal facts worth remembering long-term from a conversation snippet.
 Return ONLY a valid JSON array of objects with "topic" and "value" fields, no explanation, no markdown.
 Each topic must be a short snake_case label (e.g. "favorite_animal", "name", "home_city").
 Each value must be a concise English sentence describing what was learned (e.g. "The user likes frogs").
@@ -503,17 +503,20 @@ Be EXTREMELY selective, only remember DURABLE personal facts the user has explic
 Do NOT remember: lyrics, song titles, quotes, one-off questions, temporary tasks, things already obvious from context, transient info, facts stated by the assistant, or things the user said about third parties. If the user quotes something or says a lyric, that is NOT a fact about them.
 Examples of what NOT to remember: "favorite band: The user likes Wham!" (this was a lyric, not a preference), "year of birth: born before 1987" (this was a joke/lyric, not a stated fact).
 Only save if the user EXPLICITLY says "my name is X", "I work as Y", "I live in Z", "my favorite X is Y", etc.`,
-        },
-        {
-          role: "user",
-          content: `User said: "${userMessage}"\nAssistant replied: "${assistantResponse}"`,
-        },
-      ],
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: `User said: "${userMessage}"\nAssistant replied: "${assistantResponse}"`,
+      },
+    ], {
       temperature: 0.2,
-      max_tokens: 200,
+      maxTokens: 200,
+      jsonMode: true,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const raw = completion.content.trim() ?? "[]";
     const match = raw.match(/\[.*\]/s);
     if (!match) return;
     const parsed = JSON.parse(match[0]);
@@ -545,13 +548,10 @@ async function extractAndStoreProjectMemories(
   assistantResponse: string,
 ): Promise<void> {
   try {
-    const client = pooledClient();
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "system",
-          content: `You extract durable facts that are useful for continuing work inside one software or personal project.
+    const adapter = await createBestAdapter();
+    const systemPrompt = buildInfinityPrompt({
+      role: "chat",
+      extraInstructions: `You extract durable facts that are useful for continuing work inside one software or personal project.
 Return ONLY a valid JSON array of objects with "category", "key", and "content" fields, no explanation, no markdown.
 Use a category such as about, technical, architecture, decisions, constraints, requirements, preferences, or goals.
 Each key must be a short canonical snake_case label for the fact, stable across future updates.
@@ -560,17 +560,20 @@ Return [] when nothing durable and project-specific was stated.
 Be extremely selective. Extract only useful project facts explicitly stated or clearly confirmed by the user in this exchange.
 Do not save temporary tasks, questions, guesses, assistant claims, generic programming knowledge, or personal facts unrelated to this project.
 If a later statement changes an earlier fact, use the same key so the existing memory is updated rather than duplicated.`,
-        },
-        {
-          role: "user",
-          content: `Project conversation: "${conversationTitle.slice(0, 160)}"\nUser said: "${userMessage.slice(0, 4000)}"\nAssistant replied: "${assistantResponse.slice(0, 4000)}"`,
-        },
-      ],
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: `Project conversation: "${conversationTitle.slice(0, 160)}"\nUser said: "${userMessage.slice(0, 4000)}"\nAssistant replied: "${assistantResponse.slice(0, 4000)}"`,
+      },
+    ], {
       temperature: 0.1,
-      max_tokens: 500,
+      maxTokens: 500,
+      jsonMode: true,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const raw = completion.content.trim() ?? "[]";
     const match = raw.match(/\[.*\]/s);
     if (!match) return;
     const parsed: unknown = JSON.parse(match[0]);
@@ -675,25 +678,24 @@ async function generateSuggestions(
   assistantResponse: string,
 ): Promise<string[]> {
   try {
-    const client = pooledClient();
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "system",
-          content:
-            'You generate exactly 3 short follow-up questions or replies (max 7 words each) that a user might naturally say next, based on the assistant\'s last response. Return ONLY a valid JSON array of 3 strings, no explanation, no markdown, nothing else. Example: ["Tell me more","What about X?","How does that work?"]',
-        },
-        {
-          role: "user",
-          content: `Assistant said: "${assistantResponse.slice(0, 800)}"`,
-        },
-      ],
+    const adapter = await createBestAdapter();
+    const systemPrompt = buildInfinityPrompt({
+      role: "chat",
+      extraInstructions: 'You generate exactly 3 short follow-up questions or replies (max 7 words each) that a user might naturally say next, based on the assistant\'s last response. Return ONLY a valid JSON array of 3 strings, no explanation, no markdown, nothing else. Example: ["Tell me more","What about X?","How does that work?"]',
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: `Assistant said: "${assistantResponse.slice(0, 800)}"`,
+      },
+    ], {
       temperature: 0.8,
-      max_tokens: 80,
+      maxTokens: 80,
+      jsonMode: true,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "[]";
+    const raw = completion.content.trim() ?? "[]";
     // Extract JSON array from response (model may wrap it in markdown)
     const match = raw.match(/\[.*\]/s);
     if (!match) return [];
@@ -708,27 +710,26 @@ async function generateSuggestions(
 /** Generate a short 2-4 word conversation title from the user's first message. */
 async function generateConversationTitle(firstUserMessage: string): Promise<string | null> {
   try {
-    const client = pooledClient();
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Generate a short conversation title of 2 to 4 words based only on the user's first message. " +
-            "Return ONLY a single plain string. No JSON, no quotes, no markdown, no explanation. " +
-            'Examples: "Weather in London", "Debugging auth", "Best ramen spots"',
-        },
-        {
-          role: "user",
-          content: `First message: "${firstUserMessage.slice(0, 300)}"`,
-        },
-      ],
+    const adapter = await createBestAdapter();
+    const systemPrompt = buildInfinityPrompt({
+      role: "chat",
+      extraInstructions:
+        "Generate a short conversation title of 2 to 4 words based only on the user's first message. " +
+        "Return ONLY a single plain string. No JSON, no quotes, no markdown, no explanation. " +
+        'Examples: "Weather in London", "Debugging auth", "Best ramen spots"',
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: `First message: "${firstUserMessage.slice(0, 300)}"`,
+      },
+    ], {
       temperature: 0.3,
-      max_tokens: 30,
+      maxTokens: 30,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const raw = completion.content.trim() ?? "";
     let cleaned = raw.replace(/^```json\s*|^```.*\n?|```$/g, "").trim();
     cleaned = cleaned.replace(/^["']|["']$/g, "").trim();
 

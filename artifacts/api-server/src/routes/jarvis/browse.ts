@@ -6,6 +6,9 @@ import * as cheerio from "cheerio";
 import { buildErrorDetail } from "../../lib/error-detail";
 import { pooledClient, LLMAllKeysCoolingError } from "../../lib/llm-client";
 import { notifyAll } from "../../lib/web-push";
+import { createBestAdapter } from "../../lib/adapter-factory";
+import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
+import { LLMAdapter, LLMAdapterError, LLMContentPart } from "../../lib/llm-adapter";
 
 const router = Router();
 
@@ -471,8 +474,6 @@ router.post("/agent-run", async (req, res) => {
     if (!res.writableEnded) res.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
 
-  const client = pooledClient();
-
   let browser: JarvisBrowser;
   try {
     browser = await getBrowser();
@@ -616,25 +617,25 @@ router.post("/agent-run", async (req, res) => {
         `Step ${step} of ${stepsLimit}. Choose the single best next command.`;
 
       try {
-        const completion = await client.chat.completions.create({
-          model: jarvisConfig.llmModel,
-          messages: [
-            { role: "system", content: AGENT_SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: { url: `data:image/jpeg;base64,${grid.image}` },
-                },
-                { type: "text", text: userPrompt },
-              ] as OpenAI.Chat.ChatCompletionContentPart[],
-            },
-          ],
-          temperature: 0.2,
-          max_tokens: 400,
+        const adapter = await createBestAdapter();
+        const systemPrompt = buildInfinityPrompt({
+          role: "chat",
+          extraInstructions: AGENT_SYSTEM_PROMPT,
         });
-        raw = completion.choices[0]?.message?.content?.trim() ?? "";
+        const completion = await adapter.complete([
+          { role: "system", content: sanitizePrompt(systemPrompt) },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${grid.image}` } },
+              { type: "text", text: userPrompt },
+            ] as LLMContentPart[],
+          },
+        ], {
+          temperature: 0.2,
+          maxTokens: 400,
+        });
+        raw = completion.content.trim() ?? "";
       } catch (err) {
         // All providers cooling down, pause, don't die mid-loop.
         if (err instanceof LLMAllKeysCoolingError) {
@@ -644,7 +645,11 @@ router.post("/agent-run", async (req, res) => {
           res.end();
           return;
         }
-        send({ type: "error", message: `Vision LLM failed: ${(err as Error).message}` });
+        if (err instanceof LLMAdapterError) {
+          send({ type: "error", message: `Vision LLM failed: ${err.message}` });
+        } else {
+          send({ type: "error", message: `Vision LLM failed: ${(err as Error).message}` });
+        }
         break;
       }
       decision = parseAgentAction(raw, grid.cols, grid.rows, elements.length - 1);

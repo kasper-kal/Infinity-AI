@@ -2,6 +2,9 @@ import { Router } from "express";
 import { pooledClient } from "../../lib/llm-client";
 import { jarvisConfig } from "../../config/jarvis";
 import { cleanText, parseJsonObject } from "../../lib/text-utils";
+import { createBestAdapter } from "../../lib/adapter-factory";
+import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
+import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 
 const router = Router();
 
@@ -222,7 +225,7 @@ router.post("/debug/suggest-fixes", async (req, res) => {
   }
 
   try {
-    const client = pooledClient();
+    const adapter = await createBestAdapter();
 
     const prompt = `You are a code debugging expert. A developer encountered this error:
 
@@ -259,24 +262,23 @@ Return ONLY valid JSON with this exact structure:
 
 Never explain your reasoning outside the JSON. Return ONLY the JSON object.`;
 
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert debugger. Respond with ONLY valid JSON, no other text. Always provide exactly 3 fixes.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+    const systemPrompt = buildInfinityPrompt({
+      role: "fixer",
+      extraInstructions: "You are an expert debugger. Respond with ONLY valid JSON, no other text. Always provide exactly 3 fixes.",
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ], {
       temperature: 0.7,
-      max_tokens: 2000,
+      maxTokens: 2000,
+      jsonMode: true,
     });
 
-    const responseText = completion.choices[0]?.message?.content?.trim() ?? "";
+    const responseText = completion.content.trim() ?? "";
     const parsed = parseJsonObject(responseText);
 
     if (!parsed || !Array.isArray(parsed.fixes)) {
@@ -352,7 +354,7 @@ router.post("/debug/explain-error", async (req, res) => {
   }
 
   try {
-    const client = pooledClient();
+    const adapter = await createBestAdapter();
 
     const prompt = `Explain this error in simple, clear language:
 
@@ -370,19 +372,22 @@ Provide:
 
 Keep it concise and beginner-friendly.`;
 
-    const completion = await client.chat.completions.create({
-      model: jarvisConfig.llmModel,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+    const systemPrompt = buildInfinityPrompt({
+      role: "chat",
+      extraInstructions: "You are an expert at explaining programming errors in simple, beginner-friendly language.",
+    });
+    const completion = await adapter.complete([
+      { role: "system", content: sanitizePrompt(systemPrompt) },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ], {
       temperature: 0.7,
-      max_tokens: 800,
+      maxTokens: 800,
     });
 
-    const explanation = cleanText(completion.choices[0]?.message?.content?.trim() ?? "", 1200);
+    const explanation = cleanText(completion.content.trim() ?? "", 1200);
 
     return res.json({
       ok: true,
