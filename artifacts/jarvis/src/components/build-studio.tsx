@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bug, Camera, Check, ChevronDown, ChevronRight, Code2, Container, Database, Download, FilePlus2, Folder, FolderPlus, GitBranch, GitCommit, Globe, Hammer, History, LayoutTemplate, Loader2, Moon, MoreHorizontal, Package, Play, Plus, RefreshCw, Save, Search, Send, Sparkles, Square, Sun, Terminal, TestTube2, Trash2, Upload, X, Zap } from 'lucide-react';
+import { Bug, Camera, Check, ChevronDown, ChevronRight, Code2, Container, Database, Download, FilePlus2, Folder, FolderPlus, GitBranch, GitCommit, Globe, Hammer, History, LayoutTemplate, Loader2, Moon, MoreHorizontal, Package, Play, Plus, RefreshCw, Save, Search, Send, Sparkles, Square, Sun, Terminal, TestTube2, Trash2, Upload, X, Zap, Link, Unlink, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import type { TerminalResult } from '@/types/widget';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/use-theme';
@@ -18,6 +18,28 @@ import { useBuildShortcuts, createDefaultShortcuts, formatShortcut } from '@/hoo
 import { BuildCommandPalette, createDefaultCommandPaletteItems, type CommandPaletteItem } from '@/components/build-command-palette';
 import { BuildDebugPanel } from '@/components/build-debug-panel';
 import '@/lib/build-ui-theme.css';
+import {
+  isFileSystemAccessSupported,
+  pickDirectory,
+  verifyPermission,
+  requestPermission,
+  ensurePermission,
+  readFile,
+  writeFile,
+  readDirectoryRecursive,
+  readAllTextFiles,
+  deletePath as fsDeletePath,
+  renamePath as fsRenamePath,
+  createDirectory as fsCreateDirectory,
+  storeHandleMeta,
+  loadStoredHandleMeta,
+  clearStoredHandleMeta,
+  reconnectWorkspace,
+  connectAndStoreWorkspace,
+  disconnectWorkspace,
+  getBrowserSupportMessage,
+  FileSystemAccessError,
+} from '@/lib/file-system-access';
 
 interface WorkspaceFile { path: string; type: 'file' | 'dir'; size: number; }
 interface SavedApp { id: string; name: string; description: string; metadata?: { fileCount?: number; envKeys?: string[]; previewPort?: number | null }; }
@@ -340,6 +362,15 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [qualityBusy, setQualityBusy] = useState(false);
   const [debugError, setDebugError] = useState<ParsedDebugError | null>(null);
+
+  // File System Access API state
+  const [fsHandle, setFsHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [fsSupported, setFsSupported] = useState(false);
+  const [fsPermissionState, setFsPermissionState] = useState<PermissionState>('denied');
+  const [fsFolderName, setFsFolderName] = useState<string>('');
+  const [fsReconnecting, setFsReconnecting] = useState(false);
+  const [fsError, setFsError] = useState<string | null>(null);
+
   const [debugFixes, setDebugFixes] = useState<ErrorFix[]>([]);
   const [debugBusy, setDebugBusy] = useState(false);
   const [debugOutput, setDebugOutput] = useState('');
@@ -453,11 +484,34 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   }), [expanded, files]);
 
   const loadFiles = useCallback(async () => {
+    if (fsHandle) {
+      try {
+        const hasPermission = await ensurePermission(fsHandle, 'read');
+        if (!hasPermission) {
+          setFsPermissionState('prompt');
+          setNotice(t('studio.build.folderPermissionPrompt'));
+          return;
+        }
+        const entries = await readDirectoryRecursive(fsHandle);
+        const filesData: WorkspaceFile[] = entries.map((e) => ({
+          path: e.path,
+          type: e.type,
+          size: e.size,
+        }));
+        setFiles(filesData);
+        onRefreshFiles?.();
+        return;
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied'));
+      }
+    }
+
+    // Fallback to backend API
     const { response, data } = await apiJson<{ files?: WorkspaceFile[] }>(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (!response.ok) return;
     setFiles(data.files ?? []);
     onRefreshFiles?.();
-  }, [onRefreshFiles, workspaceId]);
+  }, [onRefreshFiles, workspaceId, fsHandle]);
 
   const loadSavedApps = useCallback(async () => {
     const { response, data } = await apiJson<SavedApp[]>('/api/jarvis/build/apps');
@@ -475,6 +529,40 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   useEffect(() => {
     if (!open) return;
+
+    // Initialize File System Access API
+    const initFS = async () => {
+      const supported = isFileSystemAccessSupported();
+      setFsSupported(supported);
+
+      if (supported) {
+        // Try to reconnect to previously selected folder
+        setFsReconnecting(true);
+        try {
+          const result = await reconnectWorkspace();
+          setFsPermissionState(result.permissionState);
+
+          if (result.handle) {
+            setFsHandle(result.handle);
+            // Load folder name from stored metadata
+            const meta = await loadStoredHandleMeta();
+            if (meta) setFsFolderName(meta.name);
+          } else if (result.permissionState === 'prompt') {
+            // User needs to re-select the folder - show prompt in UI
+            setFsError(null); // Not an error, just needs user action
+          }
+        } catch (err) {
+          setFsError(err instanceof Error ? err.message : 'Failed to reconnect');
+        } finally {
+          setFsReconnecting(false);
+        }
+      } else {
+        const msg = getBrowserSupportMessage();
+        if (msg) setFsError(msg);
+      }
+    };
+
+    void initFS();
     void loadFiles(); void loadSavedApps(); void loadEnvironment(); void loadPackages(); void refreshGit(); void loadQuality();
     return () => { streamRef.current?.close(); streamRef.current = null; hotReloadRef.current?.close(); hotReloadRef.current = null; };
   }, [loadEnvironment, loadFiles, loadSavedApps, open]);
@@ -713,18 +801,47 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   };
 
   const openFile = async (path: string) => {
-    const { response, data } = await apiJson<{ content?: string }>(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`);
-    if (!response.ok) return;
-    setSelectedPath(path); setContent(data.content ?? ''); setDirty(false); setTab('editor');
+    let content = '';
+    if (fsHandle) {
+      try {
+        content = await readFile(fsHandle, path);
+      } catch (err) {
+        setNotice(t('studio.build.folderPermissionDenied'));
+        return;
+      }
+    } else {
+      const { response, data } = await apiJson<{ content?: string }>(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`);
+      if (!response.ok) return;
+      content = data.content ?? '';
+    }
+    setSelectedPath(path); setContent(content); setDirty(false); setTab('editor');
     setOpenPaths((current) => current.includes(path) ? current : [...current, path]);
   };
 
   const saveFile = async () => {
     if (!selectedPath) return;
     setBusy(true);
-    const { response } = await apiJson('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: selectedPath, content }) });
-    setBusy(false); setNotice(response.ok ? 'File saved' : 'Could not save file');
-    if (response.ok) { setDirty(false); void loadFiles(); }
+    let ok = false;
+    if (fsHandle) {
+      try {
+        // Verify we have write permission
+        const hasPermission = await ensurePermission(fsHandle, 'readwrite');
+        if (!hasPermission) {
+          setNotice(t('studio.build.folderReadOnly'));
+          setBusy(false);
+          return;
+        }
+        await writeFile(fsHandle, selectedPath, content);
+        ok = true;
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied'));
+      }
+    } else {
+      const { response } = await apiJson('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: selectedPath, content }) });
+      ok = response.ok;
+    }
+    setBusy(false); setNotice(ok ? 'File saved' : 'Could not save file');
+    if (ok) { setDirty(false); void loadFiles(); }
   };
 
   const runCommand = async (command = terminalInput) => {
@@ -763,10 +880,78 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     streamRef.current?.close(); streamRef.current = null; setTerminalRunning(false); setTerminalId(null);
   };
 
-  const createFile = async () => { const name = window.prompt(t('studio.build.newFile')); if (name) { await fetch('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name, content: '' }) }); void loadFiles(); } };
-  const createFolder = async () => { const name = window.prompt('Folder path'); if (name) { await fetch('/api/jarvis/workspace/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name }) }); void loadFiles(); } };
-  const renamePath = async (path: string) => { const next = window.prompt('Rename to', path.replace(/\/$/, '')); if (next && next !== path.replace(/\/$/, '')) { await fetch('/api/jarvis/workspace', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, from: path, to: next }) }); void loadFiles(); } };
-  const deletePath = async (path: string) => { if (window.confirm(`Delete ${path}?`)) { await fetch(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' }); if (selectedPath === path) { setSelectedPath(null); setContent(''); } void loadFiles(); } };
+  const createFile = async () => {
+    const name = window.prompt(t('studio.build.newFile'));
+    if (!name) return;
+    let ok = false;
+    if (fsHandle) {
+      try {
+        const hasPermission = await ensurePermission(fsHandle, 'readwrite');
+        if (!hasPermission) { setNotice(t('studio.build.folderReadOnly')); return; }
+        await writeFile(fsHandle, name, '');
+        ok = true;
+      } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
+    } else {
+      const { response } = await apiJson('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name, content: '' }) });
+      ok = response.ok;
+    }
+    if (ok) void loadFiles();
+  };
+
+  const createFolder = async () => {
+    const name = window.prompt('Folder path');
+    if (!name) return;
+    let ok = false;
+    if (fsHandle) {
+      try {
+        const hasPermission = await ensurePermission(fsHandle, 'readwrite');
+        if (!hasPermission) { setNotice(t('studio.build.folderReadOnly')); return; }
+        await fsCreateDirectory(fsHandle, name);
+        ok = true;
+      } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
+    } else {
+      const { response } = await apiJson('/api/jarvis/workspace/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name }) });
+      ok = response.ok;
+    }
+    if (ok) void loadFiles();
+  };
+
+  const renamePath = async (path: string) => {
+    const next = window.prompt('Rename to', path.replace(/\/$/, ''));
+    if (!next || next === path.replace(/\/$/, '')) return;
+    let ok = false;
+    if (fsHandle) {
+      try {
+        const hasPermission = await ensurePermission(fsHandle, 'readwrite');
+        if (!hasPermission) { setNotice(t('studio.build.folderReadOnly')); return; }
+        await fsRenamePath(fsHandle, path, next);
+        if (selectedPath === path) { setSelectedPath(next); }
+        ok = true;
+      } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
+    } else {
+      const { response } = await apiJson('/api/jarvis/workspace', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, from: path, to: next }) });
+      ok = response.ok;
+    }
+    if (ok) void loadFiles();
+  };
+
+  const deletePath = async (path: string) => {
+    if (!window.confirm(`Delete ${path}?`)) return;
+    let ok = false;
+    if (fsHandle) {
+      try {
+        const hasPermission = await ensurePermission(fsHandle, 'readwrite');
+        if (!hasPermission) { setNotice(t('studio.build.folderReadOnly')); return; }
+        await fsDeletePath(fsHandle, path);
+        if (selectedPath === path) { setSelectedPath(null); setContent(''); }
+        ok = true;
+      } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
+    } else {
+      const { response } = await apiJson(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+      ok = response.ok;
+    }
+    if (ok) void loadFiles();
+  };
 
   // Phase 2.1: Helpers for diff preview parsing
   const parseDiffHunks = (diffText: string): FileDiff['hunks'] => {
@@ -1437,8 +1622,120 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         <div className="mt-auto" />
         <button type="button" title="Settings" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"><Database className="h-4 w-4" /></button>
       </div>
-      <aside className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-border bg-card p-2 md:w-56 md:flex-col md:border-b-0 md:border-r"><div className="mb-1 flex items-center justify-between px-2"><span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Explorer</span><div className="flex gap-1"><button type="button" onClick={() => void createFile()} title="New file" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FilePlus2 className="h-3.5 w-3.5" /></button><button type="button" onClick={() => void createFolder()} title="New folder" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FolderPlus className="h-3.5 w-3.5" /></button><button type="button" onClick={() => void loadFiles()} title="Refresh" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><RefreshCw className="h-3.5 w-3.5" /></button></div></div><div className="min-h-0 flex-1 overflow-auto">{visibleFiles.map((file) => { const clean = file.path.replace(/\/$/, ''); const depth = clean.split('/').length - 1; const isDir = file.type === 'dir'; return <div key={file.path} className="group flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-foreground hover:bg-white/[0.08]" style={{ paddingLeft: `${8 + depth * 12}px` }}><button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => isDir ? setExpanded((current) => { const next = new Set(current); next.has(clean) ? next.delete(clean) : next.add(clean); return next; }) : void openFile(file.path)}>{isDir ? (expanded.has(clean) ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />) : <span className="w-3" />}{isDir ? <Folder className="h-3.5 w-3.5 text-amber-400" /> : <Code2 className="h-3.5 w-3.5 text-primary" />}<span className="truncate">{clean.split('/').pop()}</span></button><button type="button" onClick={() => void renamePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-foreground group-hover:block" title="Rename">···</button><button type="button" onClick={() => void deletePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-rose-400 group-hover:block" title="Delete"><Trash2 className="h-3 w-3" /></button></div>; })}</div><div className="hidden border-t border-border pt-3 md:block"><p className="mb-2 text-[9px] uppercase tracking-widest text-muted-foreground/60">{t('studio.build.savedApps')}</p>{savedApps.slice(0, 5).map((app) => <button type="button" key={app.id} onClick={() => void restoreApp(app.id)} className="mb-1 flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><ChevronRight className="h-3 w-3" />{app.name}</button>)}</div></aside>
-      <main className="min-h-0 flex-1 overflow-hidden bg-background"><div className="max-h-44 shrink-0 overflow-auto border-b border-border bg-card px-3 py-2">{activities.map((activity) => <div key={activity.id} className="flex items-start gap-2 py-1.5 text-[11px]"><span className="mt-0.5 rounded-md border border-border bg-secondary p-1 text-primary">{activity.icon === 'camera' ? <Camera className="h-3 w-3" /> : activity.icon === 'terminal' ? <Terminal className="h-3 w-3" /> : activity.icon === 'check' ? <Check className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}</span><span className="min-w-0 flex-1 text-muted-foreground">{activity.message}</span>{activity.actionCount ? <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[9px] text-muted-foreground">{activity.actionCount} {t('studio.build.actions')}</span> : null}</div>)}{completion && <div className="mt-2 rounded-xl border" style={{ borderColor: 'var(--build-completion-border)', backgroundColor: 'var(--build-completion-bg)', color: 'var(--build-completion-text)' }}><p className="font-semibold">{t('studio.build.completionTitle')}</p><p className="mt-1 text-muted-foreground">{completion.summary}</p>{completion.files.length > 0 && <p className="mt-1 text-[10px] text-muted-foreground">{completion.files.length} {t('studio.build.filesChanged')}</p>}{completion.deferred.length > 0 && <p className="mt-2 text-[10px]" style={{ color: 'var(--build-warning-text)' }}>{completion.deferred.join(', ')}</p>}</div>}{autoFixPass > 0 && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: 'var(--build-primary-border)', backgroundColor: 'var(--build-primary-bg)' }}><span style={{ color: 'var(--build-primary-text)' }}>Iteration {autoFixPass} running…</span><button type="button" onClick={() => { stopPipelineRef.current = true; }} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white" style={{ backgroundColor: 'var(--build-error-bg)' }}><Square className="h-3 w-3" />Stop iterating</button></div>}</div><div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2">{coreTabs.map(([value, label, Icon]) => <button type="button" key={value} onClick={() => setTab(value)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${tab === value ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={tab === value ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><Icon className="h-3.5 w-3.5" />{label}</button>)}<button type="button" onClick={() => setMoreOpen((current) => !current)} aria-expanded={showMore} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${activeInMore ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={activeInMore ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><MoreHorizontal className="h-3.5 w-3.5" />More{activeInMore && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}<ChevronDown className={`h-3 w-3 transition-transform ${showMore ? 'rotate-180' : ''}`} /></button>{showMore && moreTabs.map(([value, label, Icon]) => <button type="button" key={value} onClick={() => setTab(value)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${tab === value ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={tab === value ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
+      <aside className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-border bg-card p-2 md:w-56 md:flex-col md:border-b-0 md:border-r">
+        {/* File System Access API - Connect/Disconnect folder */}
+        {fsSupported && !fsHandle && (
+          <div className="w-full mb-2 p-2 rounded-lg border border-border bg-secondary">
+            <p className="mb-2 text-[10px] text-muted-foreground">{t('studio.build.connectLocalFolder')}</p>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const { handle, name } = await connectAndStoreWorkspace();
+                  setFsHandle(handle);
+                  setFsFolderName(name);
+                  setFsPermissionState('granted');
+                  void loadFiles();
+                  setNotice(t('studio.build.folderConnected', { folder: name }));
+                } catch (err) {
+                  if (err instanceof DOMException && err.name === 'AbortError') return;
+                  setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied'));
+                }
+              }}
+              className="w-full flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              {t('studio.build.connectLocalFolder')}
+            </button>
+          </div>
+        )}
+        {fsHandle && (
+          <div className="w-full mb-2 p-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-xs text-emerald-400">{t('studio.build.folderConnected')}</span>
+              </div>
+              <span className="text-[10px] truncate max-w-[140px] text-emerald-400/80">{fsFolderName}</span>
+            </div>
+            <div className="mt-2 flex gap-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  await disconnectWorkspace();
+                  setFsHandle(null);
+                  setFsFolderName('');
+                  setFsPermissionState('denied');
+                  void loadFiles();
+                  setNotice(t('studio.build.folderDisconnected'));
+                }}
+                className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-[10px] text-foreground hover:bg-white/[0.08]"
+              >
+                <Unlink className="h-3 w-3" />
+                {t('studio.build.disconnectFolder')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadFiles()}
+                className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 text-[10px] text-foreground hover:bg-white/[0.08]"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh
+              </button>
+            </div>
+          </div>
+        )}
+        {fsReconnecting && (
+          <div className="w-full mb-2 p-2 rounded-lg border border-amber-400/30 bg-amber-400/10">
+            <div className="flex items-center gap-2 text-xs text-amber-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t('studio.build.folderReconnecting')}
+            </div>
+          </div>
+        )}
+        {fsError && !fsHandle && !fsSupported && (
+          <div className="w-full mb-2 p-2 rounded-lg border border-rose-400/30 bg-rose-400/10">
+            <div className="flex items-center gap-2 text-xs text-rose-400">
+              <AlertCircle className="h-3 w-3" />
+              {fsError}
+            </div>
+          </div>
+        )}
+
+        {/* Explorer header with file operations */}
+        <div className="mb-1 flex items-center justify-between px-2">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Explorer</span>
+          <div className="flex gap-1">
+            {fsHandle ? (
+              <>
+                <button type="button" onClick={() => void createFile()} title={t('studio.build.newFile')} className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FilePlus2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => void createFolder()} title="New folder" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FolderPlus className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => void loadFiles()} title="Refresh" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><RefreshCw className="h-3.5 w-3.5" /></button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => void createFile()} title={t('studio.build.newFile')} className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FilePlus2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => void createFolder()} title="New folder" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><FolderPlus className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => void loadFiles()} title="Refresh" className="rounded p-1 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><RefreshCw className="h-3.5 w-3.5" /></button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">{visibleFiles.map((file) => { const clean = file.path.replace(/\/$/, ''); const depth = clean.split('/').length - 1; const isDir = file.type === 'dir'; return <div key={file.path} className="group flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-foreground hover:bg-white/[0.08]" style={{ paddingLeft: `${8 + depth * 12}px` }}><button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => isDir ? setExpanded((current) => { const next = new Set(current); next.has(clean) ? next.delete(clean) : next.add(clean); return next; }) : void openFile(file.path)}>{isDir ? (expanded.has(clean) ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />) : <span className="w-3" />}{isDir ? <Folder className="h-3.5 w-3.5 text-amber-400" /> : <Code2 className="h-3.5 w-3.5 text-primary" />}<span className="truncate">{clean.split('/').pop()}</span></button><button type="button" onClick={() => void renamePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-foreground group-hover:block" title="Rename">···</button><button type="button" onClick={() => void deletePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-rose-400 group-hover:block" title="Delete"><Trash2 className="h-3 w-3" /></button></div>; })}</div><div className="hidden border-t border-border pt-3 md:block"><p className="mb-2 text-[9px] uppercase tracking-widest text-muted-foreground/60">{t('studio.build.savedApps')}</p>{savedApps.slice(0, 5).map((app) => <button type="button" key={app.id} onClick={() => void restoreApp(app.id)} className="mb-1 flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><ChevronRight className="h-3 w-3" />{app.name}</button>)}</div></aside>
+      <main className="min-h-0 flex-1 overflow-hidden bg-background">
+        {/* Browser unsupported warning banner */}
+        {!fsSupported && fsError && (
+          <div className="w-full border-b border-rose-400/30 bg-rose-400/10 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-rose-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-rose-400">{t('studio.build.folderUnsupported')}</p>
+                <p className="mt-1 text-xs text-rose-400/80">{fsError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="max-h-44 shrink-0 overflow-auto border-b border-border bg-card px-3 py-2">{activities.map((activity) => <div key={activity.id} className="flex items-start gap-2 py-1.5 text-[11px]"><span className="mt-0.5 rounded-md border border-border bg-secondary p-1 text-primary">{activity.icon === 'camera' ? <Camera className="h-3 w-3" /> : activity.icon === 'terminal' ? <Terminal className="h-3 w-3" /> : activity.icon === 'check' ? <Check className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}</span><span className="min-w-0 flex-1 text-muted-foreground">{activity.message}</span>{activity.actionCount ? <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[9px] text-muted-foreground">{activity.actionCount} {t('studio.build.actions')}</span> : null}</div>)}{completion && <div className="mt-2 rounded-xl border" style={{ borderColor: 'var(--build-completion-border)', backgroundColor: 'var(--build-completion-bg)', color: 'var(--build-completion-text)' }}><p className="font-semibold">{t('studio.build.completionTitle')}</p><p className="mt-1 text-muted-foreground">{completion.summary}</p>{completion.files.length > 0 && <p className="mt-1 text-[10px] text-muted-foreground">{completion.files.length} {t('studio.build.filesChanged')}</p>}{completion.deferred.length > 0 && <p className="mt-2 text-[10px]" style={{ color: 'var(--build-warning-text)' }}>{completion.deferred.join(', ')}</p>}</div>}{autoFixPass > 0 && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: 'var(--build-primary-border)', backgroundColor: 'var(--build-primary-bg)' }}><span style={{ color: 'var(--build-primary-text)' }}>Iteration {autoFixPass} running…</span><button type="button" onClick={() => { stopPipelineRef.current = true; }} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-white" style={{ backgroundColor: 'var(--build-error-bg)' }}><Square className="h-3 w-3" />Stop iterating</button></div>}</div><div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2">{coreTabs.map(([value, label, Icon]) => <button type="button" key={value} onClick={() => setTab(value)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${tab === value ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={tab === value ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><Icon className="h-3.5 w-3.5" />{label}</button>)}<button type="button" onClick={() => setMoreOpen((current) => !current)} aria-expanded={showMore} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${activeInMore ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={activeInMore ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><MoreHorizontal className="h-3.5 w-3.5" />More{activeInMore && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}<ChevronDown className={`h-3 w-3 transition-transform ${showMore ? 'rotate-180' : ''}`} /></button>{showMore && moreTabs.map(([value, label, Icon]) => <button type="button" key={value} onClick={() => setTab(value)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${tab === value ? 'bg-background text-white' : 'text-muted-foreground hover:bg-white/[0.06] hover:text-foreground'}`} style={tab === value ? { borderBottom: '2px solid var(--build-accent-read)' } : undefined}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
         {tab === 'editor' && <div className="flex h-[calc(100%-49px)] min-h-0 flex-col"><div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2">{openPaths.map((path) => <button type="button" key={path} onClick={() => void openFile(path)} className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] ${selectedPath === path ? 'bg-background text-white' : 'text-muted-foreground'}`}>{path}{selectedPath === path && dirty ? ' ·' : ''}</button>)}<button type="button" onClick={() => void createFile()} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><Plus className="h-3.5 w-3.5" /></button></div>{selectedPath ? <><div className="flex items-center justify-between border-b border-border bg-background px-3 py-2 text-[10px] text-muted-foreground"><span className="text-foreground">{selectedPath} <span className="text-muted-foreground">{languageFor(selectedPath)}{dirty ? ' · unsaved' : ''}</span></span><button type="button" disabled={!dirty || busy} onClick={() => void saveFile()} className="flex items-center gap-1 rounded-lg bg-primary/20 px-2.5 py-1.5 text-primary disabled:opacity-40"><Save className="h-3 w-3" />Save</button></div><div className="min-h-0 flex-1 overflow-hidden"><CodeEditor value={content} path={selectedPath} onChange={(value) => { setContent(value); setDirty(true); }} onCursorChange={(line, col) => setCursorPos({ line, col })} onSave={() => void saveFile()} /></div><div className="flex shrink-0 items-center gap-3 border-t border-border bg-primary px-3 py-1.5 text-[10px] text-white/80"><span className="font-medium text-white">{languageFor(selectedPath)}</span><span className="font-mono">{cursorPos ? `Ln ${cursorPos.line}, Col ${cursorPos.col}` : '—'}</span><span className="font-mono">{new Blob([content]).size.toLocaleString()} B</span><span className={dirty ? 'text-amber-300' : 'text-white'}>{dirty ? 'unsaved' : 'saved'}</span><span className="ml-auto hidden gap-2 sm:flex text-white/60">Ctrl+S save · Ctrl+J terminal · Ctrl+1–9 tabs</span></div></> : <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center"><Code2 className="h-10 w-10 text-primary/50" /><div><p className="text-sm font-semibold text-foreground">{t('studio.build.openFile')}</p><p className="mt-1 max-w-md text-xs text-muted-foreground">{t('studio.build.openFileDesc')}</p></div><div className="w-full max-w-md space-y-2"><input ref={scaffoldInputRef} value={scaffoldPrompt} onChange={(event) => setScaffoldPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void beginScaffold(); }} placeholder={t('studio.build.scaffoldPlaceholder')} className="min-w-0 w-full rounded-xl border border-white/[0.12] bg-input px-3 py-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground" /><textarea value={extraSystemPrompt} onChange={(event) => setExtraSystemPrompt(event.target.value)} placeholder="Optional extra instructions for Jarvis Build. These are added to, not a replacement for, the built-in Jarvis Build rules." rows={3} className="w-full resize-y rounded-xl border border-white/[0.12] bg-secondary px-3 py-2.5 text-xs text-foreground outline-none placeholder:text-muted-foreground" /><button type="button" onClick={() => void beginScaffold()} disabled={wizardBusy || !scaffoldPrompt.trim()} className="rounded-xl bg-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{t('studio.build.scaffold')}</button></div></div>}</div>}
         {tab === 'terminal' && <div className="flex h-[calc(100%-49px)] flex-col" style={{ background: 'var(--build-bg)' }}><div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground"><Terminal className="h-4 w-4" />{t('studio.build.terminalHint')} · {workspaceId}</div><div className="min-h-0 flex-1 space-y-2 overflow-auto font-mono text-xs p-4">{terminalLines.map((line, index) => <div key={index} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2"><div className="text-primary">$ {line.command}</div><pre className="mt-1 whitespace-pre-wrap text-foreground">{line.output || '(no output)'}</pre><div className={line.exitCode === 0 ? 'text-emerald-400' : line.exitCode == null ? 'text-amber-300' : 'text-rose-400'}>{line.exitCode == null ? 'running…' : `exit ${line.exitCode}`}</div></div>)}</div><form onSubmit={(event) => { event.preventDefault(); void runCommand(); }} className="mt-3 flex gap-2 p-4"><span className="py-2 font-mono text-primary">$</span><input value={terminalInput} onChange={(event) => setTerminalInput(event.target.value)} placeholder={t('studio.build.commandPlaceholder')} className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 font-mono text-xs text-white outline-none placeholder:text-muted-foreground focus:border-primary" /><button type="button" disabled={terminalRunning} onClick={() => void startStreamingCommand()} className="rounded-lg border border-primary px-3 py-2 text-xs text-primary disabled:opacity-50">{terminalRunning ? 'Running' : 'Stream'}</button>{terminalRunning ? <button type="button" onClick={() => void stopTerminal()} className="rounded-lg bg-rose-500 px-3 py-2 text-xs font-medium text-white"><Square className="h-3 w-3" /></button> : <button type="submit" className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white">{t('studio.build.run')}</button>}</form></div>}
         {tab === 'preview' && <div className="flex h-[calc(100%-49px)] flex-col p-4"><div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-secondary p-3"><label className="flex-1 text-[10px] text-muted-foreground">{t('studio.build.runCommand')}<input value={previewCommand} onChange={(event) => setPreviewCommand(event.target.value)} className="mt-1 w-full rounded-lg border border-border bg-input px-2.5 py-2 font-mono text-xs text-foreground outline-none" /></label><label className="w-24 text-[10px] text-muted-foreground">{t('studio.build.port')}<input type="number" min={1024} max={65535} value={previewPort} onChange={(event) => setPreviewPort(Number(event.target.value))} className="mt-1 w-full rounded-lg border border-border bg-input px-2.5 py-2 font-mono text-xs text-foreground outline-none" /></label><button type="button" disabled={screenshotBusy} onClick={() => void captureScreenshot()} title={t('studio.build.screenshotHint')} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground disabled:opacity-50">{screenshotBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}{t('studio.build.screenshot')}</button><button type="button" onClick={() => void toggleHotReload()} title="Auto-reload preview when files change" className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs ${hotReload ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-400' : 'border-border text-muted-foreground'}`}><RefreshCw className={`h-3 w-3 ${hotReload ? '' : 'opacity-50'}`} />Auto-reload</button>{previewRunning ? <button type="button" onClick={() => void stopPreview()} className="flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-xs text-rose-400"><Square className="h-3 w-3" />Stop</button> : <button type="button" disabled={busy} onClick={() => void startPreview()} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"><Play className="h-3 w-3" />{t('studio.build.runPreview')}</button>}</div><div className="mt-2 rounded-xl border p-3" style={{ borderColor: 'var(--build-primary-border)', backgroundColor: 'var(--build-primary-bg)' }}><div className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-primary" /><p className="text-[11px] font-semibold text-foreground">Jarvis browser agent</p><span className="text-[10px] text-muted-foreground">local preview only</span></div><div className="mt-2 flex gap-2"><input value={agentGoal} onChange={(event) => setAgentGoal(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void runPreviewAgent(); }} placeholder="Tell Jarvis what to do in the website, for example: submit the signup form" className="min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-muted-foreground" /><button type="button" disabled={!previewRunning || agentBusy || !agentGoal.trim()} onClick={() => void runPreviewAgent()} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[11px] font-medium text-white disabled:opacity-40">{agentBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}Run goal</button></div>{agentEvents.length > 0 && <div className="mt-2 max-h-24 space-y-1 overflow-auto text-[10px] text-muted-foreground">{agentEvents.map((event, index) => <p key={`${event.type}-${index}`} className={event.type === 'error' ? 'text-rose-400' : event.type === 'complete' ? 'text-emerald-400' : ''}>{event.step ? `Step ${event.step}: ` : ''}{event.message}</p>)}</div>}{agentConsoleErrors.length > 0 && <p className="mt-2 text-[10px] text-amber-300">{agentConsoleErrors.length} browser console error{agentConsoleErrors.length === 1 ? '' : 's'} observed</p>}</div>{previewUrl ? <iframe title="Build preview" src={`${previewUrl}?workspace=${encodeURIComponent(workspaceId)}`} className="mt-3 min-h-0 flex-1 rounded-xl border border-border bg-background" /> : <div className="flex flex-1 items-center justify-center text-center text-xs text-muted-foreground">{t('studio.build.previewEmpty')}</div>}{(screenshot || mobileScreenshot) && <div className="mt-2 flex shrink-0 items-stretch gap-3 rounded-xl border border-border bg-secondary p-3"><div className="flex shrink-0 gap-2">{screenshot && <div><p className="mb-1 text-[9px] uppercase tracking-widest text-muted-foreground">Desktop</p><img src={screenshot} alt="Desktop preview screenshot" className="h-28 w-44 rounded-lg border border-border object-cover object-top" /></div>}{mobileScreenshot && <div><p className="mb-1 text-[9px] uppercase tracking-widest text-muted-foreground">Mobile</p><img src={mobileScreenshot} alt="Mobile preview screenshot" className="h-28 w-16 rounded-lg border border-border object-cover object-top" /></div>}</div><div className="flex min-w-0 flex-1 flex-col gap-2"><p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t('studio.build.screenshot')}</p><input value={feedback} onChange={(event) => setFeedback(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void applyFeedback(); }} placeholder={t('studio.build.feedbackPlaceholder')} className="min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-muted-foreground" /><div className="flex items-center gap-2"><button type="button" disabled={busy || !feedback.trim()} onClick={() => void applyFeedback()} className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-medium text-white disabled:opacity-50">{busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}{t('studio.build.applyChanges')}</button><button type="button" onClick={() => { setScreenshot(null); setMobileScreenshot(null); }} className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button></div></div></div>}<pre className="mt-2 max-h-24 overflow-auto rounded-xl p-2 font-mono text-[10px] text-muted-foreground" style={{ background: 'var(--build-bg)' }}>{previewOutput}</pre></div>}

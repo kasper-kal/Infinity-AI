@@ -667,6 +667,19 @@ const en = {
   "studio.build.edgeRateLimit": "Rate Limit",
   "studio.build.edgeStatus": "Edge Cases Status",
 
+  /* Build Studio - Local Folder Access (File System Access API) */
+  "studio.build.connectLocalFolder": "Connect local folder",
+  "studio.build.disconnectFolder": "Disconnect folder",
+  "studio.build.folderConnected": "Local folder connected",
+  "studio.build.folderDisconnected": "Local folder disconnected",
+  "studio.build.folderPermissionDenied": "Permission denied for local folder",
+  "studio.build.folderPermissionPrompt": "Allow access to local folder?",
+  "studio.build.folderUnsupported": "File System Access API not supported in this browser",
+  "studio.build.folderReconnecting": "Reconnecting to local folder…",
+  "studio.build.folderReconnectFailed": "Failed to reconnect to local folder",
+  "studio.build.folderSelectTitle": "Select a folder for your workspace",
+  "studio.build.folderReadOnly": "Read-only access (request write permission to save)",
+
   /* Build Studio - Missing keys from Phase0 */
   "studio.build.consoleTitle": "Console",
   "studio.build.of": "of",
@@ -1835,6 +1848,19 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.edgeCases": "Randtaken",
   "studio.build.edgeRateLimit": "Snelheidslimiet",
   "studio.build.edgeStatus": "Randgevallen-status",
+
+  /* Build Studio - Local Folder Access (File System Access API) */
+  "studio.build.connectLocalFolder": "Lokale map koppelen",
+  "studio.build.disconnectFolder": "Map loskoppelen",
+  "studio.build.folderConnected": "Lokale map gekoppeld",
+  "studio.build.folderDisconnected": "Lokale map losgekoppeld",
+  "studio.build.folderPermissionDenied": "Toegang geweigerd voor lokale map",
+  "studio.build.folderPermissionPrompt": "Toegang tot lokale map toestaan?",
+  "studio.build.folderUnsupported": "File System Access API wordt niet ondersteund in deze browser",
+  "studio.build.folderReconnecting": "Opnieuw koppelen met lokale map…",
+  "studio.build.folderReconnectFailed": "Herstellen van koppeling met lokale map mislukt",
+  "studio.build.folderSelectTitle": "Selecteer een map voor je werkruimte",
+  "studio.build.folderReadOnly": "Alleen-lezen toegang (vraag schrijfrechten aan om op te slaan)",
 };
 
 export type TranslationKey = keyof typeof en;
