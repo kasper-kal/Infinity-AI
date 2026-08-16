@@ -4,19 +4,17 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 01:45
+LAST_UPDATED: 2026-08-16 02:10
 
 ## Just did (last action)
-- **Phase 5.3 — Edge Cases BACKEND COMPLETE**: Created `build-edge-cases.ts` library (~500 lines) with 6 resilience utilities + added 11 API routes to build.ts:
-  - **Network failure retry**: `withRetry()` with exponential backoff, configurable retryable errors
-  - **Disk full pause**: `checkDiskSpace()`, `waitForDiskSpace()` — pauses build until space recovers
-  - **Rate limit queue**: `checkRateLimit()`, `waitForRateLimit()` — token bucket per key with wait
-  - **Git conflict merge**: `handleGitConflict()` — auto-resolves (ours for build artifacts, theirs for source)
-  - **Workspace corruption detect**: `detectWorkspaceCorruption()`, `repairWorkspace()` — checks git, .infinity marker, tracked files
-  - **Concurrent build queue**: `enqueueBuild()`, `getBuildQueueStatus()` — per-project queue with priority
-  - **Pre-flight check**: `preflightCheck()` — comprehensive check before builds (disk, corruption, git, edge cases, queue)
-  - Added 11 REST routes: preflight, disk-space, wait-disk, corruption, repair, git-conflict, queue, edge-cases (list/resolve), rate-limit, wait-rate-limit
-  - Fixed TypeScript: exported `runGit` and `workspaceKey` from workspace.ts; added express.d.ts for req.log; resolved duplicate 'ok' spread issues
+- **Phase 5.3 — Edge Cases FRONTEND COMPLETE**: Wired Debug panel with Edge Cases UI in build-debug-panel.tsx:
+  - Added 5 action buttons: Preflight Check (Shield), Disk Space (HardDrive), Queue (ListChecks), Edge Cases (AlertTriangle), Rate Limit (Zap)
+  - Each has loading state with Loader2 spinner; results displayed in status grid below header
+  - Preflight shows pass/fail with issues list; Disk Space shows free/total/percent with critical/warning/ok badges
+  - Queue shows waiting count + busy/idle status; Edge Cases lists unresolved with type/severity/message
+  - Rate Limit shows allowed/limited with retry-after countdown
+  - Added Shield, HardDrive, GitMerge, AlertTriangle, Zap, ListChecks icon imports
+  - Added 9 new i18n keys (EN+NL): edgePreflight, edgePreflightOk, edgePreflightIssues, edgeDiskSpace, edgeQueue, edgeCases, edgeRateLimit, edgeStatus
   - Typecheck + full build pass
 
 ## Previous action (Gem→Expert rename, user-facing)
@@ -38,6 +36,7 @@ LAST_UPDATED: 2026-08-16 01:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Phase 5.3 — Edge Cases FRONTEND COMPLETE**: Debug panel wired with 5 Edge Cases action buttons (Preflight, Disk Space, Queue, Edge Cases, Rate Limit) + status grid display; loading states; 9 new i18n keys EN+NL; typecheck + build pass
 - 2026-08-16 **Phase 5.3 — Edge Cases BACKEND COMPLETE**: Created `build-edge-cases.ts` library (~500 lines) with 6 resilience utilities + 11 API routes in build.ts; network retry with backoff, disk full pause, rate limit queue, git conflict auto-resolve, workspace corruption detect/repair, concurrent build queue, pre-flight check; typecheck + build pass
 - 2026-08-16 **Phase 5.2 — Export/Share/Clone FRONTEND COMPLETE**: Debug panel wired with ZIP export, tar.gz export, Share (copy link), Clone (prompt target projectId) buttons; loading states, clipboard copy, success toast; 4 new i18n keys EN+NL; build-export.ts (6 backend routes) already complete prior session; typecheck + build pass
 - 2026-08-16 **Phase 5.1 — Telemetry + Debugging FULL COMPLETE**: Frontend Debug panel added (build-debug-panel.tsx) with Live/Replay toggle, 11-type filter, summary, count, export JSONL, copy summary, clear logs, type-colored event table; debug tab added to StudioTab/TAB_ORDER; 26 i18n keys (EN+NL); typecheck + build pass
@@ -77,7 +76,7 @@ LAST_UPDATED: 2026-08-16 01:45
 - **Build Mode (Infinity) Phase 4.3: Resource Limits + Cost Tracking** — **COMPLETE**: Per-workspace budgets, token/cost tracking, daily aggregates, dashboard stats, 7 REST routes; typecheck + build pass.
 - **Build Mode (Infinity) Phase 4.4: Command Palette + Keyboard Mastery** — **COMPLETE**: 10 server-side command routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set) backing client palette; typecheck + build pass.
 - **Build Mode (Infinity) Phase 5.1: Telemetry + Debugging** — **COMPLETE**: Backend `logBuildEvent` wired to all build lifecycle routes + checkpoints; REST routes (recent/all/summary/count, DELETE, batch POST); frontend Debug panel (build-debug-panel.tsx) with Live/Replay, type filter, summary, export JSONL, clear logs; 26 i18n keys; typecheck + build pass.
-- **Build Mode (Infinity) Phase 5.3: Edge Cases** — **BACKEND COMPLETE**: `build-edge-cases.ts` library + 11 REST routes; network retry, disk full pause, rate limit queue, git conflict auto-resolve, workspace corruption detect/repair, concurrent build queue, pre-flight check; typecheck + build pass
+- **Build Mode (Infinity) Phase 5.3: Edge Cases** — **FULL COMPLETE**: `build-edge-cases.ts` library + 11 REST routes + Debug panel UI (Preflight, Disk Space, Queue, Edge Cases, Rate Limit buttons + status grid); network retry, disk full pause, rate limit queue, git conflict auto-resolve, workspace corruption detect/repair, concurrent build queue, pre-flight check; 9 i18n keys EN+NL; typecheck + build pass
 - **Build Mode (Infinity) Phase 5.2: Export / Share / Clone** — **BACKEND + FRONTEND COMPLETE**: 6 backend routes (export/info, export/zip, export/tar-gz, share, shared/:token, clone) + Debug panel UI with ZIP/tar.gz export buttons, Share (copy link), Clone (prompt target projectId); 4 i18n keys; typecheck + build pass.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
@@ -85,8 +84,7 @@ LAST_UPDATED: 2026-08-16 01:45
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 5.3 Frontend** — Wire edge cases UI in Debug panel (pre-flight check button, disk status, queue status, edge cases list, rate limit status)
-2. **Phase 5.3 Integration** — Wire edge case handlers into build loop (`/build/execute-plan`, `/build/iterate`) to use preflightCheck, withRetry, enqueueBuild automatically
+1. **Phase 5.3 Integration** — Wire edge case handlers into build loop (`/build/execute-plan`, `/build/iterate`) to use preflightCheck, withRetry, enqueueBuild automatically
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

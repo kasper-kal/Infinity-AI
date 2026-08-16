@@ -17,6 +17,12 @@ import {
   Archive,
   Link,
   Loader2,
+  Shield,
+  HardDrive,
+  GitMerge,
+  AlertTriangle,
+  Zap,
+  ListChecks,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
@@ -99,6 +105,33 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const [shareBusy, setShareBusy] = useState(false);
   const [cloneBusy, setCloneBusy] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  // Phase 5.3 Edge Cases
+  const [edgeCasesBusy, setEdgeCasesBusy] = useState<string | null>(null);
+  const [preflightResult, setPreflightResult] = useState<{
+    ok: boolean;
+    checks: Record<string, boolean>;
+    issues: string[];
+  } | null>(null);
+  const [diskSpaceInfo, setDiskSpaceInfo] = useState<{
+    freeBytes: number;
+    totalBytes: number;
+    usedPercent: number;
+    critical: boolean;
+    warning: boolean;
+  } | null>(null);
+  const [queueStatus, setQueueStatus] = useState<{ waiting: number; processing: boolean } | null>(null);
+  const [edgeCasesList, setEdgeCasesList] = useState<Array<{
+    id: string;
+    type: string;
+    timestamp: string;
+    severity: string;
+    message: string;
+    details: Record<string, unknown>;
+    resolved: boolean;
+    resolvedAt?: string;
+    resolution?: string;
+  }>>([]);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ allowed: boolean; retryAfterMs?: number } | null>(null);
 
   const fetchLive = useCallback(async () => {
     if (loadingRef.current) return;
@@ -280,6 +313,110 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     } finally {
       setCloneBusy(false);
     }
+  };
+
+  // Phase 5.3 Edge Cases handlers
+  const handlePreflight = async () => {
+    setEdgeCasesBusy('preflight');
+    try {
+      const { response, data } = await apiJson<{
+        ok: boolean;
+        checks: Record<string, boolean>;
+        issues: string[];
+      }>(`/api/jarvis/build/preflight/${encodeURIComponent(workspaceId)}`);
+      if (response.ok) {
+        setPreflightResult(data);
+        alert(data.ok ? t('studio.build.edgePreflightOk') : t('studio.build.edgePreflightIssues', { issues: data.issues.join(', ') }));
+      }
+    } catch (err) {
+      console.error('[DebugPanel] preflight failed', err);
+    } finally {
+      setEdgeCasesBusy(null);
+    }
+  };
+
+  const handleDiskSpace = async () => {
+    setEdgeCasesBusy('disk');
+    try {
+      const { response, data } = await apiJson<{
+        freeBytes: number;
+        totalBytes: number;
+        usedPercent: number;
+        critical: boolean;
+        warning: boolean;
+      }>(`/api/jarvis/build/disk-space/${encodeURIComponent(workspaceId)}`);
+      if (response.ok) {
+        setDiskSpaceInfo(data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] disk space failed', err);
+    } finally {
+      setEdgeCasesBusy(null);
+    }
+  };
+
+  const handleQueueStatus = async () => {
+    setEdgeCasesBusy('queue');
+    try {
+      const { response, data } = await apiJson<{ waiting: number; processing: boolean }>(
+        `/api/jarvis/build/queue/${encodeURIComponent(workspaceId)}`
+      );
+      if (response.ok) {
+        setQueueStatus(data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] queue status failed', err);
+    } finally {
+      setEdgeCasesBusy(null);
+    }
+  };
+
+  const handleEdgeCasesList = async () => {
+    setEdgeCasesBusy('edge-cases');
+    try {
+      const { response, data } = await apiJson<{ edgeCases: Array<{
+        id: string;
+        type: string;
+        timestamp: string;
+        severity: string;
+        message: string;
+        details: Record<string, unknown>;
+        resolved: boolean;
+        resolvedAt?: string;
+        resolution?: string;
+      }> }>(`/api/jarvis/build/edge-cases/${encodeURIComponent(workspaceId)}`);
+      if (response.ok) {
+        setEdgeCasesList(data.edgeCases);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] edge cases list failed', err);
+    } finally {
+      setEdgeCasesBusy(null);
+    }
+  };
+
+  const handleRateLimit = async () => {
+    setEdgeCasesBusy('rate-limit');
+    try {
+      const { response, data } = await apiJson<{ allowed: boolean; retryAfterMs?: number }>(
+        `/api/jarvis/build/rate-limit/${encodeURIComponent(workspaceId)}?maxRequests=10&windowMs=60000`
+      );
+      if (response.ok) {
+        setRateLimitInfo(data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] rate limit failed', err);
+    } finally {
+      setEdgeCasesBusy(null);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   const filteredEvents = events.filter((e) => filterType === 'all' || e.type === filterType);
@@ -467,6 +604,60 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
               {cloneBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.debugClone') || 'Clone'}</span>}
             </button>
           </div>
+
+          {/* Edge Cases (Phase 5.3) */}
+          <div className="flex items-center gap-1.5 border-l border-border pl-2.5 ml-2">
+            <button
+              type="button"
+              onClick={handlePreflight}
+              disabled={edgeCasesBusy === 'preflight'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.edgePreflight') || 'Preflight Check'}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              {edgeCasesBusy === 'preflight' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgePreflight') || 'Preflight'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleDiskSpace}
+              disabled={edgeCasesBusy === 'disk'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.edgeDiskSpace') || 'Disk Space'}
+            >
+              <HardDrive className="h-3.5 w-3.5" />
+              {edgeCasesBusy === 'disk' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgeDiskSpace') || 'Disk'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleQueueStatus}
+              disabled={edgeCasesBusy === 'queue'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.edgeQueue') || 'Queue'}
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              {edgeCasesBusy === 'queue' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgeQueue') || 'Queue'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleEdgeCasesList}
+              disabled={edgeCasesBusy === 'edge-cases'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.edgeCases') || 'Edge Cases'}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {edgeCasesBusy === 'edge-cases' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgeCases') || 'Edge Cases'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleRateLimit}
+              disabled={edgeCasesBusy === 'rate-limit'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.edgeRateLimit') || 'Rate Limit'}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {edgeCasesBusy === 'rate-limit' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgeRateLimit') || 'Rate Limit'}</span>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -474,6 +665,107 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
       <div className="shrink-0 border-b border-border bg-secondary/50 px-3 py-2 text-[10px] text-muted-foreground">
         {t('studio.build.debugDesc')}
       </div>
+
+      {/* Edge Cases Status Display (Phase 5.3) */}
+      {(preflightResult || diskSpaceInfo || queueStatus || edgeCasesList.length > 0 || rateLimitInfo) && (
+        <div className="shrink-0 border-b border-border bg-secondary/50 p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t('studio.build.edgeStatus') || 'Edge Cases Status'}</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[10px] font-mono">
+            {preflightResult && (
+              <div className="rounded-lg bg-background p-2 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Shield className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{t('studio.build.edgePreflight') || 'Preflight'}</span>
+                  <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${preflightResult.ok ? 'bg-emerald-400/20 text-emerald-400' : 'bg-rose-400/20 text-rose-400'}`}>
+                    {preflightResult.ok ? 'OK' : 'ISSUES'}
+                  </span>
+                </div>
+                {!preflightResult.ok && preflightResult.issues.length > 0 && (
+                  <ul className="ml-4 space-y-0.5 text-rose-400">
+                    {preflightResult.issues.map((issue, i) => (
+                      <li key={i}>• {issue}</li>
+                    ))}
+                  </ul>
+                )}
+                {preflightResult.ok && (
+                  <p className="text-emerald-400 text-[10px]">All checks passed</p>
+                )}
+              </div>
+            )}
+            {diskSpaceInfo && (
+              <div className="rounded-lg bg-background p-2 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <HardDrive className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{t('studio.build.edgeDiskSpace') || 'Disk Space'}</span>
+                  <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${diskSpaceInfo.critical ? 'bg-rose-400/20 text-rose-400' : diskSpaceInfo.warning ? 'bg-amber-400/20 text-amber-400' : 'bg-emerald-400/20 text-emerald-400'}`}>
+                    {diskSpaceInfo.critical ? 'CRITICAL' : diskSpaceInfo.warning ? 'LOW' : 'OK'}
+                  </span>
+                </div>
+                <div className="text-muted-foreground space-y-0.5">
+                  <div>Free: {formatBytes(diskSpaceInfo.freeBytes)} / {formatBytes(diskSpaceInfo.totalBytes)}</div>
+                  <div>Used: {diskSpaceInfo.usedPercent.toFixed(1)}%</div>
+                </div>
+              </div>
+            )}
+            {queueStatus && (
+              <div className="rounded-lg bg-background p-2 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ListChecks className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{t('studio.build.edgeQueue') || 'Queue'}</span>
+                  <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${queueStatus.processing ? 'bg-amber-400/20 text-amber-400' : 'bg-emerald-400/20 text-emerald-400'}`}>
+                    {queueStatus.processing ? 'BUSY' : 'IDLE'}
+                  </span>
+                </div>
+                <div className="text-muted-foreground">
+                  Waiting: {queueStatus.waiting} task{queueStatus.waiting !== 1 ? 's' : ''}
+                </div>
+              </div>
+            )}
+            {edgeCasesList.length > 0 && (
+              <div className="rounded-lg bg-background p-2 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{t('studio.build.edgeCases') || 'Edge Cases'}</span>
+                  <span className="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-rose-400/20 text-rose-400">
+                    {edgeCasesList.length} open
+                  </span>
+                </div>
+                <ul className="ml-4 space-y-0.5 text-muted-foreground max-h-32 overflow-auto">
+                  {edgeCasesList.slice(0, 5).map((ec) => (
+                    <li key={ec.id} className="truncate">
+                      • [{ec.type}] {ec.message}
+                    </li>
+                  ))}
+                  {edgeCasesList.length > 5 && (
+                    <li className="text-muted-foreground/50">...and {edgeCasesList.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            {rateLimitInfo && (
+              <div className="rounded-lg bg-background p-2 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Zap className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{t('studio.build.edgeRateLimit') || 'Rate Limit'}</span>
+                  <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${rateLimitInfo.allowed ? 'bg-emerald-400/20 text-emerald-400' : 'bg-rose-400/20 text-rose-400'}`}>
+                    {rateLimitInfo.allowed ? 'ALLOWED' : 'LIMITED'}
+                  </span>
+                </div>
+                {!rateLimitInfo.allowed && rateLimitInfo.retryAfterMs && (
+                  <div className="text-amber-400 text-[10px]">
+                    Retry in {Math.ceil(rateLimitInfo.retryAfterMs / 1000)}s
+                  </div>
+                )}
+                {rateLimitInfo.allowed && (
+                  <div className="text-emerald-400 text-[10px]">Requests available</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Summary / Events */}
       <div className="flex-1 min-h-0 overflow-hidden">

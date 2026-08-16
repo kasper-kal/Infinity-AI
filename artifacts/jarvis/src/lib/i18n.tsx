@@ -657,6 +657,16 @@ const en = {
   "studio.build.debugShare": "Share",
   "studio.build.debugClone": "Clone",
 
+  /* Build Studio - Phase 5.3 Edge Cases */
+  "studio.build.edgePreflight": "Preflight Check",
+  "studio.build.edgePreflightOk": "All preflight checks passed",
+  "studio.build.edgePreflightIssues": "Preflight issues: {issues}",
+  "studio.build.edgeDiskSpace": "Disk Space",
+  "studio.build.edgeQueue": "Queue",
+  "studio.build.edgeCases": "Edge Cases",
+  "studio.build.edgeRateLimit": "Rate Limit",
+  "studio.build.edgeStatus": "Edge Cases Status",
+
   /* Build Studio - Missing keys from Phase0 */
   "studio.build.consoleTitle": "Console",
   "studio.build.of": "of",
@@ -1815,6 +1825,16 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.debugExportTar": "Exporteer tar.gz",
   "studio.build.debugShare": "Delen",
   "studio.build.debugClone": "Klonen",
+
+  /* Build Studio - Phase 5.3 Edge Cases */
+  "studio.build.edgePreflight": "Preflight-controle",
+  "studio.build.edgePreflightOk": "Alle preflight-controles geslaagd",
+  "studio.build.edgePreflightIssues": "Preflight-problemen: {issues}",
+  "studio.build.edgeDiskSpace": "Schijfruimte",
+  "studio.build.edgeQueue": "Wachtrij",
+  "studio.build.edgeCases": "Randtaken",
+  "studio.build.edgeRateLimit": "Snelheidslimiet",
+  "studio.build.edgeStatus": "Randgevallen-status",
 };
 
 export type TranslationKey = keyof typeof en;
