@@ -4,13 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 01:05
+LAST_UPDATED: 2026-08-16 01:20
 
 ## Just did (last action)
-- **Phase 5.1 — Telemetry + Debugging (FULL COMPLETE):** Backend telemetry wiring (all build.ts routes + checkpoints) done prior session. Frontend Debug panel now complete:
-  - Added `debug` tab to `StudioTab` type and `TAB_ORDER` in build-studio.tsx
-  - Created `BuildDebugPanel` component (build-debug-panel.tsx) with Live/Replay mode toggle, filter by 11 event types, summary view, event count header, Refresh/Export/Copy/Clear actions, type-colored event table (seq, time, type, step, label, duration), clear confirmation modal
-  - Added 26 i18n keys (EN + NL): debug, debugTitle, debugDesc, debugCount, debugLive, debugReplay, debugSummary, debugSummaryEmpty, debugSummaryGenerating, debugRefresh, debugClear, debugClearConfirm, debugFilter, debugFilterAll, debugExport, debugEmpty, debugType, debugStep, debugDuration, debugError, debugSeq, debugTime, debugLabel, debugCopy, debugCopied
+- **Phase 5.2 — Export / Share / Clone (FRONTEND COMPLETE):** Wired Debug panel export/share/clone UI in build-debug-panel.tsx:
+  - Added 4 action buttons in header: Export ZIP, Export tar.gz, Share (copy link), Clone (prompt for target project ID)
+  - Each has loading state with Loader2 spinner; Share button copies link to clipboard with "Copied" toast
+  - Clone handler prompts for target project ID, calls /api/jarvis/build/clone/:projectId, shows success with new project ID
+  - Added Share2, GitBranch, Archive, Link, Loader2 icon imports
+  - Added ExportManifest, ShareResponse, CloneResponse interfaces + downloadBlob helper
+  - Added 4 new i18n keys (EN+NL): debugExportZip, debugExportTar, debugShare, debugClone
   - Typecheck + full build pass
 
 ## Previous action (Gem→Expert rename, user-facing)
@@ -32,6 +35,7 @@ LAST_UPDATED: 2026-08-16 01:05
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Phase 5.2 — Export/Share/Clone FRONTEND COMPLETE**: Debug panel wired with ZIP export, tar.gz export, Share (copy link), Clone (prompt target projectId) buttons; loading states, clipboard copy, success toast; 4 new i18n keys EN+NL; build-export.ts (6 backend routes) already complete prior session; typecheck + build pass
 - 2026-08-16 **Phase 5.1 — Telemetry + Debugging FULL COMPLETE**: Frontend Debug panel added (build-debug-panel.tsx) with Live/Replay toggle, 11-type filter, summary, count, export JSONL, copy summary, clear logs, type-colored event table; debug tab added to StudioTab/TAB_ORDER; 26 i18n keys (EN+NL); typecheck + build pass
 - 2026-08-15 **Phase 4.4 — Command Palette + Keyboard Mastery COMPLETE**: Fixed TypeScript errors in build.ts command routes (`ctx.steps`→`completedSteps`, `refreshFileMap` signature, `StepResult[]` serialization, `Map`→`Object` for checkpoint); all 10 server-side command routes working (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status, budget set); typecheck + build pass
 - 2026-08-15 **Phase 4.2 — Browser Pool COMPLETE**: Created `browser-pool.ts`; added 10 browser pool routes (status, acquire/release, navigate, action, state, screenshot, elements, captcha, accessibility, scale); 3-5 pre-warmed Chromium, session persistence, idle scaling; typecheck + build pass
@@ -69,14 +73,14 @@ LAST_UPDATED: 2026-08-16 01:05
 - **Build Mode (Infinity) Phase 4.3: Resource Limits + Cost Tracking** — **COMPLETE**: Per-workspace budgets, token/cost tracking, daily aggregates, dashboard stats, 7 REST routes; typecheck + build pass.
 - **Build Mode (Infinity) Phase 4.4: Command Palette + Keyboard Mastery** — **COMPLETE**: 10 server-side command routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set) backing client palette; typecheck + build pass.
 - **Build Mode (Infinity) Phase 5.1: Telemetry + Debugging** — **COMPLETE**: Backend `logBuildEvent` wired to all build lifecycle routes + checkpoints; REST routes (recent/all/summary/count, DELETE, batch POST); frontend Debug panel (build-debug-panel.tsx) with Live/Replay, type filter, summary, export JSONL, clear logs; 26 i18n keys; typecheck + build pass.
+- **Build Mode (Infinity) Phase 5.2: Export / Share / Clone** — **BACKEND + FRONTEND COMPLETE**: 6 backend routes (export/info, export/zip, export/tar-gz, share, shared/:token, clone) + Debug panel UI with ZIP/tar.gz export buttons, Share (copy link), Clone (prompt target projectId); 4 i18n keys; typecheck + build pass.
 - **Build Studio reliability:** visible progress transcript, plan/scaffold error handling, cancellation, bounded self-review pipeline implemented and verified; no active code changes remain.
 - **Projects System** — core backend, Project Memory, Project Instructions, Projects navigation, AI Context Pipeline, and Project Activity are implemented and verified. Next work: Project Files, Project Research, Project Tasks, or UI cleanup.
 - **Book Studio** — fully built + wired, server `.env` now ready for live end-to-end run.
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 5.2: Export / Share** — Build export and sharing capabilities (export build as project bundle, share to gallery/link, snapshot archive download).
-2. **Phase 5.3: Edge Cases** — Network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue.
+1. **Phase 5.3: Edge Cases** — Network failure retry, disk full pause, rate limit queue, git conflict merge, workspace corruption detect, concurrent build queue.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
