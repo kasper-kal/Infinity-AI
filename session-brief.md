@@ -4,15 +4,13 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 00:15
+LAST_UPDATED: 2026-08-16 00:45
 
 ## Just did (last action)
-- **Fixed TypeScript errors in Phase 4.4 Command Palette routes** (build.ts): 
-  - `ctx.steps` → `ctx.completedSteps` (WorkingContext uses `completedSteps` not `steps`)
-  - `refreshFileMap` now accepts only `projectId` (it lists files internally)
-  - `completedSteps` serialized to `Record<string, unknown>[]` for checkpoint compatibility
-  - `fileMap` (Map) converted to `Object.fromEntries()` for checkpoint storage
-  - Typecheck + full build pass
+- **Phase 5.1 — Telemetry + Debugging (backend COMPLETE):** Added `logBuildEvent` telemetry calls to ALL build lifecycle routes in build.ts: scaffold, iterate (self-review + verify loop + fixer), verify, fix, execute-plan (batches, steps, per-step verify), checkpoints (save), snapshots (list/create/restore/delete), browser pool (status/acquire/release/navigate/action/screenshot/elements/scale), and all 10 command-palette routes (create-checkpoint, rollback, export, refresh-files, browser open/close, budget status/set). Fixed TypeScript on `result.ok`→`result.success` (browser pool returns `{success}` not `{ok}`), `meta.size`→`meta.sizeBytes` (SnapshotMetadata). Typecheck + full build pass. Telemetry API routes already in build-telemetry.ts (GET recent/all/summary/count, DELETE, POST single/batch). Next: Build Debug panel UI in frontend (build-studio.tsx) to display/filter/replay telemetry, then i18n keys.
+
+## Previous action (Gem→Expert rename, user-facing)
+- Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Previous action (Gem→Expert rename, user-facing)
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.

@@ -7,6 +7,7 @@ import {
   deleteCheckpoint,
   markCheckpointComplete,
 } from "../../lib/build-checkpoints";
+import { logBuildEvent } from "../../lib/build-telemetry";
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.post("/checkpoint", async (req: Request, res: Response) => {
       fileSnapshots: req.body?.fileSnapshots && typeof req.body.fileSnapshots === "object" ? req.body.fileSnapshots : undefined,
       tokenUsage: req.body?.tokenUsage && typeof req.body.tokenUsage === "object" ? req.body.tokenUsage : undefined,
     });
+    await logBuildEvent(projectId, "checkpoint", `Checkpoint saved (iteration ${iteration}, completed=${completed === 1})`, { data: { id, iteration, completed }, step: `checkpoint-${iteration}` });
     res.json({ ok: true, id });
   } catch (err) {
     req.log.error({ err }, "Failed to save checkpoint");

@@ -24,6 +24,7 @@ import {
 } from "../../lib/workspace";
 import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
 import { getStorage, persistFile } from "../../lib/storage";
+import { logBuildEvent } from "../../lib/build-telemetry";
 import { jarvisConfig } from "../../config/jarvis";
 import { pooledClient } from "../../lib/llm-client";
 import type { Browser, Page } from "puppeteer";
@@ -794,6 +795,7 @@ router.post("/build/scaffold", async (req, res) => {
   const dryRun = Boolean(req.body?.dryRun);
   try {
     await ensureWorkspace(workspaceId);
+    await logBuildEvent(projectId, "plan_start", `Scaffold requested: ${prompt.slice(0, 80)}`, { data: { workspaceId, dryRun, feedback: feedback ? feedback.slice(0, 200) : null } });
     const existingFiles = (await listWorkspaceFiles(workspaceId))
       .filter((entry) => entry.type === "file")
       .map((entry) => entry.path);
@@ -802,14 +804,18 @@ router.post("/build/scaffold", async (req, res) => {
     // Phase 2.1: Diff Preview — when dryRun, return the proposed files without
     // writing them so the UI can show a confirmation modal before applying.
     if (dryRun) {
+      await logBuildEvent(projectId, "tool_result", "Scaffold dry-run produced files", { data: { files: Object.keys(files), dryRun: true } });
       res.status(200).json({ ok: true, dryRun: true, files, runtime: "static", previewCommand: "python3 -m http.server ${PORT}" });
       return;
     }
 
+    let wrote = 0;
     for (const [relPath, content] of Object.entries(files)) {
       if (!safeWorkspacePath(relPath, workspaceId)) continue;
       await writeWorkspaceFile(relPath, content, workspaceId);
+      wrote++;
     }
+    await logBuildEvent(projectId, "tool_result", `Scaffold wrote ${wrote} file(s)`, { data: { files: Object.keys(files) }, step: "scaffold" });
     // Phase 1.1 + 1.2: commit iteration + save checkpoint
     if (hasIsolated(projectId)) {
       await commitIteration(projectId, 1, plan?.steps.length ?? 1, "scaffold starter");
@@ -852,11 +858,13 @@ router.post("/build/iterate", async (req, res) => {
     .filter(([, value]) => value));
   try {
     await ensureWorkspace(workspaceId);
+    await logBuildEvent(projectId, "step_start", `Iteration ${passNumber}: ${prompt.slice(0, 80)}`, { data: { passNumber, previewOutput: previewOutput.slice(0, 200) }, step: `iteration-${passNumber}` });
     // If passNumber exceeds 100, warn but allow the iteration
     if (passNumber > 100) {
       req.log.warn({ workspaceId, passNumber }, "Iteration count is very high, possibly infinite loop");
     }
     const result = await reviewAndFixWorkspace(prompt, answers, workspaceId, previewOutput, passNumber, extraSystemPrompt, plan);
+    await logBuildEvent(projectId, "tool_result", `Iteration ${passNumber} review: ${result.done ? "done" : "continued"}`, { data: { done: result.done, summary: result.summary?.slice(0, 200), filesChanged: result.filesChanged ?? [] }, step: `iteration-${passNumber}` });
     // Phase 1.1 + 1.2: commit iteration + update checkpoint
     if (hasIsolated(projectId)) {
       await commitIteration(projectId, passNumber, plan?.steps.length ?? passNumber, `iteration ${passNumber}`);
@@ -869,15 +877,18 @@ router.post("/build/iterate", async (req, res) => {
     const maxFixAttempts = 3;
     if (hasIsolated(projectId) && req.body?.verify !== false) {
       try {
+        await logBuildEvent(projectId, "verify_start", `Verification loop (iteration ${passNumber})`, { step: `iteration-${passNumber}` });
         const verify = await verifyWorkspace(projectId, workspaceId);
         verifyResult = verify.ok;
         verifyFeedback = formatVerificationFeedback(verify);
         req.log.info({ projectId, passNumber, ok: verify.ok }, "Verification loop completed");
+        await logBuildEvent(projectId, "verify_result", verifyResult ? "Verification passed" : "Verification failed", { data: { ok: verifyResult, feedback: verifyFeedback?.slice(0, 400) }, step: `iteration-${passNumber}` });
 
         // Phase 2.2: Retry loop with fixer prompt on verification failure
         while (!verifyResult && fixAttempts < maxFixAttempts) {
           fixAttempts++;
           req.log.info({ projectId, passNumber, fixAttempts }, "Verification failed, running fixer loop");
+          await logBuildEvent(projectId, "retry", `Fixer attempt ${fixAttempts}/${maxFixAttempts}`, { step: `iteration-${passNumber}` });
           const fixRes = await fetch(new URL(`/api/jarvis/build/fix`, `${req.protocol}://${req.get("host")}`).toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -888,17 +899,20 @@ router.post("/build/iterate", async (req, res) => {
             const retryVerify = await verifyWorkspace(projectId, workspaceId);
             verifyResult = retryVerify.ok;
             verifyFeedback = formatVerificationFeedback(retryVerify);
+            await logBuildEvent(projectId, "verify_result", verifyResult ? "Fixer resolved verification failure" : "Still failing after fixer", { data: { ok: verifyResult }, step: `iteration-${passNumber}` });
             if (verifyResult) {
               req.log.info({ projectId, passNumber, fixAttempts }, "Fixer resolved verification failure");
               break;
             }
           } else {
             req.log.warn({ projectId, passNumber, fixAttempts }, "Fixer endpoint failed");
+            await logBuildEvent(projectId, "error", "Fixer endpoint failed during verification retry", { step: `iteration-${passNumber}` });
             break;
           }
         }
       } catch (verifyErr) {
         req.log.warn({ err: verifyErr }, "Verification skipped (no checks configured)");
+        await logBuildEvent(projectId, "info", "Verification skipped (no checks configured)", { step: `iteration-${passNumber}` });
       }
     }
 
@@ -1003,19 +1017,23 @@ router.post("/build/verify", async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
   const maxRetries = Math.min(5, Math.max(0, Number(req.body?.maxRetries) || 3));
   try {
+    await logBuildEvent(projectId, "verify_start", "Manual verification triggered", { data: { maxRetries } });
     let result = await verifyWorkspace(projectId, workspaceId);
     let attempt = 0;
     while (!result.ok && attempt < maxRetries) {
       attempt++;
       req.log.info({ projectId, attempt }, "Verification failed, retrying...");
+      await logBuildEvent(projectId, "retry", `Verification retry ${attempt}/${maxRetries}`, { step: `verify-manual` });
       // Wait a moment before retry (helps with transient issues)
       await new Promise(r => setTimeout(r, 1000 * attempt));
       result = await verifyWorkspace(projectId, workspaceId);
     }
     const feedback = formatVerificationFeedback(result);
+    await logBuildEvent(projectId, "verify_result", result.ok ? "Verification passed" : "Verification failed", { data: { ok: result.ok, attempt, feedback: feedback?.slice(0, 400) } });
     res.json({ ok: result.ok, attempt, result, feedback });
   } catch (err) {
     req.log.error({ err }, "Verification failed");
+    await logBuildEvent(projectId, "error", "Verification endpoint error", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Verification failed" });
   }
 });
@@ -1040,6 +1058,7 @@ router.post("/build/fix", async (req, res) => {
   }
   try {
     await ensureWorkspace(workspaceId);
+    await logBuildEvent(projectId, "tool_call", "Fixer loop started", { data: { failure: failure.slice(0, 200) }, step: `fix` });
     const entries = (await listWorkspaceFiles(workspaceId)).filter((entry) => entry.type === "file").map((entry) => entry.path).slice(0, 120);
     const client = pooledClient();
     const completion = await client.chat.completions.create({
@@ -1076,12 +1095,14 @@ router.post("/build/fix", async (req, res) => {
       await writeWorkspaceFile(relPath, content, workspaceId);
       filesChanged.push(relPath);
     }
+    await logBuildEvent(projectId, "tool_result", `Fixer applied ${filesChanged.length} file(s)`, { data: { filesChanged }, step: `fix` });
     if (hasIsolated(projectId)) {
       await commitIteration(projectId, 1, 1, "auto-fix");
     }
     res.json({ ok: true, filesChanged, notes: parsed.notes ?? "" });
   } catch (err) {
     req.log.error({ err }, "Fixer loop failed");
+    await logBuildEvent(projectId, "error", "Fixer loop failed", { data: { message: err instanceof Error ? err.message : String(err) }, step: `fix` });
     res.status(500).json({ error: "Fixer loop failed" });
   }
 });
@@ -1110,6 +1131,8 @@ router.post("/build/execute-plan", async (req, res) => {
 
   try {
     await ensureWorkspace(workspaceId);
+
+    await logBuildEvent(projectId, "plan_start", `Execute plan: ${plan.title?.slice(0, 80)}`, { data: { steps: plan.steps.map(s => s.id), workspaceId } });
 
     // Phase 3.1: Initialize working context
     setProjectGoal(projectId, prompt);
@@ -1140,6 +1163,7 @@ router.post("/build/execute-plan", async (req, res) => {
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
       req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
+      await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length}: ${batch.map(s => s.id).join(", ")}`, { data: { steps: batch.map(s => s.id) }, step: `batch-${batchIndex + 1}` });
 
       // Get serialized working context for injection
       const contextPrompt = combineBuildMemory(serializeContext(projectId), projectContext);
@@ -1191,22 +1215,28 @@ router.post("/build/execute-plan", async (req, res) => {
             filesChanged.push(relPath);
           }
         }
+        await logBuildEvent(projectId, "tool_result", `Step ${step.id} ${filesChanged.length > 0 ? "wrote" : "completed"}: ${filesChanged.length} file(s)`, { data: { filesChanged }, step: step.id });
         // Verify this step if workspace has checks
         let feedback: string | undefined;
         if (hasIsolated(projectId)) {
           try {
+            await logBuildEvent(projectId, "verify_start", `Verification for step ${step.id}`, { step: step.id });
             const verify = await verifyWorkspace(projectId, workspaceId);
             if (!verify.ok) {
               feedback = formatVerificationFeedback(verify);
+              await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification failed`, { data: { ok: false, feedback: feedback?.slice(0, 400) }, step: step.id });
               // Retry with feedback if failed
               for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
                 await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
                 const retryResult = await verifyWorkspace(projectId, workspaceId);
                 if (retryResult.ok) {
                   feedback = undefined;
+                  await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after retry ${retry + 1}`, { data: { ok: true }, step: step.id });
                   break;
                 }
               }
+            } else {
+              await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed`, { data: { ok: true }, step: step.id });
             }
           } catch { /* no checks configured */ }
         }
@@ -1227,6 +1257,7 @@ router.post("/build/execute-plan", async (req, res) => {
         if (!result.ok) overallOk = false;
       }
 
+      await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length} complete`, { data: { steps: batch.map(s => s.id), overallOk: allResults.slice(-batch.length).every(r => r.ok) }, step: `batch-${batchIndex + 1}` });
       // If any step in batch failed and we shouldn't continue, stop
       if (!overallOk && req.body?.failFast) break;
     }
@@ -1832,6 +1863,7 @@ router.get("/build/snapshots/:projectId", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   try {
     const snapshots = await listSnapshots(projectId, limit);
+    await logBuildEvent(projectId, "snapshot", "Listed snapshots", { data: { count: snapshots.length } });
     res.json({ ok: true, snapshots });
   } catch (err) {
     console.error({ err, projectId }, "Failed to list snapshots");
@@ -1849,17 +1881,21 @@ router.post("/build/snapshots/:projectId", async (req, res) => {
   const checkpointId = cleanText(req.body?.checkpointId, 36) || null;
   const iteration = Number(req.body?.iteration) || 0;
   try {
+    await logBuildEvent(projectId, "snapshot", `Creating snapshot (checkpoint: ${checkpointId ?? "none"}, iteration: ${iteration})`, { data: { checkpointId, iteration } });
     const meta = await createSnapshot(projectId, checkpointId, iteration);
     if (!meta) {
+      await logBuildEvent(projectId, "error", "Snapshot creation failed", { data: { checkpointId, iteration } });
       res.status(500).json({ error: "Snapshot creation failed" });
       return;
     }
     const { writeSnapshotSidecar } = await import("../../lib/workspace-snapshots");
     await writeSnapshotSidecar(meta);
     if (checkpointId) await snapshotAfterCheckpoint(projectId, checkpointId, iteration);
+    await logBuildEvent(projectId, "snapshot", `Snapshot created: ${meta.id}`, { data: { snapshotId: meta.id, size: meta.sizeBytes, path: meta.path } });
     res.json({ ok: true, snapshot: meta });
   } catch (err) {
     console.error({ err, projectId }, "Failed to create snapshot");
+    await logBuildEvent(projectId, "error", "Snapshot creation failed", { data: { message: err instanceof Error ? err.message : String(err), checkpointId, iteration } });
     res.status(500).json({ error: "Failed to create snapshot" });
   }
 });
@@ -1873,14 +1909,18 @@ router.post("/build/snapshots/:projectId/:snapshotId/restore", async (req, res) 
     return;
   }
   try {
+    await logBuildEvent(projectId, "snapshot", `Restoring snapshot: ${snapshotId}`, { data: { snapshotId } });
     const ok = await restoreSnapshot(projectId, snapshotId);
     if (!ok) {
+      await logBuildEvent(projectId, "error", "Restore failed", { data: { snapshotId } });
       res.status(500).json({ error: "Restore failed" });
       return;
     }
+    await logBuildEvent(projectId, "snapshot", `Snapshot restored: ${snapshotId}`, { data: { snapshotId } });
     res.json({ ok: true, message: "Snapshot restored to workspace" });
   } catch (err) {
     console.error({ err, projectId, snapshotId }, "Failed to restore snapshot");
+    await logBuildEvent(projectId, "error", "Snapshot restore failed", { data: { snapshotId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Failed to restore snapshot" });
   }
 });
@@ -1894,10 +1934,13 @@ router.delete("/build/snapshots/:projectId/:snapshotId", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent(projectId, "snapshot", `Deleting snapshot: ${snapshotId}`, { data: { snapshotId } });
     const ok = await deleteSnapshot(projectId, snapshotId);
+    await logBuildEvent(projectId, "snapshot", `Snapshot deleted: ${snapshotId}`, { data: { snapshotId, deleted: ok } });
     res.json({ ok: true, deleted: ok });
   } catch (err) {
     console.error({ err, projectId, snapshotId }, "Failed to delete snapshot");
+    await logBuildEvent(projectId, "error", "Snapshot delete failed", { data: { snapshotId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Failed to delete snapshot" });
   }
 });
@@ -1923,6 +1966,9 @@ router.get("/build/browser/pool/status", async (req, res) => {
     const pool = getBrowserPoolInstance();
     const status = pool.getStatus();
     const config = pool.getConfig();
+    const total = status.length;
+    const available = status.filter(s => s.state === "idle").length;
+    await logBuildEvent("default", "info", "Browser pool status queried", { data: { total, available } });
     res.json({ ok: true, status, config: { minSize: config.minSize, maxSize: config.maxSize } });
   } catch (err) {
     console.error({ err }, "Failed to get browser pool status");
@@ -1935,10 +1981,13 @@ router.post("/build/browser/pool/acquire", async (req, res) => {
   const taskId = cleanText(req.body?.taskId, 64) || `task-${Date.now()}`;
   try {
     const pool = getBrowserPoolInstance();
+    await logBuildEvent("default", "tool_call", `Browser acquired for task: ${taskId}`, { data: { taskId } });
     const slot = await pool.acquire(taskId);
+    await logBuildEvent("default", "tool_result", `Browser ${slot.id} acquired (state: ${slot.state})`, { data: { taskId, browserId: slot.id, wsPort: slot.wsPort } });
     res.json({ ok: true, browser: { id: slot.id, wsPort: slot.wsPort, state: slot.state } });
   } catch (err) {
     console.error({ err, taskId }, "Failed to acquire browser");
+    await logBuildEvent("default", "error", "Browser acquire failed", { data: { taskId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: (err as Error).message });
   }
 });
@@ -1952,10 +2001,13 @@ router.post("/build/browser/pool/release", async (req, res) => {
   }
   try {
     const pool = getBrowserPoolInstance();
+    await logBuildEvent("default", "tool_call", `Releasing browser: ${browserId}`, { data: { browserId } });
     const ok = pool.release(browserId);
+    await logBuildEvent("default", "tool_result", `Browser ${browserId} released (ok: ${ok})`, { data: { browserId, released: ok } });
     res.json({ ok: true, released: ok });
   } catch (err) {
     console.error({ err, browserId }, "Failed to release browser");
+    await logBuildEvent("default", "error", "Browser release failed", { data: { browserId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Failed to release browser" });
   }
 });
@@ -1969,11 +2021,14 @@ router.post("/build/browser/:browserId/navigate", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent("default", "tool_call", `Navigating browser ${browserId} to ${url}`, { data: { browserId, url } });
     const pool = getBrowserPoolInstance();
     const result = await pool.navigate(browserId, url);
+    await logBuildEvent("default", "tool_result", `Browser ${browserId} navigated`, { data: { browserId, url, ok: result.success } });
     res.json(result);
   } catch (err) {
     console.error({ err, browserId, url }, "Navigate failed");
+    await logBuildEvent("default", "error", "Browser navigate failed", { data: { browserId, url, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Navigate failed" });
   }
 });
@@ -1987,11 +2042,14 @@ router.post("/build/browser/:browserId/action", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent("default", "tool_call", `Browser ${browserId} action: ${action.type}`, { data: { browserId, actionType: action.type } });
     const pool = getBrowserPoolInstance();
     const result = await pool.executeAction(browserId, action);
+    await logBuildEvent("default", "tool_result", `Browser ${browserId} action completed`, { data: { browserId, actionType: action.type, ok: result.success } });
     res.json(result);
   } catch (err) {
     console.error({ err, browserId, action }, "Action failed");
+    await logBuildEvent("default", "error", "Browser action failed", { data: { browserId, actionType: action?.type, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Action failed" });
   }
 });
@@ -2022,11 +2080,14 @@ router.post("/build/browser/:browserId/screenshot", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent("default", "tool_call", `Browser ${browserId} grid screenshot`, { data: { browserId, cellSize } });
     const pool = getBrowserPoolInstance();
     const result = await pool.takeGridScreenshot(browserId, cellSize);
+    await logBuildEvent("default", "tool_result", `Browser ${browserId} screenshot captured`, { data: { browserId, ok: result.success } });
     res.json(result);
   } catch (err) {
     console.error({ err, browserId }, "Screenshot failed");
+    await logBuildEvent("default", "error", "Browser screenshot failed", { data: { browserId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Screenshot failed" });
   }
 });
@@ -2042,9 +2103,11 @@ router.post("/build/browser/:browserId/elements", async (req, res) => {
   try {
     const pool = getBrowserPoolInstance();
     const result = await pool.getInteractiveElements(browserId, maxItems);
+    await logBuildEvent("default", "tool_result", `Browser ${browserId} elements retrieved`, { data: { browserId, count: result.data?.length ?? 0, ok: result.success } });
     res.json(result);
   } catch (err) {
     console.error({ err, browserId }, "Get elements failed");
+    await logBuildEvent("default", "error", "Get elements failed", { data: { browserId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Get elements failed" });
   }
 });
@@ -2089,10 +2152,12 @@ router.post("/build/browser/pool/scale", async (req, res) => {
   const max = Math.max(min, Math.min(Number(req.body?.max) || 5, 10));
   try {
     const pool = getBrowserPoolInstance();
+    await logBuildEvent("default", "info", `Browser pool scaled to min=${min}, max=${max}`, { data: { min, max } });
     await pool.setSize(min, max);
     res.json({ ok: true, config: { minSize: min, maxSize: max } });
   } catch (err) {
     console.error({ err }, "Scale pool failed");
+    await logBuildEvent("default", "error", "Browser pool scale failed", { data: { min, max, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Scale pool failed" });
   }
 });
@@ -2123,6 +2188,7 @@ router.post("/build/command/:projectId/create-checkpoint", async (req, res) => {
       timestamp: s.timestamp,
       notes: s.notes,
     }));
+    await logBuildEvent(projectId, "checkpoint", "Creating checkpoint via command palette", { data: { iteration: ctx.completedSteps.length + 1, completedSteps: completedSteps.length } });
     const checkpointId = await saveCheckpoint({
       projectId,
       iteration: ctx.completedSteps.length + 1,
@@ -2139,9 +2205,11 @@ router.post("/build/command/:projectId/create-checkpoint", async (req, res) => {
       tokenUsage: { ...ctx.tokenBudget, history: ctx.tokenBudget.history.slice(-10) },
     });
     await snapshotAfterCheckpoint(projectId, checkpointId, ctx.completedSteps.length + 1);
+    await logBuildEvent(projectId, "checkpoint", "Checkpoint created with snapshot", { data: { checkpointId, iteration: ctx.completedSteps.length + 1 } });
     res.json({ ok: true, checkpointId, message: "Checkpoint created with snapshot" });
   } catch (err) {
     console.error({ err, projectId }, "Create checkpoint failed");
+    await logBuildEvent(projectId, "error", "Create checkpoint failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Create checkpoint failed" });
   }
 });
@@ -2158,17 +2226,23 @@ router.post("/build/command/:projectId/rollback", async (req, res) => {
     const { rollbackIteration } = await import("../../lib/workspace");
     const { restoreSnapshot } = await import("../../lib/workspace-snapshots");
     if (snapshotId) {
+      await logBuildEvent(projectId, "snapshot", `Rolling back via snapshot: ${snapshotId}`, { data: { snapshotId } });
       const ok = await restoreSnapshot(projectId, snapshotId);
       if (!ok) {
+        await logBuildEvent(projectId, "error", "Snapshot restore failed", { data: { snapshotId } });
         res.status(500).json({ error: "Snapshot restore failed" });
         return;
       }
+      await logBuildEvent(projectId, "snapshot", "Restored from snapshot", { data: { snapshotId } });
     } else {
+      await logBuildEvent(projectId, "checkpoint", "Rolling back one iteration", { data: {} });
       await rollbackIteration(projectId);
+      await logBuildEvent(projectId, "checkpoint", "Rolled back one iteration", { data: {} });
     }
     res.json({ ok: true, message: snapshotId ? "Restored from snapshot" : "Rolled back one iteration" });
   } catch (err) {
     console.error({ err, projectId }, "Rollback failed");
+    await logBuildEvent(projectId, "error", "Rollback failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Rollback failed" });
   }
 });
@@ -2182,15 +2256,19 @@ router.post("/build/command/:projectId/export", async (req, res) => {
   }
   try {
     const { createSnapshot } = await import("../../lib/workspace-snapshots");
+    await logBuildEvent(projectId, "snapshot", "Exporting workspace as snapshot", { data: {} });
     const meta = await createSnapshot(projectId, null, 0);
     if (!meta) {
+      await logBuildEvent(projectId, "error", "Export failed", { data: {} });
       res.status(500).json({ error: "Export failed" });
       return;
     }
+    await logBuildEvent(projectId, "snapshot", "Workspace exported", { data: { snapshotId: meta.id, path: meta.path } });
     // Return the snapshot path for the client to download
     res.json({ ok: true, snapshotId: meta.id, path: meta.path, message: "Workspace exported" });
   } catch (err) {
     console.error({ err, projectId }, "Export failed");
+    await logBuildEvent(projectId, "error", "Export failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Export failed" });
   }
 });
@@ -2204,10 +2282,13 @@ router.post("/build/command/:projectId/refresh-files", async (req, res) => {
   }
   try {
     const { refreshFileMap } = await import("../../lib/build-context");
+    await logBuildEvent(projectId, "info", "Refreshing file map", { data: {} });
     const fileMap = await refreshFileMap(projectId);
+    await logBuildEvent(projectId, "info", "File map refreshed", { data: { count: fileMap.size } });
     res.json({ ok: true, count: fileMap.size, message: "File map refreshed" });
   } catch (err) {
     console.error({ err, projectId }, "Refresh files failed");
+    await logBuildEvent(projectId, "error", "Refresh files failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Refresh files failed" });
   }
 });
@@ -2221,12 +2302,15 @@ router.post("/build/command/:projectId/browser/open", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent(projectId, "tool_call", `Opening browser to ${url}`, { data: { url } });
     const pool = getBrowserPoolInstance();
     const slot = await pool.acquire(`build-${projectId}-${Date.now()}`);
     const result = await pool.navigate(slot.id, url);
+    await logBuildEvent(projectId, "tool_result", `Browser opened and navigated`, { data: { browserId: slot.id, wsPort: slot.wsPort, ok: result.success } });
     res.json({ ok: true, browserId: slot.id, wsPort: slot.wsPort, ...result });
   } catch (err) {
     console.error({ err, projectId }, "Browser open failed");
+    await logBuildEvent(projectId, "error", "Browser open failed", { data: { url, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Browser open failed" });
   }
 });
@@ -2240,11 +2324,14 @@ router.post("/build/command/:projectId/browser/close", async (req, res) => {
     return;
   }
   try {
+    await logBuildEvent(projectId, "tool_call", `Closing browser: ${browserId}`, { data: { browserId } });
     const pool = getBrowserPoolInstance();
     const ok = pool.release(browserId);
+    await logBuildEvent(projectId, "tool_result", `Browser closed: ${browserId}`, { data: { browserId, released: ok } });
     res.json({ ok: true, released: ok });
   } catch (err) {
     console.error({ err, projectId }, "Browser close failed");
+    await logBuildEvent(projectId, "error", "Browser close failed", { data: { browserId, message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Browser close failed" });
   }
 });
@@ -2275,11 +2362,14 @@ router.post("/build/command/:projectId/budget/set", async (req, res) => {
   }
   const limits = req.body as any;
   try {
+    await logBuildEvent(projectId, "info", "Updating budget limits", { data: { limits } });
     const { updateBudget } = await import("../../lib/build-budgets");
     const updated = await updateBudget(projectId, limits);
+    await logBuildEvent(projectId, "info", "Budget limits updated", { data: { limits: updated } });
     res.json({ ok: true, limits: updated });
   } catch (err) {
     console.error({ err, projectId }, "Budget update failed");
+    await logBuildEvent(projectId, "error", "Budget update failed", { data: { message: err instanceof Error ? err.message : String(err) } });
     res.status(500).json({ error: "Budget update failed" });
   }
 });
