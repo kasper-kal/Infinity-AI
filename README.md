@@ -1,71 +1,56 @@
-♾️ Infinity AI
+# ♾️ Infinity AI
 
-«One AI. Infinite possibilities.»
+> **One AI. Infinite possibilities.**
 
-Infinity AI is an all-in-one AI workspace designed to bring conversation, research, coding, creativity, automation, and everyday tools into a single application.
+Infinity AI is an all-in-one AI workspace built to bring conversation, research, coding, browsing, creativity, automation, and everyday tools into one place.
 
-Instead of switching between ChatGPT, Claude, Perplexity, Replit, Canva, Suno, Google Lens, and a dozen other tools, Infinity AI brings those experiences together under one interface.
+Instead of jumping between separate AI products for every task, Infinity gives you a single interface that can **think, research, build, browse, create, verify, and act**.
 
----
+## ✨ What can Infinity do?
 
-✨ What is Infinity AI?
-
-Infinity AI is built around a simple idea:
-
-AI shouldn't be a collection of disconnected tools. It should be one environment that can actually get things done.
-
-You can have a normal conversation, ask Infinity to research a complicated subject, build software, analyze information, edit images, generate music, operate a browser, verify claims, or use interactive tools — all from the same application.
-
-Everything in one place
-
-Capability| What it does
-💬 Chat| Stream conversations with an AI assistant
-🎙️ Voice| Talk naturally and receive spoken responses
-🔬 Deep Research| Conduct multi-step web research and produce detailed reports
-🔨 Build Mode| Give the AI a coding task and let it work inside a real Linux workspace
-🌐 Agent Browser| Let the AI navigate websites using a real browser
-🎨 Design Studio| Edit and manipulate images directly in the browser
-🎵 Music Studio| Create and play original compositions
-🛡️ Fact Check| Break answers into claims and verify them against web sources
-📊 Data Lab| Work with information using interactive tools
-📷 Camera| Analyze visual information
-🧠 Memory| Maintain useful long-term context about the user
-🧩 Smart Widgets| Turn natural-language requests into interactive UI
-🧑‍🔬 Experts| Create custom AI personas or spawn them from deep research
+| Capability | Description |
+| --- | --- |
+| 💬 **Chat** | Stream natural conversations with an AI assistant. |
+| 🎙️ **Voice** | Talk to Infinity and receive spoken responses. |
+| 🔬 **Deep Research** | Perform multi-step web research and turn findings into detailed reports. |
+| 🔨 **Build Mode** | Give the AI a coding task and let it work inside a real Linux workspace. |
+| 🌐 **Agent Browser** | Navigate real websites, click, type, scroll, and inspect pages. |
+| 🎨 **Design Studio** | Edit, manipulate, and export images directly in the browser. |
+| 🎵 **Music Studio** | Create and play compositions using browser-based audio. |
+| 🛡️ **Fact Check** | Break answers into claims and verify them against web evidence. |
+| 📊 **Data Lab** | Work with information through interactive tools and visualizations. |
+| 📷 **Vision** | Analyze images and visual information. |
+| 🧠 **Memory** | Keep useful long-term context and preferences. |
+| 🧩 **Smart Widgets** | Turn requests into interactive interfaces such as timers, calculators, maps, and converters. |
+| 🧑‍🔬 **Experts** | Create specialized AI personas with their own instructions and context. |
 
 ---
 
-🧠 AI That Can Actually Do Things
+## 🧠 AI that does more than chat
 
-Infinity isn't limited to generating text.
+Infinity is designed around **action over conversation**.
 
-🧑‍🔬 Experts
+### 🔬 Deep Research
 
-Create custom AI personas with your own system prompts, or let Deep Research spawn a specialized Expert grounded in its findings. These persistent conversations carry their own context and behave as dedicated specialists — quantum engineers, legal analysts, creative writers, or any domain you define.
+Give Infinity a complicated question and it can approach it as a research task instead of simply producing an answer.
 
-🔬 Deep Research
-
-Give Infinity a complicated question and it can approach it as a research task rather than simply answering from its existing knowledge.
-
-The research system can:
+The research workflow can:
 
 1. Plan the investigation
 2. Search the web
 3. Analyze sources
-4. Identify gaps
+4. Identify information gaps
 5. Continue researching
 6. Re-evaluate the direction of the investigation
 7. Compile the findings into a final report
 
-Research can also produce a persistent Expert — an expert-style conversational interface grounded in the resulting research.
+Research can also produce a persistent **Expert** grounded in the resulting findings.
 
----
+### 🔨 Build Mode
 
-🔨 Build Mode
+Build Mode turns Infinity into a coding agent with access to a Linux workspace.
 
-Build Mode turns Infinity into a coding agent.
-
-The AI can work inside a Linux workspace where it can:
+The agent can:
 
 - Create files
 - Read and modify existing files
@@ -73,19 +58,15 @@ The AI can work inside a Linux workspace where it can:
 - Install packages
 - Inspect project structure
 - Run development tools
-- Iterate on its implementation
+- Iterate on implementations
 
-Instead of dumping a terminal into the UI, commands and their output are presented through clean, focused command cards.
+A built-in workspace file browser makes it possible to inspect the project while the agent works.
 
-Build Mode also includes a workspace file browser and tooling specifically designed around autonomous software development.
+### 🌐 Agent Browser
 
----
+Infinity can control a real browser to complete tasks rather than merely describing what a user should do.
 
-🌐 Agent Browser
-
-Infinity can control a real browser to complete tasks.
-
-The browser agent operates visually, allowing it to:
+The browser agent can:
 
 - Navigate websites
 - Read pages
@@ -95,34 +76,27 @@ The browser agent operates visually, allowing it to:
 - Inspect screenshots
 - Decide what to do next
 
-This turns the AI from something that simply describes actions into something capable of performing them.
-
 ---
 
-🎨 Creative Studios
+## 🎨 Creative Studios
 
-Infinity includes dedicated environments for different kinds of creative work.
+### Design Studio
 
-🎨 Design Studio
+A browser-based image workspace supporting features such as:
 
-A browser-based image editor supporting operations such as:
-
-- Uploading images
+- Image uploads
 - Image generation
 - Filters
 - Cropping
-- Rotation
-- Flipping
-- Text
+- Rotation and flipping
+- Text overlays
 - PNG export
 
-The editor runs client-side, keeping basic image manipulation directly in the browser.
+Basic image manipulation runs client-side in the browser.
 
-🎵 Music Studio
+### Music Studio
 
-Create original music without requiring a dedicated external music service.
-
-The Music Studio includes:
+Create original compositions directly in the browser with:
 
 - Mood selection
 - Drums
@@ -131,118 +105,75 @@ The Music Studio includes:
 - Pads
 - Live Web Audio playback
 
-The composition engine runs locally in the browser.
-
 ---
 
-🛡️ Built-In Fact Checking
+## 🛡️ Fact checking
 
-AI can be wrong.
+AI can be wrong. Infinity includes verification directly inside the AI workflow.
 
-Infinity includes a built-in verification workflow that lets you challenge an answer instead of simply trusting it.
-
-When a response is fact-checked, Infinity can:
+When an answer is fact-checked, Infinity can:
 
 1. Extract individual claims
 2. Search for supporting or contradicting evidence
 3. Evaluate each claim
-4. Present individual verdicts
-5. Provide the relevant sources
+4. Produce individual verdicts
+5. Show the relevant sources
 
-This makes verification part of the conversation rather than a separate workflow.
-
----
-
-🧩 Smart Widgets
-
-Infinity can turn certain natural-language requests into interactive components.
-
-For example:
-
-«"What's the weather in London?"»
-
-→ Live weather interface
-
-«"What's 15% of 200?"»
-
-→ Interactive calculator
-
-«"Set a timer for 5 minutes."»
-
-→ Live countdown timer
-
-«"Convert 5 miles to kilometers."»
-
-→ Unit converter
-
-«"What time is it in Tokyo?"»
-
-→ Live clock
-
-«"Where is Paris?"»
-
-→ Map
-
-«"Show me an image of a dog."»
-
-→ Image search
-
-Other supported experiences include dictionaries, currency conversion, random generators, and music composition.
-
-The goal is simple:
-
-The AI doesn't just answer — it can choose the right interface for the task.
+Verification becomes part of the conversation instead of a separate tool.
 
 ---
 
-🎙️ Voice
+## 🧩 Smart Widgets
 
-Infinity supports conversational voice interaction.
+Infinity can recognize when a request is better represented as an interactive tool.
 
-The voice pipeline can combine:
+Examples:
 
-Speech → Whisper → LLM → ElevenLabs → Speech
+- **“What's the weather in London?”** → Live weather interface
+- **“What's 15% of 200?”** → Calculator
+- **“Set a timer for 5 minutes.”** → Countdown timer
+- **“Convert 5 miles to kilometers.”** → Unit converter
+- **“What time is it in Tokyo?”** → Live clock
+- **“Where is Paris?”** → Map
+- **“Show me an image of a dog.”** → Image search
 
-It also includes hands-free activation features such as wake-word and clap detection in supported browsers.
+The goal is simple: **the AI should choose the right interface for the task instead of returning everything as plain text.**
 
 ---
 
-🧠 Memory & Personalization
+## 🧠 Memory & personalization
 
-Infinity can maintain long-term information and adapt the assistant experience around the user.
+Infinity can maintain useful context across conversations and adapt the assistant experience around the user.
 
-The system supports:
+Supported personalization includes:
 
 - Long-term memory
-- Multiple personality modes
+- Personality modes
 - Custom system prompts
-- Persistent user preferences
-
-This allows Infinity to behave more like a personal assistant than a stateless chatbot.
+- Persistent preferences
 
 ---
 
-🏗️ Architecture
+## 🏗️ Architecture
 
-Infinity AI is structured as a pnpm monorepo.
+Infinity AI is organized as a **pnpm monorepo**.
 
+```text
 Infinity-AI/
-│
 ├── artifacts/
 │   ├── jarvis/            # React + Vite frontend
 │   └── api-server/        # Express backend
-│
 ├── lib/
 │   ├── api-client-react/  # Generated React API hooks
 │   ├── api-spec/          # OpenAPI definitions
 │   ├── api-zod/           # Generated Zod schemas
 │   └── db/                # Database layer
-│
-├── docs/                  # Project documentation
-├── scripts/               # Development and utility scripts
+├── docs/                  # Documentation
+├── scripts/               # Development utilities
 └── README.md
+```
 
-Core stack
+### Core stack
 
 - React 19
 - Vite 7
@@ -258,168 +189,160 @@ Core stack
 - ElevenLabs
 - Tavily
 
----
-
-🔌 Backend Capabilities
-
-The API provides dedicated systems for the major AI capabilities.
-
-Endpoint| Purpose
-"/chat"| Streaming AI conversations
-"/transcribe"| Speech-to-text
-"/speak"| Text-to-speech
-"/research"| Research jobs
-"/verify"| Claim verification
-"/terminal"| Workspace shell
-"/workspace"| Workspace files
-"/generate-image"| Image generation
-"/browse/agent-run"| Browser agent
-"/spotify"| Spotify integration
-"/gmail"| Gmail integration
+The frontend also includes CodeMirror-based editing, TensorFlow/MediaPipe vision tooling, React Markdown, and a large collection of Radix UI primitives.
 
 ---
 
-🚀 Getting Started
+## 🔌 Backend
 
-Requirements
+The backend exposes dedicated systems for Infinity's major capabilities, including:
 
-You'll need:
+| Endpoint | Purpose |
+| --- | --- |
+| `/chat` | Streaming AI conversations |
+| `/transcribe` | Speech-to-text |
+| `/speak` | Text-to-speech |
+| `/research` | Research jobs |
+| `/verify` | Claim verification |
+| `/terminal` | Workspace shell access |
+| `/workspace` | Workspace file operations |
+| `/generate-image` | Image generation |
+| `/browse/agent-run` | Browser-agent execution |
+| `/spotify` | Spotify integration |
+| `/gmail` | Gmail integration |
+
+---
+
+## 🚀 Getting started
+
+### Requirements
 
 - Node.js
 - pnpm
 - PostgreSQL
-- The API credentials for the services you want to use
+- API credentials for the services you want to enable
 
-Installation
+### Installation
 
+```bash
 git clone https://github.com/kasper-kal/Infinity-AI.git
 cd Infinity-AI
-
 pnpm install
+```
 
-cp .env.local .env
+Configure your environment variables, initialize the database, and start the development environment:
 
-Configure the required environment variables, then initialize the database:
-
+```bash
 pnpm --filter @workspace/db run push
-
-Start the development environment:
-
 sh scripts/start-dev.sh
+```
 
-The application will be available at:
+The frontend runs on:
 
+```text
 http://localhost:5173
+```
+
+> **Note:** Infinity has multiple optional integrations. You only need credentials for the services required by the features you want to use.
 
 ---
 
-🔑 Environment Variables
+## 🔑 Environment variables
 
-Infinity can connect to several external services.
+Depending on the features you enable, Infinity can use:
 
-Variable| Service
-"DATABASE_URL"| PostgreSQL
-"DATABASE_URL_FILES"| Optional file metadata database
-"B2_KEY_ID"| Backblaze B2
-"B2_APPLICATION_KEY"| Backblaze B2
-"B2_BUCKET_NAME"| Backblaze B2
-"R2_ACCOUNT_ID"| Cloudflare R2
-"R2_ACCESS_KEY"| Cloudflare R2
-"R2_SECRET_KEY"| Cloudflare R2
-"R2_BUCKET"| Cloudflare R2
-"OPENAI_LLM_API_KEY"| LLM / vision provider
-"OPENAI_WHISPER_API_KEY"| Whisper
-"NVIDIA_IMAGE_API_KEY"| Image generation
-"ELEVENLABS_API_KEY"| Text-to-speech
-"TAVILY_API_KEY"| Web search
-"SPOTIFY_CLIENT_ID"| Spotify OAuth
-"SPOTIFY_CLIENT_SECRET"| Spotify OAuth
-"GOOGLE_CLIENT_ID"| Google OAuth
-"GOOGLE_CLIENT_SECRET"| Google OAuth
+| Variable | Service |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL |
+| `DATABASE_URL_FILES` | Optional file metadata database |
+| `B2_KEY_ID` | Backblaze B2 |
+| `B2_APPLICATION_KEY` | Backblaze B2 |
+| `B2_BUCKET_NAME` | Backblaze B2 |
+| `R2_ACCOUNT_ID` | Cloudflare R2 |
+| `R2_ACCESS_KEY` | Cloudflare R2 |
+| `R2_SECRET_KEY` | Cloudflare R2 |
+| `R2_BUCKET` | Cloudflare R2 |
+| `OPENAI_LLM_API_KEY` | LLM / vision provider |
+| `OPENAI_WHISPER_API_KEY` | Whisper |
+| `NVIDIA_IMAGE_API_KEY` | Image generation |
+| `ELEVENLABS_API_KEY` | Text-to-speech |
+| `TAVILY_API_KEY` | Web search |
+| `SPOTIFY_CLIENT_ID` | Spotify OAuth |
+| `SPOTIFY_CLIENT_SECRET` | Spotify OAuth |
+| `GOOGLE_CLIENT_ID` | Google OAuth |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth |
 
-Not every integration is required to run the application. Configure the services corresponding to the features you want to use.
+Never commit real credentials or secrets to the repository.
 
 ---
 
-🛠️ Development
+## 🛠️ Development
 
-Type checking
+### Type checking
 
+```bash
 pnpm run typecheck
+```
 
-Production build
+### Production build
 
+```bash
 pnpm run build
+```
 
-Development server
+### Development server
 
+```bash
 sh scripts/start-dev.sh
+```
 
 ---
 
-🗺️ Project Philosophy
+## 🗺️ Philosophy
 
 Infinity AI is built around a few principles:
 
-One workspace
+**One workspace** — AI capabilities shouldn't be scattered across dozens of applications.
 
-AI capabilities shouldn't be scattered across dozens of applications.
+**Action over conversation** — The best AI isn't only capable of explaining how to do something. It should be capable of doing it.
 
-Action over conversation
+**Tools should feel native** — Research, coding, browsing, images, music, and utilities should feel like parts of the same product.
 
-The best AI isn't only capable of explaining how to do something.
-
-It should be capable of doing it.
-
-Tools should feel native
-
-Research, coding, browsing, images, music, and utilities should feel like parts of the same product rather than unrelated integrations.
-
-The interface should adapt to the task
-
-A calculator should look like a calculator.
-
-A timer should look like a timer.
-
-A research report should look like a research report.
-
-The AI should be able to choose the appropriate interface instead of returning everything as plain text.
+**The interface should adapt to the task** — A calculator should look like a calculator. A timer should look like a timer. A research report should look like a research report.
 
 ---
 
-📚 Documentation
+## 📚 Documentation
 
-Project documentation and development notes can be found throughout the repository.
+Additional project documentation and development notes are available throughout the repository, including:
 
-Useful areas include:
-
-- ""docs/"" (./docs)
-- ""KNOWLEDGE.md"" (./KNOWLEDGE.md)
-- ""BUILD_MODE_COMPLETION_PLAN.md"" (./BUILD_MODE_COMPLETION_PLAN.md)
-- ""CLAUDE.md"" (./CLAUDE.md)
+- [`docs/`](./docs)
+- [`KNOWLEDGE.md`](./KNOWLEDGE.md)
+- [`BUILD_MODE_COMPLETION_PLAN.md`](./BUILD_MODE_COMPLETION_PLAN.md)
+- [`CLAUDE.md`](./CLAUDE.md)
 
 ---
 
-🤝 Contributing
+## 🤝 Contributing
 
-Infinity AI is an evolving project.
+Infinity AI is an evolving project. Bug reports, ideas, improvements, and contributions are welcome.
 
-Contributions, ideas, bug reports, and improvements are welcome.
-
-If you're working on a significant change, consider opening an issue first so the approach can be discussed before implementation.
+For significant changes, opening an issue first is recommended so the approach can be discussed before implementation.
 
 ---
 
-📄 License
+## 📄 License
 
-Infinity AI is released under the MIT License.
+Infinity AI is released under the **MIT License**.
 
 You are free to use, modify, distribute, and build upon the project in accordance with the license.
 
 ---
 
-<div align="center">♾️ Infinity AI
+<div align="center">
 
-One AI. Infinite possibilities.
+# ♾️ Infinity AI
+
+**One AI. Infinite possibilities.**
 
 </div>
