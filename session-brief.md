@@ -4,9 +4,10 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 18:30
+LAST_UPDATED: 2026-08-16 19:45
 
 ## Just did (last action)
+- **Tavily research IN PROGRESS**: Continuing 1-hour web research investigation to make Infinity "THE BEST IT CAN BE for $0" by competitive analysis against Claude Code, Replit Agent, and other services. Completed searches for: AI coding assistant comparisons, free local LLM models, open source agent architectures, MCP browser automation, agent architecture best practices, multi-agent coordination, scheduling/cron, messaging connectors, ACP protocol, headless CI/CD, SWE-Bench optimization.
 - **Auth system COMPLETE**: Implemented login/register/logout/profile/password using existing accounts/sessions tables in schema:
   - Added bcrypt for password hashing (12 rounds)
   - Created `artifacts/api-server/src/routes/jarvis/auth.ts` with endpoints:
@@ -101,6 +102,74 @@ LAST_UPDATED: 2026-08-16 18:30
 ## Active threads
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
+- **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
+- **Desktop-first redesign**: **PENDING** - User complaint: "Jarvis looks horrible on mobile and horrible overall". Need complete UI overhaul with theme tokens, liquid glass material (iOS26 style), responsive layouts.
+
+## Tavily Research Findings — Key Gaps & Actionable Improvements for Infinity
+
+### 1. Multi-Agent Coordination (Missing in Infinity)
+- **Claude Code**: Single agent with sub-agent tool use, no persistent multi-agent orchestration
+- **OpenHands/Cline**: Single agent per task, but can spawn sub-tasks
+- **LangGraph/Autogen/CrewAI**: Full multi-agent frameworks with state machines, handoffs, shared memory
+- **Action for Infinity**: Add multi-agent orchestration layer — planner agent → coder agents → reviewer agent → fixer agent with explicit handoff protocol and shared context store
+
+### 2. Scheduled Agents / Cron (Missing in Infinity)
+- **Replit Agent**: Background agents that run on schedules
+- **OpenHands**: Supports scheduled tasks via cron-like triggers
+- **Cursor**: No native scheduling
+- **Action for Infinity**: Add cron scheduler for agents — run builds, research, maintenance on schedules (daily, weekly, custom). Integrate with existing `build-scheduler` concept in Phase 5.3
+
+### 3. Messaging Connectors (Missing in Infinity)
+- **All major agents**: Slack/Discord/Telegram integrations for notifications & control
+- **Claude Code**: Slack app for notifications
+- **Action for Infinity**: Add connector framework — Slack bot, Discord bot, Telegram bot for build status, chat notifications, remote command execution
+
+### 4. Headless CI/CD Mode (Partial in Infinity)
+- **Replit Agent**: Full headless mode for CI pipelines
+- **OpenHands**: Headless mode for automated runs
+- **Claude Code**: `--headless` flag for CI
+- **Action for Infinity**: Add `--headless` CLI mode for Infinity Build — run builds non-interactively, exit codes for CI, JSON output for pipeline integration
+
+### 5. ACP Protocol Support (Missing in Infinity)
+- **Anthropic ACP**: Agent Client Protocol for standardized agent-tool communication
+- **MCP**: Model Context Protocol (already have browser extension as MCP-like)
+- **Action for Infinity**: Implement ACP server — allows external clients to drive Infinity agent, standardizes tool calls, enables IDE integrations beyond browser
+
+### 6. MCP Server Integration (Partial - have browser extension)
+- **Current**: Browser extension acts as MCP-like client
+- **Missing**: MCP server exposing Infinity tools (file ops, git, build, research) to external LLMs
+- **Action for Infinity**: Build MCP server — expose `list_files`, `read_file`, `edit_file`, `run_command`, `build_agent` as MCP tools
+
+### 7. Deeper SWE-Bench Optimization (Missing in Infinity)
+- **SWE-Bench Verified**: 500 real GitHub issues — top agents score 30-60% resolve rate
+- **Key patterns**: Reproduction-first, test-driven fixing, iterative verification, patch generation
+- **Action for Infinity**: Add SWE-Bench mode — reproduce issue → write failing test → fix → verify → generate patch. Integrate with build-agent verification loop
+
+### 8. Local LLM Excellence (Infinity has this ✓)
+- **Qwen3-Coder**: 32B/7B — best open coding model, beats GPT-4 on some benchmarks
+- **DeepSeek-Coder-V2**: 236B/16B — strong reasoning, 128K context
+- **Codestral**: 22B — optimized for code completion
+- **Devstral**: 22B — agentic coding focus
+- **Infinity status**: Already configured via Ollama + OpenRouter/NVIDIA NIM failover ✓
+
+### 9. File System Access API (Infinity has this ✓)
+- **Unique advantage**: Browser-native `showDirectoryPicker()` for persistent local workspace
+- **Competitors**: Most require Docker/VM or cloud workspace
+- **Infinity status**: Complete integration with IndexedDB persistence ✓
+
+### 10. Autonomous Coding Agent (Infinity has this ✓)
+- **Phase 1 complete**: Tool-using agent with 9 tools, state machine, verification
+- **Competitors**: OpenHands, Cline, Aider have similar but less integrated with browser
+- **Infinity status**: Complete with browser pool, snapshots, edge cases ✓
+
+## Priority Implementation Order (for $0 budget)
+1. **Headless CI/CD mode** — unlocks automated testing, free GitHub Actions
+2. **MCP Server** — makes Infinity tools available to any LLM client
+3. **Multi-agent orchestration** — planner→coder→reviewer→fixer pipeline
+4. **Scheduled agents/cron** — automated maintenance, research, builds
+5. **Messaging connectors** — Slack/Discord/Telegram for remote monitoring
+6. **ACP Protocol** — standardized IDE integration
+7. **SWE-Bench mode** — benchmark & optimize against real issues
 - **Build Mode (Infinity) Phase 1: Autonomous Coding Agent (NEW)** — **COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous agent. Created build-tools.ts (9 tools), build-agent.ts (state machine + runAutonomousAgent/runAgentForStep), 3 new API routes (/build/agent/run, /build/agent/step, /build/agent/tools). Typecheck + build pass.
 - **Facial recognition in camera mode** — **COMPLETE**: MediaPipe Face Landmarker (478 landmarks, bounding box, key features, head pose) integrated alongside object detection + hand tracking. 100% free, browser-based.
 - **Browser extension for Infinity** — **COMPLETE**: Created full Manifest V3 extension with WebSocket endpoint, background service worker, content script, popup UI, and injected script. API server has /api/jarvis/extension/ws + REST endpoints. Verified working end-to-end.

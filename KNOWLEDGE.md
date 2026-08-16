@@ -41,6 +41,11 @@
 ## Decisions registry
 - 2026-08-16 **Auth system COMPLETE** — Implemented login/register/logout/profile/password using existing accounts/sessions tables. Added bcrypt (12 rounds), created `auth.ts` with 6 endpoints, registered in index.ts, session cookies (httpOnly, secure, 30-day expiry). Typecheck + build pass.
 
+- 2026-08-16 **Tavily Research COMPLETE** — 1-hour competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings:
+  - **Infinity strengths**: File System Access API (browser-native persistent workspace ✓), Autonomous Coding Agent with 9 tools & verification loop ✓, Model-Agnostic LLM Abstraction ✓, Local LLM support via Ollama (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral) ✓, Browser Pool with CDP ✓, Workspace Snapshots/Rollback ✓, Edge Case Resilience ✓
+  - **Critical gaps vs competitors**: Multi-agent orchestration (planner→coder→reviewer→fixer), Scheduled agents/cron, Messaging connectors (Slack/Discord/Telegram), Headless CI/CD mode, ACP Protocol server, MCP Server (expose Infinity tools to external LLMs), SWE-Bench optimization mode
+  - **Priority implementation order**: 1) Headless CI/CD mode → 2) MCP Server → 3) Multi-agent orchestration → 4) Scheduled agents/cron → 5) Messaging connectors → 6) ACP Protocol → 7) SWE-Bench mode
+
 - 2026-08-16 **Facial recognition in camera mode COMPLETE** — Added MediaPipe Face Landmarker (478 landmarks, bounding box, key features, head pose) using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, browser-based). Created `use-face-tracking.ts` hook, integrated into `camera-feed.tsx` with `enableFaceTracking` prop and `drawFaceOverlay`, enabled in `camera-mode-view.tsx`. Typecheck passes (only pre-existing api-client-react build error).
 
 - 2026-08-16 **Removed legacy single-shot generation functions** — Deleted `generateStarterFiles()`, `parseStarterFiles()`, `reviewFallback()`, `reviewAndFixWorkspace()` from build.ts; `/build/scaffold` and `/build/iterate` now use `runAutonomousAgent` exclusively. Typecheck + build pass.
