@@ -29,6 +29,8 @@ export function CameraModeView({ onBack, onUploadPhoto }: CameraModeViewProps) {
           <CameraFeed
             className="h-full"
             enableDetection
+            enableHandTracking
+            enableFaceTracking
             onUploadPhoto={onUploadPhoto}
           />
         </div>

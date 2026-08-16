@@ -4,9 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 14:25
+LAST_UPDATED: 2026-08-16 15:00
 
 ## Just did (last action)
+- **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly):
+  - Created `artifacts/jarvis/src/hooks/use-face-tracking.ts` — hook with FaceLandmarker, tracks 478 landmarks per face, detects bounding box, key facial features (eyes, nose, mouth, ears, face center), estimates head pose (yaw/pitch/roll)
+  - Modified `artifacts/jarvis/src/components/camera-feed.tsx` — added `enableFaceTracking` prop, `faceCanvasRef`, `drawFaceOverlay` with face mesh connections, bounding box, key feature points (eyes=red, nose=gold, mouth=green, ears=cyan, center=white), head pose indicator line + text
+  - Modified `artifacts/jarvis/src/components/home/camera-mode-view.tsx` — enabled `enableFaceTracking` on CameraFeed
+  - Works alongside existing object detection and hand tracking
+  - Typecheck passes (only pre-existing api-client-react build error)
+
 - **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation (`generateStarterFiles()`) with a tool-using autonomous coding agent that progressively explores, modifies, and verifies the workspace:
   - Created `artifacts/api-server/src/lib/build-tools.ts` — complete tool execution framework (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) with JSON schema definitions, executeTool(), executeToolSequence(), formatToolResults()
   - Created `artifacts/api-server/src/lib/build-agent.ts` — autonomous agent state machine (planning → exploring → implementing → verifying → fixing → done/error) with AgentState, PlanStep, AgentConfig, runAutonomousAgent(), runAgentForStep(), runAgentIteration(), parseToolCalls(), checkDone(), runVerification()
@@ -41,6 +48,8 @@ LAST_UPDATED: 2026-08-16 14:25
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly). Created `use-face-tracking.ts` hook (478 landmarks, bounding box, key features, head pose), integrated into `camera-feed.tsx` with `enableFaceTracking` prop and `drawFaceOverlay` (face mesh, feature points, head pose indicator), enabled in `camera-mode-view.tsx`. Typecheck passes (only pre-existing api-client-react build error).
+
 - 2026-08-16 **Removed legacy single-shot generation functions**: Deleted `generateStarterFiles()`, `parseStarterFiles()`, `reviewFallback()`, and `reviewAndFixWorkspace()` from `build.ts` — no longer used since `/build/scaffold` and `/build/iterate` now use `runAutonomousAgent` (Phase 1 Autonomous Coding Agent). Typecheck + build pass.
 - 2026-08-16 **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous coding agent. Created `build-tools.ts` (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff), `build-agent.ts` (AgentState machine, runAutonomousAgent, runAgentForStep, runAgentIteration, parseToolCalls, checkDone, runVerification), 3 new routes in build.ts (`/build/agent/run`, `/build/agent/step`, `/build/agent/tools`). Fixed TypeScript errors: ScreenshotViewport export, BuildEventType agent events, PlanStep type conflict. Typecheck + build pass.
 - 2026-08-16 **Model-Agnostic LLM Abstraction COMPLETE**: Implemented strict architectural abstraction layer so Infinity agent NEVER knows which LLM provider powers it. Created `llm-adapter.ts` (LLMAdapter interface, OpenAICompatibleAdapter for any OpenAI-compatible API, LLMAdapterError with sanitization), `infinity-prompt.ts` (INFINITY_IDENTITY immutable prefix + role-specific instructions + buildInfinityPrompt single entry point), `adapter-factory.ts` (createBestAdapter, createManualAdapter, createAdapterFromEntry, adapterFactory). Migrated all 10+ LLM call sites in build.ts, chat.ts, browse.ts, debug.ts to new abstraction. Fixed TypeScript errors in llm-adapter.ts (OpenAIClient interface→class, tool call chunk index), browse.ts (LLMContentPart import), debug.ts (completion.content access). Typecheck + build pass. All providers (Claude, GPT, Gemini, OpenRouter, NVIDIA NIM, local vLLM, future) now work identically.
@@ -79,6 +88,7 @@ LAST_UPDATED: 2026-08-16 14:25
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Autonomous Coding Agent (NEW)** — **COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous agent. Created build-tools.ts (9 tools), build-agent.ts (state machine + runAutonomousAgent/runAgentForStep), 3 new API routes (/build/agent/run, /build/agent/step, /build/agent/tools). Typecheck + build pass.
+- **Facial recognition in camera mode** — **COMPLETE**: MediaPipe Face Landmarker (478 landmarks, bounding box, key features, head pose) integrated alongside object detection + hand tracking. 100% free, browser-based.
 - **Build Mode (Infinity) Phase 2: Loop Intelligence** — **COMPLETE**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry loop with fixer prompt ✓, UI diff modal integration ✓, wire /build/execute-plan ✓.
 - **Build Mode (Infinity) Phase 3.1: Smart Working Context** — **COMPLETE**: fileMap, keyDecisions, errorPatterns, tokenBudget, compaction implemented in `build-context.ts`.
 - **Build Mode (Infinity) Phase 3.2: Project-Scoped Memory Integration** — **COMPLETE**: Created `build-project-context.ts`; wired project instructions, memory, activity, files into `/build/execute-plan`, `/build/scaffold`, `/build/iterate`; strict projectId guarding.
@@ -95,7 +105,11 @@ LAST_UPDATED: 2026-08-16 14:25
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Build Mode (Infinity) Phase 1 Autonomous Coding Agent COMPLETE** — All Phase 0-5 tasks finished + File System Access API integration complete + **Model-Agnostic LLM Abstraction complete** + **Phase 1 Autonomous Coding Agent complete**. Next: verify end-to-end functionality or move to Projects System (Project Files, Project Research, Project Tasks, UI cleanup) or Book Studio live end-to-end run.
+1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this)
+2. **Browser extension for Infinity** — Control user's actual browser
+3. **Auth system** — Check if accounts/sessions tables exist in schema (they do)
+4. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
+5. **Chat/voice mode API key fallback logic** — fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
