@@ -4,10 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 13:27
+LAST_UPDATED: 2026-08-16 14:05
 
 ## Just did (last action)
-- **File System Access API Integration COMPLETE**: Added browser-native File System Access API (`window.showDirectoryPicker`) to Infinity Build so users can select a local directory as a persistent workspace, removing manual file uploads:
+- **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation (`generateStarterFiles()`) with a tool-using autonomous coding agent that progressively explores, modifies, and verifies the workspace:
+  - Created `artifacts/api-server/src/lib/build-tools.ts` — complete tool execution framework (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) with JSON schema definitions, executeTool(), executeToolSequence(), formatToolResults()
+  - Created `artifacts/api-server/src/lib/build-agent.ts` — autonomous agent state machine (planning → exploring → implementing → verifying → fixing → done/error) with AgentState, PlanStep, AgentConfig, runAutonomousAgent(), runAgentForStep(), runAgentIteration(), parseToolCalls(), checkDone(), runVerification()
+  - Added 3 new routes to `artifacts/api-server/src/routes/jarvis/build.ts`: `/build/agent/run` (run autonomous agent for a goal), `/build/agent/step` (run agent for specific plan step), `/build/agent/tools` (return available tool definitions)
+  - Fixed TypeScript errors: added `ScreenshotViewport` export to browser-pool.ts, added agent event types to build-telemetry.ts, resolved PlanStep type conflict by renaming import to `AgentPlanStep`
+  - Typecheck + build pass
   - Created `artifacts/jarvis/src/lib/file-system-access.ts` — complete FS API service (pickDirectory, verifyPermission, requestPermission, ensurePermission, readFile, writeFile, readDirectoryRecursive, readAllTextFiles, writeFileTree, deletePath, renamePath, createDirectory, storeHandleMeta, loadStoredHandleMeta, clearStoredHandleMeta, reconnectWorkspace, connectAndStoreWorkspace, disconnectWorkspace, getBrowserSupportMessage, FileSystemAccessError)
   - Created `artifacts/jarvis/src/lib/indexed-db.ts` — IndexedDB utility for persisting folder metadata (handles can't be serialized directly; stores name + timestamp, requires user gesture to re-pick on reload)
   - Modified `build-studio.tsx`: added fsHandle/fsSupported/fsPermissionState/fsFolderName/fsReconnecting/fsError state; useEffect initializes FS API and calls reconnectWorkspace(); file operations (openFile, saveFile, loadFiles, createFile, createFolder, renamePath, deletePath) use FS API when handle exists, fallback to backend API
@@ -36,6 +41,7 @@ LAST_UPDATED: 2026-08-16 13:27
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Phase 1 Autonomous Coding Agent COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous coding agent. Created `build-tools.ts` (9 tools: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff), `build-agent.ts` (AgentState machine, runAutonomousAgent, runAgentForStep, runAgentIteration, parseToolCalls, checkDone, runVerification), 3 new routes in build.ts (`/build/agent/run`, `/build/agent/step`, `/build/agent/tools`). Fixed TypeScript errors: ScreenshotViewport export, BuildEventType agent events, PlanStep type conflict. Typecheck + build pass.
 - 2026-08-16 **Model-Agnostic LLM Abstraction COMPLETE**: Implemented strict architectural abstraction layer so Infinity agent NEVER knows which LLM provider powers it. Created `llm-adapter.ts` (LLMAdapter interface, OpenAICompatibleAdapter for any OpenAI-compatible API, LLMAdapterError with sanitization), `infinity-prompt.ts` (INFINITY_IDENTITY immutable prefix + role-specific instructions + buildInfinityPrompt single entry point), `adapter-factory.ts` (createBestAdapter, createManualAdapter, createAdapterFromEntry, adapterFactory). Migrated all 10+ LLM call sites in build.ts, chat.ts, browse.ts, debug.ts to new abstraction. Fixed TypeScript errors in llm-adapter.ts (OpenAIClient interface→class, tool call chunk index), browse.ts (LLMContentPart import), debug.ts (completion.content access). Typecheck + build pass. All providers (Claude, GPT, Gemini, OpenRouter, NVIDIA NIM, local vLLM, future) now work identically.
 - 2026-08-16 **File System Access API Integration COMPLETE**: Added browser-native File System Access API (`window.showDirectoryPicker`) to Infinity Build for persistent local folder workspace; created `file-system-access.ts` + `indexed-db.ts`; modified `build-studio.tsx` with FS API integration (fallback to backend API); Explorer sidebar UI (Connect/Disconnect, status indicator, reconnecting spinner); browser unsupported warning for Safari/Firefox; 11 i18n keys (EN+NL); typecheck + build pass
 - 2026-08-16 **Phase 5.3 — Edge Cases INTEGRATION COMPLETE**: Wired preflightCheck, enqueueBuild, withRetry into `/build/execute-plan` and `/build/iterate` in build.ts; pre-flight validation before builds, concurrent build queuing per project, LLM call retry with exponential backoff; typecheck + build pass — Phase 5.3 now FULL COMPLETE
@@ -71,6 +77,7 @@ LAST_UPDATED: 2026-08-16 13:27
 ## Active threads
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
+- **Build Mode (Infinity) Phase 1: Autonomous Coding Agent (NEW)** — **COMPLETE**: Replaced single-shot JSON-map generation with tool-using autonomous agent. Created build-tools.ts (9 tools), build-agent.ts (state machine + runAutonomousAgent/runAgentForStep), 3 new API routes (/build/agent/run, /build/agent/step, /build/agent/tools). Typecheck + build pass.
 - **Build Mode (Infinity) Phase 2: Loop Intelligence** — **COMPLETE**: Diff preview ✓, verification loop ✓, parallel fan-out ✓, modular prompts ✓, retry loop with fixer prompt ✓, UI diff modal integration ✓, wire /build/execute-plan ✓.
 - **Build Mode (Infinity) Phase 3.1: Smart Working Context** — **COMPLETE**: fileMap, keyDecisions, errorPatterns, tokenBudget, compaction implemented in `build-context.ts`.
 - **Build Mode (Infinity) Phase 3.2: Project-Scoped Memory Integration** — **COMPLETE**: Created `build-project-context.ts`; wired project instructions, memory, activity, files into `/build/execute-plan`, `/build/scaffold`, `/build/iterate`; strict projectId guarding.
@@ -87,7 +94,7 @@ LAST_UPDATED: 2026-08-16 13:27
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Build Mode (Infinity) COMPLETE** — All Phase 0-5 tasks finished + File System Access API integration complete + **Model-Agnostic LLM Abstraction complete**. Next: verify end-to-end functionality or move to Projects System (Project Files, Project Research, Project Tasks, UI cleanup) or Book Studio live end-to-end run.
+1. **Build Mode (Infinity) Phase 1 Autonomous Coding Agent COMPLETE** — All Phase 0-5 tasks finished + File System Access API integration complete + **Model-Agnostic LLM Abstraction complete** + **Phase 1 Autonomous Coding Agent complete**. Next: verify end-to-end functionality or move to Projects System (Project Files, Project Research, Project Tasks, UI cleanup) or Book Studio live end-to-end run.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
