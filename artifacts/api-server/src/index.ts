@@ -9,6 +9,8 @@
 import { config as loadEnv } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..", ".."); // dist/ -> api-server/ -> artifacts/ -> repo root
@@ -20,12 +22,13 @@ loadEnv({ path: path.join(__dirname, "..", ".env") });
 // import them dynamically. Static ESM imports are evaluated before this file's
 // body, which previously let the DB pool capture an empty DATABASE_URL before
 // dotenv had a chance to load the Keys-tab values.
-const [{ default: app }, { logger }, { ensureTables, ensureFilesTables }, { injectDbSecretsIntoEnv }] =
+const [{ default: app }, { logger }, { ensureTables, ensureFilesTables }, { injectDbSecretsIntoEnv }, { handleExtensionUpgrade }] =
   await Promise.all([
     import("./app"),
     import("./lib/logger"),
     import("./lib/auto-migrate"),
     import("./routes/jarvis/secrets"),
+    import("./routes/jarvis"),
   ]);
 
 const rawPort = process.env["PORT"];
@@ -50,6 +53,37 @@ ensureFilesTables().catch((err) => {
   logger.error({ err }, "Files table migration skipped, DB unreachable. File storage will use the local-disk fallback.");
 });
 
+// Create HTTP server
+const server = createServer(app);
+
+// Create WebSocket server for extension connections
+const wss = new WebSocketServer({ noServer: true });
+
+// Handle WebSocket upgrades for extension connections
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+
+  // Check if this is an extension WebSocket connection
+  if (url.pathname === "/api/jarvis/extension/ws") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  } else {
+    // Reject non-extension WebSocket connections
+    socket.destroy();
+  }
+});
+
+// Handle new WebSocket connections for extensions
+wss.on("connection", (ws, req) => {
+  // Create a minimal request-like object for the handler
+  const request = {
+    url: req.url,
+    headers: req.headers,
+  } as any;
+  handleExtensionUpgrade(ws, request);
+});
+
 Promise.resolve().then(() => {
   // In-app API keys (Settings → API Keys) live in the DB, inject them into
   // process.env so every existing read site picks them up. DB values win.
@@ -57,17 +91,16 @@ Promise.resolve().then(() => {
 }).catch((err) => {
   logger.error({ err }, "Secret injection failed (non-fatal)");
 }).finally(() => {
-  app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-
+  server.listen(port, () => {
     logger.info({ port }, "Server listening");
     // NOTE: The Puppeteer browser is intentionally NOT launched at startup.
     // It is lazy-initialized on first browse/screenshot request (see getBrowser()
     // in routes/jarvis/browse.ts). Eagerly launching a full Chrome instance at
     // boot was pushing the sandbox over its memory limit, causing OOM restarts
     // that killed the API server mid-conversation (voice mode errors).
+  });
+  server.on("error", (err) => {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
   });
 });

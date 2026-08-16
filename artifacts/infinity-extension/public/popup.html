@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinity Browser Control</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      width: 360px;
+      min-height: 400px;
+      background: linear-gradient(135deg, #f5f5f7 0%, #e8e8ed 100%);
+      color: #1d1d1f;
+    }
+    .container {
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .title-section h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    .title-section p {
+      font-size: 11px;
+      color: #86868b;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status.connected {
+      background: rgba(52, 199, 89, 0.15);
+      color: #30d158;
+    }
+    .status.disconnected {
+      background: rgba(255, 59, 48, 0.15);
+      color: #ff3b30;
+    }
+    .status.connecting {
+      background: rgba(255, 149, 0, 0.15);
+      color: #ff9500;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .dot.pulse {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .tabs-section {
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #86868b;
+      margin-bottom: 8px;
+    }
+    .tab-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border-radius: 8px;
+      background: white;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .tab-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .tab-item:last-child {
+      border-bottom: none;
+    }
+    .tab-item:hover {
+      background: rgba(0,0,0,0.03);
+    }
+    .tab-item.active {
+      background: rgba(0, 122, 255, 0.08);
+    }
+    .tab-favicon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .tab-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .tab-title {
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #1d1d1f;
+    }
+    .tab-url {
+      font-size: 10px;
+      color: #86868b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 122, 255, 0.15);
+      color: #007aff;
+      font-weight: 600;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: #007aff;
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #0056cc;
+    }
+    .btn-secondary {
+      background: white;
+      color: #1d1d1f;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #f5f5f7;
+    }
+    .btn-danger {
+      background: #ff3b30;
+      color: white;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #cc2e25;
+    }
+    .footer {
+      padding-top: 12px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: #86868b;
+    }
+    .footer a {
+      color: #007aff;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: #86868b;
+    }
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    .log-section {
+      margin-top: 16px;
+    }
+    .log-container {
+      max-height: 150px;
+      overflow-y: auto;
+      background: #1d1d1f;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 10px;
+      line-height: 1.5;
+      color: #86868b;
+    }
+    .log-entry {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-entry.info { color: #007aff; }
+    .log-entry.success { color: #30d158; }
+    .log-entry.error { color: #ff3b30; }
+    .log-entry.warning { color: #ff9500; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">∞</div>
+      <div class="title-section">
+        <h1>Infinity</h1>
+        <p>Browser Control Extension</p>
+      </div>
+    </div>
+
+    <div class="status disconnected" id="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="connectBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        Connect
+      </button>
+      <button class="btn btn-secondary" id="disconnectBtn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+          <path d="M1.42 1.42l21.16 21.16"></path>
+        </svg>
+        Disconnect
+      </button>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="getTabsBtn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        Refresh Tabs
+      </button>
+      <button class="btn btn-secondary" id="clearLogBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Clear Log
+      </button>
+    </div>
+
+    <div class="tabs-section">
+      <div class="section-title">Open Tabs</div>
+      <div class="tab-list" id="tabList">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <p>Click "Refresh Tabs" to see open tabs</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <div class="section-title">Activity Log</div>
+      <div class="log-container" id="logContainer"></div>
+    </div>
+
+    <div class="footer">
+      <span>v1.0.0</span>
+      <a href="https://github.com/kasper-kal/Jarvis" target="_blank">GitHub</a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

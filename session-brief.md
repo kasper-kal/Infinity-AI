@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-16 15:00
+LAST_UPDATED: 2026-08-16 16:30
 
 ## Just did (last action)
 - **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly):
@@ -48,6 +48,8 @@ LAST_UPDATED: 2026-08-16 15:00
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-16 **Chat/voice mode API key fallback logic COMPLETE**: Implemented sequential retry flow per user specification — fail → "Try same key" button (retries same key once) → if fails again → "Try next key" button (tries next key in pool). Backend: modified `artifacts/api-server/src/routes/jarvis/chat.ts` manual key mode (`manualCreate`) for single attempt per key with `llm_manual_retry` error carrying current/next key info. Frontend: modified `artifacts/jarvis/src/hooks/use-chat-stream.ts` with `retryAttempt` state (0=initial, 1=first retry same key, 2=second retry next key), `retrySameKey()`/`retryNextKey()` callbacks, UI shows appropriate buttons per attempt. Typecheck + build pass.
+
 - 2026-08-16 **Facial recognition in camera mode COMPLETE**: Added MediaPipe Face Landmarker integration using `@mediapipe/tasks-vision` (same library as hand tracking, 100% free, runs in browser via WebAssembly). Created `use-face-tracking.ts` hook (478 landmarks, bounding box, key features, head pose), integrated into `camera-feed.tsx` with `enableFaceTracking` prop and `drawFaceOverlay` (face mesh, feature points, head pose indicator), enabled in `camera-mode-view.tsx`. Typecheck passes (only pre-existing api-client-react build error).
 
 - 2026-08-16 **Removed legacy single-shot generation functions**: Deleted `generateStarterFiles()`, `parseStarterFiles()`, `reviewFallback()`, and `reviewAndFixWorkspace()` from `build.ts` — no longer used since `/build/scaffold` and `/build/iterate` now use `runAutonomousAgent` (Phase 1 Autonomous Coding Agent). Typecheck + build pass.
@@ -105,11 +107,11 @@ LAST_UPDATED: 2026-08-16 15:00
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this)
+1. **Self-evolving code capability** — Allow Jarvis to modify its own code (check if build agent already supports this - the build agent has edit_file tool)
 2. **Browser extension for Infinity** — Control user's actual browser
 3. **Auth system** — Check if accounts/sessions tables exist in schema (they do)
 4. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
-5. **Chat/voice mode API key fallback logic** — fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+5. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

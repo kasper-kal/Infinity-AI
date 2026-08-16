@@ -54,6 +54,7 @@ import envManagerRouter from "./env-manager";
 import configWizardRouter from "./config-wizard";
 import migrationsRouter from "./migrations";
 import packageEditorRouter from "./package-editor";
+import extensionRouter, { handleExtensionUpgrade } from "./extension";
 
 const router = Router();
 
@@ -114,5 +115,7 @@ router.use(envManagerRouter);
 router.use(configWizardRouter);
 router.use(migrationsRouter);
 router.use(packageEditorRouter);
+router.use(extensionRouter);
 
+export { handleExtensionUpgrade };
 export default router;
