@@ -14,7 +14,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
 | **6** | **Headless CI/CD Mode** | ✅ **DONE** | ~4-8h | Phase 5.x |
-| **7** | **MCP Server Integration** | 🔄 **IN PROGRESS** | ~6-12h | Phase 6 |
+| **6.5** | **@Agent Browser Widget + @Browse Tavily Live Text** | ✅ **DONE** | ~4-6h | Phase 6 |
+| **7** | **MCP Server Integration** | 🔄 **NEXT** | ~6-12h | Phase 6.5 |
 | **8** | **Multi-Agent Orchestration** | ⏳ PENDING | ~12-24h | Phase 7 |
 | **9** | **Scheduled Agents / Cron** | ⏳ PENDING | ~4-8h | Phase 8 |
 | **10** | **Messaging Connectors** | ⏳ PENDING | ~6-12h | Phase 8 |
@@ -53,6 +54,43 @@ Run Infinity Build non-interactively in CI/CD pipelines (GitHub Actions, GitLab 
 - `artifacts/api-server/src/lib/build-events.ts` — JSONL stdout emitter
 - `.github/workflows/infinity-build.yml` (new)
 - `HEADLESS_MODE.md` (new)
+
+---
+
+## 📦 Phase 6.5: @Agent Browser Widget + @Browse Tavily Live Text
+
+### Goal
+Transform Browser mode into two powerful new commands:
+- **@Agent <goal>** — Live Puppeteer browser widget with screenshot streaming, double-tap takeover, AI pause/resume
+- **@Browse <query>** — Live Tavily search text streaming in chat (not a widget), multiple queries per message, source references
+
+### Requirements
+- [x] **@Agent command** — Detect `@Agent <goal>` prefix, emit `widget` SSE event with `type: "browser_agent"`, render BrowserWidget in chat
+- [x] **BrowserWidget.tsx** — Live widget: WebSocket screenshot stream from `/browser-ws`, double-click to pause AI and take manual control, "Let AI Resume" button when paused, back/forward/reload controls, step-by-step action log
+- [x] **@Browse command** — Detect `@Browse <query>` prefix (supports `;` or ` and ` separators for multiple queries), emit `live_text` SSE events for each query: "🔍 Searching..." → results with markdown sources
+- [x] **Backend (chat.ts)** — Added `detectBrowseCommand()` and `detectAgentCommand()` functions. @Browse handler loops queries, direct Tavily API fetch, emits live_text events. @Agent handler emits browser_agent widget event.
+- [x] **Frontend (use-chat-stream.ts)** — Added `live_text` case in SSE handler, appends to assistant message as live text in chat (NOT a widget)
+- [x] **Widget type union** — Added `browser_agent` to Widget type in `types/widget.ts`
+- [x] **Conversation feed** — Added BrowserWidget import + `browser_agent` case in InlineWidget switch
+- [x] **Removed redundant** tavily-search.ts route (backend does direct fetch)
+
+### Implementation Plan
+1. ✅ **Create BrowserWidget.tsx** — Live Puppeteer widget with WebSocket screenshots, double-tap takeover, resume button
+2. ✅ **Add @Agent/@Browse detection** in `chat.ts` with SSE event emission
+3. ✅ **Add live_text handler** in `use-chat-stream.ts` for Tavily streaming text
+4. ✅ **Wire widget type** — types/widget.ts, conversation-feed.tsx, widgets/index.ts
+5. ✅ **Remove redundant tavily-search.ts** route
+6. ✅ **Typecheck + build pass** on frontend and API server
+
+### Files Created/Modified
+- `artifacts/jarvis/src/components/widgets/BrowserWidget.tsx` (new)
+- `artifacts/api-server/src/routes/jarvis/chat.ts` — detectBrowseCommand, detectAgentCommand, @Browse/@Agent handlers
+- `artifacts/jarvis/src/hooks/use-chat-stream.ts` — live_text SSE handler
+- `artifacts/jarvis/src/types/widget.ts` — browser_agent widget type
+- `artifacts/jarvis/src/components/conversation-feed.tsx` — BrowserWidget import + case
+- `artifacts/jarvis/src/components/widgets/index.ts` — BrowserWidget export
+- `artifacts/api-server/src/routes/jarvis/tavily-search.ts` (removed)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — removed tavily-search import
 
 ---
 

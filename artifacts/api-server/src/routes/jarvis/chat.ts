@@ -121,6 +121,41 @@ function detectAgentBrowserRequest(text: string): { isAgentRequest: boolean; sea
   return { isAgentRequest: false, searchQuery: '' };
 }
 
+/**
+ * Detect @Browse command for Tavily web search with live streaming.
+ * Matches: @Browse <query> or @Browse query1; query2; query3
+ */
+function detectBrowseCommand(text: string): { isBrowse: boolean; queries: string[] } {
+  const trimmed = text.trim();
+  // Match @Browse or @browse at the start of the message
+  const match = trimmed.match(/^@Browse\s+(.+)$/i);
+  if (!match) return { isBrowse: false, queries: [] };
+
+  const queryString = match[1].trim();
+  if (!queryString) return { isBrowse: false, queries: [] };
+
+  // Split by semicolon or " and " for multiple queries
+  const queries = queryString
+    .split(/;\s*|\s+and\s+/i)
+    .map(q => q.trim())
+    .filter(q => q.length > 0);
+
+  return { isBrowse: queries.length > 0, queries };
+}
+
+/**
+ * Detect @Agent command for live browser agent with Puppeteer.
+ * Matches: @Agent <goal>
+ */
+function detectAgentCommand(text: string): { isAgent: boolean; goal: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Agent\s+(.+)$/i);
+  if (!match) return { isAgent: false, goal: '' };
+
+  const goal = match[1].trim();
+  return { isAgent: goal.length > 0, goal };
+}
+
 /** Detect if the user is asking to draw/generate/create an image. */
 function detectImageRequest(text: string): { isImageRequest: boolean; imagePrompt: string } {
   const t = text.trim().toLowerCase();
@@ -1131,6 +1166,89 @@ router.post("/chat", async (req, res) => {
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no"); // nginx: disable proxy buffering
     res.flushHeaders();
+
+    // ── @Browse command: Tavily web search with live text streaming ──────────────
+    const browseCheck = detectBrowseCommand(sanitizedMessage);
+    if (browseCheck.isBrowse) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Stream live text for each query
+      for (const query of browseCheck.queries) {
+        // Emit "live_text" event showing what we're searching for
+        res.write(`data: ${JSON.stringify({
+          type: "live_text",
+          content: `🔍 Searching for "${query}"...\n\n`,
+        })}\n\n`);
+
+        try {
+          const searchRes = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: process.env["TAVILY_API_KEY"] ?? process.env["WEB_SEARCH_API_KEY"],
+              query,
+              search_depth: "basic",
+              include_answer: true,
+              max_results: 5,
+            }),
+            signal: AbortSignal.timeout(8000),
+          });
+
+          if (searchRes.ok) {
+            const data = await searchRes.json() as {
+              answer?: string;
+              results?: { title: string; url: string; content: string }[];
+            };
+
+            let output = `✅ Found results for "${query}"\n\n`;
+            if (data.answer) {
+              output += `**Summary:** ${data.answer}\n\n`;
+            }
+            if (data.results && data.results.length > 0) {
+              output += `**Sources:**\n`;
+              data.results.forEach((r, i) => {
+                output += `${i + 1}. [${r.title}](${r.url})\n   ${r.content.slice(0, 200)}...\n\n`;
+              });
+            }
+            res.write(`data: ${JSON.stringify({ type: "live_text", content: output })}\n\n`);
+          } else {
+            res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Search failed for "${query}"` })}\n\n`);
+          }
+        } catch (err) {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error searching "${query}": ${(err as Error).message}` })}\n\n`);
+        }
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Agent command: Live browser agent with Puppeteer widget ──────────────
+    const agentCheckCmd = detectAgentCommand(sanitizedMessage);
+    if (agentCheckCmd.isAgent) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Send the browser widget event - frontend will render BrowserWidget
+      res.write(`data: ${JSON.stringify({
+        type: "widget",
+        widget: {
+          type: "browser_agent",
+          goal: agentCheckCmd.goal,
+        },
+      })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
 
     // ── Agent browser auto-detect ─────────────────────────────────
     // Voice mode: "Jarvis, search for X" opens the PiP browser agent loop.

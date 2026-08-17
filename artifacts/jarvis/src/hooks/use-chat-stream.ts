@@ -257,6 +257,17 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                   return updated;
                 });
                 break;
+              case 'live_text':
+                // @Browse / @Agent live streaming text (Tavily search progress,
+                // browser agent steps). Appended to the assistant message as plain
+                // live text in chat (NOT a widget).
+                jarvisText += parsed.content;
+                setMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: jarvisText };
+                  return updated;
+                });
+                break;
               case 'reasoning':
                 // Thinking mode, accumulate the private reasoning chain onto
                 // the same assistant message (shown in a collapsible block).

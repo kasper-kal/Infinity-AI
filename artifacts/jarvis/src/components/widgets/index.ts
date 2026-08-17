@@ -14,6 +14,7 @@ export { UnitConverterWidget } from './UnitConverterWidget';
 export { CurrencyWidget } from './CurrencyWidget';
 export { MapWidget } from './MapWidget';
 export { RandomWidget } from './RandomWidget';
+export { BrowserWidget } from './BrowserWidget';
 export { CommandCard } from './CommandCard';
 export { FileEditCard } from './FileEditCard';
 export { FigmaWidget, type FigmaTokenCard } from './FigmaWidget';

@@ -59,6 +59,7 @@ export type Widget =
   | { type: 'map'; query: string; lat: number; lon: number; displayName: string }
   | { type: 'random'; kind: 'dice' | 'coin' | 'number'; value: number; label: string }
   | { type: 'music'; composition: MusicComposition }
+  | { type: 'browser_agent'; goal: string }
 
 /** A terminal command card shown in chat (from run_terminal SSE events). */
 export interface TerminalResult {
