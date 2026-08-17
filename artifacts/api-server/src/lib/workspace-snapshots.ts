@@ -231,3 +231,20 @@ export async function snapshotAfterCheckpoint(
     console.error({ err, projectId, checkpointId }, "Auto-snapshot failed (non-fatal)");
   }
 }
+
+/**
+ * Phase 9: Clean up old snapshots, keeping only the most recent N.
+ * Returns the number of snapshots deleted.
+ */
+export async function cleanupSnapshots(projectId: string, keepLastN = 10): Promise<number> {
+  const snapshots = await listSnapshots(projectId, 1000); // get all
+  if (snapshots.length <= keepLastN) return 0;
+
+  const toDelete = snapshots.slice(keepLastN);
+  let deleted = 0;
+  for (const snap of toDelete) {
+    const ok = await deleteSnapshot(projectId, snap.id);
+    if (ok) deleted++;
+  }
+  return deleted;
+}

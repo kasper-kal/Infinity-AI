@@ -33,6 +33,53 @@ import { logger } from "./logger";
 import { notifyAll } from "./web-push";
 import { runWithLLM, LLMAllKeysCoolingError } from "./llm-client";
 
+/**
+ * Phase 9: Run a research job synchronously (for scheduler).
+ * Creates a research job with the given config and runs it to completion.
+ * Returns a summary object.
+ */
+export async function runResearch(
+  query: string,
+  depth: "standard" | "deep" | "quantum" | "omni" = "deep",
+  sources?: string[]
+): Promise<{ summary: string; sources?: string[] }> {
+  const title = query.slice(0, 60);
+
+  const [job] = await db
+    .insert(researchJobs)
+    .values({
+      title,
+      prompt: query,
+      mode: "agent",
+      depth,
+      // Note: sources parameter would need schema changes to store
+    })
+    .returning();
+
+  // Run synchronously (await the job)
+  await startResearchJob(job.id);
+
+  // Wait for completion
+  const waitForCompletion = async (jobId: string): Promise<typeof researchJobs.$inferSelect> => {
+    while (true) {
+      const [row] = await db.select().from(researchJobs).where(eq(researchJobs.id, jobId));
+      if (!row) throw new Error("Job not found");
+      if (row.status === "completed") return row;
+      if (row.status === "failed" || row.status === "cancelled") {
+        throw new Error(`Research job ${row.status}: ${row.error || "Unknown error"}`);
+      }
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  };
+
+  const completed = await waitForCompletion(job.id);
+
+  return {
+    summary: completed.report || completed.notes || "Research completed",
+    sources: undefined,
+  };
+}
+
 const SLEEP_SECONDS: Record<JobDepth, [number, number]> = {
   standard: [30, 75],
   deep: [90, 180],

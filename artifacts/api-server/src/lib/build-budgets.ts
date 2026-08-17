@@ -409,3 +409,23 @@ export function estimateCostCents(model: string, promptTokens: number, completio
   const completionCost = (completionTokens / 1_000_000) * pricing.completion;
   return Math.round((promptCost + completionCost) * 100); // USD cents
 }
+
+/**
+ * Phase 9: Reset daily budget counters for a project (e.g., for daily_reset schedule).
+ * Resets the daily aggregate to zero for the current day key.
+ */
+export async function resetBudget(projectId: string): Promise<void> {
+  const budget = await getOrCreateBudget(projectId);
+  const date = getDailyDateKey(budget.dailyResetHour);
+
+  await db
+    .update(buildDailyAggregates)
+    .set({
+      tokensUsed: 0,
+      costCents: 0,
+      buildsCount: 0,
+      totalDurationMs: 0,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(buildDailyAggregates.projectId, projectId), eq(buildDailyAggregates.date, date)));
+}
