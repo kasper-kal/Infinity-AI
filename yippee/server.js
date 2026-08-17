@@ -73,15 +73,11 @@ function createSession({ name = null, realSessionId = null, cwd = process.cwd() 
   if (realSessionId) args.push('--resume', realSessionId);
 
   // Clean env: remove CLAUDE_CODE_CHILD_SESSION to fix "transcript saving off" warning
-  // Also clear model env vars that force "auto/best-free" which is broken in OmniRoute
+  // Keep model env vars so OmniRoute works (existing sessions work with them)
   const cleanEnv = { ...process.env };
   delete cleanEnv.CLAUDE_CODE_CHILD_SESSION;
   delete cleanEnv.CLAUDE_CODE_SESSION_ID;
   delete cleanEnv.CLAUDECODE;
-  delete cleanEnv.ANTHROPIC_MODEL;
-  delete cleanEnv.ANTHROPIC_DEFAULT_SONNET_MODEL;
-  delete cleanEnv.ANTHROPIC_DEFAULT_OPUS_MODEL;
-  delete cleanEnv.ANTHROPIC_SMALL_FAST_MODEL;
 
   const ptyProcess = pty.spawn('claude', args, {
     name: 'xterm-color',
