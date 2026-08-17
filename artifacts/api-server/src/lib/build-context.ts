@@ -313,3 +313,93 @@ export function serializeContext(projectId: string): string {
 export function clearContext(projectId: string): void {
   contexts.delete(projectId);
 }
+
+// ============================================================================
+// Multi-Agent Orchestration Extensions
+// ============================================================================
+
+export interface AgentOutput {
+  stepId: string;
+  agentRole: "planner" | "coder" | "reviewer" | "fixer";
+  agentId: string;
+  timestamp: string;
+  summary: string;
+  filesChanged: string[];
+  toolCalls: any[];
+  toolResults: any[];
+  error?: string;
+  reviewResult?: {
+    done: boolean;
+    fixRequest?: { files: string[]; issues: string[] };
+    deferred?: string[];
+  };
+}
+
+/**
+ * Record an agent's output for a step (for handoff tracking).
+ */
+export function recordAgentOutput(projectId: string, output: AgentOutput): void {
+  const ctx = getWorkingContext(projectId);
+  if (!ctx.agentOutputs) {
+    ctx.agentOutputs = [];
+  }
+  ctx.agentOutputs.push(output);
+}
+
+/**
+ * Get all agent outputs for a project, optionally filtered by stepId.
+ */
+export function getAgentOutputs(projectId: string, stepId?: string): AgentOutput[] {
+  const ctx = getWorkingContext(projectId);
+  if (!ctx.agentOutputs) return [];
+  if (stepId) {
+    return ctx.agentOutputs.filter((o) => o.stepId === stepId);
+  }
+  return ctx.agentOutputs;
+}
+
+/**
+ * Get the latest output from a specific agent role for a step.
+ */
+export function getLatestAgentOutput(
+  projectId: string,
+  stepId: string,
+  agentRole: "planner" | "coder" | "reviewer" | "fixer"
+): AgentOutput | undefined {
+  const outputs = getAgentOutputs(projectId, stepId);
+  const roleOutputs = outputs.filter((o) => o.agentRole === agentRole);
+  return roleOutputs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+}
+
+/**
+ * Serialize agent outputs for inclusion in prompts.
+ */
+export function serializeAgentOutputs(projectId: string, stepId?: string): string {
+  const outputs = getAgentOutputs(projectId, stepId);
+  if (outputs.length === 0) return "";
+
+  const parts = ["AGENT OUTPUTS (handoff context):"];
+  for (const output of outputs) {
+    parts.push(`  [${output.agentRole.toUpperCase()}] Step ${output.stepId}: ${output.summary}`);
+    if (output.filesChanged.length > 0) {
+      parts.push(`    files: ${output.filesChanged.join(", ")}`);
+    }
+    if (output.error) {
+      parts.push(`    ERROR: ${output.error}`);
+    }
+    if (output.reviewResult) {
+      parts.push(`    REVIEW: done=${output.reviewResult.done}`);
+      if (output.reviewResult.fixRequest) {
+        parts.push(`    FIX REQUEST: ${output.reviewResult.fixRequest.issues.join("; ")}`);
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+// Extend WorkingContext interface to include agentOutputs
+declare module "./build-context" {
+  interface WorkingContext {
+    agentOutputs?: AgentOutput[];
+  }
+}

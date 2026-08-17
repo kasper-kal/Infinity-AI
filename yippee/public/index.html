@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Claude Remote</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #fff; border-bottom: 1px solid #ddd; padding: 10px 14px; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    h1 { font-size: 17px; font-weight: 600; color: #1c1c1e; white-space: nowrap; }
+    .chat-picker { position: relative; flex: 1; max-width: 220px; }
+    .chat-picker button { width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 20px; color: #1c1c1e; padding: 8px 14px; font-size: 14px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .chat-picker .arrow { font-size: 10px; margin-left: 8px; color: #8e8e93; }
+    .chat-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow-y: auto; z-index: 200; display: none; max-height: 70vh; }
+    .chat-dropdown.open { display: block; }
+    .dropdown-section { padding: 10px 14px; font-size: 12px; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #eee; background: #fafafa; position: sticky; top: 0; }
+    .chat-dropdown-item { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .chat-dropdown-item:active { background: #f5f5f5; }
+    .chat-dropdown-item.active { background: #eef2ff; }
+    .chat-item-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .chat-item-name { font-weight: 500; color: #1c1c1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-item-meta { font-size: 12px; color: #8e8e93; }
+    .chat-dropdown-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .chat-dropdown-item .btn-icon { color: #8e8e93; font-size: 16px; padding: 4px; border-radius: 8px; background: none; border: none; }
+    .chat-dropdown-item .btn-icon:active { background: #eee; }
+    .controls { display: flex; gap: 8px; padding: 8px 14px 0; }
+    .controls button { background: #fff; border: 1px solid #ddd; border-radius: 20px; color: #1c1c1e; padding: 8px 14px; font-size: 14px; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .controls button:active { background: #f5f5f5; }
+    .controls button.danger { background: #fff; border-color: #ff3b30; color: #ff3b30; }
+    .controls button.danger:active { background: #fff5f5; }
+    main { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 100px; display: flex; flex-direction: column; gap: 12px; }
+    .message { display: flex; gap: 8px; max-width: 85%; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.assistant { align-self: flex-start; }
+    .message.system { align-self: center; opacity: 0.6; max-width: 100%; }
+    .avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+    .message.user .avatar { background: #007aff; color: white; }
+    .message.assistant .avatar { background: #e5e5ea; color: #1c1c1e; }
+    .message.system .avatar { display: none; }
+    .bubble { padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+    .message.user .bubble { background: #007aff; color: white; border-bottom-right-radius: 4px; }
+    .message.assistant .bubble { background: white; color: #1c1c1e; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; }
+    .message.system .bubble { background: transparent; color: #8e8e93; font-size: 12px; padding: 4px 10px; }
+    .bubble pre { background: #1c1c1e; color: #e5e5ea; padding: 10px; border-radius: 10px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
+    .bubble code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .bubble .tool { color: #8e8e93; font-family: -apple-system, monospace; font-size: 12px; }
+    .prompt-form { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 14px 12px; background: #fff; border-top: 1px solid #ddd; }
+    .prompt-inner { display: flex; gap: 8px; max-width: 800px; margin: 0 auto; }
+    .prompt-form input { flex: 1; background: #f5f5f5; border: none; border-radius: 24px; padding: 12px 18px; color: #1c1c1e; font-size: 16px; outline: none; }
+    .prompt-form input::placeholder { color: #8e8e93; }
+    .prompt-form button { background: #007aff; border: none; border-radius: 50%; width: 44px; height: 44px; color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,122,255,0.3); }
+    .prompt-form button:active { background: #005ecb; transform: scale(0.96); }
+    .prompt-form button:disabled { background: #ccc; box-shadow: none; }
+    .empty-state { text-align: center; color: #8e8e93; padding: 60px 20px; }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 12px; opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Claude</h1>
+    <div class="chat-picker">
+      <button id="chatPickerBtn">Select chat <span class="arrow">▼</span></button>
+      <div class="chat-dropdown" id="chatDropdown"></div>
+    </div>
+  </header>
+  <main id="main">
+    <div class="controls">
+      <button id="newSession" class="danger">New Chat</button>
+      <button id="stopTask">Stop</button>
+    </div>
+    <div id="output"></div>
+  </main>
+  <form class="prompt-form" id="promptForm">
+    <div class="prompt-inner">
+      <input type="text" id="promptInput" placeholder="Message Claude…" autocomplete="off" />
+      <button type="submit" id="sendBtn" disabled>➤</button>
+    </div>
+  </form>
+  <script>
+    let currentSessionId = null;
+    let eventSource = null;
+    const output = document.getElementById('output');
+    const promptInput = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const promptForm = document.getElementById('promptForm');
+    const chatPickerBtn = document.getElementById('chatPickerBtn');
+    const chatDropdown = document.getElementById('chatDropdown');
+
+    function stripAnsi(str) {
+      return str.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+    }
+
+    function addMessage(type, text) {
+      if (output.querySelector('.empty-state')) output.innerHTML = '';
+      const msg = document.createElement('div');
+      msg.className = 'message ' + type;
+      const isSystem = type === 'system';
+      const bubbleClass = isSystem ? '' : (type === 'user' ? 'user' : 'assistant');
+      const avatar = isSystem ? '' : `<div class="avatar">${type === 'user' ? '👤' : '🤖'}</div>`;
+      msg.innerHTML = avatar + `<div class="bubble ${bubbleClass}">${escapeHtml(text)}</div>`;
+      output.appendChild(msg);
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML.replace(/\n/g, '<br>');
+    }
+
+    async function fetchJson(url, options = {}) {
+      const res = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
+      return res.json();
+    }
+
+    function connectSSE(sid) {
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource(`/api/stream/${sid}`);
+      eventSource.onopen = () => {};
+      eventSource.onerror = () => {};
+      eventSource.onmessage = (e) => {
+        const event = JSON.parse(e.data);
+        const clean = stripAnsi(event.data);
+        if (!clean.trim()) return;
+        switch (event.type) {
+          case 'output':
+            // Heuristic: if it starts with prompt marker or contains "❯" it's user input echo
+            if (clean.match(/^[❯>]\s/) || clean.includes('say ') || clean.includes('what is') || clean.match(/^say /i)) {
+              addMessage('user', clean.replace(/^[❯>]\s*/, ''));
+            } else {
+              addMessage('assistant', clean);
+            }
+            break;
+          case 'error': addMessage('assistant', '⚠️ ' + clean); break;
+          case 'system': addMessage('system', clean); break;
+          case 'exit': addMessage('system', '[Session ended]'); break;
+        }
+      };
+    }
+
+    async function loadSessions() {
+      const data = await fetchJson('/api/sessions');
+      const realData = await fetchJson('/api/claude-sessions');
+      const dropdown = document.getElementById('chatDropdown');
+      dropdown.innerHTML = '';
+
+      if (data.sessions.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'dropdown-section';
+        sec.textContent = 'Your chats';
+        dropdown.appendChild(sec);
+        data.sessions.forEach(s => {
+          const item = document.createElement('div');
+          item.className = 'chat-dropdown-item' + (s.id === currentSessionId ? ' active' : '');
+          const dir = (s.cwd || '').split('/').slice(-1)[0];
+          const name = s.name || 'Unnamed';
+          item.innerHTML = `
+            <div class="chat-item-info">
+              <span class="chat-item-name">${name}</span>
+              <span class="chat-item-meta">${dir}${s.realSessionId ? ' · resumed' : ''}</span>
+            </div>
+            <div class="actions">
+              <button class="btn-icon" onclick="renameSession(${s.id})" title="Rename">✎</button>
+              <button class="btn-icon" onclick="deleteSession(${s.id})" title="Delete">×</button>
+            </div>
+          `;
+          item.querySelector('.chat-item-info').onclick = () => switchSession(s.id);
+          dropdown.appendChild(item);
+        });
+      }
+
+      if (realData.sessions && realData.sessions.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'dropdown-section';
+        sec.textContent = 'Resume a session';
+        dropdown.appendChild(sec);
+        realData.sessions.forEach(s => {
+          const item = document.createElement('div');
+          item.className = 'chat-dropdown-item';
+          const dir = (s.cwd || '').split('/').slice(-1)[0];
+          const displayName = s.aiTitle || s.name || dir;
+          const status = s.status === 'busy' ? '● busy' : '○ idle';
+          item.innerHTML = `
+            <div class="chat-item-info">
+              <span class="chat-item-name">${displayName}</span>
+              <span class="chat-item-meta">${dir} · ${status}</span>
+            </div>
+            <div class="actions">
+              <button class="btn-icon" onclick="resumeRealSession('${s.sessionId}','${displayName.replace(/'/g, "\\'")}')" title="Resume">↺</button>
+            </div>
+          `;
+          dropdown.appendChild(item);
+        });
+      }
+
+      if (currentSessionId) {
+        const current = data.sessions.find(s => s.id === currentSessionId);
+        if (current) chatPickerBtn.firstChild.textContent = current.name;
+      } else if (data.sessions.length > 0) {
+        switchSession(data.sessions[0].id);
+      }
+    }
+
+    async function switchSession(sid) {
+      currentSessionId = sid;
+      output.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><div>Select or start a chat</div></div>';
+      const historyData = await fetchJson(`/api/session/${sid}/history`);
+      if (historyData.history && historyData.history.length > 0) {
+        output.innerHTML = '';
+        historyData.history.forEach(e => {
+          if (e.type === 'output' || e.type === 'error' || e.type === 'system') {
+            const clean = stripAnsi(e.data);
+            if (!clean.trim()) return;
+            const cls = e.type === 'error' ? 'assistant' : (e.type === 'system' ? 'system' : 'assistant');
+            addMessage(cls, clean);
+          }
+        });
+      }
+      connectSSE(sid);
+      sendBtn.disabled = false;
+      loadSessions();
+    }
+
+    async function startNewSession() {
+      const data = await fetchJson('/api/session/new', { method: 'POST' });
+      await switchSession(data.sessionId);
+      chatDropdown.classList.remove('open');
+    }
+
+    async function resumeRealSession(realId, name) {
+      const data = await fetchJson('/api/session/new', {
+        method: 'POST',
+        body: JSON.stringify({ realSessionId: realId, name: name || 'Resumed' })
+      });
+      await switchSession(data.sessionId);
+      chatDropdown.classList.remove('open');
+    }
+
+    async function stopTask() {
+      if (!currentSessionId) return;
+      await fetchJson(`/api/stop/${currentSessionId}`, { method: 'POST' });
+    }
+
+    async function deleteSession(sid) {
+      await fetchJson(`/api/session/${sid}`, { method: 'DELETE' });
+      if (sid === currentSessionId) {
+        currentSessionId = null;
+        output.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><div>No chat selected</div></div>';
+        sendBtn.disabled = true;
+      }
+      loadSessions();
+    }
+
+    async function renameSession(sid) {
+      const name = prompt('Rename chat:');
+      if (name) {
+        await fetchJson(`/api/session/${sid}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+        loadSessions();
+        if (sid === currentSessionId) chatPickerBtn.firstChild.textContent = name;
+      }
+    }
+
+    async function sendPrompt() {
+      const prompt = promptInput.value.trim();
+      if (!prompt || !currentSessionId) return;
+      promptInput.value = '';
+      addMessage('user', prompt);
+      sendBtn.disabled = true;
+      await fetchJson(`/api/send/${currentSessionId}`, { method: 'POST', body: JSON.stringify({ prompt }) });
+      sendBtn.disabled = false;
+      promptInput.focus();
+    }
+
+    chatPickerBtn.addEventListener('click', () => chatDropdown.classList.toggle('open'));
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.chat-picker')) chatDropdown.classList.remove('open');
+    });
+    promptForm.addEventListener('submit', (e) => { e.preventDefault(); sendPrompt(); });
+    document.getElementById('stopTask').addEventListener('click', stopTask);
+    document.getElementById('newSession').addEventListener('click', startNewSession);
+
+    loadSessions();
+    setInterval(loadSessions, 5000);
+    promptInput.addEventListener('blur', () => { setTimeout(() => promptInput.focus(), 100); });
+  </script>
+</body>
+</html>

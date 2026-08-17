@@ -27,7 +27,20 @@ export type BuildEventType =
   | "build.budget_warning"
   | "build.budget_exceeded"
   | "build.checkpoint_created"
-  | "build.snapshot_created";
+  | "build.snapshot_created"
+  // Multi-agent orchestration events
+  | "build.agent_start"
+  | "build.agent_complete"
+  | "build.agent_handoff"
+  | "build.parallel_group_start"
+  | "build.parallel_group_complete"
+  | "build.review_start"
+  | "build.review_complete"
+  | "build.fix_start"
+  | "build.fix_complete"
+  | "build.orchestrator_start"
+  | "build.orchestrator_complete"
+  | "build.orchestrator_fallback";
 
 export interface BuildEventEmitterOptions {
   /** Output stream (default: stdout) */
@@ -195,6 +208,127 @@ export class BuildEventEmitter {
     this.emit("build.snapshot_created", {
       snapshotId,
       label,
+      eventCount: this.eventCount,
+    });
+  }
+
+  // Multi-agent orchestration events
+
+  /** Emit agent start */
+  agentStart(agentRole: string, stepId: string, agentId: string, goal: string): void {
+    this.emit("build.agent_start", {
+      agentRole,
+      stepId,
+      agentId,
+      goal,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit agent complete */
+  agentComplete(agentRole: string, stepId: string, agentId: string, summary: string, filesChanged: string[]): void {
+    this.emit("build.agent_complete", {
+      agentRole,
+      stepId,
+      agentId,
+      summary,
+      filesChanged,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit agent handoff */
+  agentHandoff(fromRole: string, toRole: string, stepId: string, payload: Record<string, unknown>): void {
+    this.emit("build.agent_handoff", {
+      fromRole,
+      toRole,
+      stepId,
+      payload,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit parallel group start */
+  parallelGroupStart(groupIndex: number, stepIds: string[]): void {
+    this.emit("build.parallel_group_start", {
+      groupIndex,
+      stepIds,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit parallel group complete */
+  parallelGroupComplete(groupIndex: number, stepIds: string[], results: Array<{ stepId: string; success: boolean }>): void {
+    this.emit("build.parallel_group_complete", {
+      groupIndex,
+      stepIds,
+      results,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit review start */
+  reviewStart(stepId: string, filesChanged: string[]): void {
+    this.emit("build.review_start", {
+      stepId,
+      filesChanged,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit review complete */
+  reviewComplete(stepId: string, done: boolean, fixRequest?: { files: string[]; issues: string[] }): void {
+    this.emit("build.review_complete", {
+      stepId,
+      done,
+      fixRequest,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit fix start */
+  fixStart(stepId: string, issues: string[]): void {
+    this.emit("build.fix_start", {
+      stepId,
+      issues,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit fix complete */
+  fixComplete(stepId: string, resolved: boolean, filesChanged: string[], unresolvedIssues?: string[]): void {
+    this.emit("build.fix_complete", {
+      stepId,
+      resolved,
+      filesChanged,
+      unresolvedIssues,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit orchestrator start */
+  orchestratorStart(goal: string, planSteps: number): void {
+    this.emit("build.orchestrator_start", {
+      goal,
+      planSteps,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit orchestrator complete */
+  orchestratorComplete(summary: string, stats: { totalSteps: number; completedSteps: number; failedSteps: number; durationMs: number }): void {
+    this.emit("build.orchestrator_complete", {
+      summary,
+      ...stats,
+      eventCount: this.eventCount,
+    });
+  }
+
+  /** Emit orchestrator fallback to single agent */
+  orchestratorFallback(reason: string, fallbackResult?: any): void {
+    this.emit("build.orchestrator_fallback", {
+      reason,
+      fallbackResult: fallbackResult ? "success" : "failed",
       eventCount: this.eventCount,
     });
   }
