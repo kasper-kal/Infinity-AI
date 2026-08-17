@@ -4,9 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-17 13:55
+LAST_UPDATED: 2026-08-17 17:40
 
 ## Just did (last action)
+- **Phase 7: MCP Server Integration COMPLETE** — Infinity now exposes 16 tools via MCP (Model Context Protocol):
+  - Created `artifacts/mcp-server/` — standalone TypeScript package using `@modelcontextprotocol/sdk`
+  - **stdio + HTTP transports** — `InfinityMcpServer` class with `runStdio()` (Claude Desktop, Cursor) and `runHttp()` (remote clients at `/mcp`, health at `/health`)
+  - **16 MCP tools** in `src/tools/index.ts`: list_files, read_file, edit_file, run_command, git_diff, git_status, git_commit, build_agent_run, build_agent_step, project_memory_read, project_memory_write, research_run, research_extract, browser_navigate, browser_screenshot, browser_action — each maps to an Infinity API endpoint
+  - **Auth middleware** in `src/auth.ts` — validates `INFINITY_API_KEY` via `/api/jarvis/auth/me`, checks scopes (`build:read`, `build:write`, `research:read`, `research:write`) per tool call
+  - **Project scoping** — all tools auto-scope to `INFINITY_PROJECT_ID` from env/config
+  - **Documentation** — `MCP_INTEGRATION.md` with full setup + config examples for Claude Desktop, Cursor, VS Code, Continue.dev
+  - **Typecheck + build pass** on MCP server (`npm run typecheck` + `npm run build` clean)
+- **@Agent Browser Widget + @Browse Tavily Live Text COMPLETE** — Turned Browser mode into two new commands:
 - **@Agent Browser Widget + @Browse Tavily Live Text COMPLETE** — Turned Browser mode into two new commands:
   - **@Agent <goal>** — Puppeteer live browser widget (BrowserWidget.tsx): shows live screenshot stream via WebSocket (/browser-ws), double-click to take over (AI pauses, user controls), "Let AI Resume" button appears when paused, back/forward/reload controls, step-by-step action log. Consumes /api/jarvis/browse/agent-run SSE endpoint.
   - **@Browse <query>** — Tavily live text streaming in chat (NOT a widget): streams "🔍 Searching for..." → results with markdown sources, supports multiple queries per message (@Browse query1; query2; query3), shows source references with clickable links. Backend does direct Tavily fetch in chat.ts, emits live_text SSE events.
@@ -80,6 +89,12 @@ LAST_UPDATED: 2026-08-17 13:55
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-17 **Phase 7: MCP Server Integration COMPLETE** — Infinity exposes 16 tools via MCP (Model Context Protocol) for ANY LLM client:
+  - Created `artifacts/mcp-server/` with stdio + HTTP transports, 16 tool definitions, auth middleware, project scoping
+  - Tools: list_files, read_file, edit_file, run_command, git_diff, git_status, git_commit, build_agent_run, build_agent_step, project_memory_read, project_memory_write, research_run, research_extract, browser_navigate, browser_screenshot, browser_action
+  - Auth: validates `INFINITY_API_KEY` via `/api/jarvis/auth/me`, scope checks per tool
+  - Docs: `MCP_INTEGRATION.md` with configs for Claude Desktop, Cursor, VS Code, Continue.dev
+  - Typecheck + build pass clean
 - 2026-08-17 **@Agent Browser Widget + @Browse Tavily Live Text COMPLETE** — Turned Browser mode into two new commands:
   - **@Agent <goal>** — Puppeteer live browser widget (BrowserWidget.tsx): shows live screenshot stream via WebSocket (/browser-ws), double-click to take over (AI pauses, user controls), "Let AI Resume" button appears when paused, back/forward/reload controls, step-by-step action log. Consumes /api/jarvis/browse/agent-run SSE endpoint.
   - **@Browse <query>** — Tavily live text streaming in chat (NOT a widget): streams "🔍 Searching for..." → results with markdown sources, supports multiple queries per message (@Browse query1; query2; query3), shows source references with clickable links. Backend does direct Tavily fetch in chat.ts, emits live_text SSE events.
@@ -224,15 +239,14 @@ LAST_UPDATED: 2026-08-17 13:55
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 7: MCP Server Integration** — Expose Infinity tools as MCP tools for any LLM client
-2. **Phase 8: Multi-Agent Orchestration** — Planner→Coder→Reviewer→Fixer pipeline with shared context
-3. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
-4. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
-5. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
-6. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
-7. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-8. **Phase 14: Desktop-First Redesign** — Liquid glass material, theme tokens, keyboard-first
-9. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
+1. **Phase 8: Multi-Agent Orchestration** — Planner→Coder→Reviewer→Fixer pipeline with shared context
+2. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
+3. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+4. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
+5. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
+6. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
+7. **Phase 14: Desktop-First Redesign** — Liquid glass material, theme tokens, keyboard-first
+8. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
    - **Completed searches**: AI coding assistant comparisons (Claude Code, Replit Agent, Cursor), free local LLM models (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral), open source agent architectures (OpenHands, Cline, Aider, Goose), MCP browser automation, agent architecture best practices
    - **Key findings so far**: 
      - Free LLM APIs in 2026: OpenRouter, Groq, Cerebras, Google AI Studio, NVIDIA NIM - all no credit card required

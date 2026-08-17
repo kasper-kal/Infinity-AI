@@ -100,31 +100,32 @@ Transform Browser mode into two powerful new commands:
 Expose Infinity tools as MCP (Model Context Protocol) tools so ANY LLM client (Claude Desktop, Cursor, VS Code, custom agents) can use Infinity's capabilities.
 
 ### Requirements
-- [ ] **MCP Server** — stdio + HTTP transports
-- [ ] **Tools Exposed**:
+- [x] **MCP Server** — stdio + HTTP transports
+- [x] **Tools Exposed**:
   - `list_files`, `read_file`, `edit_file`, `run_command` (from build-tools.ts)
   - `git_diff`, `git_status`, `git_commit`
   - `build_agent_run`, `build_agent_step`
   - `project_memory_read`, `project_memory_write`
   - `research_run`, `research_extract`
   - `browser_navigate`, `browser_screenshot`, `browser_action`
-- [ ] **Authentication** — API key via MCP initialization
-- [ ] **Project Scoping** — all tools respect `projectId`
-- [ ] **Claude Desktop Config** — example `claude_desktop_config.json`
-- [ ] **Cursor/VS Code Config** — example MCP configs
+- [x] **Authentication** — API key via MCP initialization
+- [x] **Project Scoping** — all tools respect `projectId`
+- [x] **Claude Desktop Config** — example `claude_desktop_config.json`
+- [x] **Cursor/VS Code Config** — example MCP configs
 
 ### Implementation Plan
-1. **Create MCP server** — `artifacts/mcp-server/` using `@modelcontextprotocol/sdk`
-2. **Wrap existing tools** — adapt `build-tools.ts` functions to MCP tool schema
-3. **Add auth middleware** — validate API key on initialize
-4. **Project context injection** — auto-scope to projectId from config
-5. **Publish configs** — docs for Claude Desktop, Cursor, VS Code, Continue.dev
-6. **Test with real clients** — verify tool calling works end-to-end
+1. ✅ **Create MCP server** — `artifacts/mcp-server/` using `@modelcontextprotocol/sdk`
+2. ✅ **Wrap existing tools** — adapt `build-tools.ts` functions to MCP tool schema
+3. ✅ **Add auth middleware** — validate API key on initialize
+4. ✅ **Project context injection** — auto-scope to projectId from config
+5. ✅ **Publish configs** — docs for Claude Desktop, Cursor, VS Code, Continue.dev
+6. ⏳ **Test with real clients** — verify tool calling works end-to-end
 
 ### Files to Create/Modify
 - `artifacts/mcp-server/` (new directory)
-- `artifacts/mcp-server/src/tools/` — MCP tool definitions
-- `artifacts/mcp-server/src/auth.ts` — API key validation
+- `artifacts/mcp-server/src/server/index.ts` — MCP server (stdio + HTTP transports)
+- `artifacts/mcp-server/src/tools/index.ts` — 16 MCP tool definitions
+- `artifacts/mcp-server/src/auth.ts` — API key validation + scope check
 - `MCP_INTEGRATION.md` (new)
 
 ---
