@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-17 17:40
+LAST_UPDATED: 2026-08-17 18:40
 
 ## Just did (last action)
+- **Mobile-first Claude Code Remote Control (yippee/) COMPLETE** — Phone browser → web interface (port 3000) → backend bridge (Codespace) → Claude Code via node-pty → OmniRoute:
+  - **Backend (server.js):** Express + node-pty + SSE streaming, multi-session management with history persistence
+  - **Real session detection:** Parses ~/.claude/sessions/*.json for metadata (pid, sessionId, cwd, name, status)
+  - **AI titles from transcripts:** Parses ~/.claude/projects/*/transcript.jsonl for `aiTitle` field (e.g., "Build mobile remote control for Claude Code", "Starting phase 8")
+  - **Resume existing sessions:** Uses `claude --resume <sessionId>` with proper cwd
+  - **Clean env vars:** Strips CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_SESSION_ID, CLAUDECODE to fix "transcript saving off" warning; keeps OmniRoute model env vars so sessions work
+  - **API endpoints:** /api/stream/:id (SSE), /api/send/:id (prompt), /api/stop/:id (Ctrl+C), /api/claude-sessions (real sessions with AI titles), /api/session/new (create/resume), /api/sessions (UI sessions), /api/session/:id/history (chat replay)
+  - **Frontend (public/index.html):** Mobile-first chat UI with bubbles/avatars (WhatsApp/ChatGPT style), chat picker dropdown with two sections: "Your chats" (active UI sessions) + "Resume a session" (real Claude sessions with AI titles), real-time history loading on session switch, auto-refresh every 5s, immediate user bubble display on send
+  - **Verified working:** Resumed existing session "429bfa1d-ea34-4910-9737-3a467e65b79d" (AI title: "Starting phase 8") — sends prompts, receives streaming responses, transcript saving works without warning
+
 - **Phase 7: MCP Server Integration COMPLETE** — Infinity now exposes 16 tools via MCP (Model Context Protocol):
   - Created `artifacts/mcp-server/` — standalone TypeScript package using `@modelcontextprotocol/sdk`
   - **stdio + HTTP transports** — `InfinityMcpServer` class with `runStdio()` (Claude Desktop, Cursor) and `runHttp()` (remote clients at `/mcp`, health at `/health`)
