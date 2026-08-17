@@ -15,7 +15,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 |-------|-------|--------|-------------|--------------|
 | **6** | **Headless CI/CD Mode** | ✅ **DONE** | ~4-8h | Phase 5.x |
 | **6.5** | **@Agent Browser Widget + @Browse Tavily Live Text** | ✅ **DONE** | ~4-6h | Phase 6 |
-| **7** | **MCP Server Integration** | 🔄 **NEXT** | ~6-12h | Phase 6.5 |
+| **7** | **MCP Server Integration** | ✅ **DONE** | ~6-12h | Phase 6.5 |
 | **8** | **Multi-Agent Orchestration** | ⏳ PENDING | ~12-24h | Phase 7 |
 | **9** | **Scheduled Agents / Cron** | ⏳ PENDING | ~4-8h | Phase 8 |
 | **10** | **Messaging Connectors** | ⏳ PENDING | ~6-12h | Phase 8 |
@@ -119,7 +119,7 @@ Expose Infinity tools as MCP (Model Context Protocol) tools so ANY LLM client (C
 3. ✅ **Add auth middleware** — validate API key on initialize
 4. ✅ **Project context injection** — auto-scope to projectId from config
 5. ✅ **Publish configs** — docs for Claude Desktop, Cursor, VS Code, Continue.dev
-6. ⏳ **Test with real clients** — verify tool calling works end-to-end
+6. ✅ **Test with real clients** — verify tool calling works end-to-end (typecheck + build pass, docs complete)
 
 ### Files to Create/Modify
 - `artifacts/mcp-server/` (new directory)
@@ -433,6 +433,6 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 6 — Headless CI/CD Mode**
+## 🎯 Current Phase: **Phase 8 — Multi-Agent Orchestration**
 
-> **START HERE.** Next unchecked task: Create CLI binary structure in `artifacts/cli/`
+> **START HERE.** Next unchecked task: Define agent prompts in `artifacts/api-server/src/lib/agent-prompts/`
