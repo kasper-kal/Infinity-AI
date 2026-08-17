@@ -182,6 +182,17 @@ async function fireSchedule(id: string): Promise<void> {
       })
       .where(eq(buildSchedules.id, s.id));
 
+    // Dispatch notifications
+    const eventType = s.type === "build" ? (success ? "build_completed" : "build_failed")
+      : s.type === "research" ? (success ? "research_completed" : "research_failed")
+      : s.type === "snapshot_cleanup" ? (success ? "deployment_completed" : "deployment_failed")
+      : (success ? "scheduled_job_completed" : "scheduled_job_failed");
+
+    const { dispatchNotification } = await import("../routes/jarvis/connectors");
+    await dispatchNotification(s.projectId, eventType, `Scheduled ${s.type}: ${s.name}`, success ? "Completed successfully" : `Failed: ${runError}`, {
+      metadata: { scheduleId: s.id, type: s.type, runCount: s.runCount + 1 },
+    });
+
     // Log activity
     await logActivity(s.projectId, "task_completed", `Scheduled job "${s.name}" (${s.type}) ${success ? "completed" : "failed"}`);
 
@@ -320,6 +331,17 @@ export async function triggerSchedule(scheduleId: string): Promise<{ ok: boolean
           result,
         })
         .where(eq(buildScheduleRuns.id, run.id));
+
+      // Dispatch notifications
+      const eventType = s.type === "build" ? (success ? "build_completed" : "build_failed")
+        : s.type === "research" ? (success ? "research_completed" : "research_failed")
+        : s.type === "snapshot_cleanup" ? (success ? "deployment_completed" : "deployment_failed")
+        : (success ? "scheduled_job_completed" : "scheduled_job_failed");
+
+      const { dispatchNotification } = await import("../routes/jarvis/connectors");
+      await dispatchNotification(s.projectId, eventType, `Manual ${s.type}: ${s.name}`, success ? "Completed successfully" : `Failed: ${runError}`, {
+        metadata: { scheduleId: s.id, type: s.type, trigger: "manual" },
+      });
 
       await logActivity(s.projectId, "task_completed", `Manual run of "${s.name}" (${s.type}) ${success ? "completed" : "failed"}`);
     } catch (err) {

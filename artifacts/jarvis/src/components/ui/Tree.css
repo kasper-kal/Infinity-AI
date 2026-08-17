@@ -1,0 +1,215 @@
+/**
+ * Tree Styles — Liquid Glass Design System
+ */
+
+:root {
+  --tree-indent: 20px;
+  --tree-node-height: 28px;
+  --tree-node-padding-y: 4px;
+  --tree-node-padding-x: 8px;
+  --tree-toggle-size: 20px;
+  --tree-icon-size: 16px;
+  --tree-gap: 6px;
+  --tree-selected-bg: rgba(99, 102, 241, 0.12);
+  --tree-hover-bg: var(--bg-sunken);
+  --tree-focus-ring: var(--border-focus);
+  --tree-guide-color: var(--border-primary);
+  --tree-guide-width: 1px;
+}
+
+/* ===========================================
+   TREE BASE
+   =========================================== */
+
+.tree {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  outline: none;
+}
+
+.tree:focus-visible {
+  outline: 2px solid var(--tree-focus-ring);
+  outline-offset: -2px;
+}
+
+.tree__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree__item {
+  margin: 0;
+  padding: 0;
+}
+
+/* ===========================================
+   TREE NODE
+   =========================================== */
+
+.tree__node {
+  display: flex;
+  align-items: center;
+  min-height: var(--tree-node-height);
+  padding: var(--tree-node-padding-y) var(--tree-node-padding-x);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: background var(--duration-fast) var(--ease-out);
+  position: relative;
+  white-space: nowrap;
+}
+
+.tree__node:hover:not(.tree__node--disabled) {
+  background: var(--tree-hover-bg);
+}
+
+.tree__node--selected {
+  background: var(--tree-selected-bg);
+}
+
+.tree__node--selected:hover {
+  background: var(--tree-selected-bg);
+}
+
+.tree__node--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tree__node:focus-visible {
+  outline: 2px solid var(--tree-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Indentation guides */
+.tree__indent {
+  display: inline-flex;
+  align-items: center;
+  min-width: calc(var(--tree-indent) * var(--tree-level, 0));
+}
+
+.tree__indent-guide {
+  position: relative;
+  width: var(--tree-indent);
+  height: 100%;
+}
+
+.tree__indent-guide::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--tree-indent) / 2);
+  width: var(--tree-guide-width);
+  background: var(--tree-guide-color);
+  opacity: 0.5;
+}
+
+/* Toggle button */
+.tree__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tree-toggle-size);
+  height: var(--tree-toggle-size);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.tree__toggle:hover:not(:disabled) {
+  background: var(--btn-ghost-hover);
+  color: var(--text-primary);
+}
+
+.tree__toggle:focus-visible {
+  outline: 2px solid var(--tree-focus-ring);
+  outline-offset: 2px;
+}
+
+.tree__toggle--expanded svg {
+  transform: rotate(90deg);
+}
+
+.tree__toggle--leaf {
+  color: transparent;
+  cursor: default;
+}
+
+.tree__toggle svg {
+  transition: transform var(--duration-fast) var(--ease-out);
+  transform-origin: center;
+}
+
+/* Icon */
+.tree__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tree-icon-size);
+  height: var(--tree-icon-size);
+  margin-right: var(--tree-gap);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* Label */
+.tree__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Meta info */
+.tree__meta {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}
+
+/* ===========================================
+   FILE TREE
+   =========================================== */
+
+.file-tree .tree__file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tree-icon-size);
+  height: var(--tree-icon-size);
+  margin-right: var(--tree-gap);
+  flex-shrink: 0;
+}
+
+.file-tree .tree__file-icon--folder {
+  color: var(--color-warning-500);
+}
+
+.file-tree .tree__file-icon--file {
+  color: var(--text-tertiary);
+}
+
+/* ===========================================
+   REDUCED MOTION
+   =========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .tree__node,
+  .tree__toggle,
+  .tree__toggle svg {
+    transition: none !important;
+  }
+}

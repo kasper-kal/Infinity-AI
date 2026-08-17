@@ -17,12 +17,12 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **6.5** | **@Agent Browser Widget + @Browse Tavily Live Text** | ✅ **DONE** | ~4-6h | Phase 6 |
 | **7** | **MCP Server Integration** | ✅ **DONE** | ~6-12h | Phase 6.5 |
 | **8** | **Multi-Agent Orchestration** | ✅ **DONE** | ~12-24h | Phase 7 |
-| **9** | **Scheduled Agents / Cron** | ⏳ PENDING | ~4-8h | Phase 8 |
-| **10** | **Messaging Connectors** | ⏳ PENDING | ~6-12h | Phase 8 |
-| **11** | **ACP Protocol Support** | ⏳ PENDING | ~8-16h | Phase 7 |
-| **12** | **SWE-Bench Optimization** | ⏳ PENDING | ~12-24h | Phase 8 |
-| **13** | **Self-Evolving Code Capability** | ⏳ PENDING | ~4-8h | Phase 8 |
-| **14** | **Desktop-First Redesign** | ⏳ PENDING | ~24-40h | Independent |
+| **9** | **Scheduled Agents / Cron** | ✅ **DONE** | ~4-8h | Phase 8 |
+| **10** | **Messaging Connectors** | ✅ **DONE** | ~6-12h | Phase 8 |
+| **11** | **ACP Protocol Support** | ✅ **DONE** | ~8-16h | Phase 7 |
+| **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
+| **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
+| **14** | **Desktop-First Redesign** | 🔄 IN PROGRESS | ~24-40h | Independent |
 | **15** | **Mobile as Separate Website** | ⏳ PENDING | ~16-24h | Phase 14 |
 
 ---
@@ -185,24 +185,31 @@ Replace single autonomous agent with **planner → coder(s) → reviewer → fix
 Run builds, research, maintenance on schedules (daily, weekly, custom cron).
 
 ### Requirements
-- [ ] **Cron Scheduler** — persistent, survives restarts (use existing `CronCreate` pattern)
-- [ ] **Job Types** — Build, Research, Memory Compaction, Budget Reset, Snapshot Cleanup
-- [ ] **Per-Project Schedules** — each project can have multiple scheduled jobs
-- [ ] **Web UI** — Schedule management in Project Settings
+- [x] **Cron Scheduler** — persistent, survives restarts (DB-backed + in-memory setTimeout resume on boot)
+- [x] **Job Types** — Build, Research, Memory Compaction, Budget Reset, Snapshot Cleanup
+- [x] **Per-Project Schedules** — each project can have multiple scheduled jobs
+- [x] **API Routes** — CRUD for schedules, manual trigger, paginated run history
+- [x] **Manual Trigger** — "Run now" button via POST /build/schedules/:id/trigger
+- [ ] **Web UI** — Schedule management in Project Settings (Phase 14)
 - [ ] **Notification Hooks** — on success/failure (ties to Phase 10)
-- [ ] **Manual Trigger** — "Run now" button
 
 ### Implementation Plan
-1. **Scheduler service** — `build-scheduler.ts` (persistent, DB-backed)
-2. **Job definitions** — Zod schemas for each job type
-3. **API routes** — CRUD for schedules, manual trigger, history
-4. **Frontend** — Schedule manager in Project Settings tab
-5. **Integration** — wire into build-orchestrator, research system
+1. ✅ **Scheduler service** — `build-scheduler.ts` (persistent, DB-backed, in-memory timer resume)
+2. ✅ **Job definitions** — 5 job types with config schemas
+3. ✅ **API routes** — CRUD + trigger + history in `build-schedules.ts`
+4. ✅ **Integration** — wired into build-orchestrator (build), research-engine (research), project-memory (compactMemory), build-budgets (resetBudget), workspace-snapshots (cleanupSnapshots)
+5. 🔲 **Frontend** — Schedule manager in Project Settings tab (Phase 14)
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/build-scheduler.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/build-schedules.ts` (new)
-- Frontend: Project Settings → Schedules section
+### Files Created/Modified
+- `artifacts/api-server/src/lib/build-scheduler.ts` (new — 400+ lines)
+- `artifacts/api-server/src/routes/jarvis/build-schedules.ts` (new — 150+ lines)
+- `lib/db/src/schema/build-schedules.ts` (new — 100 lines, 2 tables with indexes)
+- `lib/db/src/schema/index.ts` — exported build-schedules
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mounted buildSchedulesRouter
+- `artifacts/api-server/src/lib/project-memory.ts` — added compactMemory()
+- `artifacts/api-server/src/lib/build-budgets.ts` — added resetBudget()
+- `artifacts/api-server/src/lib/workspace-snapshots.ts` — added cleanupSnapshots()
+- `artifacts/api-server/src/lib/research-engine.ts` — added runResearch()
 
 ---
 
@@ -212,26 +219,33 @@ Run builds, research, maintenance on schedules (daily, weekly, custom cron).
 Slack, Discord, Telegram bots for build notifications, chat control, remote commands.
 
 ### Requirements
-- [ ] **Connector Framework** — abstract base class, per-platform adapters
-- [ ] **Slack Bot** — OAuth, slash commands (`/infinity build`, `/infinity status`), events
-- [ ] **Discord Bot** — slash commands, DM support, webhook fallback
-- [ ] **Telegram Bot** — commands, inline queries, webhook
-- [ ] **Unified Notification API** — `notify(event, projectId, payload)` routes to all connected
-- [ ] **Remote Commands** — `build`, `status`, `cancel`, `logs` via chat
-- [ ] **Per-Project Config** — each project connects its own channels
+- [x] **Connector Framework** — abstract base class, per-platform adapters
+- [x] **Slack Bot** — OAuth, slash commands (`/infinity build`, `/infinity status`), events
+- [x] **Discord Bot** — slash commands, DM support, webhook fallback
+- [x] **Telegram Bot** — commands, inline queries, webhook
+- [x] **Unified Notification API** — `notify(event, projectId, payload)` routes to all connected
+- [x] **Remote Commands** — `build`, `status`, `cancel`, `logs` via chat
+- [x] **Per-Project Config** — each project connects its own channels
+- [ ] **Frontend** — Connectors tab in Project Settings (Phase 14)
 
 ### Implementation Plan
-1. **Base connector** — `artifacts/api-server/src/lib/connectors/base.ts`
-2. **Platform adapters** — `slack.ts`, `discord.ts`, `telegram.ts`
-3. **OAuth flows** — Slack/Discord app setup, token storage (encrypted)
-4. **Command router** — parse chat commands → API calls
-5. **Notification dispatcher** — event → formatted message per platform
-6. **Frontend** — Connectors tab in Project Settings
+1. ✅ **Base connector** — `artifacts/api-server/src/lib/connectors/base.ts`
+2. ✅ **Platform adapters** — `slack.ts`, `discord.ts`, `telegram.ts`
+3. ✅ **OAuth flows** — Slack/Discord app setup, token storage (encrypted)
+4. ✅ **Command router** — parse chat commands → API calls
+5. ✅ **Notification dispatcher** — event → formatted message per platform
+6. 🔲 **Frontend** — Connectors tab in Project Settings (Phase 14)
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/connectors/` (new directory)
+### Files Created/Modified
+- `artifacts/api-server/src/lib/connectors/base.ts` (new)
+- `artifacts/api-server/src/lib/connectors/slack.ts` (new)
+- `artifacts/api-server/src/lib/connectors/discord.ts` (new)
+- `artifacts/api-server/src/lib/connectors/telegram.ts` (new)
 - `artifacts/api-server/src/routes/jarvis/connectors.ts` (new)
-- Frontend: Project Settings → Connectors
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mounted connectorsRouter
+- `artifacts/api-server/src/lib/build-scheduler.ts` — wired dispatchNotification
+- `lib/db/src/schema/connectors.ts` (new — 2 tables with indexes)
+- `lib/db/src/schema/index.ts` — exported connectors
 
 ---
 
@@ -241,22 +255,30 @@ Slack, Discord, Telegram bots for build notifications, chat control, remote comm
 Implement Agent Client Protocol (ACP) server so external IDEs/clients can drive Infinity agent with standardized tool calls.
 
 ### Requirements
-- [ ] **ACP Server** — HTTP + WebSocket transports
-- [ ] **Standard Methods** — `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
-- [ ] **Tool Mapping** — Infinity tools → ACP tool definitions
-- [ ] **Session Management** — persistent sessions with context
-- [ ] **Client Configs** — examples for Zed, VS Code (ACP extension), custom clients
+- [x] **ACP Server** — HTTP + WebSocket transports
+- [x] **Standard Methods** — `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
+- [x] **Tool Mapping** — Infinity tools → ACP tool definitions (16 tools)
+- [x] **Session Management** — persistent sessions with context, project scoping
+- [x] **Client Configs** — examples for Zed, VS Code (ACP extension), custom clients
+- [x] **Authentication** — API key validation with scope checking
 
 ### Implementation Plan
-1. **ACP server** — `artifacts/acp-server/` using ACP spec
-2. **Tool registry** — map build-tools + project tools to ACP
-3. **Session store** — per-client context, project scoping
-4. **Auth** — API key in initialization
-5. **Documentation** — `ACP_INTEGRATION.md`
+1. ✅ **ACP server** — `artifacts/acp-server/` with HTTP + WebSocket
+2. ✅ **Tool registry** — 16 Infinity tools mapped to ACP (file ops, git, build, memory, research, browser)
+3. ✅ **Session store** — in-memory sessions with project scoping
+4. ✅ **Auth** — API key in initialization with scope validation
+5. ✅ **Documentation** — `ACP_INTEGRATION.md`
 
-### Files to Create/Modify
-- `artifacts/acp-server/` (new directory)
-- `ACP_INTEGRATION.md` (new)
+### Files Created/Modified
+- `artifacts/acp-server/package.json` (new)
+- `artifacts/acp-server/tsconfig.json` (new)
+- `artifacts/acp-server/src/types.ts` (new — ACP type definitions)
+- `artifacts/acp-server/src/auth.ts` (new — API key validation)
+- `artifacts/acp-server/src/tools.ts` (new — 16 tool definitions)
+- `artifacts/acp-server/src/resources.ts` (new — 5 resource types)
+- `artifacts/acp-server/src/server.ts` (new — HTTP + WebSocket server with request handling)
+- `artifacts/acp-server/src/index.ts` (new — entry point)
+- `ACP_INTEGRATION.md` (new — documentation with client configs)
 
 ---
 
@@ -266,24 +288,27 @@ Implement Agent Client Protocol (ACP) server so external IDEs/clients can drive 
 Add reproduction-first, test-driven fixing mode optimized for SWE-Bench Verified (500 real GitHub issues).
 
 ### Requirements
-- [ ] **Issue Reproduction** — clone repo, install deps, run tests, confirm failure
-- [ ] **Test-Driven Fix** — write failing test first, then fix, then verify
-- [ ] **Patch Generation** — unified diff output for PR submission
-- [ ] **Iterative Verification** — run test suite after each fix attempt
-- [ ] **Benchmark Harness** — run against SWE-Bench dataset, track resolve rate
+- [x] **Issue Reproduction** — clone repo, install deps, run tests, confirm failure
+- [x] **Test-Driven Fix** — write failing test first, then fix, then verify
+- [x] **Patch Generation** — unified diff output for PR submission
+- [x] **Iterative Verification** — run test suite after each fix attempt
+- [x] **Benchmark Harness** — run against SWE-Bench dataset, track resolve rate
 - [ ] **Local Model Support** — optimized prompts for Devstral, Codestral, Qwen3-Coder
 
 ### Implementation Plan
-1. **Reproduction engine** — `swebench-reproduce.ts` (Docker/isolated env)
-2. **Test analyzer** — parse test output, identify failing tests
-3. **Fix agent** — specialized prompt for test-driven fixing
-4. **Patch formatter** — generate proper git diff
-5. **Benchmark runner** — orchestrate full SWE-Bench evaluation
-6. **Leaderboard tracking** — store results, compare iterations
+1. ✅ **Reproduction engine** — `artifacts/api-server/src/lib/swebench/reproduce.ts` (clone, install, test)
+2. ✅ **Test analyzer** — `artifacts/api-server/src/lib/swebench/analyze.ts` (pytest, jest, generic)
+3. ✅ **Fix agent** — `artifacts/api-server/src/lib/swebench/fix.ts` (test-driven loop with LLM)
+4. ✅ **Patch formatter** — unified diff generation in reproduce.ts
+5. ✅ **Benchmark runner** — `artifacts/api-server/src/lib/swebench/benchmark.ts` (dataset orchestration)
+6. 🔲 **Leaderboard tracking** — store results, compare iterations
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/swebench/` (new directory)
-- `SWE_BENCH_MODE.md` (new)
+### Files Created/Modified
+- `artifacts/api-server/src/lib/swebench/reproduce.ts` (new)
+- `artifacts/api-server/src/lib/swebench/analyze.ts` (new)
+- `artifacts/api-server/src/lib/swebench/fix.ts` (new)
+- `artifacts/api-server/src/lib/swebench/benchmark.ts` (new)
+- `artifacts/api-server/src/lib/swebench/index.ts` (new)
 
 ---
 
@@ -293,24 +318,24 @@ Add reproduction-first, test-driven fixing mode optimized for SWE-Bench Verified
 Allow Infinity to modify its own codebase — the build agent already has `edit_file` tool, needs safe self-modification workflow.
 
 ### Requirements
-- [ ] **Sandboxed Self-Edit** — worktree isolation (Phase 1) + checkpoint before any self-edit
-- [ ] **Self-Review Loop** — agent proposes change → runs tests → verifies → commits or rolls back
-- [ ] **Scope Guardrails** — only allow edits to `artifacts/` (not core config, not secrets)
-- [ ] **Approval Gate** — optional human approval for risky changes (schema, auth, deploy)
-- [ ] **Evolution Log** — audit trail of all self-modifications with rationale
-- [ ] **Capability Extension** — agent can add new tools/routes to itself
+- [x] **Sandboxed Self-Edit** — worktree isolation (Phase 1) + checkpoint before any self-edit
+- [x] **Self-Review Loop** — agent proposes change → runs tests → verifies → commits or rolls back
+- [x] **Scope Guardrails** — only allow edits to `artifacts/` (not core config, not secrets)
+- [x] **Approval Gate** — optional human approval for risky changes (schema, auth, deploy)
+- [x] **Evolution Log** — audit trail of all self-modifications with rationale
+- [x] **Capability Extension** — agent can add new tools/routes to itself
 
 ### Implementation Plan
-1. **Self-edit workflow** — extend `build-orchestrator` with self-modification mode
-2. **Safety gates** — path allowlist, test requirement, checkpoint enforcement
-3. **Evolution API** — `/build/self-edit/propose`, `/build/self-edit/apply`, `/build/self-edit/history`
-4. **Frontend** — Evolution panel in Debug tab
-5. **Dogfood** — use self-evolving to implement Phases 14-15
+1. ✅ **Self-edit workflow** — `artifacts/api-server/src/lib/self-evolution.ts` (createProposal, applyEvolution, runSelfEvolutionCycle)
+2. ✅ **Safety gates** — path allowlist (allowedPaths/blockedPaths), test requirement (typecheck+build), checkpoint enforcement (git commits)
+3. ✅ **Evolution API** — `/self-evolution/propose`, `/self-evolution/apply`, `/self-evolution/run-cycle`, `/self-evolution/checkpoint`, `/self-evolution/rollback`, `/self-evolution/history`, `/self-evolution/config`
+4. 🔲 **Frontend** — Evolution panel in Debug tab (Phase 14)
+5. 🔲 **Dogfood** — use self-evolving to implement Phases 14-15
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/self-evolution.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/self-evolution.ts` (new)
-- Frontend: Debug panel → Evolution tab
+### Files Created/Modified
+- `artifacts/api-server/src/lib/self-evolution.ts` (new — core engine)
+- `artifacts/api-server/src/routes/jarvis/self-evolution.ts` (new — API routes)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mounted selfEvolutionRouter
 
 ---
 
@@ -435,6 +460,6 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 8 — Multi-Agent Orchestration**
+## 🎯 Current Phase: **Phase 14 — Desktop-First Redesign**
 
-> **START HERE.** Next unchecked task: Define agent prompts in `artifacts/api-server/src/lib/agent-prompts/`
+> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects, and integrate them into the main application shell.

@@ -1,0 +1,526 @@
+/**
+ * Infinity Design Tokens — Liquid Glass Material Design System
+ *
+ * iOS 26 style: translucent, blurred, depth layers
+ * Theme tokens only — zero hardcoded colors
+ * Full light/dark/system support via CSS variables
+ */
+
+:root {
+  /* ===========================================
+     COLOR PRIMITIVES (Raw values)
+     =========================================== */
+
+  /* Brand */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
+
+  /* Neutral (Gray) */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  /* Semantic: Success */
+  --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+
+  /* Semantic: Warning */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  /* Semantic: Error/Danger */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+
+  /* Semantic: Info */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+
+  /* ===========================================
+     SPACING SCALE (4px base)
+     =========================================== */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+
+  /* ===========================================
+     TYPOGRAPHY
+     =========================================== */
+
+  /* Font Families */
+  --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, monospace;
+  --font-display: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Font Sizes */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+  --text-5xl: 3rem;        /* 48px */
+  --text-6xl: 3.75rem;     /* 60px */
+
+  /* Font Weights */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+  /* ===========================================
+     BORDER RADIUS
+     =========================================== */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;    /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-3xl: 1.5rem;    /* 24px */
+  --radius-full: 9999px;
+
+  /* ===========================================
+     SHADOWS & DEPTH
+     =========================================== */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  /* Glass/Blur shadows */
+  --shadow-glass: 0 8px 32px 0 rgb(0 0 0 / 0.1);
+  --shadow-glass-lg: 0 16px 64px 0 rgb(0 0 0 / 0.15);
+
+  /* ===========================================
+     BLUR / BACKDROP FILTER
+     =========================================== */
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 16px;
+  --blur-xl: 24px;
+  --blur-2xl: 40px;
+
+  /* ===========================================
+     TRANSITIONS
+     =========================================== */
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ===========================================
+     Z-INDEX SCALE
+     =========================================== */
+  --z-0: 0;
+  --z-10: 10;
+  --z-20: 20;
+  --z-30: 30;
+  --z-40: 40;
+  --z-50: 50;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-tooltip: 500;
+  --z-toast: 600;
+
+  /* ===========================================
+     BREAKPOINTS (for reference in JS)
+     =========================================== */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}
+
+/* ===========================================
+   LIGHT THEME (Default)
+   =========================================== */
+[data-theme="light"], :root:not([data-theme="dark"]) {
+  /* Glass surfaces - Light */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-strong: rgba(0, 0, 0, 0.12);
+  --glass-shadow: var(--shadow-glass);
+
+  /* Background layers */
+  --bg-base: var(--color-neutral-50);
+  --bg-elevated: var(--color-neutral-0);
+  --bg-sunken: var(--color-neutral-100);
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Text */
+  --text-primary: var(--color-neutral-950);
+  --text-secondary: var(--color-neutral-700);
+  --text-tertiary: var(--color-neutral-500);
+  --text-inverse: var(--color-neutral-0);
+  --text-link: var(--color-brand-600);
+  --text-link-hover: var(--color-brand-700);
+
+  /* Border */
+  --border-primary: var(--color-neutral-200);
+  --border-secondary: var(--color-neutral-300);
+  --border-focus: var(--color-brand-500);
+  --border-error: var(--color-error-500);
+
+  /* Interactive */
+  --btn-primary-bg: var(--color-brand-600);
+  --btn-primary-hover: var(--color-brand-700);
+  --btn-primary-active: var(--color-brand-800);
+  --btn-primary-text: var(--color-neutral-0);
+
+  --btn-secondary-bg: var(--color-neutral-100);
+  --btn-secondary-hover: var(--color-neutral-200);
+  --btn-secondary-active: var(--color-neutral-300);
+  --btn-secondary-text: var(--color-neutral-900);
+
+  --btn-ghost-hover: var(--color-neutral-100);
+  --btn-ghost-active: var(--color-neutral-200);
+
+  --btn-danger-bg: var(--color-error-600);
+  --btn-danger-hover: var(--color-error-700);
+  --btn-danger-text: var(--color-neutral-0);
+
+  /* Input */
+  --input-bg: var(--color-neutral-0);
+  --input-border: var(--color-neutral-300);
+  --input-border-focus: var(--color-brand-500);
+  --input-placeholder: var(--color-neutral-400);
+  --input-text: var(--color-neutral-950);
+
+  /* Code */
+  --code-bg: var(--color-neutral-100);
+  --code-text: var(--color-neutral-900);
+  --code-border: var(--color-neutral-200);
+
+  /* Selection */
+  --selection-bg: var(--color-brand-200);
+  --selection-text: var(--color-brand-900);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: var(--color-neutral-300);
+  --scrollbar-thumb-hover: var(--color-neutral-400);
+
+  /* Status */
+  --status-success-bg: var(--color-success-50);
+  --status-success-text: var(--color-success-700);
+  --status-warning-bg: var(--color-warning-50);
+  --status-warning-text: var(--color-warning-700);
+  --status-error-bg: var(--color-error-50);
+  --status-error-text: var(--color-error-700);
+  --status-info-bg: var(--color-info-50);
+  --status-info-text: var(--color-info-700);
+
+  /* Chat/Message bubbles */
+  --bubble-user-bg: var(--color-brand-600);
+  --bubble-user-text: var(--color-neutral-0);
+  --bubble-assistant-bg: var(--color-neutral-100);
+  --bubble-assistant-text: var(--color-neutral-950);
+  --bubble-system-bg: var(--color-neutral-200);
+  --bubble-system-text: var(--color-neutral-700);
+}
+
+/* ===========================================
+   DARK THEME
+   =========================================== */
+[data-theme="dark"] {
+  /* Glass surfaces - Dark */
+  --glass-bg: rgba(23, 23, 23, 0.7);
+  --glass-bg-strong: rgba(23, 23, 23, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-strong: rgba(255, 255, 255, 0.15);
+  --glass-shadow: var(--shadow-glass-lg);
+
+  /* Background layers */
+  --bg-base: var(--color-neutral-950);
+  --bg-elevated: var(--color-neutral-900);
+  --bg-sunken: var(--color-neutral-800);
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Text */
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-400);
+  --text-tertiary: var(--color-neutral-500);
+  --text-inverse: var(--color-neutral-950);
+  --text-link: var(--color-brand-400);
+  --text-link-hover: var(--color-brand-300);
+
+  /* Border */
+  --border-primary: var(--color-neutral-800);
+  --border-secondary: var(--color-neutral-700);
+  --border-focus: var(--color-brand-400);
+  --border-error: var(--color-error-400);
+
+  /* Interactive */
+  --btn-primary-bg: var(--color-brand-500);
+  --btn-primary-hover: var(--color-brand-400);
+  --btn-primary-active: var(--color-brand-600);
+  --btn-primary-text: var(--color-neutral-0);
+
+  --btn-secondary-bg: var(--color-neutral-800);
+  --btn-secondary-hover: var(--color-neutral-700);
+  --btn-secondary-active: var(--color-neutral-600);
+  --btn-secondary-text: var(--color-neutral-100);
+
+  --btn-ghost-hover: var(--color-neutral-800);
+  --btn-ghost-active: var(--color-neutral-700);
+
+  --btn-danger-bg: var(--color-error-500);
+  --btn-danger-hover: var(--color-error-400);
+  --btn-danger-text: var(--color-neutral-0);
+
+  /* Input */
+  --input-bg: var(--color-neutral-900);
+  --input-border: var(--color-neutral-700);
+  --input-border-focus: var(--color-brand-400);
+  --input-placeholder: var(--color-neutral-500);
+  --input-text: var(--color-neutral-50);
+
+  /* Code */
+  --code-bg: var(--color-neutral-800);
+  --code-text: var(--color-neutral-100);
+  --code-border: var(--color-neutral-700);
+
+  /* Selection */
+  --selection-bg: var(--color-brand-800);
+  --selection-text: var(--color-brand-100);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: var(--color-neutral-700);
+  --scrollbar-thumb-hover: var(--color-neutral-600);
+
+  /* Status */
+  --status-success-bg: rgba(34, 197, 94, 0.15);
+  --status-success-text: var(--color-success-400);
+  --status-warning-bg: rgba(245, 158, 11, 0.15);
+  --status-warning-text: var(--color-warning-400);
+  --status-error-bg: rgba(239, 68, 68, 0.15);
+  --status-error-text: var(--color-error-400);
+  --status-info-bg: rgba(59, 130, 246, 0.15);
+  --status-info-text: var(--color-info-400);
+
+  /* Chat/Message bubbles */
+  --bubble-user-bg: var(--color-brand-500);
+  --bubble-user-text: var(--color-neutral-0);
+  --bubble-assistant-bg: var(--color-neutral-800);
+  --bubble-assistant-text: var(--color-neutral-50);
+  --bubble-system-bg: var(--color-neutral-700);
+  --bubble-system-text: var(--color-neutral-300);
+}
+
+/* ===========================================
+   HIGH CONTRAST MODE (Accessibility)
+   =========================================== */
+@media (prefers-contrast: high) {
+  :root {
+    --glass-bg: var(--bg-elevated);
+    --glass-border: var(--border-primary);
+    --glass-shadow: var(--shadow-lg);
+  }
+
+  [data-theme="light"] {
+    --text-primary: #000;
+    --text-secondary: #333;
+    --border-primary: #000;
+    --btn-primary-bg: #000;
+    --btn-primary-hover: #333;
+    --btn-secondary-bg: #fff;
+    --btn-secondary-hover: #eee;
+    --input-border: #000;
+  }
+
+  [data-theme="dark"] {
+    --text-primary: #fff;
+    --text-secondary: #ccc;
+    --border-primary: #fff;
+    --btn-primary-bg: #fff;
+    --btn-primary-hover: #ddd;
+    --btn-primary-text: #000;
+    --btn-secondary-bg: #000;
+    --btn-secondary-hover: #333;
+    --input-border: #fff;
+  }
+}
+
+/* ===========================================
+   REDUCED MOTION
+   =========================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===========================================
+   GLASS UTILITY CLASSES
+   =========================================== */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-xl));
+  -webkit-backdrop-filter: blur(var(--blur-xl));
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-subtle {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--glass-border);
+}
+
+/* ===========================================
+   BASE RESET
+   =========================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  transition: background-color var(--duration-normal) var(--ease-out),
+              color var(--duration-normal) var(--ease-out);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}

@@ -1,0 +1,242 @@
+/**
+ * Table Styles — Liquid Glass Design System
+ */
+
+:root {
+  --table-cell-padding-y: var(--space-2);
+  --table-cell-padding-x: var(--space-3);
+  --table-cell-padding-y-compact: var(--space-1);
+  --table-cell-padding-x-compact: var(--space-2);
+  --table-header-bg: var(--bg-sunken);
+  --table-row-hover-bg: var(--bg-sunken);
+  --table-row-selected-bg: rgba(99, 102, 241, 0.1);
+  --table-border-color: var(--border-primary);
+  --table-header-font-size: var(--text-xs);
+  --table-header-font-weight: var(--font-semibold);
+  --table-header-text-color: var(--text-tertiary);
+  --table-body-font-size: var(--text-sm);
+  --table-body-text-color: var(--text-primary);
+  --table-radius: var(--radius-lg);
+  --table-z-index: var(--z-10);
+}
+
+/* ===========================================
+   TABLE CONTAINER
+   =========================================== */
+
+.table-container {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--table-radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.table--bordered .table-container {
+  border: 1px solid var(--table-border-color);
+}
+
+/* Loading state */
+.table--loading {
+  pointer-events: none;
+}
+
+.table__loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.02);
+  z-index: var(--table-z-index);
+}
+
+.table--loading .table__wrapper {
+  opacity: 0.5;
+}
+
+/* ===========================================
+   TABLE WRAPPER
+   =========================================== */
+
+.table__wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+}
+
+.table__wrapper:focus-visible {
+  outline: none;
+}
+
+/* ===========================================
+   TABLE BASE
+   =========================================== */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: var(--table-body-font-size);
+  color: var(--table-body-text-color);
+  table-layout: auto;
+}
+
+/* ===========================================
+   HEADER
+   =========================================== */
+
+.table__head {
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border-color);
+  position: sticky;
+  top: 0;
+  z-index: var(--table-z-index);
+}
+
+.table__header-cell {
+  padding: var(--table-cell-padding-y) var(--table-cell-padding-x);
+  font-size: var(--table-header-font-size);
+  font-weight: var(--table-header-font-weight);
+  color: var(--table-header-text-color);
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: bottom;
+  border-bottom: 1px solid var(--table-border-color);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.table--compact .table__header-cell {
+  padding: var(--table-cell-padding-y-compact) var(--table-cell-padding-x-compact);
+}
+
+.table__header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.table__header--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.table__header--sortable:hover {
+  background: var(--bg-sunken);
+}
+
+.table__sort-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ===========================================
+   BODY
+   =========================================== */
+
+.table__body {
+  background: var(--bg-elevated);
+}
+
+.table__row {
+  border-bottom: 1px solid var(--table-border-color);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.table--striped .table__body .table__row:nth-child(even) {
+  background: var(--bg-sunken);
+}
+
+.table--hoverable .table__row:hover {
+  background: var(--table-row-hover-bg);
+}
+
+.table__row--selected {
+  background: var(--table-row-selected-bg) !important;
+}
+
+.table__row--selected:hover {
+  background: var(--table-row-selected-bg) !important;
+}
+
+.table__row--empty {
+  background: transparent;
+}
+
+.table__cell {
+  padding: var(--table-cell-padding-y) var(--table-cell-padding-x);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table--compact .table__cell {
+  padding: var(--table-cell-padding-y-compact) var(--table-cell-padding-x-compact);
+}
+
+.table__cell--checkbox {
+  padding: 0;
+  text-align: center;
+  width: 48px;
+}
+
+.table__cell--actions {
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+.table__checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-brand-500);
+  cursor: pointer;
+}
+
+.table__empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.table__actions {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* Spacers for virtualized table */
+.table__spacer {
+  background: transparent;
+}
+
+.table__spacer td {
+  padding: 0;
+  border: none;
+}
+
+/* ===========================================
+   VIRTUALIZED SCROLL
+   =========================================== */
+
+.table__virtual-scroll {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ===========================================
+   REDUCED MOTION
+   =========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .table__row,
+  .table__header-cell,
+  .table__loading {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,179 @@
+/**
+ * Canvas Styles — Liquid Glass Design System
+ */
+
+:root {
+  --canvas-bg: var(--bg-base);
+  --canvas-border: var(--glass-border);
+  --canvas-radius: var(--radius-lg);
+  --canvas-zoom-indicator-bg: var(--glass-bg);
+  --canvas-zoom-indicator-border: var(--glass-border);
+  --canvas-zoom-indicator-text: var(--text-secondary);
+}
+
+[data-theme="dark"] {
+  --canvas-bg: var(--color-neutral-950);
+  --canvas-border: var(--color-neutral-800);
+  --canvas-zoom-indicator-bg: rgba(15, 23, 42, 0.9);
+  --canvas-zoom-indicator-border: var(--color-neutral-800);
+  --canvas-zoom-indicator-text: var(--color-neutral-400);
+}
+
+/* ===========================================
+   CANVAS BASE
+   =========================================== */
+
+.canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas-bg);
+  border: 1px solid var(--canvas-border);
+  border-radius: var(--canvas-radius);
+  overflow: hidden;
+  min-height: 300px;
+  font-family: var(--font-sans);
+}
+
+.canvas:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+/* Viewport */
+.canvas__viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: inherit;
+}
+
+/* Content */
+.canvas__content {
+  position: relative;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Layers */
+.canvas-layer {
+  will-change: transform;
+}
+
+/* ===========================================
+   PANNING
+   =========================================== */
+
+.canvas--pan-enabled {
+  cursor: grab;
+}
+
+.canvas--pan-enabled:active,
+.canvas--panning {
+  cursor: grabbing !important;
+}
+
+.canvas--panning .canvas__content {
+  pointer-events: none;
+}
+
+/* ===========================================
+   ZOOM
+   =========================================== */
+
+.canvas--zoom-enabled {
+  /* Zoom handled via wheel */
+}
+
+/* Zoom indicator */
+.canvas__zoom-indicator {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--canvas-zoom-indicator-text);
+  background: var(--canvas-zoom-indicator-bg);
+  border: 1px solid var(--canvas-zoom-indicator-border);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  pointer-events: none;
+  z-index: 20;
+  animation: canvas-zoom-indicator-in var(--duration-fast) var(--ease-out);
+}
+
+@keyframes canvas-zoom-indicator-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===========================================
+   GRID (CSS-based)
+   =========================================== */
+
+/* Grid is applied via inline style on .canvas__viewport */
+
+/* ===========================================
+   TOUCH
+   =========================================== */
+
+.canvas {
+  touch-action: none;
+}
+
+/* ===========================================
+   HIGH CONTRAST
+   =========================================== */
+
+@media (prefers-contrast: high) {
+  .canvas {
+    border: 2px solid var(--border-primary);
+  }
+
+  .canvas__zoom-indicator {
+    border: 2px solid var(--border-primary);
+  }
+}
+
+/* ===========================================
+   REDUCED MOTION
+   =========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas__zoom-indicator {
+    animation: none !important;
+  }
+
+  .canvas__viewport {
+    transition: none !important;
+  }
+}
+
+/* ===========================================
+   PRINT
+   =========================================== */
+
+@media print {
+  .canvas__zoom-indicator {
+    display: none !important;
+  }
+
+  .canvas {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+
+  .canvas__viewport {
+    transform: none !important;
+    overflow: visible !important;
+  }
+}

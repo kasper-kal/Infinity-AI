@@ -1,0 +1,323 @@
+/**
+ * Button Styles — Liquid Glass Design System
+ */
+
+:root {
+  /* Button-specific tokens (reference design tokens) */
+  --btn-height-xs: 24px;
+  --btn-height-sm: 32px;
+  --btn-height-md: 40px;
+  --btn-height-lg: 48px;
+  --btn-height-xl: 56px;
+
+  --btn-padding-xs: 0 var(--space-2);
+  --btn-padding-sm: 0 var(--space-3);
+  --btn-padding-md: 0 var(--space-4);
+  --btn-padding-lg: 0 var(--space-5);
+  --btn-padding-xl: 0 var(--space-6);
+
+  --btn-font-size-xs: var(--text-xs);
+  --btn-font-size-sm: var(--text-sm);
+  --btn-font-size-md: var(--text-sm);
+  --btn-font-size-lg: var(--text-base);
+  --btn-font-size-xl: var(--text-lg);
+
+  --btn-icon-size-xs: 14px;
+  --btn-icon-size-sm: 16px;
+  --btn-icon-size-md: 18px;
+  --btn-icon-size-lg: 20px;
+  --btn-icon-size-xl: 24px;
+
+  --btn-gap-xs: var(--space-1);
+  --btn-gap-sm: var(--space-2);
+  --btn-gap-md: var(--space-2);
+  --btn-gap-lg: var(--space-2);
+  --btn-gap-xl: var(--space-3);
+}
+
+/* ===========================================
+   BASE BUTTON
+   =========================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap-md);
+  font-family: var(--font-sans);
+  font-weight: var(--font-medium);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Sizes */
+.btn--xs {
+  height: var(--btn-height-xs);
+  padding: var(--btn-padding-xs);
+  font-size: var(--btn-font-size-xs);
+  gap: var(--btn-gap-xs);
+}
+
+.btn--sm {
+  height: var(--btn-height-sm);
+  padding: var(--btn-padding-sm);
+  font-size: var(--btn-font-size-sm);
+  gap: var(--btn-gap-sm);
+}
+
+.btn--md {
+  height: var(--btn-height-md);
+  padding: var(--btn-padding-md);
+  font-size: var(--btn-font-size-md);
+  gap: var(--btn-gap-md);
+}
+
+.btn--lg {
+  height: var(--btn-height-lg);
+  padding: var(--btn-padding-lg);
+  font-size: var(--btn-font-size-lg);
+  gap: var(--btn-gap-lg);
+}
+
+.btn--xl {
+  height: var(--btn-height-xl);
+  padding: var(--btn-padding-xl);
+  font-size: var(--btn-font-size-xl);
+  gap: var(--btn-gap-xl);
+}
+
+.btn--full {
+  width: 100%;
+}
+
+/* Icon sizing */
+.btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn--xs .btn__icon { width: var(--btn-icon-size-xs); height: var(--btn-icon-size-xs); }
+.btn--sm .btn__icon { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); }
+.btn--md .btn__icon { width: var(--btn-icon-size-md); height: var(--btn-icon-size-md); }
+.btn--lg .btn__icon { width: var(--btn-icon-size-lg); height: var(--btn-icon-size-lg); }
+.btn--xl .btn__icon { width: var(--btn-icon-size-xl); height: var(--btn-icon-size-xl); }
+
+/* Spinner */
+.btn__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin var(--duration-normal) linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Loading state */
+.btn--loading .btn__text {
+  opacity: 0;
+}
+
+.btn--loading .btn__icon:not(.btn__spinner) {
+  display: none;
+}
+
+/* Disabled state */
+.btn--disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ===========================================
+   VARIANTS
+   =========================================== */
+
+/* Primary — Brand action */
+.btn--primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--primary:hover:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-primary-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.btn--primary:active:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-primary-active);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Secondary — Subtle action */
+.btn--secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--border-primary);
+}
+
+.btn--secondary:hover:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-secondary-hover);
+  border-color: var(--border-secondary);
+}
+
+.btn--secondary:active:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-secondary-active);
+}
+
+/* Ghost — Minimal action */
+.btn--ghost {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.btn--ghost:hover:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-ghost-hover);
+}
+
+.btn--ghost:active:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-ghost-active);
+}
+
+/* Danger — Destructive action */
+.btn--danger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--danger:hover:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-danger-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.btn--danger:active:not(.btn--disabled):not(:disabled) {
+  background: var(--btn-danger-hover);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Glass — Liquid glass effect */
+.btn--glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  box-shadow: var(--glass-shadow);
+}
+
+.btn--glass:hover:not(.btn--disabled):not(:disabled) {
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border-strong);
+  box-shadow: var(--glass-shadow);
+  transform: translateY(-1px);
+}
+
+.btn--glass:active:not(.btn--disabled):not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===========================================
+   ICON BUTTON
+   =========================================== */
+
+.btn--icon {
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+.btn--icon.btn--xs { width: var(--btn-height-xs); }
+.btn--icon.btn--sm { width: var(--btn-height-sm); }
+.btn--icon.btn--md { width: var(--btn-height-md); }
+.btn--icon.btn--lg { width: var(--btn-height-lg); }
+
+.btn--icon .btn__icon {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===========================================
+   BUTTON GROUP
+   =========================================== */
+
+.btn-group {
+  display: inline-flex;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-elevated);
+}
+
+.btn-group--horizontal {
+  flex-direction: row;
+}
+
+.btn-group--vertical {
+  flex-direction: column;
+}
+
+.btn-group .btn {
+  border-radius: 0;
+  border: none;
+  margin: 0;
+  box-shadow: none;
+}
+
+.btn-group--horizontal .btn:not(:last-child) {
+  border-right: 1px solid var(--border-primary);
+}
+
+.btn-group--vertical .btn:not(:last-child) {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.btn-group .btn:first-child {
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+.btn-group--horizontal .btn:last-child {
+  border-top-right-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.btn-group--vertical .btn:last-child {
+  border-top-right-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.btn-group .btn:focus-visible {
+  z-index: 1;
+  outline-offset: -1px;
+}
+
+/* ===========================================
+   REDUCED MOTION
+   =========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn__spinner {
+    animation: none !important;
+    transition: none !important;
+  }
+}

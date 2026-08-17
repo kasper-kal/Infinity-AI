@@ -4,19 +4,31 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-17 19:10
+LAST_UPDATED: 2026-08-17 20:30
 
 ## Just did (last action)
-- **Phase 8: Multi-Agent Orchestration COMPLETE** — Planner→Coder→Reviewer→Fixer pipeline with shared context + parallel execution:
-  - Created `artifacts/api-server/src/lib/agent-prompts/` — 4 distinct agent prompts (planner, coder, reviewer, fixer) using buildInfinityPrompt with role-specific instructions
-  - Created `artifacts/api-server/src/lib/build-orchestrator.ts` — `BuildOrchestrator` class (private constructor + static `create()` async factory because createBestAdapter is async) + `runMultiAgentBuild()` factory function
-  - Pipeline: `orchestrate(goal)` → loadContext → runPlanner (Zod PlanSchema) → executePlan (topological sort + parallel groups via Promise.allSettled) → executeStep (coder→reviewer→fixer loop, max 3 fix iterations)
-  - Coder/Fixer reuse proven `runAgentForStep` tool-use loop from build-agent.ts; Planner/Reviewer use LLM adapter directly with jsonMode
-  - All tool execution goes through real `executeTool` from build-tools.ts (consistent sandboxing/scoping)
-  - Extended `build-context.ts` (modifiedFiles Map, fileMap serialization) + `build-telemetry.ts` (added "orchestrator" + "orchestrator_start" event types) + `project-activity.ts` (added "orchestration_ran" activity type + DB enum)
-  - **New API routes** in build.ts: `POST /build/orchestrate` (requireAuth, requireScope("build:write"), enqueueBuild + preflightCheck + saveCheckpoint) and `GET /build/orchestrate/status/:projectId` (requireAuth)
-  - Fixed 3 type errors (llm definite assignment `!`, createBestAdapter async init, Map→Record in runReviewer) + fixed buildInfinityPrompt call sites (2-arg → options object) in all 4 agent-prompt files + fixed build-events.ts WriteStream union + task-queue.ts executeStep type + db schema enum
-  - Full workspace typecheck passes clean (`pnpm -w run typecheck` → all 5 projects Done). Phase 8 marked ✅ DONE in PHASES.md.
+- **Phase 14: Desktop-First Redesign — LAYOUT PRIMITIVES COMPLETE** — Created 5 layout primitive components for the new design system:
+  - **AppShell** (`src/components/layout/AppShell.tsx` + `.css`) — Top-level application layout with header, sidebar, right sidebar, footer, mobile overlay backdrop, collapsible sidebar, resize handles, keyboard navigation
+  - **Sidebar** (`src/components/layout/Sidebar.tsx` + `.css`) — Reusable sidebar with navigation, sections, collapsible support, badge support, nested items, divider, footer
+  - **Panel** (`src/components/layout/Panel.tsx` + `.css`) — Flexible container panels with variants (default/elevated/outlined/filled/glass), collapsible, resizable, scrollable, PanelGroup, PanelStack, SplitPanel
+  - **Canvas** (`src/components/layout/Canvas.tsx` + `.css`) — Infinite canvas/whiteboard with zoom, pan, grid, touch support, keyboard navigation, layers, zoom indicator, screen↔canvas coordinate conversion
+  - **ResponsiveGrid** (`src/components/layout/ResponsiveGrid.tsx` + `.css`) — CSS Grid + Flexbox + Masonry + Container Query grids, responsive columns per breakpoint, auto-fit/auto-fill, dense packing, GridItem for explicit placement
+  - Created barrel export: `src/components/layout/index.ts`
+- **Phase 14: Desktop-First Redesign — BASE UI COMPONENTS COMPLETE** — Created 10 base UI components with Liquid Glass design tokens:
+  - **Button** (Button, IconButton, ButtonGroup) — variants: primary/secondary/ghost/danger/glass, sizes: xs-xl, loading, icons
+  - **Input** (Input, Textarea, Select) — label/error/helper/icon support
+  - **Dialog** (Dialog, AlertDialog, Drawer) — focus trapping, portal rendering, animations
+  - **Tooltip** (Tooltip, Toast, ToastContainer, useToast) — positioning, auto-dismiss
+  - **Table** (Table, VirtualizedTable) — sorting, selection, row actions, compact/striped/hoverable
+  - **Tree** (Tree, FileTree) — keyboard nav, expand/collapse, multi-select, indentation guides
+  - **Tabs** (Tabs, SegmentedControl) — line/enclosed/soft/glass variants, horizontal/vertical
+  - **CodeEditor** (CodeEditor, DiffEditor, InlineEditor) — CodeMirror wrapper with 25+ languages, themes, diff editor
+  - **Terminal** (Terminal, TerminalSession) — xterm.js wrapper with toolbar, session tabs, fit addon, web links
+  - **DiffView** (DiffView, InlineDiff, FileDiff) — diff hunk/line rendering, word diff, file diff header, context collapse
+  - **MarkdownRenderer** (MarkdownRenderer, MarkdownEditor) — marked.js renderer with GFM, syntax highlighting, footnotes, alerts, editor with toolbar
+  - All components support: light/dark themes, high contrast mode, reduced motion, proper ARIA accessibility, portal rendering where needed
+  - Created barrel export: `src/components/ui/index.ts`
+- **Phase 9: Scheduled Agents / Cron COMPLETE** — Persistent cron-based job scheduler with DB-backed schedules + in-memory timer resume on boot...
 - **Trademark Analysis for Project Rename COMPLETE** — 50+ name candidates searched via Tavily API for AI agent conflicts:
   - **Tier 1 (Safest)**: Evolve, Scaffold, Verge, Solstice, Specter — generic/descriptive, low trademark risk
   - **Tier 2 (Strong Fit)**: Pilot, Atlas, Cobalt, Zephyr, Ember — moderate conflict, distinct positioning possible
@@ -273,13 +285,12 @@ LAST_UPDATED: 2026-08-17 19:10
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
-2. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
-4. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
-5. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
-6. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-7. **Phase 14: Desktop-First Redesign** — Liquid glass material, theme tokens, keyboard-first
-8. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
+1. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+2. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
+3. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
+4. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
+5. **Phase 14: Desktop-First Redesign** — IN PROGRESS: Created design tokens + 10 base UI components (Button, Input, Dialog, Tooltip, Table, Tree, Tabs, CodeEditor, Terminal, DiffView, MarkdownRenderer) + 5 layout primitives (AppShell, Sidebar, Panel, Canvas, ResponsiveGrid)
+6. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
    - **Completed searches**: AI coding assistant comparisons (Claude Code, Replit Agent, Cursor), free local LLM models (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral), open source agent architectures (OpenHands, Cline, Aider, Goose), MCP browser automation, agent architecture best practices
    - **Key findings so far**: 
      - Free LLM APIs in 2026: OpenRouter, Groq, Cerebras, Google AI Studio, NVIDIA NIM - all no credit card required

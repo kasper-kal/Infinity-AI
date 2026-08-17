@@ -1,0 +1,25 @@
+{
+  "name": "@infinity/acp-server",
+  "version": "1.0.0",
+  "description": "Agent Client Protocol (ACP) Server for Infinity",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=esm --external:@modelcontextprotocol/sdk",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.16.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/ws": "^8.5.10",
+    "esbuild": "^0.20.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
