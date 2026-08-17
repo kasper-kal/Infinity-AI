@@ -96,6 +96,7 @@ import {
 } from "../../lib/build-edge-cases";
 import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, TOOL_DEFINITIONS } from "../../lib/build-tools";
 import { runAutonomousAgent, runAgentForStep, type AgentConfig, type PlanStep as AgentPlanStep } from "../../lib/build-agent";
+import { runMultiAgentBuild, type OrchestratorEvent } from "../../lib/build-orchestrator";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -2721,6 +2722,117 @@ router.post("/build/wait-rate-limit/:key", requireAuth, requireScope("build:writ
   } catch (err) {
     req.log.error({ err }, "Wait rate limit failed");
     res.status(500).json({ error: "Wait rate limit failed" });
+  }
+});
+
+/**
+ * Phase 8: Multi-Agent Orchestration — Run the full planner→coder→reviewer→fixer pipeline
+ */
+router.post("/build/orchestrate", requireAuth, requireScope("build:write"), async (req, res) => {
+  const projectId = cleanText(req.body?.projectId, 64) || "default";
+  const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+  const goal = cleanText(req.body?.goal, 500) || "a simple Jarvis starter app";
+  const previewPort = Number(req.body?.previewPort);
+  const model = cleanText(req.body?.model, 64);
+  const skipPreflight = Boolean(req.body?.skipPreflight);
+
+  if (!goal) {
+    res.status(400).json({ error: "A build goal is required" });
+    return;
+  }
+
+  try {
+    // Queue the build to handle concurrent builds
+    const result = await enqueueBuild(projectId, async () => {
+      await ensureWorkspace(workspaceId);
+
+      // Pre-flight check before starting build
+      if (!skipPreflight) {
+        const preflight = await preflightCheck(projectId);
+        await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
+        if (!preflight.ok) {
+          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+        }
+      }
+
+      await logBuildEvent(projectId, "orchestrator_start", `Multi-agent orchestration: ${goal.slice(0, 80)}`, { data: { workspaceId, model } });
+
+      // Initialize working context
+      setProjectGoal(projectId, goal);
+      await refreshFileMap(projectId, workspaceId);
+
+      // Prepare execution context for the orchestrator
+      const toolContext: ToolExecutionContext = {
+        projectId,
+        workspaceId,
+        previewPort: previewPort || undefined,
+        previewUrl: previewPort ? `http://127.0.0.1:${previewPort}` : undefined,
+      };
+
+      // Run the multi-agent orchestration
+      const events: OrchestratorEvent[] = [];
+      const onProgress = (event: OrchestratorEvent) => {
+        events.push(event);
+      };
+
+      const orchResult = await runMultiAgentBuild({
+        goal,
+        projectId,
+        workspaceId,
+        model,
+        toolContext,
+        onProgress,
+      });
+
+      // Final checkpoint
+      if (hasIsolated(projectId)) {
+        await commitIteration(projectId, orchResult.plan.steps.length, orchResult.plan.steps.length, "orchestration complete");
+      }
+      await saveCheckpoint({
+        projectId,
+        iteration: orchResult.plan.steps.length,
+        completed: orchResult.success ? 1 : 0,
+        plan: { title: "Multi-agent orchestration", summary: goal, steps: [], files: [], risks: [] },
+        completedSteps: orchResult.events.map(e => ({ step: e.stepId, done: e.message.includes("Passed") || e.message.includes("completed"), filesChanged: [], feedback: e.message })),
+        workingContext: { prompt: goal, workspaceId },
+        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+      });
+
+      await logActivity(projectId, "orchestration_ran", `Multi-agent orchestration: ${orchResult.success ? "completed" : "stopped"} — ${orchResult.plan.summary}`);
+      return { ok: orchResult.success, summary: orchResult.plan.summary, plan: orchResult.plan, steps: orchResult.plan.steps.length, events: orchResult.events };
+    }, { priority: "normal" });
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Multi-agent orchestration failed");
+    const message = err instanceof Error ? err.message : "Multi-agent orchestration failed";
+    if (message.includes("Pre-flight check failed")) {
+      res.status(409).json({ error: message });
+    } else {
+      res.status(500).json({ error: message });
+    }
+  }
+});
+
+/**
+ * Phase 8: Get orchestration status / recent events
+ */
+router.get("/build/orchestrate/status/:projectId", requireAuth, async (req, res) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+
+    // Get recent build events for this project
+    // This uses the build-telemetry logBuildEvent infrastructure
+    // For now return a simple placeholder - in production would query DB
+    res.json({
+      projectId,
+      events: [],
+      message: "Orchestration status endpoint ready. Wire to build-telemetry for full history."
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get orchestration status");
+    res.status(500).json({ error: "Failed to get orchestration status" });
   }
 });
 

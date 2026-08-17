@@ -47,6 +47,7 @@ const VALID_TYPES = [
   "task_added",
   "task_completed",
   "agent_ran",
+  "orchestration_ran",
 ] as const;
 
 type ActivityType = (typeof VALID_TYPES)[number];

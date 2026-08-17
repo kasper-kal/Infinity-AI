@@ -60,7 +60,7 @@ export interface BuildEventEmitterOptions {
  * Emits structured events to stdout for pipeline parsing
  */
 export class BuildEventEmitter {
-  private output: WriteStream;
+  private output: WriteStream | (WriteStream & { fd: 1 });
   private projectId: string;
   private buildId: string;
   private emitToStdout: boolean;
@@ -68,7 +68,7 @@ export class BuildEventEmitter {
   private eventCount = 0;
 
   constructor(options: BuildEventEmitterOptions) {
-    this.output = options.output || stdout;
+    this.output = options.output || (stdout as unknown as WriteStream);
     this.projectId = options.projectId;
     this.buildId = options.buildId || `build_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     this.emitToStdout = options.emitToStdout ?? true;

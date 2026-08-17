@@ -225,7 +225,7 @@ export async function executeTaskDAG(
  */
 export async function executeSequential(
   steps: PlanStep[],
-  executeStep: (step: PlanStep, context: ToolExecutionContext) => Promise<AgentOutput>,
+  executeStep: (node: TaskNode, context: ToolExecutionContext) => Promise<AgentOutput>,
   context: ToolExecutionContext,
   options: TaskQueueOptions
 ): Promise<AgentOutput[]> {

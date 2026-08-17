@@ -22,6 +22,7 @@ export const projectActivity = pgTable(
         "task_added",
         "task_completed",
         "agent_ran",
+        "orchestration_ran",
       ],
     }).notNull(),
     description: text("description").notNull(),

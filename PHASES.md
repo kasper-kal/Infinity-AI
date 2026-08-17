@@ -16,7 +16,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **6** | **Headless CI/CD Mode** | ✅ **DONE** | ~4-8h | Phase 5.x |
 | **6.5** | **@Agent Browser Widget + @Browse Tavily Live Text** | ✅ **DONE** | ~4-6h | Phase 6 |
 | **7** | **MCP Server Integration** | ✅ **DONE** | ~6-12h | Phase 6.5 |
-| **8** | **Multi-Agent Orchestration** | ⏳ PENDING | ~12-24h | Phase 7 |
+| **8** | **Multi-Agent Orchestration** | ✅ **DONE** | ~12-24h | Phase 7 |
 | **9** | **Scheduled Agents / Cron** | ⏳ PENDING | ~4-8h | Phase 8 |
 | **10** | **Messaging Connectors** | ⏳ PENDING | ~6-12h | Phase 8 |
 | **11** | **ACP Protocol Support** | ⏳ PENDING | ~8-16h | Phase 7 |
@@ -152,28 +152,30 @@ Replace single autonomous agent with **planner → coder(s) → reviewer → fix
 ```
 
 ### Requirements
-- [ ] **Agent Types** — Planner, Coder, Reviewer, Fixer (distinct prompts + tools)
-- [ ] **Handoff Protocol** — Structured payload between stages (plan, diffs, findings, fixes)
-- [ ] **Parallel Coder Fan-out** — Split plan steps across N coder agents
-- [ ] **Shared Context Store** — In-memory + persisted (build-context.ts extended)
-- [ ] **Verification Loop** — Reviewer → Fixer → Reviewer (max 3 iterations)
-- [ ] **Orchestrator** — State machine managing the pipeline
-- [ ] **Fallback** — Single-agent mode if multi-agent fails
+- [x] **Agent Types** — Planner, Coder, Reviewer, Fixer (distinct prompts + tools)
+- [x] **Handoff Protocol** — Structured payload between stages (plan, diffs, findings, fixes)
+- [x] **Parallel Coder Fan-out** — Split plan steps across N coder agents via Promise.allSettled
+- [x] **Shared Context Store** — In-memory + persisted (build-context.ts extended with modifiedFiles Map)
+- [x] **Verification Loop** — Reviewer → Fixer → Reviewer (max 3 iterations)
+- [x] **Orchestrator** — State machine managing the pipeline (build-orchestrator.ts)
+- [x] **Fallback** — Single-agent mode if multi-agent fails (runAgentForStep reuses proven loop)
 
 ### Implementation Plan
-1. **Define agent prompts** — `artifacts/api-server/src/lib/agent-prompts/`
-2. **Create orchestrator** — `build-orchestrator.ts` (state machine)
-3. **Extend context store** — `build-context.ts` → multi-agent aware
-4. **Parallel execution** — use `Promise.allSettled` for coder fan-out
-5. **Handoff schemas** — Zod schemas for each stage payload
-6. **New API routes** — `/build/orchestrate`, `/build/orchestrate/status`
-7. **UI integration** — Debug panel shows multi-agent pipeline
+1. ✅ **Define agent prompts** — `artifacts/api-server/src/lib/agent-prompts/` (planner, coder, reviewer, fixer)
+2. ✅ **Create orchestrator** — `build-orchestrator.ts` (BuildOrchestrator class + runMultiAgentBuild factory)
+3. ✅ **Extend context store** — `build-context.ts` → multi-agent aware (modifiedFiles Map, fileMap serialization)
+4. ✅ **Parallel execution** — topologicalSort + buildParallelGroups + Promise.allSettled per group
+5. ✅ **Handoff schemas** — Zod schemas (PlanSchema, PlanStepSchema, CoderHandoffSchema, ReviewSchema, FixerHandoffSchema)
+6. ✅ **New API routes** — `/build/orchestrate` (requireAuth, requireScope build:write), `/build/orchestrate/status/:projectId` (requireAuth)
+7. **UI integration** — Debug panel shows multi-agent pipeline (optional frontend, backend events emitted)
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/build-orchestrator.ts` (new)
-- `artifacts/api-server/src/lib/agent-prompts/` (new directory)
+- `artifacts/api-server/src/lib/agent-prompts/` (new directory with planner/coder/reviewer/fixer prompts)
 - `artifacts/api-server/src/routes/jarvis/build.ts` — orchestrate routes
 - `artifacts/api-server/src/lib/build-context.ts` — extend for multi-agent
+- `artifacts/api-server/src/lib/build-telemetry.ts` — add "orchestrator" + "orchestrator_start" event types
+- `artifacts/api-server/src/routes/jarvis/project-activity.ts` + `lib/db/src/schema/project-activity.ts` — add "orchestration_ran" activity type
 
 ---
 

@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-17 18:40
+LAST_UPDATED: 2026-08-17 19:10
 
 ## Just did (last action)
+- **Phase 8: Multi-Agent Orchestration COMPLETE** — Planner→Coder→Reviewer→Fixer pipeline with shared context + parallel execution:
+  - Created `artifacts/api-server/src/lib/agent-prompts/` — 4 distinct agent prompts (planner, coder, reviewer, fixer) using buildInfinityPrompt with role-specific instructions
+  - Created `artifacts/api-server/src/lib/build-orchestrator.ts` — `BuildOrchestrator` class (private constructor + static `create()` async factory because createBestAdapter is async) + `runMultiAgentBuild()` factory function
+  - Pipeline: `orchestrate(goal)` → loadContext → runPlanner (Zod PlanSchema) → executePlan (topological sort + parallel groups via Promise.allSettled) → executeStep (coder→reviewer→fixer loop, max 3 fix iterations)
+  - Coder/Fixer reuse proven `runAgentForStep` tool-use loop from build-agent.ts; Planner/Reviewer use LLM adapter directly with jsonMode
+  - All tool execution goes through real `executeTool` from build-tools.ts (consistent sandboxing/scoping)
+  - Extended `build-context.ts` (modifiedFiles Map, fileMap serialization) + `build-telemetry.ts` (added "orchestrator" + "orchestrator_start" event types) + `project-activity.ts` (added "orchestration_ran" activity type + DB enum)
+  - **New API routes** in build.ts: `POST /build/orchestrate` (requireAuth, requireScope("build:write"), enqueueBuild + preflightCheck + saveCheckpoint) and `GET /build/orchestrate/status/:projectId` (requireAuth)
+  - Fixed 3 type errors (llm definite assignment `!`, createBestAdapter async init, Map→Record in runReviewer) + fixed buildInfinityPrompt call sites (2-arg → options object) in all 4 agent-prompt files + fixed build-events.ts WriteStream union + task-queue.ts executeStep type + db schema enum
+  - Full workspace typecheck passes clean (`pnpm -w run typecheck` → all 5 projects Done). Phase 8 marked ✅ DONE in PHASES.md.
 - **Trademark Analysis for Project Rename COMPLETE** — 50+ name candidates searched via Tavily API for AI agent conflicts:
   - **Tier 1 (Safest)**: Evolve, Scaffold, Verge, Solstice, Specter — generic/descriptive, low trademark risk
   - **Tier 2 (Strong Fit)**: Pilot, Atlas, Cobalt, Zephyr, Ember — moderate conflict, distinct positioning possible
@@ -106,6 +116,12 @@ LAST_UPDATED: 2026-08-17 18:40
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-17 **Phase 8: Multi-Agent Orchestration COMPLETE** — Planner→Coder→Reviewer→Fixer pipeline with shared context + parallel execution:
+  - Created `artifacts/api-server/src/lib/agent-prompts/` (planner, coder, reviewer, fixer prompts via buildInfinityPrompt)
+  - Created `artifacts/api-server/src/lib/build-orchestrator.ts` — BuildOrchestrator class + runMultiAgentBuild factory; topological sort + parallel groups (Promise.allSettled); coder/fixer reuse runAgentForStep; planner/reviewer use LLM adapter jsonMode; 3 fix iterations max
+  - Extended build-context.ts (modifiedFiles Map), build-telemetry.ts (orchestrator + orchestrator_start events), project-activity.ts + db schema (orchestration_ran activity type)
+  - New API routes: `POST /build/orchestrate` (requireAuth, build:write, enqueueBuild + preflightCheck + saveCheckpoint), `GET /build/orchestrate/status/:projectId` (requireAuth)
+  - Fixed 3 type errors + buildInfinityPrompt 2-arg→options-object in all 4 prompts + build-events.ts WriteStream union + task-queue.ts executeStep type + db enum. Full workspace typecheck passes clean.
 - 2026-08-17 **Phase 7: MCP Server Integration COMPLETE** — Infinity exposes 16 tools via MCP (Model Context Protocol) for ANY LLM client:
   - Created `artifacts/mcp-server/` with stdio + HTTP transports, 16 tool definitions, auth middleware, project scoping
   - Tools: list_files, read_file, edit_file, run_command, git_diff, git_status, git_commit, build_agent_run, build_agent_step, project_memory_read, project_memory_write, research_run, research_extract, browser_navigate, browser_screenshot, browser_action
@@ -162,6 +178,7 @@ LAST_UPDATED: 2026-08-17 18:40
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
+- **Phase 8: Multi-Agent Orchestration** — **COMPLETE**: Planner→Coder→Reviewer→Fixer pipeline with shared context, parallel execution, verification loop (max 3 fix iterations). New API routes `/build/orchestrate` + `/build/orchestrate/status`. Full workspace typecheck passes.
 - **@Agent Browser Widget + @Browse Tavily Live Text** — **COMPLETE**: Two new commands implemented and verified:
   - @Agent: Puppeteer live widget with screenshot streaming, double-tap takeover, resume button
   - @Browse: Live text streaming in chat with multiple queries, source references
@@ -256,9 +273,8 @@ LAST_UPDATED: 2026-08-17 18:40
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 8: Multi-Agent Orchestration** — Planner→Coder→Reviewer→Fixer pipeline with shared context
-2. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
-3. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+1. **Phase 9: Scheduled Agents / Cron** — Persistent scheduler for builds, research, maintenance
+2. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
 4. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
 5. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
 6. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates

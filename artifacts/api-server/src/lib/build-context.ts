@@ -66,6 +66,8 @@ export interface WorkingContext {
   tokenBudget: TokenBudget;
   /** Compacted summary of older steps (steps 1-N summarized) */
   compactedSummary: string | null;
+  /** Agent outputs for multi-agent orchestration handoff tracking */
+  agentOutputs?: AgentOutput[];
 }
 
 export interface StepResult {
@@ -305,6 +307,11 @@ export function serializeContext(projectId: string): string {
 
   const budget = ctx.tokenBudget;
   parts.push(`TOKEN BUDGET: ${budget.used}/${budget.limit} used`);
+
+  // Include agent outputs for multi-agent handoff context
+  if (ctx.agentOutputs && ctx.agentOutputs.length > 0) {
+    parts.push(serializeAgentOutputs(projectId));
+  }
 
   return parts.join("\n");
 }
