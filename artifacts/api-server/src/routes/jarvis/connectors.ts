@@ -103,7 +103,8 @@ router.post("/connectors", async (req: Request, res: Response) => {
 /** GET /api/jarvis/connectors/:id — Get a connector with recent notifications */
 router.get("/connectors/:id", async (req: Request, res: Response) => {
   try {
-    const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, req.params.id)).limit(1);
+    const id = req.params.id as string;
+    const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);
     if (!connectorRecord) {
       res.status(404).json({ error: "Connector not found" });
       return;
@@ -112,7 +113,7 @@ router.get("/connectors/:id", async (req: Request, res: Response) => {
     const notifications = await db
       .select()
       .from(connectorNotifications)
-      .where(eq(connectorNotifications.connectorId, req.params.id))
+      .where(eq(connectorNotifications.connectorId, id))
       .orderBy(desc(connectorNotifications.createdAt))
       .limit(50);
 
@@ -133,7 +134,8 @@ router.put("/connectors/:id", async (req: Request, res: Response) => {
   try {
     const { name, config, enabled, notifyOn } = req.body;
 
-    const [existing] = await db.select().from(connectors).where(eq(connectors.id, req.params.id)).limit(1);
+    const id = req.params.id as string;
+    const [existing] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);
     if (!existing) {
       res.status(404).json({ error: "Connector not found" });
       return;
@@ -141,7 +143,7 @@ router.put("/connectors/:id", async (req: Request, res: Response) => {
 
     // If config is being updated, validate it
     if (config) {
-      const connector = await createConnector(existing.platform, config, existing.projectId, existing.id);
+      const connector = await createConnector(existing.platform, config, existing.projectId, id);
       const validation = await connector.validateConfig();
       if (!validation.valid) {
         res.status(400).json({ error: validation.error });
@@ -157,7 +159,7 @@ router.put("/connectors/:id", async (req: Request, res: Response) => {
         ...(notifyOn && { notifyOn }),
         updatedAt: new Date(),
       })
-      .where(eq(connectors.id, req.params.id))
+      .where(eq(connectors.id, id))
       .returning();
 
     if (!updated) {
@@ -181,13 +183,14 @@ router.put("/connectors/:id", async (req: Request, res: Response) => {
 /** DELETE /api/jarvis/connectors/:id — Delete a connector */
 router.delete("/connectors/:id", async (req: Request, res: Response) => {
   try {
-    const [existing] = await db.select().from(connectors).where(eq(connectors.id, req.params.id)).limit(1);
+    const id = req.params.id as string;
+    const [existing] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);
     if (!existing) {
       res.status(404).json({ error: "Connector not found" });
       return;
     }
 
-    await db.delete(connectors).where(eq(connectors.id, req.params.id));
+    await db.delete(connectors).where(eq(connectors.id, id));
     await logActivity(existing.projectId, "agent_ran", `Deleted ${existing.platform} connector: ${existing.name}`);
 
     res.json({ ok: true });
@@ -200,7 +203,8 @@ router.delete("/connectors/:id", async (req: Request, res: Response) => {
 /** POST /api/jarvis/connectors/:id/test — Send a test notification */
 router.post("/connectors/:id/test", async (req: Request, res: Response) => {
   try {
-    const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, req.params.id)).limit(1);
+    const id = req.params.id as string;
+    const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);
     if (!connectorRecord) {
       res.status(404).json({ error: "Connector not found" });
       return;
@@ -208,7 +212,7 @@ router.post("/connectors/:id/test", async (req: Request, res: Response) => {
 
     const connector = await createConnector(
       connectorRecord.platform,
-      connectorRecord.config,
+      connectorRecord.config as Record<string, any>,
       connectorRecord.projectId,
       connectorRecord.id
     );
@@ -364,7 +368,7 @@ router.get("/connectors/slack/oauth/callback", async (req: Request, res: Respons
       }),
     });
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as Record<string, any>;
 
     if (!tokenData.ok) {
       res.status(400).send(`Token exchange failed: ${tokenData.error}`);
@@ -448,7 +452,7 @@ router.get("/connectors/discord/oauth/callback", async (req: Request, res: Respo
       }),
     });
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as Record<string, any>;
 
     if (!tokenResponse.ok) {
       res.status(400).send(`Token exchange failed: ${JSON.stringify(tokenData)}`);
@@ -459,7 +463,7 @@ router.get("/connectors/discord/oauth/callback", async (req: Request, res: Respo
     const userResponse = await fetch("https://discord.com/api/users/@me", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-    const userData = await userResponse.json();
+    const userData = await userResponse.json() as Record<string, any>;
 
     const [projectId, connectorId] = (state as string).split("|");
 
@@ -544,7 +548,7 @@ async function processTelegramCommand(context: any): Promise<void> {
 
   const connector = await createConnector(
     connectorRecord.platform,
-    connectorRecord.config,
+    connectorRecord.config as Record<string, any>,
     connectorRecord.projectId,
     connectorRecord.id
   );
@@ -569,13 +573,14 @@ export async function dispatchNotification(
     const notifyOn = ["build_completed", "build_failed", "research_completed", "scheduled_job_failed", "deployment_completed", "deployment_failed"];
 
     for (const connectorRecord of projectConnectors) {
-      const shouldNotify = connectorRecord.notifyOn?.includes(eventType) || connectorRecord.notifyOn?.includes("*");
+      const notifyEvents = connectorRecord.notifyOn as string[] | undefined;
+      const shouldNotify = notifyEvents?.includes(eventType) || notifyEvents?.includes("*");
       if (!shouldNotify) continue;
 
       try {
         const connector = await createConnector(
           connectorRecord.platform,
-          connectorRecord.config,
+          connectorRecord.config as Record<string, any>,
           connectorRecord.projectId,
           connectorRecord.id
         );

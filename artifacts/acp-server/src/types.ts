@@ -4,6 +4,7 @@
  */
 
 export interface ACPInitializeParams {
+  id?: string | number;
   protocolVersion: string;
   clientInfo: {
     name: string;
@@ -36,6 +37,7 @@ export interface ACPTool {
 }
 
 export interface ACPToolsListParams {
+  id?: string | number;
   cursor?: string;
 }
 
@@ -45,6 +47,7 @@ export interface ACPToolsListResult {
 }
 
 export interface ACPToolCallParams {
+  id?: string | number;
   name: string;
   arguments: Record<string, unknown>;
 }
@@ -71,6 +74,7 @@ export interface ACPResource {
 }
 
 export interface ACPResourcesListParams {
+  id?: string | number;
   cursor?: string;
 }
 
@@ -80,6 +84,7 @@ export interface ACPResourcesListResult {
 }
 
 export interface ACPResourcesReadParams {
+  id?: string | number;
   uri: string;
 }
 
