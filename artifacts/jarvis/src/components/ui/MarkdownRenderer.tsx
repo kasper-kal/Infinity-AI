@@ -2,7 +2,7 @@
  * Markdown Renderer Component — Liquid Glass Design System
  */
 
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useMemo, useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import { markedFootnote } from "marked-footnote";
@@ -454,5 +454,3 @@ function insertAtCursor(text: string) {
   textarea.focus();
 }
 
-// Need useState import
-import { useState } from "react";

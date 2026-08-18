@@ -38,7 +38,7 @@ const en = {
   "chat.useCodeCancel": "SKIP CODE",
   "header.backendOffline": "Backend offline, API server may not be running",
 
-  /* Sidebar */
+  /* Sidebar / Navigation */
   "sidebar.newChat": "New Chat",
   "sidebar.newChatLong": "New conversation",
   "sidebar.searchPlaceholder": "Search conversations…",
@@ -61,6 +61,28 @@ const en = {
   "sidebar.navPlugins": "Plug-ins",
   "sidebar.openHistory": "Open history",
   "sidebar.closeHistory": "Close history",
+
+  /* App / Navigation (used by ChatView and other views) */
+  "app.name": "Jarvis",
+  "nav.chat": "Chat",
+  "nav.voice": "Voice",
+  "nav.camera": "Camera",
+  "nav.agent": "Agent",
+  "nav.conversations": "Conversations",
+  "nav.newChat": "New Chat",
+  "nav.sidebar": "Sidebar",
+
+  /* Common */
+  "common.more": "More",
+  "common.back": "Back",
+  "common.run": "Run",
+  "common.running": "Running...",
+  "common.confirm": "Confirm",
+  "common.cancel": "Cancel",
+
+  /* Chat */
+  "chat.empty.title": "No messages yet",
+  "chat.empty.description": "Start a conversation to begin",
 
   /* Projects navigation */
   "projectGallery.title": "Projects",
@@ -326,6 +348,26 @@ const en = {
   "build.menuItem": "Jarvis Build",
   "build.title": "Jarvis Build",
   "build.terminalHint": "Linux sandbox, ask Jarvis to build something",
+
+  /* Build View */
+  "build.tabs.plan": "Plan",
+  "build.tabs.transcript": "Transcript",
+  "build.tabs.diff": "Diff",
+  "build.tabs.debug": "Debug",
+  "build.tabs.terminal": "Terminal",
+  "build.tabs.chat": "Chat",
+  "build.tabs.build": "Build",
+  "build.sidebar.sections.project": "Project",
+  "build.sidebar.sections.history": "History",
+  "build.sidebar.sections.tools": "Tools",
+  "build.sidebar.sections.debug": "Debug",
+  "build.sidebar.allProjects": "All Projects",
+  "build.sidebar.recentBuilds": "Recent Builds",
+  "build.sidebar.snapshots": "Snapshots",
+  "build.sidebar.plan": "Plan",
+  "build.sidebar.terminal": "Terminal",
+  "build.terminal.placeholder": "Enter command...",
+  "build.transcriptEmpty": "No tool calls yet",
   "research.placeholder": "What should I research? Describe the goal in as much detail as you want…",
   "research.depth": "DEPTH",
   "research.mode": "MODE",
@@ -927,6 +969,34 @@ const en = {
   "emotion.frustrated": "frustrated",
   "emotion.stressed": "stressed",
   "emotion.tired": "tired",
+
+  /* Mobile components */
+  "mobile.bottomNav.label": "Main navigation",
+  "mobile.sheet.dragHandle": "Drag to resize",
+  "mobile.pullToRefresh.pull": "Pull to refresh",
+  "mobile.pullToRefresh.release": "Release to refresh",
+  "mobile.pullToRefresh.loading": "Refreshing...",
+
+  /* Settings View */
+  "settings.theme": "Theme",
+  "settings.notifications": "Notifications",
+  "settings.apiKeys": "API Keys",
+  "settings.apiKeysDescription": "Manage your API keys for AI providers",
+  "settings.advanced": "Advanced",
+  "settings.resetToDefaults": "Reset to defaults",
+
+  /* Projects View */
+  "projects.title": "Projects",
+  "projects.gallery": "Gallery",
+  "projects.list": "List",
+  "projects.create": "Create",
+  "projects.search": "Search projects...",
+  "projects.filter": "Filter",
+  "projects.status.all": "All",
+  "projects.status.active": "Active",
+  "projects.status.paused": "Paused",
+  "projects.status.completed": "Completed",
+  "projects.lastModified": "Last modified",
 } as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1210,6 +1280,28 @@ const nl: Record<keyof typeof en, string> = {
   "sidebar.recentItems": "Recente items",
   "sidebar.today": "Vandaag",
   "sidebar.yesterday": "Gisteren",
+
+  /* App / Navigation (used by ChatView and other views) */
+  "app.name": "Jarvis",
+  "nav.chat": "Chat",
+  "nav.voice": "Stem",
+  "nav.camera": "Camera",
+  "nav.agent": "Agent",
+  "nav.conversations": "Gesprekken",
+  "nav.newChat": "Nieuw gesprek",
+  "nav.sidebar": "Zijbalk",
+
+  /* Common */
+  "common.more": "Meer",
+  "common.back": "Terug",
+  "common.run": "Uitvoeren",
+  "common.running": "Bezig...",
+  "common.confirm": "Bevestigen",
+  "common.cancel": "Annuleren",
+
+  /* Chat */
+  "chat.empty.title": "Nog geen berichten",
+  "chat.empty.description": "Start een gesprek om te beginnen",
   "sidebar.previous7Days": "Afgelopen 7 dagen",
   "sidebar.older": "Ouder",
   "sidebar.clearAll": "Alles wissen",
@@ -1492,6 +1584,26 @@ const nl: Record<keyof typeof en, string> = {
   "build.menuItem": "Jarvis Build",
   "build.title": "Jarvis Build",
   "build.terminalHint": "Linux-sandbox, vraag Jarvis om iets te bouwen",
+
+  /* Build View */
+  "build.tabs.plan": "Plan",
+  "build.tabs.transcript": "Transcript",
+  "build.tabs.diff": "Diff",
+  "build.tabs.debug": "Debug",
+  "build.tabs.terminal": "Terminal",
+  "build.tabs.chat": "Chat",
+  "build.tabs.build": "Build",
+  "build.sidebar.sections.project": "Project",
+  "build.sidebar.sections.history": "Geschiedenis",
+  "build.sidebar.sections.tools": "Hulpmiddelen",
+  "build.sidebar.sections.debug": "Debug",
+  "build.sidebar.allProjects": "Alle projecten",
+  "build.sidebar.recentBuilds": "Recente builds",
+  "build.sidebar.snapshots": "Snapshots",
+  "build.sidebar.plan": "Plan",
+  "build.sidebar.terminal": "Terminal",
+  "build.terminal.placeholder": "Voer commando in...",
+  "build.transcriptEmpty": "Nog geen tool calls",
   "research.placeholder": "Wat moet ik onderzoeken? Beschrijf het doel zo gedetailleerd als je wilt…",
   "research.depth": "DIEPTE",
   "research.mode": "MODUS",
@@ -1796,6 +1908,34 @@ const nl: Record<keyof typeof en, string> = {
   "emotion.frustrated": "gefrustreerd",
   "emotion.stressed": "gestrest",
   "emotion.tired": "moe",
+
+  /* Mobile components */
+  "mobile.bottomNav.label": "Hoofnavigatie",
+  "mobile.sheet.dragHandle": "Sleep om te vergroten/verkleinen",
+  "mobile.pullToRefresh.pull": "Trek om te vernieuwen",
+  "mobile.pullToRefresh.release": "Loslaten om te vernieuwen",
+  "mobile.pullToRefresh.loading": "Vernieuwen...",
+
+  /* Settings View */
+  "settings.theme": "Thema",
+  "settings.notifications": "Meldingen",
+  "settings.apiKeys": "API-sleutels",
+  "settings.apiKeysDescription": "Beheer je API-sleutels voor AI-providers",
+  "settings.advanced": "Geavanceerd",
+  "settings.resetToDefaults": "Standaardinstellingen herstellen",
+
+  /* Projects View */
+  "projects.title": "Projecten",
+  "projects.gallery": "Galerij",
+  "projects.list": "Lijst",
+  "projects.create": "Aanmaken",
+  "projects.search": "Projecten zoeken...",
+  "projects.filter": "Filteren",
+  "projects.status.all": "Alles",
+  "projects.status.active": "Actief",
+  "projects.status.paused": "Gepauzeerd",
+  "projects.status.completed": "Voltooid",
+  "projects.lastModified": "Laatst gewijzigd",
 
   /* Build Studio - Phase 2.1 Diff Preview (NL) */
   "studio.build.progressFilesGenerated": "{n} voorgestelde bestand(en) gegenereerd voor beoordeling.",

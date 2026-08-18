@@ -7,7 +7,7 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { AppShell, AppShellSidebarSection, AppShellSidebarNavItem } from "@/components/layout/AppShell";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Panel, PanelGroup, SplitPanel } from "@/components/layout/Panel";
-import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@/components/ui/Tabs";
+import { Tabs, type Tab } from "@/components/ui/Tabs";
 import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { Terminal, TerminalSession } from "@/components/ui/Terminal";
@@ -16,7 +16,7 @@ import { DiffView, InlineDiff, FileDiff } from "@/components/ui/DiffView";
 import { Table, VirtualizedTable, Column } from "@/components/ui/Table";
 import { Tree, FileTree } from "@/components/ui/Tree";
 import { Dialog, AlertDialog, Drawer } from "@/components/ui/Dialog";
-import { Tooltip, Toast, ToastContainer, useToast } from "@/components/ui/Tooltip";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { BuildStudio } from "@/components/build-studio";
 import { BuildPlanView } from "@/components/build-plan-view";
@@ -25,9 +25,8 @@ import { BuildDiffPreview } from "@/components/build-diff-preview";
 import { BuildDebugPanel } from "@/components/build-debug-panel";
 import { BuildProgressPanel } from "@/components/build-progress-panel";
 import { BuildProgressRing } from "@/components/build-progress-ring";
-import { CommandPalette } from "@/components/command-palette";
-import { BuildCommandPalette } from "@/components/build-command-palette";
 import { PlusMenu, type PlusAction } from "@/components/plus-menu";
+import { BuildCommandPalette, type CommandPaletteItem } from "@/components/build-command-palette";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
@@ -54,8 +53,6 @@ export const BuildView: React.FC<BuildViewProps> = ({
 }) => {
   const { t } = useI18n();
   const { theme, resolved, toggle: toggleTheme } = useTheme();
-  const { toast } = useToast();
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -72,9 +69,6 @@ export const BuildView: React.FC<BuildViewProps> = ({
     switch (action) {
       case 'build-mode':
         setBuildTab('plan');
-        break;
-      case 'terminal':
-        setBuildTab('terminal');
         break;
       case 'studios':
         // Open studios hub
@@ -118,7 +112,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <h1 className="text-xl font-semibold text-foreground">{t('build.title')}</h1>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <ButtonGroup variant="glass" size="sm">
+            <ButtonGroup>
               {['plan', 'transcript', 'diff', 'debug', 'terminal'].map((tab) => (
                 <Button
                   key={tab}
@@ -144,7 +138,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
               </svg>
             </IconButton>
             <IconButton
-              onClick={toggleTheme}
+              onClick={() => toggleTheme()}
               aria-label={t('settings.theme')}
               variant="ghost"
               size="sm"
@@ -165,11 +159,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
       }
       sidebar={
         <Sidebar
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          collapsible={true}
           collapsed={collapsed}
-          onCollapseChange={setCollapsed}
+          onCollapseToggle={setCollapsed}
           width={280}
         >
           <AppShellSidebarSection title={t('build.sidebar.sections.project')}>
@@ -222,12 +213,10 @@ export const BuildView: React.FC<BuildViewProps> = ({
       }
       rightSidebar={
         <Sidebar
-          open={rightSidebarOpen}
-          onClose={() => setRightSidebarOpen(false)}
           width={320}
         >
           <AppShellSidebarSection title={t('build.sidebar.sections.debug')}>
-            <BuildDebugPanel projectId={projectId} />
+            <BuildDebugPanel workspaceId={projectId ?? ''} />
           </AppShellSidebarSection>
         </Sidebar>
       }
@@ -243,29 +232,30 @@ export const BuildView: React.FC<BuildViewProps> = ({
         <div className="flex-1 flex flex-col overflow-hidden">
           {buildTab === 'plan' && (
             <BuildStudio
-              projectId={projectId}
+              open={true}
+              onClose={onBack ?? (() => {})}
+              title={t('build.title')}
+              initialCommands={[]}
               initialPrompt={initialPrompt}
-              buildRunKey={buildRunKey}
-              onBack={onBack}
+              runKey={buildRunKey}
             />
           )}
           {buildTab === 'transcript' && (
-            <BuildTranscript projectId={projectId} />
+            <BuildTranscript toolCalls={[]} autoScroll />
           )}
           {buildTab === 'diff' && (
-            <BuildDiffPreview projectId={projectId} />
+            <BuildDiffPreview diffs={[]} open={true} onClose={() => {}} />
           )}
           {buildTab === 'debug' && (
-            <BuildDebugPanel projectId={projectId} />
+            <BuildDebugPanel workspaceId={projectId ?? ''} />
           )}
           {buildTab === 'terminal' && (
             <div className="flex flex-col h-full">
               <Terminal
-                projectId={projectId}
-                onCommandSubmit={handleCommandSubmit}
-                commandInput={commandInput}
-                onCommandInputChange={setCommandInput}
-                commandBusy={commandBusy}
+                theme={resolved as 'light' | 'dark'}
+                onReady={(term) => {
+                  if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
+                }}
               />
             </div>
           )}
@@ -303,24 +293,27 @@ export const BuildView: React.FC<BuildViewProps> = ({
           onClose={() => { setPlusMenuOpen(false); setPlusMenuCoords(null); }}
           coords={plusMenuCoords}
           onAction={handlePlusAction}
-          actions={[
-            'build-mode',
-            'terminal',
-            'studios',
-          ]}
+          labels={{
+            attachFile: t('input.attachFile'),
+            camera: t('input.camera'),
+            newExpert: 'New Expert',
+            generateImage: t('input.generateImage'),
+            buildMode: 'Build Mode',
+            research: 'Deep Research',
+            dataLab: 'Data Lab',
+          }}
         />
       )}
 
-      {/* Command palette */}
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onOpenBuildPalette={() => { setPaletteOpen(false); }}
-      />
+      {/* Command palette - BuildCommandPalette used instead of standard */}
       <BuildCommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        projectId={projectId}
+        items={[
+          { id: 'plan', label: t('build.sidebar.plan'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, action: () => setBuildTab('plan') },
+          { id: 'transcript', label: t('build.sidebar.recentBuilds'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>, action: () => setBuildTab('transcript') },
+          { id: 'terminal', label: t('build.sidebar.terminal'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>, action: () => setBuildTab('terminal') },
+        ]}
       />
     </AppShell>
   );

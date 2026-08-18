@@ -303,6 +303,8 @@ const Terminal = forwardRef<HTMLDivElement, TerminalProps>(
 
 Terminal.displayName = "Terminal";
 
+export { Terminal };
+
 /** Terminal Toolbar */
 export interface TerminalToolbarProps {
   terminal: TerminalInstance | null;

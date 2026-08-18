@@ -46,3 +46,33 @@ export type { DiffViewProps, InlineDiffProps, FileDiffProps, DiffLine, DiffHunk 
 // Markdown Renderer
 export { MarkdownRenderer, MarkdownEditor } from "./MarkdownRenderer";
 export type { MarkdownRendererProps, MarkdownEditorProps } from "./MarkdownRenderer";
+
+// Mobile Components (re-export for convenience)
+export {
+  BottomNav,
+  type BottomNavProps,
+  type BottomNavItem,
+  SheetModal,
+  type SheetModalProps,
+  type SheetSnapPoint,
+  useSwipeGesture,
+  SwipeableArea,
+  type SwipeGestureOptions,
+  type SwipeGestureState,
+  type SwipeDirection,
+  type SwipeableAreaProps,
+  PullToRefresh,
+  type PullToRefreshProps,
+  type PullToRefreshRef,
+  TouchTarget,
+  TouchButton,
+  TouchIconButton,
+  TouchListItem,
+  type TouchTargetProps,
+  type TouchButtonProps,
+  type TouchIconButtonProps,
+  type TouchListItemProps,
+  TOUCH_TARGET_SIZES,
+  type TouchTargetSize,
+  touchTargetStyles,
+} from "../mobile";

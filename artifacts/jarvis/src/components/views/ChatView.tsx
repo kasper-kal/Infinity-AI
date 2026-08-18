@@ -15,14 +15,14 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { SegmentedControl } from "@/components/ui/Tabs";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import type { ChatMessage } from "@/components/conversation-feed";
 import { ConversationFeed } from "@/components/conversation-feed";
 import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
-import { EmptyState } from "@/components/ui/empty";
+import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface ChatViewProps {
@@ -63,7 +63,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [collapsed, setCollapsed] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'chat' | 'voice' | 'camera'>('chat');
+  const [viewMode, setViewMode] = useState<'chat' | 'agent' | 'camera'>('chat');
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -92,19 +92,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const sidebar = (
     <Sidebar
-      open={sidebarOpen}
-      onClose={() => setSidebarOpen(false)}
-      collapsible={true}
       collapsed={collapsed}
-      onCollapseChange={setCollapsed}
+      onCollapseToggle={setCollapsed}
       width={280}
-      title={
-        <div className="flex items-center gap-2 px-2">
-          <span className="text-lg font-display font-semibold tracking-tight">{t('app.name')}</span>
-          <span className="text-xs text-muted-foreground">∞</span>
-        </div>
-      }
     >
+      <div className="flex items-center gap-2 px-2 py-4">
+        <span className="text-lg font-display font-semibold tracking-tight">{t('app.name')}</span>
+        <span className="text-xs text-muted-foreground">∞</span>
+      </div>
       <AppShellSidebarSection>
         <div className="space-y-1">
           <AppShellSidebarNavItem
@@ -115,10 +110,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onClick={() => setViewMode('chat')}
           />
           <AppShellSidebarNavItem
-            label={t('nav.voice')}
-            collapsedIcon={<span>🎙️</span>}
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>}
-            onClick={() => setViewMode('voice')}
+            label={t('nav.agent' as TranslationKey)}
+            collapsedIcon={<span>🤖</span>}
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M18 17v4"/></svg>}
+            onClick={() => setViewMode('agent')}
+            active={viewMode === 'agent'}
           />
           <AppShellSidebarNavItem
             label={t('nav.camera')}
@@ -152,6 +148,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           onMobileClose={() => setMobileSidebarOpen(false)}
           onOpenSettings={() => {}}
           onNavigate={(m) => setViewMode(m)}
+          refreshTick={0}
         />
       </AppShellSidebarSection>
     </Sidebar>
@@ -159,14 +156,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <ButtonGroup variant="glass" size="sm">
+      <ButtonGroup>
         <Button variant={viewMode === 'chat' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('chat')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           {t('nav.chat')}
         </Button>
-        <Button variant={viewMode === 'voice' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('voice')}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/></svg>
-          {t('nav.voice')}
+        <Button variant={viewMode === 'agent' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('agent')}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M18 17v4"/></svg>
+          {t('nav.agent' as TranslationKey)}
         </Button>
         <Button variant={viewMode === 'camera' ? 'primary' : 'ghost'} size="sm" onClick={() => setViewMode('camera')}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/></svg>
@@ -201,7 +198,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       )}
 
       <IconButton
-        onClick={toggleTheme}
+        onClick={() => toggleTheme()}
         variant="ghost"
         size="sm"
         aria-label={t('settings.theme')}
@@ -231,7 +228,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
       }
       sidebar={sidebar}
       sidebarOpen={sidebarOpen}
-      defaultSidebarOpen={true}
       collapsed={collapsed}
       onSidebarToggle={setSidebarOpen}
       onCollapseToggle={setCollapsed}
@@ -244,21 +240,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <div className="flex-1 min-h-0 overflow-hidden">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
-                <EmptyState
-                  icon={
-                    <div className="w-16 h-16 rounded-full glass-strong flex items-center justify-center">
-                      <span className="text-3xl">∞</span>
-                    </div>
-                  }
-                  title={t('chat.empty.title')}
-                  description={t('chat.empty.description')}
-                />
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <div className="w-16 h-16 rounded-full glass-strong flex items-center justify-center">
+                    <span className="text-3xl">∞</span>
+                  </div>
+                  <div className="text-lg font-medium">{t('chat.empty.title')}</div>
+                  <div className="text-sm text-muted-foreground">{t('chat.empty.description')}</div>
+                </div>
               </div>
             ) : (
               <ConversationFeed
                 messages={messages}
-                status={status}
-                isBusy={isBusy}
+                isThinking={isBusy}
                 suggestions={suggestions}
                 onSuggestionClick={onSuggestionClick}
               />

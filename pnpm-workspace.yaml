@@ -160,7 +160,9 @@ overrides:
   esbuild: "0.27.3"
 
 allowBuilds:
+  bcrypt: false
   core-js: false
   esbuild: true
+  leveldown: false
   protobufjs: true
   puppeteer: true
