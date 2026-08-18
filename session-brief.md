@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-17 20:30
+LAST_UPDATED: 2026-08-18 00:15
 
 ## Just did (last action)
 - **Phase 14: Desktop-First Redesign — LAYOUT PRIMITIVES COMPLETE** — Created 5 layout primitive components for the new design system:
@@ -128,6 +128,8 @@ LAST_UPDATED: 2026-08-17 20:30
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-18 **Fixed acp-server typecheck** — Updated drizzle-orm to catalog version (^0.45.2) to match workspace, fixed projectMemory import to projectMemories in resources.ts. Remaining: server.ts imports from `../lib/*` that don't exist in acp-server (they're in api-server/src/lib/) — architectural issue.
+- 2026-08-18 **Updated PHASES.md** — Phase 11: added typecheck fix task; Phase 14: renamed from "Desktop-First Redesign" to "Responsive UI Redesign (NOT Desktop-First)" per user correction — treat mobile/desktop as different websites for same goal.
 - 2026-08-17 **Phase 8: Multi-Agent Orchestration COMPLETE** — Planner→Coder→Reviewer→Fixer pipeline with shared context + parallel execution:
   - Created `artifacts/api-server/src/lib/agent-prompts/` (planner, coder, reviewer, fixer prompts via buildInfinityPrompt)
   - Created `artifacts/api-server/src/lib/build-orchestrator.ts` — BuildOrchestrator class + runMultiAgentBuild factory; topological sort + parallel groups (Promise.allSettled); coder/fixer reuse runAgentForStep; planner/reviewer use LLM adapter jsonMode; 3 fix iterations max

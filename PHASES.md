@@ -261,6 +261,7 @@ Implement Agent Client Protocol (ACP) server so external IDEs/clients can drive 
 - [x] **Session Management** — persistent sessions with context, project scoping
 - [x] **Client Configs** — examples for Zed, VS Code (ACP extension), custom clients
 - [x] **Authentication** — API key validation with scope checking
+- [ ] **Typecheck clean** — drizzle-orm version mismatch + missing api-server lib imports
 
 ### Implementation Plan
 1. ✅ **ACP server** — `artifacts/acp-server/` with HTTP + WebSocket
@@ -268,6 +269,7 @@ Implement Agent Client Protocol (ACP) server so external IDEs/clients can drive 
 3. ✅ **Session store** — in-memory sessions with project scoping
 4. ✅ **Auth** — API key in initialization with scope validation
 5. ✅ **Documentation** — `ACP_INTEGRATION.md`
+6. 🔲 **Fix typecheck** — drizzle-orm version mismatch (0.30 vs 0.45), server.ts imports from `../lib/*` which don't exist in acp-server (they're in api-server/src/lib/)
 
 ### Files Created/Modified
 - `artifacts/acp-server/package.json` (new)
@@ -339,41 +341,48 @@ Allow Infinity to modify its own codebase — the build agent already has `edit_
 
 ---
 
-## 📦 Phase 14: Desktop-First Redesign
+## 📦 Phase 14: Responsive UI Redesign (NOT Desktop-First)
 
 ### Goal
-Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall." Desktop-first, then mobile as separate site.
+Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall." **User correction: NOT desktop-first.** Build a website that looks perfect on BOTH phones and computers — treat them like DIFFERENT WEBSITES for the same goal. Mobile gets swipe gestures, bottom nav, sheet modals; desktop gets sidebar navigation, keyboard shortcuts, buttons — both looking perfect independently.
 
 ### Design Principles
 - **Liquid Glass Material** — iOS 26 style: translucent, blurred, depth layers
 - **Theme Tokens Only** — zero hardcoded colors, full light/dark/system support
 - **Responsive Breakpoints** — desktop (≥1024), tablet (768-1023), mobile (<768)
-- **Keyboard-First** — every action accessible via Command Palette + shortcuts
+- **Keyboard-First** — every action accessible via Command Palette + shortcuts (desktop)
+- **Touch-First** — swipe gestures, bottom nav, sheet modals, pull-to-refresh (mobile)
 - **Information Density** — configurable: comfortable/cozy/compact
+- **Different Interactions Per Platform** — don't force same UI; optimize each for its form factor
 
 ### Scope
-- [ ] **Design System** — tokens, components, patterns (Storybook or similar)
-- [ ] **Layout System** — CSS Grid/Flex, sidebar rail, main canvas, panels
-- [ ] **Component Library** — Button, Input, Select, Dialog, Tooltip, Toast, Table, Tree, Tabs, CodeMirror wrapper, Terminal, Diff View, Markdown Renderer
+- [x] **Design System** — tokens, components, patterns (Storybook or similar)
+- [x] **Layout System** — CSS Grid/Flex, sidebar rail, main canvas, panels
+- [x] **Component Library** — Button, Input, Select, Dialog, Tooltip, Toast, Table, Tree, Tabs, CodeMirror wrapper, Terminal, Diff View, Markdown Renderer (10 base components done)
+- [x] **Layout Primitives** — AppShell, Sidebar, Panel, Canvas, ResponsiveGrid (5 components done)
+- [ ] **Feature Views** — Build, Chat, Terminal, Settings, Projects views using AppShell layout
 - [ ] **Chat Interface** — message bubbles, streaming, code blocks, artifacts, citations
 - [ ] **Build Studio** — plan view, diff modal, transcript, debug panel, browser preview
 - [ ] **Projects Dashboard** — grid/list, search, activity feed, settings
 - [ ] **Settings** — unified, searchable, categorized
-- [ ] **Mobile Breakpoints** — hide complex panels, stack layouts, touch targets
+- [ ] **Mobile Experience** — sheet modals, bottom nav, swipe gestures, touch targets
+- [ ] **Desktop Experience** — sidebar nav, keyboard shortcuts, hover states, density controls
 
 ### Implementation Plan
-1. **Design tokens** — `artifacts/jarvis/src/styles/tokens.css` (colors, spacing, typography, shadows, radius, transitions)
-2. **Base components** — `artifacts/jarvis/src/components/ui/` (shadcn-style but custom)
-3. **Layout primitives** — `AppShell`, `Sidebar`, `Panel`, `Canvas`, `ResponsiveGrid`
-4. **Feature components** — migrate each view to new system
+1. **Design tokens** — `artifacts/jarvis/src/styles/tokens.css` (colors, spacing, typography, shadows, radius, transitions) ✅
+2. **Base components** — `artifacts/jarvis/src/components/ui/` (shadcn-style but custom) ✅
+3. **Layout primitives** — `AppShell`, `Sidebar`, `Panel`, `Canvas`, `ResponsiveGrid` ✅
+4. **Feature views** — `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects
 5. **Theme provider** — CSS variables + React context, persistence
 6. **Icon system** — Lucide or custom SVG, consistent sizing
 7. **Animation system** — Framer Motion or CSS, reduced-motion respect
+8. **Integrate into main App router** — replace home.tsx with routed feature views
 
 ### Files to Create/Modify
 - `artifacts/jarvis/src/styles/` — tokens, globals, themes
 - `artifacts/jarvis/src/components/ui/` — 30+ base components
 - `artifacts/jarvis/src/components/layout/` — shell, sidebar, panels
+- `artifacts/jarvis/src/components/views/` — feature views (NEW - BuildView, ChatView, TerminalView, SettingsView, ProjectsView)
 - Every feature view — incremental migration
 
 ---

@@ -13,9 +13,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@workspace/db": "workspace:*",
-    "drizzle-orm": "^0.30.0",
+    "drizzle-orm": "catalog:",
     "ws": "^8.16.0",
-    "zod": "^3.22.4"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

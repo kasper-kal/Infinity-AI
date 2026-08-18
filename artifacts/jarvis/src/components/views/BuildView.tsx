@@ -1,0 +1,329 @@
+/**
+ * Build View — Liquid Glass Design System
+ * Main build studio interface with plan, transcript, diff preview, and debug panel
+ */
+
+import React, { useState, useCallback, useEffect, useMemo } from "react";
+import { AppShell, AppShellSidebarSection, AppShellSidebarNavItem } from "@/components/layout/AppShell";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Panel, PanelGroup, SplitPanel } from "@/components/layout/Panel";
+import { Tabs, TabList, Tab, TabPanels, TabPanel } from "@/components/ui/Tabs";
+import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Terminal, TerminalSession } from "@/components/ui/Terminal";
+import { CodeEditor, DiffEditor } from "@/components/ui/CodeEditor";
+import { DiffView, InlineDiff, FileDiff } from "@/components/ui/DiffView";
+import { Table, VirtualizedTable, Column } from "@/components/ui/Table";
+import { Tree, FileTree } from "@/components/ui/Tree";
+import { Dialog, AlertDialog, Drawer } from "@/components/ui/Dialog";
+import { Tooltip, Toast, ToastContainer, useToast } from "@/components/ui/Tooltip";
+import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
+import { BuildStudio } from "@/components/build-studio";
+import { BuildPlanView } from "@/components/build-plan-view";
+import { BuildTranscript } from "@/components/build-transcript";
+import { BuildDiffPreview } from "@/components/build-diff-preview";
+import { BuildDebugPanel } from "@/components/build-debug-panel";
+import { BuildProgressPanel } from "@/components/build-progress-panel";
+import { BuildProgressRing } from "@/components/build-progress-ring";
+import { CommandPalette } from "@/components/command-palette";
+import { BuildCommandPalette } from "@/components/build-command-palette";
+import { PlusMenu, type PlusAction } from "@/components/plus-menu";
+import { useI18n } from "@/lib/i18n";
+import { useTheme } from "@/lib/use-theme";
+import { haptics } from "@/lib/haptics";
+
+export interface BuildViewProps {
+  /** Active project ID */
+  projectId?: string | null;
+  /** On project change */
+  onProjectChange?: (projectId: string | null) => void;
+  /** On navigate away */
+  onBack?: () => void;
+  /** Initial build prompt */
+  initialPrompt?: string;
+  /** Build run key for remounting */
+  buildRunKey?: number;
+}
+
+export const BuildView: React.FC<BuildViewProps> = ({
+  projectId,
+  onProjectChange,
+  onBack,
+  initialPrompt,
+  buildRunKey,
+}) => {
+  const { t } = useI18n();
+  const { theme, resolved, toggle: toggleTheme } = useTheme();
+  const { toast } = useToast();
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal'>('plan');
+  const [commandInput, setCommandInput] = useState('');
+  const [commandBusy, setCommandBusy] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [plusMenuCoords, setPlusMenuCoords] = useState<{ top: number; left: number } | null>(null);
+
+  const handlePlusAction = useCallback((action: PlusAction) => {
+    setPlusMenuOpen(false);
+    setPlusMenuCoords(null);
+    switch (action) {
+      case 'build-mode':
+        setBuildTab('plan');
+        break;
+      case 'terminal':
+        setBuildTab('terminal');
+        break;
+      case 'studios':
+        // Open studios hub
+        break;
+    }
+  }, []);
+
+  const handleCommandSubmit = useCallback(async () => {
+    if (!commandInput.trim() || commandBusy) return;
+    setCommandBusy(true);
+    setCommandInput('');
+    // Execute command via build studio
+    await new Promise(r => setTimeout(r, 100));
+    setCommandBusy(false);
+  }, [commandInput, commandBusy]);
+
+  const handleOpenPlusMenu = useCallback((ref: React.RefObject<HTMLDivElement>) => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPlusMenuCoords({ top: rect.bottom + 8, left: rect.left });
+      setPlusMenuOpen(true);
+    }
+  }, []);
+
+  return (
+    <AppShell
+      header={
+        <div className="flex items-center gap-4 w-full">
+          {onBack && (
+            <IconButton
+              onClick={onBack}
+              aria-label={t('common.back')}
+              variant="ghost"
+              size="sm"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </IconButton>
+          )}
+          <h1 className="text-xl font-semibold text-foreground">{t('build.title')}</h1>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2">
+            <ButtonGroup variant="glass" size="sm">
+              {['plan', 'transcript', 'diff', 'debug', 'terminal'].map((tab) => (
+                <Button
+                  key={tab}
+                  variant={buildTab === tab ? 'primary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setBuildTab(tab as typeof buildTab)}
+                >
+                  {t(`build.tabs.${tab}`) || tab}
+                </Button>
+              ))}
+            </ButtonGroup>
+            <IconButton
+              ref={handleOpenPlusMenu as any}
+              onClick={() => setPlusMenuOpen(!plusMenuOpen)}
+              aria-label={t('common.more')}
+              variant="ghost"
+              size="sm"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+              </svg>
+            </IconButton>
+            <IconButton
+              onClick={toggleTheme}
+              aria-label={t('settings.theme')}
+              variant="ghost"
+              size="sm"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {theme === 'dark' ? (
+                  <circle cx="12" cy="12" r="5"/>
+                ) : (
+                  <>
+                    <circle cx="12" cy="12" r="5"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  </>
+                )}
+              </svg>
+            </IconButton>
+          </div>
+        </div>
+      }
+      sidebar={
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsible={true}
+          collapsed={collapsed}
+          onCollapseChange={setCollapsed}
+          width={280}
+        >
+          <AppShellSidebarSection title={t('build.sidebar.sections.project')}>
+            <div className="space-y-2">
+              <Button
+                variant={!projectId ? 'primary' : 'secondary'}
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => onProjectChange?.(null)}
+              >
+                {t('build.sidebar.allProjects')}
+              </Button>
+              {/* Project list would be here */}
+            </div>
+          </AppShellSidebarSection>
+
+          <AppShellSidebarSection title={t('build.sidebar.sections.history')}>
+            <div className="space-y-1">
+              <AppShellSidebarNavItem
+                label={t('build.sidebar.recentBuilds')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}
+                onClick={() => setBuildTab('transcript')}
+                active={buildTab === 'transcript'}
+              />
+              <AppShellSidebarNavItem
+                label={t('build.sidebar.snapshots')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
+                onClick={() => setBuildTab('debug')}
+              />
+            </div>
+          </AppShellSidebarSection>
+
+          <AppShellSidebarSection title={t('build.sidebar.sections.tools')}>
+            <div className="space-y-1">
+              <AppShellSidebarNavItem
+                label={t('build.sidebar.plan')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>}
+                onClick={() => setBuildTab('plan')}
+                active={buildTab === 'plan'}
+              />
+              <AppShellSidebarNavItem
+                label={t('build.sidebar.terminal')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>}
+                onClick={() => setBuildTab('terminal')}
+                active={buildTab === 'terminal'}
+              />
+            </div>
+          </AppShellSidebarSection>
+        </Sidebar>
+      }
+      rightSidebar={
+        <Sidebar
+          open={rightSidebarOpen}
+          onClose={() => setRightSidebarOpen(false)}
+          width={320}
+        >
+          <AppShellSidebarSection title={t('build.sidebar.sections.debug')}>
+            <BuildDebugPanel projectId={projectId} />
+          </AppShellSidebarSection>
+        </Sidebar>
+      }
+      sidebarOpen={sidebarOpen}
+      rightSidebarOpen={rightSidebarOpen}
+      collapsed={collapsed}
+      onSidebarToggle={setSidebarOpen}
+      onRightSidebarToggle={setRightSidebarOpen}
+      onCollapseToggle={setCollapsed}
+    >
+      <div className="flex flex-col h-full">
+        {/* Tab content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {buildTab === 'plan' && (
+            <BuildStudio
+              projectId={projectId}
+              initialPrompt={initialPrompt}
+              buildRunKey={buildRunKey}
+              onBack={onBack}
+            />
+          )}
+          {buildTab === 'transcript' && (
+            <BuildTranscript projectId={projectId} />
+          )}
+          {buildTab === 'diff' && (
+            <BuildDiffPreview projectId={projectId} />
+          )}
+          {buildTab === 'debug' && (
+            <BuildDebugPanel projectId={projectId} />
+          )}
+          {buildTab === 'terminal' && (
+            <div className="flex flex-col h-full">
+              <Terminal
+                projectId={projectId}
+                onCommandSubmit={handleCommandSubmit}
+                commandInput={commandInput}
+                onCommandInputChange={setCommandInput}
+                commandBusy={commandBusy}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Command input bar for terminal */}
+        {buildTab === 'terminal' && (
+          <div className="border-t border-border-primary bg-bg-elevated/50 backdrop-blur-sm p-3">
+            <div className="flex items-center gap-2 max-w-4xl mx-auto">
+              <span className="text-muted-foreground text-sm font-mono">$</span>
+              <Input
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCommandSubmit()}
+                placeholder={t('build.terminal.placeholder')}
+                disabled={commandBusy}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                onClick={handleCommandSubmit}
+                disabled={commandBusy || !commandInput.trim()}
+              >
+                {commandBusy ? t('common.running') : t('common.run')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Plus menu */}
+      {plusMenuOpen && plusMenuCoords && (
+        <PlusMenu
+          open={plusMenuOpen}
+          onClose={() => { setPlusMenuOpen(false); setPlusMenuCoords(null); }}
+          coords={plusMenuCoords}
+          onAction={handlePlusAction}
+          actions={[
+            'build-mode',
+            'terminal',
+            'studios',
+          ]}
+        />
+      )}
+
+      {/* Command palette */}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenBuildPalette={() => { setPaletteOpen(false); }}
+      />
+      <BuildCommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        projectId={projectId}
+      />
+    </AppShell>
+  );
+};
+
+export default BuildView;

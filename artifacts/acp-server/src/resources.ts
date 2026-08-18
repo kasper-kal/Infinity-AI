@@ -3,7 +3,7 @@
  */
 
 import { type ACPResource, type ACPResourcesReadResult } from "./types";
-import { db, projects, buildCheckpoints, projectMemory, projectActivity } from "@workspace/db";
+import { db, projects, buildCheckpoints, projectMemories, projectActivity } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 
 export async function listResources(projectId: string): Promise<ACPResource[]> {
