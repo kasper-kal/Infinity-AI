@@ -22,8 +22,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **11** | **ACP Protocol Support** | ✅ **DONE** | ~8-16h | Phase 7 |
 | **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
-| **14** | **Desktop-First Redesign** | 🔄 IN PROGRESS | ~24-40h | Independent |
-| **15** | **Mobile as Separate Website** | ⏳ PENDING | ~16-24h | Phase 14 |
+| **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 
 ---
 
@@ -382,38 +381,9 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 - `artifacts/jarvis/src/styles/` — tokens, globals, themes
 - `artifacts/jarvis/src/components/ui/` — 30+ base components
 - `artifacts/jarvis/src/components/layout/` — shell, sidebar, panels
-- `artifacts/jarvis/src/components/views/` — feature views (NEW - BuildView, ChatView, TerminalView, SettingsView, ProjectsView)
-- Every feature view — incremental migration
-
----
-
-## 📦 Phase 15: Mobile as Separate Website
-
-### Goal
-Dedicated mobile experience at `m.infinity.ai` or `/mobile` — not responsive downsizing, but purpose-built.
-
-### Requirements
-- [ ] **Separate Entry Point** — `artifacts/mobile/` (own Vite config, own build)
-- [ ] **Touch-First** — swipe gestures, pull-to-refresh, bottom nav, sheet modals
-- [ ] **Offline-First** — Service Worker, IndexedDB sync, background sync
-- [ ] **PWA** — installable, splash screen, app shortcuts
-- [ ] **Core Features Only** — Chat, Build status, Notifications, Quick actions
-- [ ] **Shared API** — same backend, different frontend bundle
-- [ ] **Deep Links** — `infinity://chat/123`, `infinity://build/456`
-
-### Implementation Plan
-1. **Mobile app scaffold** — Vite + React + PWA plugin
-2. **Shared API client** — extract from main app, publish as internal package
-3. **Mobile components** — bottom nav, sheets, gesture handlers
-4. **Chat view** — optimized for narrow width, virtualized list
-5. **Build monitoring** — real-time status, log streaming, push notifications
-6. **Settings** — minimal, account + notifications only
-7. **Deploy** — separate Netlify/Vercel site, shared API
-
-### Files to Create/Modify
-- `artifacts/mobile/` (new directory, own package.json)
-- `artifacts/shared/api-client/` (extracted package)
-- Deploy configs for mobile subdomain
+- `artifacts/jarvis/src/components/views/` — feature views (BuildView, ChatView, TerminalView, SettingsView, ProjectsView) with BOTH desktop and mobile variants
+- `artifacts/jarvis/src/components/mobile/` — mobile-specific: BottomNav, SheetModal, SwipeGesture, PullToRefresh, TouchTargets
+- Every feature view — dual implementation (desktop sidebar + mobile sheets/bottom nav)
 
 ---
 
@@ -469,6 +439,6 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 14 — Desktop-First Redesign**
+## 🎯 Current Phase: **Phase 14 — Responsive UI Redesign (Mobile + Desktop)**
 
-> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects, and integrate them into the main application shell.
+> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.

@@ -7,14 +7,14 @@
 LAST_UPDATED: 2026-08-18 00:15
 
 ## Just did (last action)
-- **Phase 14: Desktop-First Redesign — LAYOUT PRIMITIVES COMPLETE** — Created 5 layout primitive components for the new design system:
+- **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites) — LAYOUT PRIMITIVES COMPLETE** — Created 5 layout primitive components for the new design system:
   - **AppShell** (`src/components/layout/AppShell.tsx` + `.css`) — Top-level application layout with header, sidebar, right sidebar, footer, mobile overlay backdrop, collapsible sidebar, resize handles, keyboard navigation
   - **Sidebar** (`src/components/layout/Sidebar.tsx` + `.css`) — Reusable sidebar with navigation, sections, collapsible support, badge support, nested items, divider, footer
   - **Panel** (`src/components/layout/Panel.tsx` + `.css`) — Flexible container panels with variants (default/elevated/outlined/filled/glass), collapsible, resizable, scrollable, PanelGroup, PanelStack, SplitPanel
   - **Canvas** (`src/components/layout/Canvas.tsx` + `.css`) — Infinite canvas/whiteboard with zoom, pan, grid, touch support, keyboard navigation, layers, zoom indicator, screen↔canvas coordinate conversion
   - **ResponsiveGrid** (`src/components/layout/ResponsiveGrid.tsx` + `.css`) — CSS Grid + Flexbox + Masonry + Container Query grids, responsive columns per breakpoint, auto-fit/auto-fill, dense packing, GridItem for explicit placement
   - Created barrel export: `src/components/layout/index.ts`
-- **Phase 14: Desktop-First Redesign — BASE UI COMPONENTS COMPLETE** — Created 10 base UI components with Liquid Glass design tokens:
+- **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites) — BASE UI COMPONENTS COMPLETE** — Created 10 base UI components with Liquid Glass design tokens:
   - **Button** (Button, IconButton, ButtonGroup) — variants: primary/secondary/ghost/danger/glass, sizes: xs-xl, loading, icons
   - **Input** (Input, Textarea, Select) — label/error/helper/icon support
   - **Dialog** (Dialog, AlertDialog, Drawer) — focus trapping, portal rendering, animations
@@ -201,7 +201,7 @@ LAST_UPDATED: 2026-08-18 00:15
 - **Build Mode (Infinity) Phase 0: UI Unfuck** — **COMPLETE**: All mobile/desktop UI components built and integrated. Typecheck + build pass.
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
-- **Desktop-first redesign**: **PENDING** - User complaint: "Jarvis looks horrible on mobile and horrible overall". Need complete UI overhaul with theme tokens, liquid glass material (iOS26 style), responsive layouts.
+- **Responsive UI redesign**: **IN PROGRESS** - User complaint: "Jarvis looks horrible on mobile and horrible overall". Complete UI overhaul with theme tokens, liquid glass material (iOS26 style). Phase 15 (mobile separate website) MERGED INTO Phase 14 — building both desktop (sidebar nav, keyboard) and mobile (bottom nav, sheets, swipe) as different websites for same goal.
 
 ## Tavily Research Findings — Key Gaps & Actionable Improvements for Infinity
 
@@ -291,21 +291,8 @@ LAST_UPDATED: 2026-08-18 00:15
 2. **Phase 11: ACP Protocol Support** — Standardized IDE integration via Agent Client Protocol
 3. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
 4. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-5. **Phase 14: Desktop-First Redesign** — IN PROGRESS: Created design tokens + 10 base UI components (Button, Input, Dialog, Tooltip, Table, Tree, Tabs, CodeEditor, Terminal, DiffView, MarkdownRenderer) + 5 layout primitives (AppShell, Sidebar, Panel, Canvas, ResponsiveGrid)
-6. **Phase 15: Mobile as Separate Website** — PWA, touch-first, offline-first, dedicated subdomain
-   - **Completed searches**: AI coding assistant comparisons (Claude Code, Replit Agent, Cursor), free local LLM models (Qwen3-Coder, DeepSeek-Coder-V2, Codestral, Devstral), open source agent architectures (OpenHands, Cline, Aider, Goose), MCP browser automation, agent architecture best practices
-   - **Key findings so far**: 
-     - Free LLM APIs in 2026: OpenRouter, Groq, Cerebras, Google AI Studio, NVIDIA NIM - all no credit card required
-     - Best free tier combination: OpenRouter (model variety + failover) + Groq/Cerebras (speed) + Google AI Studio (context) + local Ollama (unlimited)
-     - Top local coding models: Devstral (46.8% SWE-Bench Verified, 24B params, 128k context), Codestral (22B, 80+ languages, 32k context), Qwen3-Coder, DeepSeek-Coder-V2
-     - OpenHands: Self-hosted control center, multiple agent backends, ACP-compatible, Docker/VM/local
-     - Cline: Model-agnostic (200+ providers via OpenRouter), Plan/Act modes, .clinerules, MCP servers, multi-agent teams
-     - Aider: Repo mapping, auto-git commits, voice-to-code, linting/testing, terminal CLI
-     - Goose: Rust-based, desktop/CLI/API, 15+ LLM providers, 70+ MCP extensions, ACP protocol
-     - Infinity already has: Autonomous agent with 9 tools, worktree isolation, checkpoint/resume, browser pool, model-agnostic LLM abstraction, file system access API, extension for browser control
-     - **Gaps to address**: Multi-agent coordination, scheduled agents/cron, messaging connectors (Slack/Discord/Telegram), headless CI/CD mode, ACP protocol support, MCP server integration, deeper SWE-Bench optimization
-3. **Desktop-first redesign, then mobile as separate website** — Original complaint: "Jarvis looks horrible on mobile and horrible overall"
-4. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+5. **Phase 14: Responsive UI Redesign** — IN PROGRESS: Created design tokens + 10 base UI components (Button, Input, Dialog, Tooltip, Table, Tree, Tabs, CodeEditor, Terminal, DiffView, MarkdownRenderer) + 5 layout primitives (AppShell, Sidebar, Panel, Canvas, ResponsiveGrid). Now merging Phase 15 (mobile separate website) INTO Phase 14 — build both desktop AND mobile as different websites for same goal.
+6. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
