@@ -24,6 +24,12 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
+
+### 🌐 Initiative: Universal Tool Layer (Phases 16–19)
+*Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
+
+| Phase | Title | Status | Est. Effort | Dependencies |
+|-------|-------|--------|-------------|--------------|
 | **16** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
 | **17** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 16 |
 | **18** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 16, Phase 17 |
@@ -603,6 +609,11 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 - `BUILD_MODE_INTELLIGENCE.md` (new — documentation)
 
 ---
+
+---
+
+## 🌐 Initiative: Universal Tool Layer (Phases 16–19)
+*Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
 
 ## 📦 Phase 16: Universal Tool Layer — Foundation
 
