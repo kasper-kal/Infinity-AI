@@ -143,27 +143,27 @@ async function handleToolCall(sessionId: string, params: ACPToolCallParams): Pro
 
     switch (params.name) {
       case "list_files": {
-        const { listFiles } = await import("../lib/build-tools");
+        const { listFiles } = await import("./lib/build-tools");
         result = await listFiles({ projectId: projectId as string, path: args.path as string });
         break;
       }
       case "read_file": {
-        const { readFile } = await import("../lib/build-tools");
+        const { readFile } = await import("./lib/build-tools");
         result = await readFile({ projectId: projectId as string, path: args.path as string });
         break;
       }
       case "edit_file": {
-        const { editFile } = await import("../lib/build-tools");
+        const { editFile } = await import("./lib/build-tools");
         result = await editFile({ projectId: projectId as string, path: args.path as string, content: args.content as string });
         break;
       }
       case "delete_file": {
-        const { deleteFile } = await import("../lib/build-tools");
+        const { deleteFile } = await import("./lib/build-tools");
         result = await deleteFile({ projectId: projectId as string, path: args.path as string });
         break;
       }
       case "run_command": {
-        const { runCommand } = await import("../lib/build-tools");
+        const { runCommand } = await import("./lib/build-tools");
         result = await runCommand({
           projectId: projectId as string,
           command: args.command as string,
@@ -173,24 +173,24 @@ async function handleToolCall(sessionId: string, params: ACPToolCallParams): Pro
         break;
       }
       case "git_status": {
-        const { gitStatus } = await import("../lib/build-tools");
+        const { gitStatus } = await import("./lib/build-tools");
         result = await gitStatus({ projectId: projectId as string });
         break;
       }
       case "git_diff": {
-        const { gitDiff } = await import("../lib/build-tools");
+        const { gitDiff } = await import("./lib/build-tools");
         result = await gitDiff({ projectId: projectId as string, staged: args.staged as boolean });
         break;
       }
       case "git_commit": {
-        const { gitCommit } = await import("../lib/build-tools");
+        const { gitCommit } = await import("./lib/build-tools");
         result = await gitCommit({ projectId: projectId as string, message: args.message as string, addAll: args.addAll as boolean });
         break;
       }
       case "build_agent_run": {
-        const { runMultiAgentBuild } = await import("../lib/build-orchestrator");
-        const { ensureWorkspace } = await import("../lib/workspace");
-        const { setProjectGoal, refreshFileMap } = await import("../lib/build-context");
+        const { runMultiAgentBuild } = await import("./lib/build-orchestrator");
+        const { ensureWorkspace } = await import("./lib/workspace");
+        const { setProjectGoal, refreshFileMap } = await import("./lib/build-context");
 
         await ensureWorkspace(projectId as string);
         setProjectGoal(projectId as string, args.goal as string);
@@ -207,7 +207,7 @@ async function handleToolCall(sessionId: string, params: ACPToolCallParams): Pro
         break;
       }
       case "build_agent_step": {
-        const { runAgentForStep } = await import("../lib/build-orchestrator");
+        const { runAgentForStep } = await import("./lib/build-orchestrator");
         result = await runAgentForStep({
           projectId: projectId as string,
           workspaceId: projectId as string,
@@ -217,17 +217,17 @@ async function handleToolCall(sessionId: string, params: ACPToolCallParams): Pro
         break;
       }
       case "project_memory_read": {
-        const { readProjectMemory } = await import("../lib/project-memory");
+        const { readProjectMemory } = await import("./lib/project-memory");
         result = await readProjectMemory(projectId as string, args.key as string);
         break;
       }
       case "project_memory_write": {
-        const { writeProjectMemory } = await import("../lib/project-memory");
+        const { writeProjectMemory } = await import("./lib/project-memory");
         result = await writeProjectMemory(projectId as string, args.key as string, args.value as string);
         break;
       }
       case "research_run": {
-        const { runResearch } = await import("../lib/research-engine");
+        const { runResearch } = await import("./lib/research-engine");
         const researchResult = await runResearch(
           args.query as string,
           (args.depth as "standard" | "deep" | "quantum" | "omni") || "deep",

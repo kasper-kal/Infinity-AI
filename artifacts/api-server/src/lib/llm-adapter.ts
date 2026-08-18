@@ -73,6 +73,9 @@ export interface LLMMessage {
   toolCallId?: string;
 }
 
+/** Role of a chat message (re-exported via ./llm for legacy callers). */
+export type MessageRole = "system" | "user" | "assistant" | "tool";
+
 export interface LLMContentPart {
   type: "text" | "image_url";
   text?: string;

@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { join } from "path";
 import { logger } from "./logger";
-import { logActivity } from "../routes/jarvis/project-activity";
+import { logActivity } from "./project-activity";
 
 export interface EvolutionProposal {
   id: string;
@@ -164,14 +164,19 @@ export function listCheckpoints(projectId: string): Array<{ id: string; descript
 
   const files = require("fs").readdirSync(checkpointDir).filter((f: string) => f.endsWith(".json"));
   return files.map((f: string) => {
-    const data = JSON.parse(readFileSync(join(checkpointDir, f), "utf-8"));
+    const data = JSON.parse(readFileSync(join(checkpointDir, f), "utf-8")) as {
+      id: string;
+      description: string;
+      timestamp: string;
+      commitHash: string;
+    };
     return {
       id: data.id,
       description: data.description,
       timestamp: data.timestamp,
       commitHash: data.commitHash,
     };
-  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }).sort((a: { timestamp: string }, b: { timestamp: string }) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 /**
@@ -334,7 +339,8 @@ export async function runSelfEvolutionCycle(
 
   // Build prompt for LLM to generate proposals
   const { createBestAdapter, buildInfinityPrompt } = await import("./llm");
-  const adapter = createBestAdapter();
+  const adapter = await createBestAdapter();
+  type MessageRole = "system" | "user" | "assistant" | "tool";
 
   const prompt = `You are Infinity, a self-evolving AI coding agent. Analyze the codebase and propose improvements.
 
@@ -360,11 +366,18 @@ Return as JSON array of proposals:
 ]`;
 
   const systemPrompt = "You are a senior software engineer. Output ONLY valid JSON array of proposals.";
-  const fullPrompt = buildInfinityPrompt(systemPrompt, prompt, []);
+  const fullPrompt = buildInfinityPrompt({ role: "chat", extraInstructions: systemPrompt, workingContext: prompt });
 
   let response = "";
   try {
-    response = await adapter(fullPrompt, { temperature: 0.3, maxTokens: 8000 });
+    const result = await adapter.complete(
+      [
+        { role: "system" as MessageRole, content: fullPrompt },
+        { role: "user" as MessageRole, content: prompt },
+      ],
+      { temperature: 0.3, maxTokens: 8000 }
+    );
+    response = result.content;
   } catch (err) {
     logger.error({ err }, "[Self-Evolution] LLM proposal generation failed");
     return { proposals: [], applied: 0 };

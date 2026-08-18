@@ -1,21 +1,7 @@
-/**
- * Project Activity API (Phase M — step 15).
- *
- *  GET /api/jarvis/projects/:id/activity   list project activity feed (newest first, paginated)
- *
- * Every handler resolves the owning project strictly by id; activity is never
- * reachable outside its project.
- *
- * A shared `logActivity` helper is exported so other routers can record
- * project-scoped events without duplicating logic.
- */
-import { Router } from "express";
 import { db, projectActivity, projects } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { cleanText } from "../../lib/text-utils";
-import { logger } from "../../lib/logger";
-
-const router = Router();
+import { cleanText } from "./text-utils";
+import { logger } from "./logger";
 
 async function resolveProject(projectId: string) {
   const [project] = await db
@@ -79,16 +65,15 @@ export async function logActivity(
 }
 
 /** List project activity feed (newest first, paginated). */
-router.get("/projects/:id/activity", async (req, res) => {
-  const projectId = cleanText(req.params.id, 80);
-  const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 100);
-  const cursor = req.query.cursor ? cleanText(req.query.cursor, 80) : null;
-
+export async function listProjectActivity(
+  projectId: string,
+  limit: number = 50,
+  cursor: string | null = null
+) {
   try {
     const project = await resolveProject(projectId);
     if (!project) {
-      res.status(404).json({ error: "Project not found" });
-      return;
+      return { activity: [], nextCursor: null as string | null };
     }
 
     const conditions = [eq(projectActivity.projectId, projectId)];
@@ -106,14 +91,12 @@ router.get("/projects/:id/activity", async (req, res) => {
     const hasMore = rows.length > limit;
     const items = hasMore ? rows.slice(0, limit) : rows;
 
-    res.json({
+    return {
       activity: items.map(serialize),
       nextCursor: hasMore ? items[items.length - 1].createdAt.toISOString() : null,
-    });
+    };
   } catch (err) {
     logger.error({ err }, "Failed to load project activity");
-    res.status(500).json({ error: "Failed to load project activity" });
+    throw err;
   }
-});
-
-export default router;
+}

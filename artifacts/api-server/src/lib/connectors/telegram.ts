@@ -63,7 +63,7 @@ export class TelegramConnector extends BaseConnector {
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as { ok?: boolean; description?: string; result?: { message_id?: number | string }; [key: string]: unknown };
 
     if (!data.ok) {
       const error = `Telegram API error: ${data.description}`;
@@ -72,7 +72,7 @@ export class TelegramConnector extends BaseConnector {
     }
 
     await this.logNotification(payload.eventType, response.status, undefined, payload);
-    return { success: true, messageId: String(data.result.message_id) };
+    return { success: true, messageId: data.result ? String(data.result.message_id) : undefined };
   }
 
   private buildMessage(payload: NotificationPayload): string {
@@ -119,8 +119,14 @@ export class TelegramConnector extends BaseConnector {
 
   async handleCommand(context: CommandContext): Promise<void> {
     const { command, args, chatId, userId, userName, projectId, connectorId } = context;
+    const targetChatId = chatId || "";
 
     logger.info({ command, args, projectId, connectorId }, "Telegram command received");
+
+    if (!chatId) {
+      logger.warn("Telegram command received without chatId");
+      return;
+    }
 
     try {
       switch (command) {
@@ -150,9 +156,10 @@ export class TelegramConnector extends BaseConnector {
 
   private async handleBuildCommand(context: CommandContext): Promise<void> {
     const { args, chatId, projectId, connectorId } = context;
+    const targetChatId = chatId ?? "";
 
     if (args.length === 0) {
-      await this.sendMessage(chatId, "Usage: `/infinity build <goal>`");
+      await this.sendMessage(targetChatId, "Usage: `/infinity build <goal>`");
       return;
     }
 
@@ -167,7 +174,7 @@ export class TelegramConnector extends BaseConnector {
       setProjectGoal(projectId, goal);
       await refreshFileMap(projectId, projectId);
 
-      await this.sendMessage(chatId, `🔨 Starting build for project \`${projectId}\`...\nGoal: ${goal}`);
+      await this.sendMessage(targetChatId, `🔨 Starting build for project \`${projectId}\`...\nGoal: ${goal}`);
 
       const result = await runMultiAgentBuild({
         goal,
@@ -177,17 +184,18 @@ export class TelegramConnector extends BaseConnector {
       });
 
       if (result.success) {
-        await this.sendMessage(chatId, `✅ Build completed successfully!\nSummary: ${result.plan?.summary || "Done"}`);
+        await this.sendMessage(targetChatId, `✅ Build completed successfully!\nSummary: ${result.plan?.summary || "Done"}`);
       } else {
-        await this.sendMessage(chatId, `❌ Build failed: ${result.error || "Unknown error"}`);
+        await this.sendMessage(targetChatId, `❌ Build failed: ${result.error || "Unknown error"}`);
       }
     } catch (err) {
-      await this.sendMessage(chatId, `❌ Build error: ${err instanceof Error ? err.message : "Unknown error"}`);
+      await this.sendMessage(targetChatId, `❌ Build error: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   }
 
   private async handleStatusCommand(context: CommandContext): Promise<void> {
     const { chatId, projectId } = context;
+    const targetChatId = chatId ?? "";
 
     try {
       const { db, buildCheckpoints } = await import("@workspace/db");
@@ -201,28 +209,30 @@ export class TelegramConnector extends BaseConnector {
         .limit(1);
 
       if (!latest) {
-        await this.sendMessage(chatId, "No builds found for this project.");
+        await this.sendMessage(targetChatId, "No builds found for this project.");
         return;
       }
 
-      const status = latest.status;
+      const status = latest.completed ? "completed" : "in-progress";
       const iteration = latest.iteration;
       const createdAt = latest.createdAt.toLocaleString();
 
-      await this.sendMessage(chatId, `📊 *Build Status for ${projectId}*\nLatest: Iteration ${iteration} — ${status} (${createdAt})`);
+      await this.sendMessage(targetChatId, `📊 *Build Status for ${projectId}*\nLatest: Iteration ${iteration} — ${status} (${createdAt})`);
     } catch (err) {
-      await this.sendMessage(chatId, `Error fetching status: ${err instanceof Error ? err.message : "Unknown error"}`);
+      await this.sendMessage(targetChatId, `Error fetching status: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   }
 
   private async handleCancelCommand(context: CommandContext): Promise<void> {
     const { chatId } = context;
-    await this.sendMessage(chatId, "Build cancellation via Telegram not yet implemented. Use the web UI or API.");
+    const targetChatId = chatId ?? "";
+    await this.sendMessage(targetChatId, "Build cancellation via Telegram not yet implemented. Use the web UI or API.");
   }
 
   private async handleLogsCommand(context: CommandContext): Promise<void> {
     const { chatId } = context;
-    await this.sendMessage(chatId, "Log streaming via Telegram not yet implemented. Use the web UI.");
+    const targetChatId = chatId ?? "";
+    await this.sendMessage(targetChatId, "Log streaming via Telegram not yet implemented. Use the web UI.");
   }
 
   private async sendHelp(chatId: string): Promise<void> {

@@ -9,7 +9,7 @@
 import { db, buildSchedules, buildScheduleRuns, type BuildSchedule, type NewBuildSchedule, type NewBuildScheduleRun } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { logger } from "./logger";
-import { logActivity } from "../routes/jarvis/project-activity";
+import { logActivity } from "./project-activity";
 
 const MAX_SETTIMEOUT_MS = 2_147_483_000; // ~24.8 days
 
@@ -188,7 +188,7 @@ async function fireSchedule(id: string): Promise<void> {
       : s.type === "snapshot_cleanup" ? (success ? "deployment_completed" : "deployment_failed")
       : (success ? "scheduled_job_completed" : "scheduled_job_failed");
 
-    const { dispatchNotification } = await import("../routes/jarvis/connectors");
+    const { dispatchNotification } = await import("./notification-dispatch");
     await dispatchNotification(s.projectId, eventType, `Scheduled ${s.type}: ${s.name}`, success ? "Completed successfully" : `Failed: ${runError}`, {
       metadata: { scheduleId: s.id, type: s.type, runCount: s.runCount + 1 },
     });
@@ -338,7 +338,7 @@ export async function triggerSchedule(scheduleId: string): Promise<{ ok: boolean
         : s.type === "snapshot_cleanup" ? (success ? "deployment_completed" : "deployment_failed")
         : (success ? "scheduled_job_completed" : "scheduled_job_failed");
 
-      const { dispatchNotification } = await import("../routes/jarvis/connectors");
+      const { dispatchNotification } = await import("./notification-dispatch");
       await dispatchNotification(s.projectId, eventType, `Manual ${s.type}: ${s.name}`, success ? "Completed successfully" : `Failed: ${runError}`, {
         metadata: { scheduleId: s.id, type: s.type, trigger: "manual" },
       });

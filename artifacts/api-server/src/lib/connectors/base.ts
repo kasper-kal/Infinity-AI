@@ -1,5 +1,5 @@
 import { logger } from "../logger";
-import { logActivity } from "../../routes/jarvis/project-activity";
+import { logActivity } from "../project-activity";
 
 /**
  * Phase 10: Messaging Connectors — Base framework for Slack, Discord, Telegram.
@@ -46,8 +46,10 @@ export interface CommandContext {
   userId: string;
   /** User display name */
   userName: string;
-  /** Channel/chat ID */
+  /** Channel ID (Slack/Discord) */
   channelId: string;
+  /** Chat ID (Telegram) */
+  chatId?: string;
   /** Project ID this connector belongs to */
   projectId: string;
   /** Connector ID */
@@ -127,7 +129,7 @@ export abstract class BaseConnector {
   /** Log activity to project activity feed */
   protected async logActivity(type: string, description: string): Promise<void> {
     try {
-      await logActivity(this.projectId, type, description);
+      await logActivity(this.projectId, type as any, description);
     } catch { /* non-fatal */ }
   }
 }

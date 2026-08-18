@@ -102,7 +102,7 @@ export class SlackConnector extends BaseConnector {
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as { ok?: boolean; error?: string; ts?: string; [key: string]: unknown };
 
     if (!data.ok) {
       const error = `Slack API error: ${data.error}`;
@@ -118,7 +118,7 @@ export class SlackConnector extends BaseConnector {
     const color = this.getColorForEvent(payload.eventType);
     const emoji = this.getEmojiForEvent(payload.eventType);
 
-    const blocks = [
+    const blocks: any[] = [
       {
         type: "header",
         text: {
@@ -294,7 +294,7 @@ export class SlackConnector extends BaseConnector {
         return;
       }
 
-      const status = latest.status;
+      const status = latest.completed ? "completed" : "in-progress";
       const iteration = latest.iteration;
       const createdAt = latest.createdAt.toLocaleString();
 

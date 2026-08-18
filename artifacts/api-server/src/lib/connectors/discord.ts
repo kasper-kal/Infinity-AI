@@ -93,7 +93,7 @@ export class DiscordConnector extends BaseConnector {
       body: JSON.stringify({ embeds: [embed] }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as { id?: string; [key: string]: unknown };
 
     if (!response.ok) {
       const error = `Discord API error: ${JSON.stringify(data)}`;
@@ -241,7 +241,7 @@ export class DiscordConnector extends BaseConnector {
         return;
       }
 
-      const status = latest.status;
+      const status = latest.completed ? "completed" : "in-progress";
       const iteration = latest.iteration;
       const createdAt = latest.createdAt.toLocaleString();
 

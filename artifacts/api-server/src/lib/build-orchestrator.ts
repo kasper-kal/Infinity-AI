@@ -153,6 +153,7 @@ export interface OrchestratorResult {
   plan: z.infer<typeof PlanSchema>;
   results: Map<string, unknown>;
   events: OrchestratorEvent[];
+  error?: string;
 }
 
 export interface OrchestratorEvent {

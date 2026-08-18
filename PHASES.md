@@ -260,7 +260,7 @@ Implement Agent Client Protocol (ACP) server so external IDEs/clients can drive 
 - [x] **Session Management** — persistent sessions with context, project scoping
 - [x] **Client Configs** — examples for Zed, VS Code (ACP extension), custom clients
 - [x] **Authentication** — API key validation with scope checking
-- [ ] **Typecheck clean** — drizzle-orm version mismatch + missing api-server lib imports
+- [x] **Typecheck clean** — drizzle-orm version fixed (catalog:), projectMemory→projectMemories, server.ts imports from api-server via re-export shims, api-server routes excluded from acp-server tsconfig
 
 ### Implementation Plan
 1. ✅ **ACP server** — `artifacts/acp-server/` with HTTP + WebSocket

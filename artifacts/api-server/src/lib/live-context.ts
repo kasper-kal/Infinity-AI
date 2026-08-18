@@ -182,7 +182,7 @@ export async function buildLiveContext(opts: {
   const [weatherResult, gmailResult] = await Promise.all([
     opts.weatherLocation ? getWeather(opts.weatherLocation) : Promise.resolve(null),
     opts.includeGmail
-      ? import("../routes/jarvis/gmail").then(m => m.getGmailContext()).catch(() => null)
+      ? import("./gmail-context").then(m => m.getGmailContext()).catch(() => null)
       : Promise.resolve(null),
   ]);
 

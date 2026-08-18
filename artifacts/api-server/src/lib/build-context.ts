@@ -126,6 +126,9 @@ function inferPurpose(relPath: string, content: string): string {
 }
 
 /** Build or refresh the fileMap from the current workspace state. */
+export const buildFileMap = refreshFileMap;
+
+/** Build or refresh the fileMap from the current workspace state. */
 export async function refreshFileMap(
   projectId: string,
   workspaceId = projectId,

@@ -82,7 +82,7 @@ router.get("/gmail/callback", async (req, res) => {
     };
 
     if (tokenData.error || !tokenData.access_token) {
-      req.log.error({ tokenData }, "Gmail OAuth token exchange failed");
+      logger.error({ tokenData }, "Gmail OAuth token exchange failed");
       res.send("<script>window.close();</script><p>Auth failed. Close this tab.</p>");
       return;
     }
@@ -128,7 +128,7 @@ router.get("/gmail/callback", async (req, res) => {
       </body></html>
     `);
   } catch (err) {
-    req.log.error({ err }, "Gmail callback error");
+    logger.error({ err }, "Gmail callback error");
     res.status(500).send("Authentication failed. Close this tab and try again.");
   }
 });

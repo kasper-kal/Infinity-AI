@@ -123,35 +123,48 @@ export async function runFixAgent(
   logger.info({ instanceId: issue.instanceId, failure: primaryFailure.name }, "[SWE-Bench] Starting fix loop");
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (!primaryFailure) break;
+
     // Build file map for context
     const { buildFileMap } = await import("../build-context");
-    const fileMap = await buildFileMap(issue.instanceId, repoPath);
+    const fileMapEntries = await buildFileMap(issue.instanceId, repoPath);
+    const fileMap: Record<string, string> = Object.fromEntries(
+      [...fileMapEntries.entries()].map(([k, v]) => [k, v.purpose])
+    );
 
     // Get relevant files (simplified - in practice would use semantic search)
+    const pf = primaryFailure;
     const relevantFiles = Object.keys(fileMap).filter(f =>
-      f.includes(primaryFailure.file?.replace(".py", "").replace(".ts", "").replace(".js", "") || "") ||
-      primaryFailure.error.toLowerCase().split(" ").some(w => f.toLowerCase().includes(w))
+      f.includes(pf.file?.replace(".py", "").replace(".ts", "").replace(".js", "") || "") ||
+      pf.error.toLowerCase().split(" ").some(w => f.toLowerCase().includes(w))
     ).slice(0, 10);
 
     // Build prompt and get fix from LLM
     const prompt = buildFixPrompt(
       { problemStatement: issue.problemStatement, hints: issue.hints },
-      primaryFailure,
+      pf,
       { fileMap, relevantFiles }
     );
 
     // Call LLM to get patch (using existing LLM adapter)
     const { createBestAdapter, buildInfinityPrompt } = await import("../llm");
-    const adapter = createBestAdapter();
+    const adapter = await createBestAdapter();
+    type MessageRole = "system" | "user" | "assistant" | "tool";
     const systemPrompt = "You are a senior software engineer. Output ONLY unified diff patches.";
-    const fullPrompt = buildInfinityPrompt(systemPrompt, prompt, []);
+    const fullPrompt = buildInfinityPrompt({ role: "coder", extraInstructions: systemPrompt, workingContext: prompt });
 
     let patch = "";
     try {
-      const response = await adapter(fullPrompt, { temperature: 0.1, maxTokens: 4000 });
+      const response = await adapter.complete(
+        [
+          { role: "system" as MessageRole, content: fullPrompt },
+          { role: "user" as MessageRole, content: prompt },
+        ],
+        { temperature: 0.1, maxTokens: 4000 }
+      );
       // Extract diff from response
-      const diffMatch = response.match(/```diff\n([\s\S]*?)```/);
-      patch = diffMatch ? diffMatch[1].trim() : response.trim();
+      const diffMatch = response.content.match(/```diff\n([\s\S]*?)```/);
+      patch = diffMatch ? diffMatch[1].trim() : response.content.trim();
     } catch (err) {
       logger.error({ err, attempt }, "[SWE-Bench] LLM call failed");
       attempts.push({

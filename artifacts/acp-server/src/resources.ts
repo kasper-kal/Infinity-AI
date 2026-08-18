@@ -105,9 +105,9 @@ export async function readResource(uri: string): Promise<ACPResourcesReadResult>
       case "memory": {
         const memories = await db
           .select()
-          .from(projectMemory)
-          .where(eq(projectMemory.projectId, projectId))
-          .orderBy(desc(projectMemory.updatedAt));
+          .from(projectMemories)
+          .where(eq(projectMemories.projectId, projectId))
+          .orderBy(desc(projectMemories.updatedAt));
         return {
           contents: [{
             uri,
