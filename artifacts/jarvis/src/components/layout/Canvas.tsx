@@ -99,7 +99,7 @@ export const Canvas = React.forwardRef<CanvasHandle, CanvasProps>(
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const viewportRef = useRef(viewport);
-    const animationFrameRef = useRef<number>();
+    const animationFrameRef = useRef<number | null>(null);
 
     // Keep ref in sync
     viewportRef.current = viewport;
@@ -132,7 +132,7 @@ export const Canvas = React.forwardRef<CanvasHandle, CanvasProps>(
       (e.currentTarget as HTMLElement).style.cursor = "grabbing";
     }, [pan, viewport.x, viewport.y]);
 
-    const handleMouseMove = useCallback((e: MouseEvent) => {
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
       if (!isPanning) return;
       const newX = e.clientX - panStart.x;
       const newY = e.clientY - panStart.y;
@@ -170,7 +170,7 @@ export const Canvas = React.forwardRef<CanvasHandle, CanvasProps>(
 
     // Touch handlers for mobile
     const [touchState, setTouchState] = useState<{
-      touches: TouchList | null;
+      touches: Touch[] | null;
       initialDistance: number;
       initialZoom: number;
       initialCenter: { x: number; y: number };
@@ -194,7 +194,7 @@ export const Canvas = React.forwardRef<CanvasHandle, CanvasProps>(
         const centerX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
         const centerY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
         setTouchState({
-          touches: e.touches,
+          touches: Array.from(e.touches),
           initialDistance: distance,
           initialZoom: viewport.zoom,
           initialCenter: { x: centerX, y: centerY },

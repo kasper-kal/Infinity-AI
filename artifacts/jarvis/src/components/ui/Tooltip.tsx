@@ -261,3 +261,19 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
     </div>
   );
 };
+/** useToast hook — programmatic toast management */
+export function useToast() {
+  const [toasts, setToasts] = useState<Array<ToastProps & { id: string }>>([]);
+
+  const toast = useCallback((message: string, type: ToastProps["type"] = "info", options?: Partial<ToastProps>) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { id, message, type, ...options }]);
+    return id;
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  return { toasts, toast, dismiss };
+}

@@ -142,7 +142,7 @@ export const ResponsiveGrid: React.FC<ResponsiveGridProps> = ({
     >
       {React.Children.map(children, (child, index) => {
         if (!React.isValidElement(child)) return child;
-        return React.cloneElement(child as React.ReactElement, {
+        return React.cloneElement(child as React.ReactElement<any>, {
           "data-grid-index": index,
         });
       })}
@@ -257,9 +257,9 @@ export const MasonryGrid: React.FC<MasonryGridProps> = ({
     >
       {React.Children.map(children, (child, index) => {
         if (!React.isValidElement(child)) return child;
-        return React.cloneElement(child as React.ReactElement, {
+        return React.cloneElement(child as React.ReactElement<any>, {
           style: {
-            ...(child.props.style || {}),
+            ...((child.props as any).style || {}),
             breakInside: "avoid",
             marginBottom: typeof gap === "number" ? `${gap}px` : gap,
             display: "inline-block",
@@ -296,8 +296,8 @@ export const MasonryGridItem: React.FC<MasonryGridItemProps> = ({
       className={`masonry-grid-item ${className}`}
       style={{
         ...style,
-        ...(colSpan > 1 && { columnSpan: colSpan }), // Not widely supported
-      }}
+        ...(colSpan > 1 && { columnSpan: String(colSpan) }), // Not widely supported
+      } as React.CSSProperties}
       role="listitem"
     >
       {children}
@@ -370,8 +370,8 @@ export const FlexGrid: React.FC<FlexGridProps> = ({
     <div className={`flex-grid ${className}`} style={gridStyles} role="list">
       {React.Children.map(children, (child, index) => {
         if (!React.isValidElement(child)) return child;
-        return React.cloneElement(child as React.ReactElement, {
-          style: { ...itemStyles, ...(child.props.style || {}) },
+        return React.cloneElement(child as React.ReactElement<any>, {
+          style: { ...itemStyles, ...((child.props as any).style || {}) },
           "data-flex-index": index,
         });
       })}

@@ -226,8 +226,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               {collapsed ? (
                 <nav className="app-shell__collapsed-nav" aria-label="Collapsed navigation">
                   {React.Children.map(sidebar, (child) => {
-                    if (React.isValidElement(child) && child.props["data-collapsed-icon"]) {
-                      return React.cloneElement(child, { className: "app-shell__collapsed-item" });
+                    if (React.isValidElement(child) && (child.props as any)["data-collapsed-icon"]) {
+                      return React.cloneElement(child as React.ReactElement<any>, { className: "app-shell__collapsed-item" });
                     }
                     return null;
                   })}

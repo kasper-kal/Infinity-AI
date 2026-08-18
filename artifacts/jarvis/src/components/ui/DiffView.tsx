@@ -450,13 +450,12 @@ function computeInlineDiff(oldStr: string, newStr: string): { added: string[]; r
 }
 
 /** File Diff — complete file diff with header */
-export interface FileDiffProps {
+export interface FileDiffProps extends DiffViewProps {
   oldFile: string;
   newFile: string;
   oldContent: string;
   newContent: string;
   language?: string;
-  ...DiffViewProps;
 }
 
 export const FileDiff: React.FC<FileDiffProps> = ({

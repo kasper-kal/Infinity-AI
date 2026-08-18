@@ -24,11 +24,16 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
+| **16** | **Infinity Maps Widget** | 📋 PLANNED | ~12-20h | Phase 14 |
+| **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
+| **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
+| **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
+| **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
 
 ---
 
 ### 🌐════════════════════════════════════════════════════════════════════════════════
-### 🌐  SEPARATE INITIATIVE: Universal Tool Layer (Phases 16–19)
+### 🌐  SEPARATE INITIATIVE: Universal Tool Layer (Phases 21–24)
 ### 🌐════════════════════════════════════════════════════════════════════════════════
 > **Goal:** Move from "which feature am I using?" → **"what tools does Infinity need to accomplish this goal?"**
 > One centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.
@@ -36,10 +41,10 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
-| **16** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
-| **17** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 16 |
-| **18** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 16, Phase 17 |
-| **19** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 16, Phase 18 |
+| **21** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
+| **22** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 21 |
+| **23** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 21, Phase 22 |
+| **24** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 21, Phase 23 |
 ### 🌐═══════════════════════════════════════════════════════════════════════════════
 
 ---
@@ -617,9 +622,210 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 
 ---
 
+## 📦 Phase 16: Infinity Maps Widget
+
+### Goal
+Add an **Infinity Maps** widget that activates when users ask location-based questions like "I'm craving pizza, where should I eat?" — displays an interactive map with places, ratings, photos, and lets the user pick/directions. Uses free map tiles (OpenStreetMap) + free places API (OpenStreetMap Nominatim/Overpass or free tier of Google Places/Foursquare).
+
+### Requirements
+- [ ] **Trigger Detection** — Detect location-intent queries in chat (`@Maps` prefix or natural language: "where should I eat", "find coffee near me", "pizza places nearby")
+- [ ] **Map Widget** — Interactive map component (Leaflet/MapLibre GL) with:
+  - Current location (browser Geolocation API, fallback to IP-based)
+  - Search radius slider (500m - 10km)
+  - Category filters (food, coffee, bars, attractions, etc.)
+  - Place markers with clustering at zoom levels
+  - Click marker → bottom sheet with details (name, rating, photos, hours, distance, directions button)
+- [ ] **Places Data** — Free sources: OpenStreetMap Overpass API (free, no key), Nominatim for search, optionally Foursquare/Google Places free tier
+- [ ] **Integration** — Widget emits `widget` SSE event with `type: "maps"` from chat.ts, renders `MapsWidget.tsx` in conversation feed
+- [ ] **Mobile/desktop** — Touch-friendly on mobile (swipe, pinch zoom), mouse/keyboard on desktop
+- [ ] **Actions** — "Get directions" opens OS maps app (Apple Maps/Google Maps/Waze via universal links), "Save to project" adds as project memory
+
+### Implementation Plan
+1. **Backend** — `artifacts/api-server/src/routes/jarvis/maps.ts`: detect `@Maps` / location queries, proxy Overpass/Nominatim calls (caching), emit widget event
+2. **Frontend Widget** — `artifacts/jarvis/src/components/widgets/MapsWidget.tsx`: Leaflet/MapLibre map, marker clustering, bottom sheet details, directions links
+3. **Widget Type** — Add `maps` to Widget union in `types/widget.ts`, export in `widgets/index.ts`, add case in `conversation-feed.tsx`
+4. **Chat Integration** — Add `detectMapsCommand()` in `chat.ts`, emit `widget` SSE event with map config (center, radius, categories)
+5. **Styling** — Liquid Glass theme tokens, responsive (mobile: full-screen sheet, desktop: inline widget)
+
+### Files to Create/Modify
+- `artifacts/api-server/src/routes/jarvis/maps.ts` (new)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount mapsRouter
+- `artifacts/jarvis/src/components/widgets/MapsWidget.tsx` (new)
+- `artifacts/jarvis/src/types/widget.ts` — add `maps` widget type
+- `artifacts/jarvis/src/components/widgets/index.ts` — export MapsWidget
+- `artifacts/jarvis/src/components/conversation-feed.tsx` — add MapsWidget case
+- `artifacts/jarvis/src/hooks/use-chat-stream.ts` — handle maps widget event (already handled by widget type)
+
 ---
 
-## 🌐 Initiative: Universal Tool Layer (Phases 16–19)
+## 📦 Phase 17: Project Types System (Book, Website, Company, etc.)
+
+### Goal
+Add **Project Types** that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows:
+- **Book** — Manuscript editor, chapter outline, A5 PDF export, cover designer (extends existing Book Studio)
+- **Website** — Build Mode integration, GitHub sync, Figma import, live preview, deployment
+- **Company** — Logo/slogan generator, promo video creator, website builder, brand kit, promo maker tool
+- **App** — Mobile/desktop app scaffolding, store assets, crash reporting, analytics dashboard
+- **Research** — Literature manager, citation graph, experiment tracker, paper draft
+- **Course** — Lesson builder, video hosting, quiz engine, student progress
+
+### Requirements
+- [ ] **Type Registry** — `project-types.ts` with schema: `id`, `name`, `icon`, `description`, `components[]`, `tools[]`, `defaultViews[]`, `settingsSchema`
+- [ ] **Project Creation** — Type selector in "New Project" modal, sets `project.type` field
+- [ ] **Type-Specific UI** — Each type gets custom `ProjectHome` view (replaces generic dashboard)
+  - **Company**: Logo/Slogan generator (LLM), Promo Video button (opens Promo Maker), Brand Kit (colors, fonts, assets), Website sub-project link
+  - **Website**: Build Mode panel, GitHub connect, Figma import, Deploy status, Live Preview
+  - **Book**: Chapter outline, Manuscript editor, Cover designer, PDF export, Publish checklist
+- [ ] **Type-Specific Tools** — Register tools per type in Universal Tool Layer (Phase 22): `company.logo`, `company.slogan`, `company.promo`, `website.deploy`, `book.chapter`, etc.
+- [ ] **Persistence** — Add `type` column to `projects` table, migrate existing projects to `type: "general"`
+- [ ] **Extensibility** — Plugin system for custom project types (local JSON definitions)
+
+### Implementation Plan
+1. **Schema** — Add `type` column to `projects` table in `lib/db/src/schema/projects.ts` + migration
+2. **Type Registry** — `artifacts/api-server/src/lib/project-types.ts` with built-in types definitions
+3. **API** — `project-types.ts` routes: `GET /project-types` (list), `GET /project-types/:id` (detail)
+4. **Frontend** — Project type selector in create modal, type-specific `ProjectHome` components in `components/views/projects/`
+5. **Company Type** — Logo/slogan generator (uses LLM), brand kit UI, promo maker launcher
+6. **Website Type** — Build Mode integration, GitHub OAuth, Figma import, deploy status
+7. **Book Type** — Wire existing Book Studio as Book project type home
+
+### Files to Create/Modify
+- `lib/db/src/schema/projects.ts` — add `type` column + migration
+- `artifacts/api-server/src/lib/project-types.ts` (new — registry + definitions)
+- `artifacts/api-server/src/routes/jarvis/project-types.ts` (new — routes)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount projectTypesRouter
+- `artifacts/jarvis/src/components/views/projects/` — ProjectHomeCompany, ProjectHomeWebsite, ProjectHomeBook, etc.
+- `artifacts/jarvis/src/components/project-create-modal.tsx` — type selector
+- `artifacts/jarvis/src/lib/project-types.ts` (frontend registry mirror)
+
+---
+
+## 📦 Phase 18: Promo Maker (Puppeteer + ASMR + AI Speed Control)
+
+### Goal
+Create **promotional videos** automatically: user provides a website URL + prompt ("make a 30s promo showing the dashboard, dark mode toggle, and export feature"), AI drives Puppeteer to navigate, records with aesthetic cursor (OpenAI-style), adds ASMR sound effects (clicks, typing, whoosh), adds text overlays, and outputs Apple/OpenAI-level quality MP4. AI detects if it's too slow and speeds up the base video.
+
+### Requirements
+- [ ] **Input** — URL + natural language prompt describing what to showcase
+- [ ] **Planner** — LLM analyzes site + prompt → generates step-by-step script (navigate, click, type, scroll, wait)
+- [ ] **Executor** — Puppeteer (headless Chromium) with:
+  - **Aesthetic Cursor** — Smooth bezier curves, click ripple, typing simulation (not instant)
+  - **ASMR Audio** — Generated via Web Audio API: soft clicks, mechanical keyboard types, subtle whoosh on transitions, ambient hum
+  - **Text Overlays** — Animated captions describing actions ("Opening dashboard...", "Toggling dark mode")
+  - **Smart Timing** — LLM reviews recording → identifies slow sections → re-renders at 2-4x speed with smooth interpolation
+- [ ] **Output** — MP4 (H.264) + WebM (VP9) for web, 1080p/4K, configurable duration (15-120s)
+- [ ] **Integration** — Available as:
+  - **Company Project Tool** — "Create Promo Video" button in Company project home
+  - **Chat Command** — `@Promo <url> <description>` emits widget with progress + result
+  - **API** — `POST /promo/create` for programmatic use
+- [ ] **Free/Zero-Cost** — Runs entirely on server (no cloud rendering), uses Puppeteer + FFmpeg (installed in container), Web Audio API for sounds (no external audio API)
+
+### Implementation Plan
+1. **Backend Service** — `artifacts/api-server/src/lib/promo-maker.ts`: Puppeteer orchestrator, script planner, recorder, audio synthesizer, video encoder
+2. **Script Planner** — LLM prompt: "Analyze this website and user goal, output JSON script: [{action: 'navigate', url, wait}, {action: 'click', selector, delay}, {action: 'type', selector, text, charDelay}, {action: 'scroll', direction, distance}, {action: 'wait', ms}]"
+3. **Puppeteer Recorder** — `page.screencast()` or CDP `Page.startScreencast` for frames, cursor overlay drawn on each frame
+4. **ASMR Audio Engine** — Web Audio API: `AudioContext` + oscillators/gain envelopes for click (short decay sine), type (filtered noise bursts), whoosh (filtered sweep)
+5. **Video Assembly** — FFmpeg (fluent-ffmpeg): frames → video, mix audio track, add text overlays (drawtext filter), encode H.264/VP9
+6. **Speed Optimization** — LLM analyzes frame timestamps vs script → identifies pauses → re-encodes slow segments at 2-4x with frame blending
+7. **API Routes** — `promo.ts`: `POST /create` (start job), `GET /status/:id`, `GET /download/:id`
+8. **Frontend Widget** — `PromoWidget.tsx`: progress stages (planning → recording → audio → encoding → optimizing → done), video player, download/share
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/promo-maker.ts` (new — core engine)
+- `artifacts/api-server/src/routes/jarvis/promo.ts` (new — routes)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount promoRouter
+- `artifacts/jarvis/src/components/widgets/PromoWidget.tsx` (new)
+- `artifacts/jarvis/src/types/widget.ts` — add `promo` widget type
+- `artifacts/jarvis/src/components/widgets/index.ts` — export PromoWidget
+- `artifacts/jarvis/src/components/conversation-feed.tsx` — add PromoWidget case
+- `artifacts/jarvis/src/components/views/projects/ProjectHomeCompany.tsx` — "Create Promo" button
+
+---
+
+## 📦 Phase 19: Local Model Integration (Qwen2.5-1.5B for Error Fixing)
+
+### Goal
+Integrate a **lightweight local model (Qwen2.5-1.5B-Instruct)** for in-app error fixing and explanation. Runs via Ollama (or llama.cpp/ONNX Runtime Web for browser) — ~1GB RAM, fast enough for real-time error diagnosis, code fixes, and explanations without API calls.
+
+### Requirements
+- [ ] **Model Serving** — Ollama (preferred, already in stack) serves `qwen2.5:1.5b-instruct` (or `qwen2.5-coder:1.5b` when available)
+- [ ] **Adapter** — `LocalModelAdapter` implementing `LLMAdapter` interface (Phase 8 model-agnostic abstraction)
+- [ ] **Use Cases**:
+  - **Error Explainer** — "Why did this TypeScript error happen?" → plain English + fix suggestion
+  - **Auto-Fix** — Build Mode: on compilation error, local model proposes fix → human approves → applies
+  - **Code Explainer** — Highlight code → "Explain this" → local model explains
+  - **Chat Fallback** — When all API keys cooling, route simple queries to local model
+- [ ] **Router Integration** — Extend `adapter-factory.ts` / `model-router.ts` (Phase 15): add `local` tier (Lite), route simple/error-fix tasks to Qwen2.5-1.5B
+- [ ] **Capabilities** — `streaming: true`, `jsonMode: true`, `toolCalling: false`, `vision: false`, `maxContextTokens: 32768`, `maxOutputTokens: 4096`
+- [ ] **Health Check** — `isHealthy()` pings Ollama `/api/tags`, verifies model loaded
+- [ ] **Zero Config** — Auto-detects Ollama at `http://localhost:11434`, pulls model if missing (background)
+
+### Implementation Plan
+1. **Adapter** — `artifacts/api-server/src/lib/adapters/local-adapter.ts`: `LocalModelAdapter` extends `OpenAICompatibleAdapter` with Ollama base URL
+2. **Registration** — Add to `adapter-factory.ts`: `createLocalAdapter()`, register in `getAvailableTypes()` as `"local"`
+3. **Router** — In `model-router.ts` (Phase 15): classify task → if `error-fix` or `explain` or `simple-edit` → route to `local` tier
+4. **Chat Integration** — In `chat.ts` manual mode: when all keys cooling, offer "Use local model (Qwen2.5-1.5B)" button
+5. **Build Mode** — In `build-agent.ts` verification loop: on compile error, call local model for fix proposal
+6. **Frontend** — "Explain Error" button in Debug panel, "Fix with Local AI" in build error toast
+7. **Model Management** — Background job pulls `qwen2.5:1.5b-instruct` on first use, shows download progress
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/adapters/local-adapter.ts` (new)
+- `artifacts/api-server/src/lib/adapter-factory.ts` — register local adapter
+- `artifacts/api-server/src/lib/model-router.ts` (Phase 15) — add local tier routing
+- `artifacts/api-server/src/routes/jarvis/chat.ts` — local model fallback in manual mode
+- `artifacts/api-server/src/lib/build-agent.ts` — local model error fix in verification
+- `artifacts/jarvis/src/components/debug/` — Explain Error / Fix with Local AI buttons
+
+---
+
+## 📦 Phase 20: Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)
+
+### Goal
+Replace the current "Deep Research → creates a Gem/Expert" flow with a **true deep research agent** that takes 3-7 minutes, browses 20-50 sources, synthesizes a comprehensive report with citations, and outputs a structured research artifact (not a chat persona). Used via `@DeepResearch <topic>` in chat.
+
+### Requirements
+- [ ] **Current System Migration** — Move existing "create Gem from research" to Expert creation menu (separate feature)
+- [ ] **New Deep Research Agent** — Iterative loop: plan → search → browse → extract → synthesize → gap analysis → repeat (3-7 min)
+- [ ] **Source Target** — 20-50 unique sources (Tavily + browser + academic via Semantic Scholar/Crossref free APIs)
+- [ ] **Output** — Structured `ResearchReport` artifact: executive summary, detailed sections, citations (numbered), source list, confidence scores, gaps/limitations
+- [ ] **Trigger** — `@DeepResearch <topic>` in chat (detected in `chat.ts`), emits progress SSE events (planning, searching, reading, synthesizing)
+- [ ] **Widget** — `DeepResearchWidget.tsx`: live progress (sources found, pages read, current phase), final report renderer with citations
+- [ ] **Integration** — "Save to Project Memory" button, "Create Expert from this Research" button (links to Expert creation)
+- [ ] **Cost Control** — Uses free tiers (Tavily free, browser pool, free APIs), budgets ~50-100 LLM calls per run
+- [ ] **Persistence** — Research runs stored in `research_jobs` table (extend schema), resumable on interruption
+
+### Implementation Plan
+1. **Engine** — `artifacts/api-server/src/lib/deep-research-v2.ts`: `DeepResearchAgent` class with iterative loop, state machine
+2. **Phases**:
+   - **Plan** (1-2 LLM calls): decompose topic → sub-questions, search strategies
+   - **Search** (parallel Tavily): 5-10 queries → 50-100 results → dedupe → top 20-30
+   - **Browse** (browser pool): visit top URLs → extract content → score relevance
+   - **Extract** (LLM): structured extraction per source (key facts, quotes, data)
+   - **Synthesize** (LLM): merge extractions → section drafts → citations
+   - **Gap Analysis** (LLM): identify missing angles → generate follow-up queries → loop (max 3 iterations)
+   - **Finalize** (LLM): executive summary, format report, confidence scoring
+3. **API Routes** — `deep-research-v2.ts`: `POST /start`, `GET /status/:id`, `GET /report/:id`, `GET /stream/:id` (SSE)
+4. **Chat Integration** — `detectDeepResearchCommand()` in `chat.ts`, emits widget event + progress SSE
+5. **Frontend Widget** — `DeepResearchWidget.tsx`: live phase progress, source counter, final report with citation links
+6. **Expert Creation** — "Create Expert" button on report → opens Expert creation modal with research pre-loaded
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/deep-research-v2.ts` (new)
+- `artifacts/api-server/src/routes/jarvis/deep-research-v2.ts` (new)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount deepResearchV2Router
+- `artifacts/api-server/src/routes/jarvis/chat.ts` — detect @DeepResearch command
+- `artifacts/jarvis/src/components/widgets/DeepResearchWidget.tsx` (new)
+- `artifacts/jarvis/src/types/widget.ts` — add `deep-research` widget type
+- `artifacts/jarvis/src/components/widgets/index.ts` — export DeepResearchWidget
+- `artifacts/jarvis/src/components/conversation-feed.tsx` — add DeepResearchWidget case
+- `artifacts/jarvis/src/components/expert-create-modal.tsx` — "From Research" option
+
+---
+
+---
+
+## 🌐 Initiative: Universal Tool Layer (Phases 21–24)
 *Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
 
 ## 📦 Phase 16: Universal Tool Layer — Foundation
@@ -820,5 +1026,15 @@ loop:
 > 9. Tool Failure Handling (resilient wrapper + diagnostic agents)
 > 10. Security Boundaries (permissions, sandboxing, redaction)
 > 11. Skills System (reusable capabilities: react-engineer, debugger, ui-designer, etc.)
+
+---
+
+## 🎯 Upcoming Phases (New Feature Requests)
+
+> **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API)
+> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools
+> **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
+> **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
+> **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations
 
 > **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.

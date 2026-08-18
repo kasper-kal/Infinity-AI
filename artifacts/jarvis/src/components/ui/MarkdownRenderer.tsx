@@ -139,10 +139,10 @@ const configureMarked = (options: {
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, """)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -310,13 +310,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 }
 
 /** Markdown Editor — live preview editor */
-export interface MarkdownEditorProps {
+export interface MarkdownEditorProps extends MarkdownRendererProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   showPreview?: boolean;
   previewPosition?: "side" | "bottom" | "tab";
-  ...MarkdownRendererProps;
 }
 
 export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({

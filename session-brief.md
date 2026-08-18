@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-18 02:15
+LAST_UPDATED: 2026-08-18 03:45
 
 ## Just did (last action)
+- **Added 5 new phases to PHASES.md + session-brief.md** (user feature requests, inserted BEFORE Universal Tool Layer):
+  - **Phase 16: Infinity Maps Widget** — Interactive maps for location queries ("I'm craving pizza, where should I eat?"), OpenStreetMap/Overpass API, Leaflet/MapLibre, directions to OS maps apps
+  - **Phase 17: Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo maker, Website: build mode/GitHub/Figma, Book: extends Book Studio)
+  - **Phase 18: Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API: clicks, typing, whoosh), AI speed optimization (detects slow sections, re-renders at 2-4x with frame blending)
+  - **Phase 19: Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when all API keys cooling, build-agent verification loop integration
+  - **Phase 20: Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations, @DeepResearch trigger
 - **Fixed monorepo typecheck** — All packages (acp-server, api-server) now pass TypeScript clean:
   - **acp-server**: Updated tsconfig.json to exclude `../api-server/src/routes` — this was causing TS2742 errors on Express Router types from route files. Fixed drizzle-orm version mismatch (now uses catalog: ^0.45.2). Created re-export shims for api-server lib imports. Fixed projectMemory→projectMemories import in resources.ts.
   - **api-server**: Moved logActivity from routes to lib/project-activity.ts to break import cycles. Created lib/notification-dispatch.ts to replace routes/jarvis/connectors import in build-scheduler. Created lib/gmail-context.ts to replace routes/jarvis/gmail import in live-context. All routes imports removed from lib/ code.
@@ -216,6 +222,13 @@ LAST_UPDATED: 2026-08-18 02:15
 - **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
 - **Responsive UI redesign**: **IN PROGRESS** - Phase 14 — Created design tokens + 10 base UI components + 5 layout primitives. Now building feature views (Build, Chat, Terminal, Settings, Projects) with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheets, swipe) implementations. Treat them as different websites for same goal.
 
+## New Phases Added (User Request)
+- **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
+- **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
+- **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
+- **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
+- **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
+
 ## Tavily Research Findings — Key Gaps & Actionable Improvements for Infinity
 
 ### 1. Multi-Agent Coordination (Missing in Infinity)
@@ -301,11 +314,16 @@ LAST_UPDATED: 2026-08-18 02:15
 
 ## Next actions
 1. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
-2. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
-3. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
-4. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-5. **Phase 15: Build Mode Intelligence & Reliability** — PLANNED: 10 critical gaps + Skills system (Visual verification, Done contract, Catastrophic recovery, Git-first, Context compression, Human takeover, Model routing+Effort chooser, Project map, Tool resilience, Security boundaries, Skills: react-engineer, debugger, ui-designer, etc.)
-6. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+2. **Phase 15: Build Mode Intelligence & Reliability** — PLANNED: 10 critical gaps + Skills system (Visual verification, Done contract, Catastrophic recovery, Git-first, Context compression, Human takeover, Model routing+Effort chooser, Project map, Tool resilience, Security boundaries, Skills: react-engineer, debugger, ui-designer, etc.)
+3. **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
+4. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
+5. **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
+6. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
+7. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
+8. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+9. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
+10. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
+11. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
