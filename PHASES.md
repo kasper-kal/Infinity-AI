@@ -25,8 +25,14 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 
-### 🌐 Initiative: Universal Tool Layer (Phases 16–19)
-*Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
+---
+
+### 🌐════════════════════════════════════════════════════════════════════════════════
+### 🌐  SEPARATE INITIATIVE: Universal Tool Layer (Phases 16–19)
+### 🌐════════════════════════════════════════════════════════════════════════════════
+> **Goal:** Move from "which feature am I using?" → **"what tools does Infinity need to accomplish this goal?"**
+> One centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.
+> *This is a separate stream from the main phases — it can be worked on in parallel.*
 
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
@@ -34,6 +40,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **17** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 16 |
 | **18** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 16, Phase 17 |
 | **19** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 16, Phase 18 |
+### 🌐═══════════════════════════════════════════════════════════════════════════════
 
 ---
 
