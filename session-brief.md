@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-18 01:45
+LAST_UPDATED: 2026-08-18 02:15
 
 ## Just did (last action)
 - **Fixed monorepo typecheck** — All packages (acp-server, api-server) now pass TypeScript clean:
@@ -125,6 +125,18 @@ LAST_UPDATED: 2026-08-18 01:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-18 **Added Phase 15 to PHASES.md + updated session-brief.md** — Comprehensive plan addressing all 10 user feedback points + Skills system:
+  1. **Visual Verification System** — Build→Launch→Open→Inspect→Fix→Re-check loop with browser-based verification (layouts, overflow, spacing, assets, buttons, console, mobile, runtime)
+  2. **Done Contract System** — Deterministic completion checklist with verification gates (build, runtime, visual, criteria, tests, links, security) before explicit DONE signal
+  3. **Catastrophic Failure Recovery** — Checkpoint 1/2/3 (plan, step groups, pre-verify) with auto-restore, failure classifiers, recovery actions per type
+  4. **Git-First Build Mode** — Worktree per build, incremental commits, final diff, success→keep branch, failure→auto-revert
+  5. **Context Management & Compression** — Raw history→Summarizer→Compact memory pipeline with 4 compaction levels, persistent storage, Debug panel
+  6. **Human Takeover / Steering** — Interruptible execution, steering commands, resume with injection, approval gates, real-time chat
+  7. **Model Routing + Effort Chooser** — Lite (~3min), High (~15min), Max (~45min) with role-based routing, provider failover, cost tracking
+  8. **Build Intelligence / Project Map** — Persistent subsystem analyzing framework, PM, entry points, architecture, DB, routes, components, tests, config
+  9. **Tool Failure Handling** — Resilient wrapper: diagnose→retry→alternative→escalate per tool type (npm, browser, compile, network)
+  10. **Security Boundaries** — Command allow/deny, secret redaction, env protection, workspace sandboxing, filesystem boundaries, network permissions, destructive confirmation, per-agent tool permissions, self-mod guardrails
+  11. **Skills System** — Reusable capabilities: react-engineer, debugger, ui-designer, api-engineer, database-engineer, devops-engineer, security-auditor, performance-engineer with registry, inheritance, marketplace
 - 2026-08-18 **Fixed monorepo typecheck completely** — All packages (acp-server, api-server) pass TypeScript clean:
   - **acp-server**: Updated tsconfig.json to exclude `../api-server/src/routes` (was causing TS2742 errors). Fixed drizzle-orm version to catalog:. Created re-export shims for api-server lib imports. Fixed projectMemory→projectMemories import.
   - **api-server**: Moved logActivity from routes to lib/project-activity.ts (breaks import cycles). Created lib/notification-dispatch.ts (replaces routes/jarvis/connectors import). Created lib/gmail-context.ts (replaces routes/jarvis/gmail import). All routes imports removed from lib/ code.
@@ -292,7 +304,8 @@ LAST_UPDATED: 2026-08-18 01:45
 2. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
 3. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
 4. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-5. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+5. **Phase 15: Build Mode Intelligence & Reliability** — PLANNED: 10 critical gaps + Skills system (Visual verification, Done contract, Catastrophic recovery, Git-first, Context compression, Human takeover, Model routing+Effort chooser, Project map, Tool resilience, Security boundaries, Skills: react-engineer, debugger, ui-designer, etc.)
+6. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

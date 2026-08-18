@@ -23,6 +23,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
+| **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 
 ---
 
@@ -387,6 +388,218 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 
 ---
 
+## 📦 Phase 15: Build Mode Intelligence & Reliability
+
+### Goal
+Transform Build Mode from "it builds" to "it builds reliably, verifiably, and intelligently" by addressing 10 critical gaps + adding a Skills system for reusable capabilities.
+
+### Requirements
+
+#### 1. Visual Verification System (Browser-Based)
+- [ ] **Build → Launch → Open → Inspect → Fix → Re-check** explicit loop
+- [ ] **Browser inspection targets**: broken layouts, overflow, bad spacing, missing assets, dead buttons, console errors, mobile breakage, runtime errors
+- [ ] **Automated visual diff** — screenshot before/after, pixel diff threshold
+- [ ] **Headless verification mode** — runs in CI without display
+- [ ] **Visual regression suite** — capture baseline screenshots per feature view
+
+#### 2. "Done" Contract System (Deterministic Completion)
+- [ ] **Completion checklist** — defined per build type (SaaS dashboard, CLI tool, library, etc.)
+- [ ] **Verification gates** that MUST pass before DONE:
+  - ✓ Build passes (typecheck + compile)
+  - ✓ Runtime no errors (browser console clean)
+  - ✓ Visual verification passed
+  - ✓ All acceptance criteria met (from plan)
+  - ✓ Tests pass (if test files exist)
+  - ✓ No broken links/imports
+  - ✓ Security scan clean
+- [ ] **Explicit DONE signal** — structured output, not "I think this looks good"
+- [ ] **Contract persistence** — save done criteria + results to build_checkpoints
+
+#### 3. Catastrophic Failure Recovery (Checkpoint/Resume)
+- [ ] **Checkpoint 1** — After planning (plan saved)
+- [ ] **Checkpoint 2** — After each completed step group
+- [ ] **Checkpoint 3** — Before verification loop
+- [ ] **Auto-restore** — on failure, offer: resume from checkpoint 2, retry step, skip step, abort
+- [ ] **Failure classifiers** — bad package install, broken migration, massive rewrite, corrupted files, dev server stuck, dependency conflict
+- [ ] **Recovery actions** per failure type (pnpm retry, git reset, workspace repair, etc.)
+
+#### 4. Git-First Build Mode
+- [ ] **Pre-build** → create worktree on branch `infinity/build/<id>`
+- [ ] **During build** → incremental commits per step (atomic, signed)
+- [ ] **Post-build** → final diff summary, PR-ready branch
+- [ ] **Success** → keep branch, offer merge
+- [ ] **Failure** → auto-revert to pre-build state (or offer manual recovery)
+- [ ] **Worktree isolation** — each build gets clean git worktree with node_modules symlinked
+
+#### 5. Context Management & Compression
+- [ ] **Raw history → Summarizer → Compact working memory** pipeline
+- [ ] **Compaction triggers** — token budget > 80%, step count > 10, context > 50k tokens
+- [ ] **Summarization levels**:
+  - Level 1: Keep all (short builds)
+  - Level 2: Compress old steps (keep last 5 detailed)
+  - Level 3: Decision log + file map only (long builds)
+  - Level 4: Goal + current state only (emergency)
+- [ ] **Persistent context** — survives restarts, loaded from checkpoints
+- [ ] **Context inspection UI** — Debug panel shows compressed state
+
+#### 6. Human Takeover / Steering
+- [ ] **Interruptible execution** — pause at any step boundary
+- [ ] **Steering commands**: "Don't use Tailwind", "Keep existing navbar", "Change approach to X"
+- [ ] **Resume with injection** — new instruction injected into agent context
+- [ ] **Approval gates** — optional human approval for risky changes (schema, auth, deploy)
+- [ ] **Real-time chat** — human can message the running agent via SSE/websocket
+
+#### 7. Model Routing + Effort Chooser
+- [ ] **Task classification** → auto-select model tier:
+  - Simple edit (font, remove component) → **Lite** (~3 min, cheap/local model)
+  - Standard coding → **High** (~15 min, balanced model)
+  - Complex planning/architectural → **Max** (~45 min, strongest model)
+- [ ] **Role-based routing**: Planner→Max, Coder→High, Reviewer→Max, Fixer→High, Research→High
+- [ ] **Provider failover** — OpenRouter → NVIDIA NIM → local Ollama → local vLLM
+- [ ] **Cost tracking per model** — enforce $0 budget, prefer free tiers
+- [ ] **Effort selector** — user can override: `--effort lite|high|max`
+
+#### 8. Build Intelligence (Project Map Subsystem)
+- [ ] **Pre-build analysis** — construct project understanding:
+  - Framework (React, Vue, Svelte, Next, Vite, etc.)
+  - Package manager (pnpm, npm, yarn, bun)
+  - Entry points (main, routes, app)
+  - Architecture (monorepo, feature folders, layer structure)
+  - Important files (config, schema, types, main exports)
+  - Database (Drizzle, Prisma, raw SQL, none)
+  - Routes/API structure
+  - Components/UI library
+  - Tests (Jest, Vitest, Playwright, none)
+  - Config files (tsconfig, vite.config, tailwind, etc.)
+- [ ] **Persistent project map** — stored in `.infinity/project-map.json`, updated incrementally
+- [ ] **Change impact analysis** — when files modified, update map, detect affected areas
+- [ ] **Smart file inclusion** — only relevant files in context based on goal
+
+#### 9. Tool Failure Handling (Resilient Tool Layer)
+- [ ] **Tool failure ≠ agent failure** — diagnose → retry → alternative → escalate
+- [ ] **npm install fails** → diagnose → try pnpm → inspect lockfile → fix → retry
+- [ ] **Browser errors** → restart pool → new session → fallback to simpler action
+- [ ] **Compilation errors** → parse error → target fix → re-verify
+- [ ] **Network failures** → exponential backoff → circuit breaker → cached fallback
+- [ ] **Diagnostic agents** — specialized fixer agents per tool type
+
+#### 10. Security Boundaries
+- [ ] **Command allow/deny rules** — configurable per project/agent
+- [ ] **Secret redaction** — API keys, tokens, passwords never in logs/context
+- [ ] **Environment variable protection** — scoped access, no cross-project leakage
+- [ ] **Workspace sandboxing** — worktree isolation, no parent directory escape
+- [ ] **Filesystem boundaries** — allowlist/blocklist paths
+- [ ] **Network permissions** — allowlist domains, block egress by default
+- [ ] **Destructive command confirmation** — rm -rf, git push --force, DB migrations require approval
+- [ ] **Tool permissions per agent** — planner: read-only, coder: write, reviewer: read, fixer: write
+- [ ] **Self-modification guardrails** — only `artifacts/` allowed, never core config/secrets
+
+#### 11. Skills System (Reusable Capabilities)
+- [ ] **Skill definition format** — JSON/YAML with instructions, tools, verification rules, conventions
+- [ ] **Built-in skills**:
+  - `react-engineer` — React patterns, hooks, testing, accessibility
+  - `debugger` — reproduce, inspect, patch, verify loop
+  - `ui-designer` — implement, browser inspect, screenshot, visually verify
+  - `api-engineer` — REST/GraphQL, OpenAPI, testing, auth
+  - `database-engineer` — migrations, queries, indexing, RLS
+  - `devops-engineer` — CI/CD, Docker, Kubernetes, monitoring
+  - `security-auditor` — OWASP, secrets, dependencies, penetration
+  - `performance-engineer` — profiling, optimization, bundle analysis
+- [ ] **Skill registry** — discoverable, versioned, composable
+- [ ] **Skill inheritance** — base skill + project overrides
+- [ ] **Skill marketplace** — share/import skills (local first, $0)
+- [ ] **Agent-skill binding** — assign skills to agent roles per project
+
+### Implementation Plan
+
+1. **Visual Verification System** — `build-visual-verification.ts`
+   - Puppeteer-based inspection suite
+   - Screenshot capture, diff, console log harvesting
+   - Integration with browser pool (Phase 4.2)
+   - Headless CI mode support
+
+2. **Done Contract System** — `build-done-contract.ts`
+   - Checklist definitions per project type
+   - Verification gate runner
+   - Structured DONE output (JSON)
+   - Integration with orchestrator final step
+
+3. **Checkpoint/Recovery System** — extend `build-checkpoints.ts` + `build-orchestrator.ts`
+   - Checkpoint phases (plan, step groups, pre-verify)
+   - Failure classifier + recovery action map
+   - Auto-restore with user choice
+
+4. **Git-First Build Mode** — extend `workspace.ts` + `build-orchestrator.ts`
+   - Worktree creation per build
+   - Incremental commit hook after each step
+   - Final diff generation
+   - Auto-revert on failure
+
+5. **Context Compression** — extend `build-context.ts`
+   - Summarizer agent (uses Lite model)
+   - Compaction levels + triggers
+   - Persistent storage (checkpoints table)
+   - Debug panel visualization
+
+6. **Human Takeover** — `build-human-interface.ts`
+   - SSE/websocket for real-time steering
+   - Pause/resume API
+   - Instruction injection middleware
+   - Approval gate workflow
+
+7. **Model Router + Effort Chooser** — `model-router.ts` + extend `adapter-factory.ts`
+   - Task classifier (heuristic + LLM)
+   - Role-model mapping
+   - Provider failover chain
+   - Effort flag parsing
+
+8. **Project Map Subsystem** — `build-project-map.ts`
+   - Static analysis on pre-build
+   - Incremental update on file changes
+   - Impact analysis
+   - Smart context selection
+
+9. **Resilient Tool Layer** — extend `build-tools.ts` + `build-edge-cases.ts`
+   - Tool wrapper with diagnosis/retry
+   - Per-tool recovery strategies
+   - Diagnostic sub-agents
+
+10. **Security Boundaries** — `build-security.ts`
+    - Permission system (allow/deny)
+    - Secret redaction middleware
+    - Sandbox enforcement
+    - Destructive command guard
+
+11. **Skills System** — `build-skills.ts` + skill definitions
+    - Skill schema + loader
+    - Built-in skill definitions
+    - Registry + discovery
+    - Agent-skill binding in orchestrator
+
+### Files to Create/Modify
+
+- `artifacts/api-server/src/lib/build-visual-verification.ts` (new)
+- `artifacts/api-server/src/lib/build-done-contract.ts` (new)
+- `artifacts/api-server/src/lib/build-human-interface.ts` (new)
+- `artifacts/api-server/src/lib/model-router.ts` (new)
+- `artifacts/api-server/src/lib/build-project-map.ts` (new)
+- `artifacts/api-server/src/lib/build-security.ts` (new)
+- `artifacts/api-server/src/lib/build-skills.ts` (new)
+- `artifacts/api-server/src/lib/skills/` (new directory — skill definitions)
+- `artifacts/api-server/src/lib/build-checkpoints.ts` (extend)
+- `artifacts/api-server/src/lib/build-context.ts` (extend — compression)
+- `artifacts/api-server/src/lib/build-tools.ts` (extend — resilient wrapper)
+- `artifacts/api-server/src/lib/build-edge-cases.ts` (extend — tool recovery)
+- `artifacts/api-server/src/lib/workspace.ts` (extend — git-first)
+- `artifacts/api-server/src/lib/build-orchestrator.ts` (extend — integrate all)
+- `artifacts/api-server/src/routes/jarvis/build.ts` (extend — new routes)
+- `artifacts/api-server/src/lib/adapter-factory.ts` (extend — effort routing)
+- `artifacts/api-server/src/lib/llm-adapter.ts` (extend — cost tracking)
+- `artifacts/jarvis/src/components/debug/` (extend — visual verification, context, human interface panels)
+- `BUILD_MODE_INTELLIGENCE.md` (new — documentation)
+
+---
+
 ## 🔄 Autonomous Execution Rules
 
 ### For the Agent Running This Plan
@@ -440,5 +653,24 @@ loop:
 ---
 
 ## 🎯 Current Phase: **Phase 14 — Responsive UI Redesign (Mobile + Desktop)**
+
+> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
+
+---
+
+## 🎯 Next Phase: **Phase 15 — Build Mode Intelligence & Reliability**
+
+> **PLANNED.** Addresses 10 critical gaps + Skills system. Implementation order:
+> 1. Visual Verification System (browser-based, CI-ready)
+> 2. Done Contract System (deterministic completion)
+> 3. Catastrophic Failure Recovery (checkpoint/resume)
+> 4. Git-First Build Mode (worktree + incremental commits)
+> 5. Context Management & Compression (summarizer pipeline)
+> 6. Human Takeover / Steering (interrupt + inject)
+> 7. Model Routing + Effort Chooser (Lite/High/Max)
+> 8. Build Intelligence / Project Map (persistent subsystem)
+> 9. Tool Failure Handling (resilient wrapper + diagnostic agents)
+> 10. Security Boundaries (permissions, sandboxing, redaction)
+> 11. Skills System (reusable capabilities: react-engineer, debugger, ui-designer, etc.)
 
 > **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
