@@ -24,6 +24,10 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
+| **16** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
+| **17** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 16 |
+| **18** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 16, Phase 17 |
+| **19** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 16, Phase 18 |
 
 ---
 
@@ -597,6 +601,132 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 - `artifacts/api-server/src/lib/llm-adapter.ts` (extend — cost tracking)
 - `artifacts/jarvis/src/components/debug/` (extend — visual verification, context, human interface panels)
 - `BUILD_MODE_INTELLIGENCE.md` (new — documentation)
+
+---
+
+## 📦 Phase 16: Universal Tool Layer — Foundation
+
+### Goal
+Establish the **centralized Universal Tool Registry** and standardized tool contract that every Infinity capability will register with. This is the substrate Phase 17–19 build on. It generalizes the existing Build Mode tool-use architecture (`build-tools.ts`) into a model-agnostic, namespaced, permissioned registry — WITHOUT duplicating the existing tool schemas/execution/retry logic.
+
+### Existing Infra to Reuse (DO NOT duplicate)
+- `artifacts/api-server/src/lib/build-tools.ts` — `ToolCall`, `ToolResult`, `ToolDefinition`, `ToolExecutionContext`, `executeTool()`, `TOOL_DEFINITIONS[]`, `formatToolResults()`. **Lift and generalize these**, not rewrite.
+- `artifacts/api-server/src/lib/llm-adapter.ts` — `LLMAdapter`, `LLMTool`, `LLMCompletionOptions.tools`. Tool definitions feed this interface.
+- `artifacts/api-server/src/lib/self-evolution.ts` — existing self-mod guardrails (path allowlist, checkpoints) to enforce for `evolution.*` tools.
+
+### Requirements
+- [ ] **Universal Tool Registry** — `artifacts/api-server/src/lib/tool-registry.ts` (new):
+  - `registerTool(def: UniversalToolDefinition)`
+  - `discoverTools(filter?: ToolDiscoveryFilter): UniversalToolDefinition[]`
+  - `getToolDefinitionsForLLM(filter?): LLMTool[]` (namespaced, JSONSchema → LLM tool schema)
+  - `executeTool(name, args, ctx): Promise<UniversalToolResult>`
+  - Validation (JSONSchema), timeout, retry, error normalization, logging, metadata
+- [ ] **Standardized `UniversalToolDefinition`**:
+  ```ts
+  {
+    name: string;          // namespaced: "web.search", "browser.navigate", ...
+    description: string;
+    category: string;      // web | browser | files | vision | data | memory | research | build | evolution | integration
+    parameters: JSONSchema;
+    risk: "READ" | "WRITE" | "DESTRUCTIVE" | "EXTERNAL_ACTION" | "SELF_MODIFICATION";
+    requiresApproval?: boolean;
+    execute: (args, ctx: ToolExecutionContext) => Promise<UniversalToolResult>;
+  }
+  ```
+- [ ] **Standardized `UniversalToolResult`**:
+  ```ts
+  { success: boolean; data?: unknown; summary?: string; error?: string; artifacts?: Artifact[]; metadata?: Record<string, unknown>; }
+  ```
+- [ ] **Shared `ToolExecutionContext`** extended from `build-tools.ts` to carry: `userId, conversationId, projectId, workspaceId, taskId, permissions, memories, artifacts, previousToolResults`.
+- [ ] **Permission metadata** — every tool declares a `risk` level; dangerous tools (`DESTRUCTIVE`, `EXTERNAL_ACTION`, `SELF_MODIFICATION`) can require explicit approval.
+- [ ] **Tool selection/filtering** — category-based discovery so the LLM isn't sent the entire schema (general / research / coding / email / data request modes).
+- [ ] **Port existing Build tools into the registry** as first registered tools (list_files → `files.*`, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) — reusing their existing `execute` implementations.
+- [ ] **Model-agnostic** — works with every existing LLM adapter via `llm-adapter.ts`.
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/tool-registry.ts` (new)
+- `artifacts/api-server/src/lib/build-tools.ts` (extend — register existing tools, keep `executeTool` working as consumer)
+- `artifacts/api-server/src/lib/tool-types.ts` (new — `UniversalToolDefinition`, `UniversalToolResult`, `ToolExecutionContext`, `Artifact`, risk enums)
+
+---
+
+## 📦 Phase 17: Universal Tool Layer — Capability Integration
+
+### Goal
+Register every existing Infinity capability as a namespaced tool in the Phase 16 registry. **Register ONLY functionality that actually exists** — no fake implementations. Build Mode becomes a consumer of the registry, not an isolated ecosystem.
+
+### Requirements
+- [ ] **Web** — `web.search` (Tavily), `web.fetch`, `web.extract` (source retrieval/extraction) — wire to existing Tavily call in `chat.ts`
+- [ ] **Browser** — `browser.navigate`, `browser.click`, `browser.type`, `browser.scroll`, `browser.screenshot`, `browser.inspectDom`, `browser.inspectConsole` — reuse `browser-pool.ts` + `build-tools.ts` browser tools
+- [ ] **Files** — `files.list`, `files.read`, `files.write`, `files.upload`, `files.move`, `files.delete` (safe) — reuse `workspace.ts` + `build-tools.ts`
+- [ ] **Vision** — `vision.analyze` (image analysis), `vision.screenshot` (screenshot analysis) — reuse existing vision path
+- [ ] **Data Lab** — `data.analyze`, `data.transform`, `data.stats`, `data.visualize`, `data.inspect` — register existing Data Lab if present
+- [ ] **Memory** — `memory.read`, `memory.write`, `memory.update`, `memory.delete` — reuse `project-memory.ts` / `userMemories`
+- [ ] **Research** — `research.start`, `research.continue`, `research.status`, `research.extract` — reuse `research-engine.ts`
+- [ ] **Build** — `build.run`, `build.workspace`, `build.terminal`, `build.verify` — consume `build-tools.ts` + `build-orchestrator.ts`
+- [ ] **Evolving** — `evolution.inspect`, `evolution.propose`, `evolution.apply`, `evolution.verify`, `evolution.rollback` — consume `self-evolution.ts` with existing guardrails preserved
+- [ ] **Integrations** — `gmail.search`, `gmail.send`, `spotify.search`, etc. — register only what `secrets.ts` / connectors actually support
+- [ ] **Build Mode refactor** — `build-orchestrator.ts` / `build-agent.ts` call the registry instead of the local `TOOL_DEFINITIONS` switch (no behavior change to end users)
+- [ ] **Verify each tool returns `UniversalToolResult`** and feeds structured results forward (no manual prompt-copying of intermediate data)
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/tools/` (new directory — one file per category: web.ts, browser.ts, files.ts, vision.ts, data.ts, memory.ts, research.ts, build.ts, evolution.ts, integrations.ts)
+- `artifacts/api-server/src/lib/build-orchestrator.ts` (refactor to consume registry)
+- `artifacts/api-server/src/lib/build-agent.ts` (refactor to consume registry)
+
+---
+
+## 📦 Phase 18: Universal Tool Layer — Agent Loop & UX
+
+### Goal
+Make Chat a real **iterative reasoning/tool loop** where the LLM dynamically chains tools across capabilities in one task, and surface that execution in the UI as an agent timeline.
+
+### Requirements
+- [ ] **Iterative agent loop** — `artifacts/api-server/src/lib/universal-agent.ts` (new): LLM → tool call → result → LLM → ... until final response. Model decides tool count dynamically (not a fixed multi-tool command).
+- [ ] **Parallel tool execution** — independent calls run concurrently (safe concurrency limit); dependency ordering preserved when a tool consumes an earlier result.
+- [ ] **Tool chaining UX** — agent/tool execution timeline in Chat (Thinking → ✓ Web Search → ✓ Browser → ... → Done). Expandable per-step: tool used, args, result, duration, errors, artifacts. Show telemetry only, no hidden chain-of-thought.
+- [ ] **SSE/streaming** — emit tool events alongside chat stream (reuse `build-events.ts` event infra).
+- [ ] **Memory integration in loop** — agent reads relevant memory, performs task, decides (relevance rules) whether to write memory.
+- [ ] **Evolving integration in loop** — `evolution.propose` → review → approval if required → `evolution.apply` → tests → verify → commit/rollback. Never arbitrary self-modification.
+- [ ] **Artifacts** — tool outputs become interoperable artifacts (Research Report, Image Analysis, Dataset/Chart, Screenshot, Code/Diff, Evolution Record) consumable by later tools.
+- [ ] **Model-agnostic** — loop only depends on `LLMAdapter` interface.
+
+### Cross-Capability Examples That MUST Work (end-to-end)
+1. "Search the web for latest React changes, compare to my project, inspect the running site, tell me what to update." → `web.search → files → browser → analysis → response`
+2. "Look at this uploaded dataset, analyze it, create charts, remember findings." → `files → data → visualize → memory`
+3. "Research this topic, browse sites, create report, save conclusions to memory." → `research → web → browser → artifact → memory`
+4. "Inspect Infinity's implementation, find weakness, improve, test, keep only if it works." → `files → build → evolution → tests → verify → commit/rollback`
+5. "Find latest info on X, analyze numbers, visualize, explain." → `web → data → visualize → response`
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/universal-agent.ts` (new)
+- `artifacts/api-server/src/routes/jarvis/chat.ts` (wire universal-agent into chat)
+- `artifacts/jarvis/src/components/debug/` (extend — agent timeline panel)
+- `artifacts/jarvis/src/hooks/use-chat-stream.ts` (handle tool-event SSE)
+
+---
+
+## 📦 Phase 19: Universal Tool Layer — Resilience & Persistence
+
+### Goal
+Make the Universal Tool Layer robust to failures and durable across interruptions. Integrates cleanly with existing Build task/event infra — no parallel task system.
+
+### Requirements
+- [ ] **Recovery** — tool failure → inspect error → retry if appropriate → alternate tool/strategy → continue. Distinguish recoverable / fatal / permission / approval-required errors. Task continues (does not auto-terminate).
+- [ ] **Long-running task state** — persistent task maintains: goal, status, toolCalls, results, artifacts, errors, currentStep, createdAt, updatedAt. Resume after interruption (reuse `build-events.ts` / Build task infra).
+- [ ] **Tool failure handling** — diagnostic recovery per tool type (npm fails → pnpm → inspect lockfile; browser fails → restart pool; etc.) — extends Phase 15's resilient tool layer, NOT duplicating it.
+- [ ] **Permission enforcement** — deny/allow by risk level; `SELF_MODIFICATION` preserves Evolving checkpoints/snapshots/rollback; `DESTRUCTIVE` requires approval; workspace isolation/path protections never weakened.
+- [ ] **Large-output handling** — truncation/summarization so big tool results don't destroy context window.
+- [ ] **Integration tests** — one call, sequential, dependent, parallel, failure/retry, permission denial, large output, artifact passing, memory RW, browser+search chaining, files+data chaining, build+browser chaining, evolving+verify, task resume.
+- [ ] **End-to-end multi-tool scenarios** — several tests where one request genuinely crosses 3–6 capabilities (the 5 examples from Phase 18).
+- [ ] **Definition of done met**: centralized registry, dynamic multi-tool Chat, result consumption, parallel execution, existing Build tools reused, all capabilities in one loop, permissions enforced, UI-visible execution, resumable tasks, recoverable failures, cross-capability examples work, existing functionality intact, typecheck + build + integration tests pass.
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/universal-agent.ts` (extend — recovery, task state)
+- `artifacts/api-server/src/lib/tool-resilience.ts` (new — retry/recovery/diagnostics)
+- `artifacts/api-server/src/lib/tool-persistence.ts` (new — task state, resume)
+- `artifacts/api-server/src/lib/build-tools.ts` (extend — resilience reuse)
+- `artifacts/api-server/test/` (new — integration tests for the above)
 
 ---
 
