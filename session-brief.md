@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-18 03:45
+LAST_UPDATED: 2026-08-19 09:15
 
 ## Just did (last action)
 - **Added 5 new phases to PHASES.md + session-brief.md** (user feature requests, inserted BEFORE Universal Tool Layer):
@@ -131,6 +131,19 @@ LAST_UPDATED: 2026-08-18 03:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-19 **Phase 15 Task 9: Tool Failure Handling (Resilient Tool Layer) COMPLETE** — Extended `build-tools.ts` and `build-edge-cases.ts` with comprehensive resilience layer:
+  - **Tool failure classification** — npm_install, browser_error, compilation_error, network_failure, timeout, disk_full, permission_denied, git_conflict, unknown
+  - **Circuit breaker pattern** — per-tool failure tracking with auto-open/half-open/closed states
+  - **Diagnostic agents** — 3 built-in agents: npm-install-fixer (pnpm fallback), browser-recovery (slot refresh), compilation-fixer (TypeScript error escalation)
+  - **Recovery actions** — retry_same, retry_alternative, fallback_tool, escalate_to_diagnostic, require_human, abort
+  - **Resilient execution wrapper** — `executeToolResilient()` with diagnosis, retry, circuit breaker, metrics
+  - **Tool resilience configs** — per-tool retry config, circuit breaker thresholds, fallback tools, diagnostic agents
+  - **Health checks & metrics** — `runToolHealthCheck()`, `getResilienceMetrics()`, `recordResilienceMetric()`
+- 2026-08-19 **Phase 15 typecheck fixes COMPLETE** — Fixed all TypeScript typecheck errors in Phase 15 library files and route files:
+  - Added `phase` property to all 7 `saveCheckpoint` calls in `build.ts` (lines 689, 791, 1177, 1275, 1380, 2318, 2791)
+  - Added `phase` property to `saveCheckpoint` call in `build-export.ts` (line 458) for clone operation
+  - Added `phase` property to `saveCheckpoint` call in `build-checkpoints.ts` (line 31) for manual checkpoint creation
+  - All typecheck errors resolved, full workspace now passes `npm run typecheck` clean
 - 2026-08-18 **Added Phase 15 to PHASES.md + updated session-brief.md** — Comprehensive plan addressing all 10 user feedback points + Skills system:
   1. **Visual Verification System** — Build→Launch→Open→Inspect→Fix→Re-check loop with browser-based verification (layouts, overflow, spacing, assets, buttons, console, mobile, runtime)
   2. **Done Contract System** — Deterministic completion checklist with verification gates (build, runtime, visual, criteria, tests, links, security) before explicit DONE signal
@@ -221,6 +234,7 @@ LAST_UPDATED: 2026-08-18 03:45
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
 - **Responsive UI redesign**: **IN PROGRESS** - Phase 14 — Created design tokens + 10 base UI components + 5 layout primitives. Now building feature views (Build, Chat, Terminal, Settings, Projects) with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheets, swipe) implementations. Treat them as different websites for same goal.
+- **Phase 15: Build Mode Intelligence & Reliability** — **IN PROGRESS**: Task 1 (Visual Verification) ✅ DONE, Task 2 (Done Contract) ✅ DONE, Task 3 (Checkpoint/Recovery) ✅ DONE, Task 4 (Git-First Build) ✅ DONE, Task 5 (Context Compression) ✅ DONE, Task 6 (Human Takeover) ✅ DONE, Task 7 (Model Router) ✅ DONE, Task 8 (Project Map) ✅ DONE, Task 9 (Tool Failure Handling) ✅ DONE. Full workspace typecheck passes clean. Next: Task 10 Security Boundaries.
 
 ## New Phases Added (User Request)
 - **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps

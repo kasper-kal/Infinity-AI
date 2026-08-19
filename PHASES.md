@@ -418,15 +418,15 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 ### Requirements
 
 #### 1. Visual Verification System (Browser-Based)
-- [ ] **Build → Launch → Open → Inspect → Fix → Re-check** explicit loop
-- [ ] **Browser inspection targets**: broken layouts, overflow, bad spacing, missing assets, dead buttons, console errors, mobile breakage, runtime errors
-- [ ] **Automated visual diff** — screenshot before/after, pixel diff threshold
-- [ ] **Headless verification mode** — runs in CI without display
-- [ ] **Visual regression suite** — capture baseline screenshots per feature view
+- [x] **Build → Launch → Open → Inspect → Fix → Re-check** explicit loop
+- [x] **Browser inspection targets**: broken layouts, overflow, bad spacing, missing assets, dead buttons, console errors, mobile breakage, runtime errors
+- [x] **Automated visual diff** — screenshot before/after, pixel diff threshold
+- [x] **Headless verification mode** — runs in CI without display
+- [x] **Visual regression suite** — capture baseline screenshots per feature view
 
 #### 2. "Done" Contract System (Deterministic Completion)
-- [ ] **Completion checklist** — defined per build type (SaaS dashboard, CLI tool, library, etc.)
-- [ ] **Verification gates** that MUST pass before DONE:
+- [x] **Completion checklist** — defined per build type (SaaS dashboard, CLI tool, library, etc.)
+- [x] **Verification gates** that MUST pass before DONE:
   - ✓ Build passes (typecheck + compile)
   - ✓ Runtime no errors (browser console clean)
   - ✓ Visual verification passed
@@ -434,52 +434,52 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
   - ✓ Tests pass (if test files exist)
   - ✓ No broken links/imports
   - ✓ Security scan clean
-- [ ] **Explicit DONE signal** — structured output, not "I think this looks good"
-- [ ] **Contract persistence** — save done criteria + results to build_checkpoints
+- [x] **Explicit DONE signal** — structured output, not "I think this looks good"
+- [x] **Contract persistence** — save done criteria + results to build_checkpoints
 
 #### 3. Catastrophic Failure Recovery (Checkpoint/Resume)
-- [ ] **Checkpoint 1** — After planning (plan saved)
-- [ ] **Checkpoint 2** — After each completed step group
-- [ ] **Checkpoint 3** — Before verification loop
-- [ ] **Auto-restore** — on failure, offer: resume from checkpoint 2, retry step, skip step, abort
-- [ ] **Failure classifiers** — bad package install, broken migration, massive rewrite, corrupted files, dev server stuck, dependency conflict
-- [ ] **Recovery actions** per failure type (pnpm retry, git reset, workspace repair, etc.)
+- [x] **Checkpoint 1** — After planning (plan saved)
+- [x] **Checkpoint 2** — After each completed step group
+- [x] **Checkpoint 3** — Before verification loop
+- [x] **Auto-restore** — on failure, offer: resume from checkpoint 2, retry step, skip step, abort
+- [x] **Failure classifiers** — bad package install, broken migration, massive rewrite, corrupted files, dev server stuck, dependency conflict
+- [x] **Recovery actions** per failure type (pnpm retry, git reset, workspace repair, etc.)
 
 #### 4. Git-First Build Mode
-- [ ] **Pre-build** → create worktree on branch `infinity/build/<id>`
-- [ ] **During build** → incremental commits per step (atomic, signed)
-- [ ] **Post-build** → final diff summary, PR-ready branch
-- [ ] **Success** → keep branch, offer merge
-- [ ] **Failure** → auto-revert to pre-build state (or offer manual recovery)
-- [ ] **Worktree isolation** — each build gets clean git worktree with node_modules symlinked
+- [x] **Pre-build** → create worktree on branch `infinity/build/<id>`
+- [x] **During build** → incremental commits per step (atomic, signed)
+- [x] **Post-build** → final diff summary, PR-ready branch
+- [x] **Success** → keep branch, offer merge
+- [x] **Failure** → auto-revert to pre-build state (or offer manual recovery)
+- [x] **Worktree isolation** — each build gets clean git worktree with node_modules symlinked
 
 #### 5. Context Management & Compression
-- [ ] **Raw history → Summarizer → Compact working memory** pipeline
-- [ ] **Compaction triggers** — token budget > 80%, step count > 10, context > 50k tokens
-- [ ] **Summarization levels**:
+- [x] **Raw history → Summarizer → Compact working memory** pipeline
+- [x] **Compaction triggers** — token budget > 80%, step count > 10, context > 50k tokens
+- [x] **Summarization levels**:
   - Level 1: Keep all (short builds)
   - Level 2: Compress old steps (keep last 5 detailed)
   - Level 3: Decision log + file map only (long builds)
   - Level 4: Goal + current state only (emergency)
-- [ ] **Persistent context** — survives restarts, loaded from checkpoints
-- [ ] **Context inspection UI** — Debug panel shows compressed state
+- [x] **Persistent context** — survives restarts, loaded from checkpoints
+- [x] **Context inspection UI** — Debug panel shows compressed state
 
 #### 6. Human Takeover / Steering
-- [ ] **Interruptible execution** — pause at any step boundary
-- [ ] **Steering commands**: "Don't use Tailwind", "Keep existing navbar", "Change approach to X"
-- [ ] **Resume with injection** — new instruction injected into agent context
-- [ ] **Approval gates** — optional human approval for risky changes (schema, auth, deploy)
-- [ ] **Real-time chat** — human can message the running agent via SSE/websocket
+- [x] **Interruptible execution** — pause at any step boundary
+- [x] **Steering commands**: "Don't use Tailwind", "Keep existing navbar", "Change approach to X"
+- [x] **Resume with injection** — new instruction injected into agent context
+- [x] **Approval gates** — optional human approval for risky changes (schema, auth, deploy)
+- [x] **Real-time chat** — human can message the running agent via SSE/websocket
 
 #### 7. Model Routing + Effort Chooser
-- [ ] **Task classification** → auto-select model tier:
+- [x] **Task classification** → auto-select model tier:
   - Simple edit (font, remove component) → **Lite** (~3 min, cheap/local model)
   - Standard coding → **High** (~15 min, balanced model)
   - Complex planning/architectural → **Max** (~45 min, strongest model)
-- [ ] **Role-based routing**: Planner→Max, Coder→High, Reviewer→Max, Fixer→High, Research→High
-- [ ] **Provider failover** — OpenRouter → NVIDIA NIM → local Ollama → local vLLM
-- [ ] **Cost tracking per model** — enforce $0 budget, prefer free tiers
-- [ ] **Effort selector** — user can override: `--effort lite|high|max`
+- [x] **Role-based routing**: Planner→Max, Coder→High, Reviewer→Max, Fixer→High, Research→High
+- [x] **Provider failover** — OpenRouter → NVIDIA NIM → local Ollama → local vLLM
+- [x] **Cost tracking per model** — enforce $0 budget, prefer free tiers
+- [x] **Effort selector** — user can override: `--effort lite|high|max`
 
 #### 8. Build Intelligence (Project Map Subsystem)
 - [ ] **Pre-build analysis** — construct project understanding:
@@ -498,12 +498,12 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 - [ ] **Smart file inclusion** — only relevant files in context based on goal
 
 #### 9. Tool Failure Handling (Resilient Tool Layer)
-- [ ] **Tool failure ≠ agent failure** — diagnose → retry → alternative → escalate
-- [ ] **npm install fails** → diagnose → try pnpm → inspect lockfile → fix → retry
-- [ ] **Browser errors** → restart pool → new session → fallback to simpler action
-- [ ] **Compilation errors** → parse error → target fix → re-verify
-- [ ] **Network failures** → exponential backoff → circuit breaker → cached fallback
-- [ ] **Diagnostic agents** — specialized fixer agents per tool type
+- [x] **Tool failure ≠ agent failure** — diagnose → retry → alternative → escalate
+- [x] **npm install fails** → diagnose → try pnpm → inspect lockfile → fix → retry
+- [x] **Browser errors** → restart pool → new session → fallback to simpler action
+- [x] **Compilation errors** → parse error → target fix → re-verify
+- [x] **Network failures** → exponential backoff → circuit breaker → cached fallback
+- [x] **Diagnostic agents** — specialized fixer agents per tool type
 
 #### 10. Security Boundaries
 - [ ] **Command allow/deny rules** — configurable per project/agent

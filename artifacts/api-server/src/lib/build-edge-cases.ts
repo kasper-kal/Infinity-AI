@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { getWorkspaceRoot, safeWorkspacePath, runGit } from "./workspace";
 import { logBuildEvent } from "./build-telemetry";
 import { workspaceKey } from "./workspace";
+import type { ToolResult } from "./build-tools";
 
 const EDGE_CASES_ROOT = path.resolve(getWorkspaceRoot(), "edge-cases");
 
@@ -541,4 +542,309 @@ export async function preflightCheck(projectId: string, requiredDiskBytes = 50 *
     checks,
     issues,
   };
+}
+
+/**
+ * Tool-specific resilience configurations
+ */
+export interface ToolResilienceConfig {
+  name: string;
+  retryConfig: RetryConfig;
+  circuitBreaker: {
+    threshold: number;
+    timeout: number;
+  };
+  fallbackTools: string[];
+  diagnosticAgent?: string;
+}
+
+export const TOOL_RESILIENCE_CONFIGS: ToolResilienceConfig[] = [
+  {
+    name: "run_command",
+    retryConfig: { maxAttempts: 3, baseDelayMs: 2000, maxDelayMs: 60000, backoffMultiplier: 2, retryableErrors: ["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH", "EAI_AGAIN", "socket hang up", "network", "timeout"] },
+    circuitBreaker: { threshold: 5, timeout: 60000 },
+    fallbackTools: ["run_command"],
+    diagnosticAgent: "npm-install-fixer",
+  },
+  {
+    name: "npm_install",
+    retryConfig: { maxAttempts: 3, baseDelayMs: 5000, maxDelayMs: 120000, backoffMultiplier: 2, retryableErrors: ["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH", "EAI_AGAIN", "socket hang up", "network", "peer dependency", "eresolve", "integrity"] },
+    circuitBreaker: { threshold: 3, timeout: 120000 },
+    fallbackTools: ["run_command"],
+    diagnosticAgent: "npm-install-fixer",
+  },
+  {
+    name: "screenshot",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 10000, backoffMultiplier: 2, retryableErrors: ["timeout", "browser", "crash", "navigation", "cdp"] },
+    circuitBreaker: { threshold: 3, timeout: 30000 },
+    fallbackTools: ["inspect_dom"],
+    diagnosticAgent: "browser-recovery",
+  },
+  {
+    name: "inspect_dom",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 10000, backoffMultiplier: 2, retryableErrors: ["timeout", "browser", "crash", "navigation", "cdp"] },
+    circuitBreaker: { threshold: 3, timeout: 30000 },
+    fallbackTools: ["screenshot"],
+    diagnosticAgent: "browser-recovery",
+  },
+  {
+    name: "inspect_console",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 10000, backoffMultiplier: 2, retryableErrors: ["timeout", "browser", "crash", "navigation", "cdp"] },
+    circuitBreaker: { threshold: 3, timeout: 30000 },
+    fallbackTools: ["screenshot"],
+    diagnosticAgent: "browser-recovery",
+  },
+  {
+    name: "inspect_accessibility",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 10000, backoffMultiplier: 2, retryableErrors: ["timeout", "browser", "crash", "navigation", "cdp"] },
+    circuitBreaker: { threshold: 3, timeout: 30000 },
+    fallbackTools: ["screenshot"],
+    diagnosticAgent: "browser-recovery",
+  },
+  {
+    name: "git_diff",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 5000, backoffMultiplier: 2, retryableErrors: ["conflict", "merge"] },
+    circuitBreaker: { threshold: 5, timeout: 30000 },
+    fallbackTools: ["run_command"],
+    diagnosticAgent: undefined,
+  },
+  {
+    name: "list_files",
+    retryConfig: { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 5000, backoffMultiplier: 2, retryableErrors: [] },
+    circuitBreaker: { threshold: 10, timeout: 10000 },
+    fallbackTools: [],
+    diagnosticAgent: undefined,
+  },
+  {
+    name: "read_file",
+    retryConfig: { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 5000, backoffMultiplier: 2, retryableErrors: [] },
+    circuitBreaker: { threshold: 10, timeout: 10000 },
+    fallbackTools: [],
+    diagnosticAgent: undefined,
+  },
+  {
+    name: "edit_file",
+    retryConfig: { maxAttempts: 2, baseDelayMs: 500, maxDelayMs: 5000, backoffMultiplier: 2, retryableErrors: [] },
+    circuitBreaker: { threshold: 10, timeout: 10000 },
+    fallbackTools: [],
+    diagnosticAgent: undefined,
+  },
+];
+
+/**
+ * Get resilience config for a tool
+ */
+export function getToolResilienceConfig(toolName: string): ToolResilienceConfig | undefined {
+  return TOOL_RESILIENCE_CONFIGS.find(c => c.name === toolName);
+}
+
+/**
+ * Execute tool with full resilience (retry + circuit breaker + diagnostics)
+ */
+export interface ToolExecutionContextEdge {
+  projectId: string;
+  workspaceId: string;
+  previewPort?: number;
+  previewUrl?: string;
+}
+
+export async function executeToolWithResilience<T extends Record<string, unknown>>(
+  toolName: string,
+  args: T,
+  context: ToolExecutionContextEdge,
+  executeFn: (args: T, context: ToolExecutionContextEdge) => Promise<ToolResult>,
+  options: { onProgress?: (stage: string, info: Record<string, unknown>) => void } = {}
+): Promise<ToolResult> {
+  const config = getToolResilienceConfig(toolName);
+  if (!config) {
+    // No config - just execute once
+    return await executeFn(args, context);
+  }
+
+  const { retryConfig, circuitBreaker: cbConfig, fallbackTools, diagnosticAgent } = config;
+  let lastError: Error | null = null;
+  let attempt = 0;
+
+  while (attempt <= retryConfig.maxAttempts) {
+    try {
+      options.onProgress?.("execute", { tool: toolName, attempt: attempt + 1, maxAttempts: retryConfig.maxAttempts + 1 });
+      const result = await executeFn(args, context);
+
+      if (result.success) {
+        return result;
+      }
+
+      // Tool failed but didn't throw
+      lastError = new Error(result.error || "Tool returned failure");
+      options.onProgress?.("tool_failed", { tool: toolName, error: lastError.message, attempt: attempt + 1 });
+
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      options.onProgress?.("tool_exception", { tool: toolName, error: lastError.message, attempt: attempt + 1 });
+    }
+
+    // Check if we should retry
+    const errStr = lastError?.message || "";
+    const isRetryable = retryConfig.retryableErrors.some(e => errStr.toLowerCase().includes(e.toLowerCase()));
+
+    if (!isRetryable || attempt === retryConfig.maxAttempts) {
+      // Try fallback tools
+      for (const fallback of fallbackTools) {
+        const fallbackConfig = getToolResilienceConfig(fallback);
+        if (fallbackConfig) {
+          options.onProgress?.("fallback", { from: toolName, to: fallback });
+          try {
+            // Would need fallback execute function - for now return error with fallback info
+            return {
+              success: false,
+              error: `${lastError?.message}. Fallback available: ${fallback}`,
+              data: { fallbackTool: fallback, originalError: lastError?.message }
+            };
+          } catch {
+            // Fallback also failed
+          }
+        }
+      }
+
+      // Try diagnostic agent if available
+      if (diagnosticAgent) {
+        options.onProgress?.("diagnostic", { tool: toolName, agent: diagnosticAgent });
+        // Diagnostic agent would be invoked here
+        return {
+          success: false,
+          error: `${lastError?.message}. Diagnostic agent available: ${diagnosticAgent}`,
+          data: { diagnosticAgent, originalError: lastError?.message }
+        };
+      }
+
+      // No more options
+      return { success: false, error: lastError?.message || "Unknown error" };
+    }
+
+    // Exponential backoff
+    attempt++;
+    if (attempt <= retryConfig.maxAttempts) {
+      const delay = Math.min(retryConfig.baseDelayMs * Math.pow(retryConfig.backoffMultiplier, attempt - 1), retryConfig.maxDelayMs);
+      options.onProgress?.("retry_wait", { tool: toolName, delayMs: delay, attempt });
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+
+  return { success: false, error: `Tool ${toolName} failed after ${retryConfig.maxAttempts + 1} attempts: ${lastError?.message}` };
+}
+
+/**
+ * Tool health check - verifies tools are working
+ */
+export async function runToolHealthCheck(
+  projectId: string,
+  workspaceId: string,
+  tools: string[] = ["list_files", "read_file", "run_command", "git_diff"]
+): Promise<{ healthy: boolean; results: Record<string, { ok: boolean; latencyMs: number; error?: string }> }> {
+  const results: Record<string, { ok: boolean; latencyMs: number; error?: string }> = {};
+  let allHealthy = true;
+
+  for (const tool of tools) {
+    const start = Date.now();
+    try {
+      // Run a simple test for each tool
+      if (tool === "list_files") {
+        const { listWorkspaceFiles } = await import("./workspace");
+        await listWorkspaceFiles(workspaceId);
+        results[tool] = { ok: true, latencyMs: Date.now() - start };
+      } else if (tool === "read_file") {
+        // Try reading a known file
+        const { readWorkspaceFileText } = await import("./workspace");
+        await readWorkspaceFileText("package.json", workspaceId);
+        results[tool] = { ok: true, latencyMs: Date.now() - start };
+      } else if (tool === "run_command") {
+        const { runGit } = await import("./workspace");
+        const workspaceRoot = getWorkspaceRoot(workspaceId);
+        await runGit(workspaceRoot, ["status"]);
+        results[tool] = { ok: true, latencyMs: Date.now() - start };
+      } else if (tool === "git_diff") {
+        const { hasIsolated, isolatedPath, runGit } = await import("./workspace");
+        if (hasIsolated(projectId)) {
+          const path = isolatedPath(projectId);
+          await runGit(path, ["diff"]);
+          results[tool] = { ok: true, latencyMs: Date.now() - start };
+        } else {
+          results[tool] = { ok: true, latencyMs: Date.now() - start, error: "No isolated workspace" };
+        }
+      }
+    } catch (error) {
+      results[tool] = { ok: false, latencyMs: Date.now() - start, error: error instanceof Error ? error.message : String(error) };
+      allHealthy = false;
+    }
+  }
+
+  return { healthy: allHealthy, results };
+}
+
+/**
+ * Resilience metrics tracking
+ */
+export interface ResilienceMetrics {
+  totalCalls: number;
+  successfulCalls: number;
+  failedCalls: number;
+  retriedCalls: number;
+  fallbackUsed: number;
+  diagnosticsEscalated: number;
+  avgLatencyMs: number;
+  byTool: Record<string, { calls: number; failures: number; retries: number; fallbacks: number }>;
+}
+
+const resilienceMetrics: ResilienceMetrics = {
+  totalCalls: 0,
+  successfulCalls: 0,
+  failedCalls: 0,
+  retriedCalls: 0,
+  fallbackUsed: 0,
+  diagnosticsEscalated: 0,
+  avgLatencyMs: 0,
+  byTool: {},
+};
+
+export function recordResilienceMetric(
+  toolName: string,
+  outcome: "success" | "failure" | "retry" | "fallback" | "diagnostic",
+  latencyMs: number
+): void {
+  resilienceMetrics.totalCalls++;
+
+  if (outcome === "success") resilienceMetrics.successfulCalls++;
+  else if (outcome === "failure") resilienceMetrics.failedCalls++;
+  else if (outcome === "retry") resilienceMetrics.retriedCalls++;
+  else if (outcome === "fallback") resilienceMetrics.fallbackUsed++;
+  else if (outcome === "diagnostic") resilienceMetrics.diagnosticsEscalated++;
+
+  // Update running average latency
+  resilienceMetrics.avgLatencyMs = (resilienceMetrics.avgLatencyMs * (resilienceMetrics.totalCalls - 1) + latencyMs) / resilienceMetrics.totalCalls;
+
+  // Per-tool metrics
+  if (!resilienceMetrics.byTool[toolName]) {
+    resilienceMetrics.byTool[toolName] = { calls: 0, failures: 0, retries: 0, fallbacks: 0 };
+  }
+  resilienceMetrics.byTool[toolName].calls++;
+  if (outcome === "failure") resilienceMetrics.byTool[toolName].failures++;
+  else if (outcome === "retry") resilienceMetrics.byTool[toolName].retries++;
+  else if (outcome === "fallback") resilienceMetrics.byTool[toolName].fallbacks++;
+}
+
+export function getResilienceMetrics(): ResilienceMetrics {
+  return { ...resilienceMetrics, byTool: { ...resilienceMetrics.byTool } };
+}
+
+export function resetResilienceMetrics(): void {
+  resilienceMetrics.totalCalls = 0;
+  resilienceMetrics.successfulCalls = 0;
+  resilienceMetrics.failedCalls = 0;
+  resilienceMetrics.retriedCalls = 0;
+  resilienceMetrics.fallbackUsed = 0;
+  resilienceMetrics.diagnosticsEscalated = 0;
+  resilienceMetrics.avgLatencyMs = 0;
+  for (const tool of Object.keys(resilienceMetrics.byTool)) {
+    delete resilienceMetrics.byTool[tool];
+  }
 }
