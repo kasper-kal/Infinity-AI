@@ -169,3 +169,19 @@ export function getComponentsForProjectType(typeId: string): string[] {
   const type = getProjectType(typeId);
   return type?.components ?? [];
 }
+
+// Re-export plugin system functions
+export {
+  initPluginSystem,
+  loadAllPlugins,
+  getProjectTypeRegistry as getProjectTypeRegistryWithPlugins,
+  getProjectTypeWithPlugins,
+  validateProjectTypeWithPlugins,
+  getAllProjectTypesWithPlugins,
+  reloadPlugins,
+  watchPlugins,
+  getPluginDirectory,
+  createPluginTemplate,
+  deletePlugin,
+  type PluginManifest,
+} from "./project-type-plugins";

@@ -25,7 +25,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | ✅ **DONE** | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | ✅ **DONE** | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 | **16** | **Infinity Maps Widget** | ✅ **DONE** | ~12-20h | Phase 14 |
-| **17** | **Project Types System (Book, Website, Company, etc.)** | 🔄 IN PROGRESS | ~20-32h | Phase 14, Phase 15 |
+| **17** | **Project Types System (Book, Website, Company, etc.)** | ✅ **DONE** | ~20-32h | Phase 14, Phase 15 |
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
 | **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
@@ -670,18 +670,18 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 - **Course** — Lesson builder, video hosting, quiz engine, student progress
 
 ### Requirements
-- [ ] **Type Registry** — `project-types.ts` with schema: `id`, `name`, `icon`, `description`, `components[]`, `tools[]`, `defaultViews[]`, `settingsSchema`
-- [ ] **Project Creation** — Type selector in "New Project" modal, sets `project.type` field
-- [ ] **Type-Specific UI** — Each type gets custom `ProjectHome` view (replaces generic dashboard)
+- [x] **Type Registry** — `project-types.ts` with schema: `id`, `name`, `icon`, `description`, `components[]`, `tools[]`, `defaultViews[]`, `settingsSchema`
+- [x] **Project Creation** — Type selector in "New Project" modal, sets `project.type` field
+- [x] **Type-Specific UI** — Each type gets custom `ProjectHome` view (replaces generic dashboard)
   - **Company**: Logo/Slogan generator (LLM), Promo Video button (opens Promo Maker), Brand Kit (colors, fonts, assets), Website sub-project link, **Brand Color Palette Generator (Tavily search for inspiration + AI creation), AI Font Pairing/Finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")**
   - **Website**: Build Mode panel, GitHub connect, Figma import, Deploy status, Live Preview
   - **Book**: Chapter outline, Manuscript editor, Cover designer, PDF export, Publish checklist
   - **App**: App scaffolding, Store assets manager, Crash reporting dashboard, Analytics dashboard
   - **Research**: Literature manager, Citation graph, Experiment tracker, Paper draft
   - **Course**: Lesson builder, Video hosting, Quiz engine, Student progress
-- [ ] **Type-Specific Tools** — Register tools per type in Universal Tool Layer (Phase 22): `company.logo`, `company.slogan`, `company.promo`, `company.palette`, `company.font`, `website.deploy`, `book.chapter`, etc.
-- [ ] **Persistence** — Add `type` column to `projects` table, migrate existing projects to `type: "general"`
-- [ ] **Extensibility** — Plugin system for custom project types (local JSON definitions)
+- [x] **Type-Specific Tools** — Register tools per type in Universal Tool Layer (Phase 22): `company.logo`, `company.slogan`, `company.promo`, `company.palette`, `company.font`, `website.deploy`, `book.chapter`, etc.
+- [x] **Persistence** — Add `type` column to `projects` table, migrate existing projects to `type: "general"`
+- [x] **Extensibility** — Plugin system for custom project types (local JSON definitions)
 
 ### Implementation Plan
 1. **Schema** — Add `type` column to `projects` table in `lib/db/src/schema/projects.ts` + migration
@@ -697,15 +697,15 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 11. **Dynamic Routing** — ProjectHomeRouter that fetches project type and renders appropriate component ✅ **DONE**
 
 ### Files to Create/Modify
-- `lib/db/src/schema/projects.ts` — add `type` column + migration ❌ **PENDING**
-- `artifacts/api-server/src/lib/project-types.ts` (new — registry + definitions) ❌ **PENDING** (frontend mirror exists)
-- `artifacts/api-server/src/routes/jarvis/project-types.ts` (new — routes) ❌ **PENDING**
-- `artifacts/api-server/src/routes/jarvis/index.ts` — mount projectTypesRouter ❌ **PENDING**
+- `lib/db/src/schema/projects.ts` — add `type` column + migration ✅ **DONE** (type column added with default 'general')
+- `artifacts/api-server/src/lib/project-types.ts` (new — registry + definitions) ✅ **DONE** (exists at this path)
+- `artifacts/api-server/src/routes/jarvis/project-types.ts` (new — routes) ✅ **DONE** (GET /project-types, GET /project-types/:id, POST /validate, GET /:id/tools, GET /:id/views, GET /:id/components)
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount projectTypesRouter ✅ **DONE** (mounted at line 74)
 - `artifacts/jarvis/src/components/views/projects/` — ProjectHomeCompany, ProjectHomeWebsite, ProjectHomeBook, etc. ✅ **DONE** (all 6 created)
 - `artifacts/jarvis/src/components/project-create-modal.tsx` — type selector ✅ **DONE**
 - `artifacts/jarvis/src/lib/project-types.ts` (frontend registry mirror) ✅ **DONE**
 - `artifacts/jarvis/src/components/projects/project-home-router.tsx` — dynamic router ✅ **DONE**
-- `artifacts/api-server/src/routes/jarvis/company-tools.ts` — palette/font endpoints ✅ **DONE** (mock implementations)
+- `artifacts/api-server/src/routes/jarvis/company-tools.ts` — palette/font endpoints ✅ **DONE** (real Tavily + LLM integration)
 
 ---
 
@@ -1015,33 +1015,29 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 17 — Project Types System**
+## 🎯 Current Phase: **Phase 18 — Promo Maker**
 
 ---
 
-## 🎯 Next Phase: **Phase 17 — Project Types System**
+## 🎯 Next Phase: **Phase 18 — Promo Maker**
 
-> **IN PROGRESS (~85% complete).** Project Types that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows.
-> **DONE (Frontend + Core Logic):**
+> **Phase 17 — Project Types System: ✅ COMPLETE (100%)**
 > - Project type registry with all 7 types (general, book, website, company, app, research, course)
 > - Project creation modal with type selector
 > - Type-specific ProjectHome components for ALL 6 non-general types
 > - Dynamic ProjectHomeRouter that fetches project type and renders correct component
-> - Company tools API with palette/font endpoints (mock implementations using Tavily concept)
-> - i18n translations (EN + NL) for ALL project type components (Company, Book, Website, App, Research, Course) — fixed duplicate keys and type-safe websiteActions
-> **PENDING (Backend/Database):**
-> - Database migration: `type` column on `projects` table + migration script
-> - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`)
-> - Migration of existing projects to `type: "general"`
-> - Real Tavily API integration for `company.palette` and `company.font` (currently mock)
-> - Plugin system for custom project types (extensibility)
+> - Company tools API with palette/font endpoints — **REAL Tavily API + LLM integration** (not mocks)
+> - Database migration: `type` column on `projects` table + existing projects migrated to `general`
+> - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`, `POST /validate`, `GET /:id/tools`, `GET /:id/views`, `GET /:id/components`)
+> - i18n translations (EN + NL) for ALL project type components
+> - **Plugin system for custom project types** — local JSON/YAML definitions in `.infinity/project-types/`, auto-discovery, hot-reload, API management endpoints
 
 ---
 
 ## 🎯 Upcoming Phases (New Feature Requests)
 
 > **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API) ✅ **DONE**
-> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools (~85% complete)
+> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools ✅ **DONE**
 > **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
 > **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
 > **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations

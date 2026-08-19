@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import { createBestAdapter } from "../../lib/adapter-factory";
+import { buildInfinityPrompt } from "../../lib/infinity-prompt";
 
 const router = Router();
 
@@ -39,6 +41,64 @@ const FontFindSchema = z.object({
   stylePreferences: z.string().optional(), // e.g., "modern, like SF Pro"
   purpose: z.enum(["heading", "body", "both"]).default("both"),
 });
+
+// Tavily search helper
+async function searchTavily(query: string, maxResults: number = 5): Promise<{ title: string; url: string; content: string }[] | null> {
+  const apiKey = process.env["TAVILY_API_KEY"] ?? process.env["WEB_SEARCH_API_KEY"];
+  if (!apiKey) return null;
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        search_depth: "basic",
+        include_answer: true,
+        max_results: maxResults,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      answer?: string;
+      results?: { title: string; url: string; content: string }[];
+    };
+    return data.results ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// LLM helper for analyzing Tavily results
+async function analyzeWithLLM(prompt: string): Promise<string> {
+  try {
+    const adapter = await createBestAdapter();
+    const response = await adapter.complete(
+      [
+        { role: "system", content: buildInfinityPrompt({ role: "research" }) },
+        { role: "user", content: prompt },
+      ],
+      {
+        temperature: 0.3,
+        maxTokens: 2000,
+      }
+    );
+    return response.content ?? "";
+  } catch (error) {
+    console.error("[LLM Analysis] Error:", error);
+    return "";
+  }
+}
+
+// Parse LLM JSON response
+function parseLLMJson<T>(text: string, fallback: T): T {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]) as T;
+  } catch {}
+  return fallback;
+}
 
 /**
  * POST /api/jarvis/tools/company.logo
@@ -227,31 +287,62 @@ router.post("/company.palette", async (req: Request, res: Response) => {
   const { projectId, name, description, inspiration, mood } = parsed.data;
 
   try {
-    // In a real implementation, this would:
-    // 1. Use Tavily to search for "color palette inspiration for [business type] [mood]"
-    // 2. Use LLM to analyze results + user input to create a cohesive palette
-    // 3. Return primary, secondary, accent, background, text colors with hex codes
+    // Step 1: Use Tavily to search for color palette inspiration
+    const searchQuery = inspiration
+      ? `color palette inspiration for ${name}: ${inspiration} ${mood} mood`
+      : `color palette inspiration for ${name} ${description ? `: ${description}` : ""} ${mood} mood business branding`;
 
-    // For now, return mock palette based on mood
-    const moodPalettes: Record<string, { primary: string; secondary: string; accent: string; background: string; text: string; }> = {
-      professional: { primary: "#1e3a8a", secondary: "#3b82f6", accent: "#f59e0b", background: "#ffffff", text: "#1e293b" },
-      vibrant: { primary: "#7c3aed", secondary: "#ec4899", accent: "#f97316", background: "#fafafa", text: "#18181b" },
-      minimal: { primary: "#18181b", secondary: "#52525b", accent: "#a3a3a3", background: "#ffffff", text: "#18181b" },
-      warm: { primary: "#9a3412", secondary: "#ea580c", accent: "#f59e0b", background: "#fffbeb", text: "#431407" },
-      cool: { primary: "#0e7490", secondary: "#0891b2", accent: "#22d3ee", background: "#f0f9ff", text: "#164e63" },
-      bold: { primary: "#7f1d1d", secondary: "#dc2626", accent: "#fbbf24", background: "#ffffff", text: "#1f2937" },
-    };
+    const tavilyResults = await searchTavily(searchQuery, 8);
 
-    const palette = moodPalettes[mood] || moodPalettes.professional;
+    // Step 2: Use LLM to analyze results and create a cohesive palette
+    const analysisPrompt = `You are a brand designer creating a cohesive color palette for a company.
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+Company: ${name}
+Description: ${description || "Not provided"}
+Mood: ${mood}
+User Inspiration: ${inspiration || "None provided"}
+Tavily Search Results: ${tavilyResults ? JSON.stringify(tavilyResults.slice(0, 5)) : "No search results available"}
+
+Create a professional brand color palette with exactly 5 colors:
+1. primary - Main brand color
+2. secondary - Supporting brand color
+3. accent - Call-to-action/highlight color
+4. background - Page/background color
+5. text - Primary text color
+
+Return ONLY valid JSON in this format:
+{
+  "primary": "#hex",
+  "secondary": "#hex",
+  "accent": "#hex",
+  "background": "#hex",
+  "text": "#hex",
+  "rationale": "Brief explanation of color choices based on search results and brand attributes"
+}`;
+
+    const llmResponse = await analyzeWithLLM(analysisPrompt);
+    const paletteResult = parseLLMJson(llmResponse, {
+      primary: "#ea580c",
+      secondary: "#1e293b",
+      accent: "#f97316",
+      background: "#ffffff",
+      text: "#0f172a",
+      rationale: "Fallback palette - LLM analysis failed",
+    });
 
     return res.json({
       success: true,
-      palette,
+      palette: {
+        primary: paletteResult.primary,
+        secondary: paletteResult.secondary,
+        accent: paletteResult.accent,
+        background: paletteResult.background,
+        text: paletteResult.text,
+      },
       mood,
-      inspiration: inspiration || "AI-generated based on business description",
+      inspiration: inspiration || "AI-generated based on Tavily search + business description",
+      rationale: paletteResult.rationale,
+      sources: tavilyResults?.slice(0, 3).map(r => ({ title: r.title, url: r.url })) || [],
       message: "Color palette generated successfully",
     });
   } catch (error) {
@@ -263,7 +354,7 @@ router.post("/company.palette", async (req: Request, res: Response) => {
 /**
  * POST /api/jarvis/tools/company.font
  * Find brand fonts for a company project
- * Uses Tavily to search for fonts matching style preferences, then returns curated font pairs
+ * Uses Tavily to search for fonts matching style preferences, then AI to recommend font pairs
  */
 router.post("/company.font", async (req: Request, res: Response) => {
   const parsed = FontFindSchema.safeParse(req.body);
@@ -274,60 +365,51 @@ router.post("/company.font", async (req: Request, res: Response) => {
   const { projectId, name, description, stylePreferences, purpose } = parsed.data;
 
   try {
-    // In a real implementation, this would:
-    // 1. Use Tavily to search for "best fonts for [business type] [stylePreferences] [purpose]"
-    // 2. Use LLM to analyze results and recommend font pairs (heading + body)
-    // 3. Return font names, Google Fonts URLs, pairing rationale
+    // Step 1: Use Tavily to search for font recommendations
+    const searchQuery = `best Google Fonts for ${name} ${description ? `: ${description}` : ""} ${stylePreferences || "modern, like SF Pro"} ${purpose === "heading" ? "headlines" : purpose === "body" ? "body text" : "headings and body text"} branding`;
 
-    // For now, return mock font recommendations based on style
-    const styleFonts: Record<string, { heading: { name: string; url: string; category: string }; body: { name: string; url: string; category: string }; rationale: string; }> = {
-      "modern, like sf pro": {
-        heading: { name: "Inter", url: "https://fonts.google.com/specimen/Inter", category: "Sans-serif" },
-        body: { name: "Inter", url: "https://fonts.google.com/specimen/Inter", category: "Sans-serif" },
-        rationale: "Inter is a modern, versatile sans-serif similar to SF Pro with excellent readability at all sizes.",
-      },
-      "elegant, serif": {
-        heading: { name: "Playfair Display", url: "https://fonts.google.com/specimen/Playfair+Display", category: "Serif" },
-        body: { name: "Source Serif Pro", url: "https://fonts.google.com/specimen/Source+Serif+Pro", category: "Serif" },
-        rationale: "Playfair Display for elegant headlines paired with Source Serif Pro for readable body text.",
-      },
-      "minimal, clean": {
-        heading: { name: "DM Sans", url: "https://fonts.google.com/specimen/DM+Sans", category: "Sans-serif" },
-        body: { name: "DM Sans", url: "https://fonts.google.com/specimen/DM+Sans", category: "Sans-serif" },
-        rationale: "DM Sans is a clean, geometric sans-serif perfect for minimal designs.",
-      },
-      "bold, impactful": {
-        heading: { name: "Bebas Neue", url: "https://fonts.google.com/specimen/Bebas+Neue", category: "Sans-serif" },
-        body: { name: "Montserrat", url: "https://fonts.google.com/specimen/Montserrat", category: "Sans-serif" },
-        rationale: "Bebas Neue for bold headlines with Montserrat as a versatile body companion.",
-      },
-      "friendly, approachable": {
-        heading: { name: "Nunito", url: "https://fonts.google.com/specimen/Nunito", category: "Sans-serif" },
-        body: { name: "Nunito Sans", url: "https://fonts.google.com/specimen/Nunito+Sans", category: "Sans-serif" },
-        rationale: "Nunito's rounded letterforms feel friendly; Nunito Sans provides clean body text.",
-      },
-      "tech, developer": {
-        heading: { name: "Space Grotesk", url: "https://fonts.google.com/specimen/Space+Grotesk", category: "Sans-serif" },
-        body: { name: "JetBrains Mono", url: "https://fonts.google.com/specimen/JetBrains+Mono", category: "Monospace" },
-        rationale: "Space Grotesk for technical headings with JetBrains Mono for code/mono body text.",
-      },
-    };
+    const tavilyResults = await searchTavily(searchQuery, 8);
 
-    // Find best match or use default
-    const styleKey = stylePreferences?.toLowerCase().trim() || "modern, like sf pro";
-    const matchedStyle = Object.keys(styleFonts).find(key => styleKey.includes(key)) || "modern, like sf pro";
-    const fonts = styleFonts[matchedStyle];
+    // Step 2: Use LLM to analyze results and recommend font pairs
+    const analysisPrompt = `You are a brand designer recommending Google Font pairs for a company.
+
+Company: ${name}
+Description: ${description || "Not provided"}
+Style Preferences: ${stylePreferences || "modern, like SF Pro"}
+Purpose: ${purpose}
+Tavily Search Results: ${tavilyResults ? JSON.stringify(tavilyResults.slice(0, 5)) : "No search results available"}
+
+Recommend ONE font pair (heading + body) from Google Fonts that best matches the style preferences.
+The fonts MUST be available on Google Fonts (fonts.google.com).
+
+Return ONLY valid JSON in this format:
+{
+  "headingFont": { "name": "Font Name", "url": "https://fonts.google.com/specimen/Font+Name", "category": "Sans-serif|Serif|Monospace|Display|Handwriting" },
+  "bodyFont": { "name": "Font Name", "url": "https://fonts.google.com/specimen/Font+Name", "category": "Sans-serif|Serif|Monospace|Display|Handwriting" },
+  "rationale": "Explanation of why this pair works for this brand, referencing search results if applicable",
+  "matchedStyle": "The style category this matches (e.g., 'modern, like SF Pro', 'elegant serif', 'minimal clean', etc.)"
+}`;
+
+    const llmResponse = await analyzeWithLLM(analysisPrompt);
+    const fontResult = parseLLMJson(llmResponse, {
+      headingFont: { name: "Inter", url: "https://fonts.google.com/specimen/Inter", category: "Sans-serif" },
+      bodyFont: { name: "Inter", url: "https://fonts.google.com/specimen/Inter", category: "Sans-serif" },
+      rationale: "Fallback - Inter is a modern, versatile sans-serif similar to SF Pro with excellent readability at all sizes.",
+      matchedStyle: "modern, like SF Pro",
+    });
 
     // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     return res.json({
       success: true,
-      headingFont: fonts.heading,
-      bodyFont: fonts.body,
+      headingFont: fontResult.headingFont,
+      bodyFont: fontResult.bodyFont,
       purpose,
       stylePreferences: stylePreferences || "modern, like SF Pro",
-      matchedStyle,
+      matchedStyle: fontResult.matchedStyle,
+      rationale: fontResult.rationale,
+      sources: tavilyResults?.slice(0, 3).map(r => ({ title: r.title, url: r.url })) || [],
       message: "Brand fonts found and saved!",
     });
   } catch (error) {

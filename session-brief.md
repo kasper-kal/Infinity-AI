@@ -4,29 +4,23 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 14:45
+LAST_UPDATED: 2026-08-19 21:15
 
 ## Just did (last action)
+- **Phase 17: Project Types System — COMPLETE (100%):**
+  - **Plugin system for custom project types implemented:**
+    - Backend: `artifacts/api-server/src/lib/project-type-plugins.ts` — Auto-discovers JSON/YAML files in `.infinity/project-types/`, validates with Zod, merges with built-in types, hot-reload via file watcher
+    - API routes added to `project-types.ts`: GET /plugins, POST /plugins/reload, GET /plugins/directory, POST /plugins/create, DELETE /plugins/:id
+    - Frontend: `artifacts/jarvis/src/lib/project-types.ts` — async functions to load custom plugins from API, getAllProjectTypesWithPlugins(), getProjectTypeWithPlugins(), validateProjectTypeWithPlugins(), createPluginTemplate(), deleteCustomPlugin()
+    - Example plugin template auto-created on first run
+  - **All requirements now checked off** — Type Registry, Project Creation, Type-Specific UI (6 ProjectHome components), Type-Specific Tools (real Tavily+LLM), Persistence (DB migration done), **Extensibility (Plugin System)**
+  - **Typecheck + build pass** on all packages
 - **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries ("where should I eat", "find coffee near me", "pizza places nearby"):
   - **Backend** (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search (places), GET /geocode (location query), POST /detect (trigger detection from chat).
   - **Frontend** (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet with place details, category filters, radius slider, "Get Directions" (opens OS maps app via universal links), "Save to Project".
   - **Widget integration**: Added `maps` to Widget union in `types/widget.ts`, exported in `widgets/index.ts`, case in `conversation-feed.tsx`.
   - **Chat integration** (`chat.ts`): `detectMapsCommand()` detects @Maps prefix + 9 natural language patterns ("where should I eat", "coffee near me", "pizza places nearby", etc.). Emits widget SSE event with config (center, radius, categories).
   - **All typecheck + build pass** on both frontend and API server.
-- **Phase 17: Project Types System — Analyzed progress (~85% complete):**
-  - **DONE (Frontend + Core Logic):**
-    - Project type registry with all 7 types (general, book, website, company, app, research, course)
-    - Project creation modal with type selector
-    - Type-specific ProjectHome components for ALL 6 non-general types (Company, Book, Website, App, Research, Course)
-    - Dynamic ProjectHomeRouter that fetches project type and renders correct component
-    - Company tools API with palette/font endpoints (mock implementations using Tavily concept)
-    - i18n translations (EN + NL) for ALL project type components (Company, Book, Website, App, Research, Course) — fixed duplicate keys and type-safe websiteActions
-  - **PENDING (Backend/Database):**
-    - Database migration: `type` column on `projects` table + migration script
-    - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`)
-    - Migration of existing projects to `type: "general"`
-    - Real Tavily API integration for `company.palette` and `company.font` (currently mock)
-    - Plugin system for custom project types (extensibility)
 - **Added Security Hardening Initiative to PHASES.md + session-brief.md** — 11 critical security issues identified with concrete fix steps (must fix before Phase 17):
   1. **API key endpoints missing account authorization (CRITICAL)** — list/update/delete/regenerate query by key ID only, no ownership check
   2. **No centralized authentication middleware (CRITICAL)** — 40+ routers mounted individually, each must remember auth

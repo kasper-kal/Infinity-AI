@@ -167,3 +167,131 @@ export function getProjectTypeIcon(typeId: string): string {
   const type = getProjectType(typeId);
   return type?.icon ?? "📁";
 }
+
+/**
+ * Plugin system for custom project types (frontend mirror)
+ * Note: Full plugin loading happens on the backend; frontend fetches from API
+ */
+
+export interface CustomProjectTypePlugin {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  components: string[];
+  tools: string[];
+  defaultViews: string[];
+  color: string;
+  tags: string[];
+  version: string;
+  author?: string;
+}
+
+// Cache for custom plugins loaded from API
+let customPluginsCache: CustomProjectTypePlugin[] = [];
+let customPluginsLoaded = false;
+
+/**
+ * Load custom plugins from the backend API
+ */
+export async function loadCustomPluginsFromAPI(): Promise<CustomProjectTypePlugin[]> {
+  try {
+    const response = await fetch("/api/jarvis/project-types/plugins");
+    if (!response.ok) throw new Error("Failed to fetch plugins");
+    const data = await response.json();
+    customPluginsCache = data.plugins || [];
+    customPluginsLoaded = true;
+    return customPluginsCache;
+  } catch (error) {
+    console.warn("[Project Types] Failed to load custom plugins:", error);
+    return [];
+  }
+}
+
+/**
+ * Get all project types including custom plugins
+ */
+export async function getAllProjectTypesWithPlugins(): Promise<ProjectType[]> {
+  if (!customPluginsLoaded) {
+    await loadCustomPluginsFromAPI();
+  }
+
+  const builtin = BUILTIN_PROJECT_TYPES;
+  const custom = customPluginsCache.map(p => ({
+    ...p,
+    settingsSchema: undefined,
+    extends: undefined,
+  })) as ProjectType[];
+
+  return [...builtin, ...custom];
+}
+
+/**
+ * Get project type by ID including plugins
+ */
+export async function getProjectTypeWithPlugins(id: string): Promise<ProjectType | undefined> {
+  // Check built-in first
+  const builtin = getProjectType(id);
+  if (builtin) return builtin;
+
+  // Check custom plugins
+  if (!customPluginsLoaded) {
+    await loadCustomPluginsFromAPI();
+  }
+
+  return customPluginsCache.find(p => p.id === id);
+}
+
+/**
+ * Validate project type ID including plugins
+ */
+export async function validateProjectTypeWithPlugins(id: string): Promise<boolean> {
+  if (validateProjectType(id)) return true;
+  if (!customPluginsLoaded) {
+    await loadCustomPluginsFromAPI();
+  }
+  return customPluginsCache.some(p => p.id === id);
+}
+
+/**
+ * Reload custom plugins from API
+ */
+export async function reloadCustomPlugins(): Promise<CustomProjectTypePlugin[]> {
+  customPluginsLoaded = false;
+  return loadCustomPluginsFromAPI();
+}
+
+/**
+ * Create a new plugin template via API
+ */
+export async function createPluginTemplate(id: string, name: string): Promise<{ success: boolean; filePath?: string; message?: string; error?: string }> {
+  try {
+    const response = await fetch("/api/jarvis/project-types/plugins/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name }),
+    });
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Delete a custom plugin via API
+ */
+export async function deleteCustomPlugin(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`/api/jarvis/project-types/plugins/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      return { success: false, error: data.error };
+    }
+    customPluginsCache = customPluginsCache.filter(p => p.id !== id);
+    return { success: true, message: `Plugin "${id}" deleted` };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
