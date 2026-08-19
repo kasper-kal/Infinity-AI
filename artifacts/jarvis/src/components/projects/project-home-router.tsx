@@ -3,19 +3,22 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ProjectHome, type ProjectHomeAction } from './project-home';
-import { ProjectHomeBook } from '@/components/views/projects/ProjectHomeBook';
-import { ProjectHomeWebsite } from '@/components/views/projects/ProjectHomeWebsite';
-import { ProjectHomeCompany } from '@/components/views/projects/ProjectHomeCompany';
-import { ProjectHomeApp } from '@/components/views/projects/ProjectHomeApp';
-import { ProjectHomeResearch } from '@/components/views/projects/ProjectHomeResearch';
-import { ProjectHomeCourse } from '@/components/views/projects/ProjectHomeCourse';
+import { ProjectHomeBook, type BookHomeAction } from '@/components/views/projects/ProjectHomeBook';
+import { ProjectHomeWebsite, type WebsiteHomeAction } from '@/components/views/projects/ProjectHomeWebsite';
+import { ProjectHomeCompany, type CompanyHomeAction } from '@/components/views/projects/ProjectHomeCompany';
+import { ProjectHomeApp, type AppHomeAction } from '@/components/views/projects/ProjectHomeApp';
+import { ProjectHomeResearch, type ResearchHomeAction } from '@/components/views/projects/ProjectHomeResearch';
+import { ProjectHomeCourse, type CourseHomeAction } from '@/components/views/projects/ProjectHomeCourse';
+
+// Union of all possible project home action types
+export type AllProjectHomeActions = ProjectHomeAction | BookHomeAction | WebsiteHomeAction | CompanyHomeAction | AppHomeAction | ResearchHomeAction | CourseHomeAction;
 
 interface ProjectHomeRouterProps {
   projectId: string;
   onBack: () => void;
   onContinueConversation: (conversationId: string) => void | Promise<void>;
   onNewChat: () => void | Promise<void>;
-  onOpenAction?: (action: ProjectHomeAction) => void;
+  onOpenAction?: (action: AllProjectHomeActions) => void;
   projectType?: string;
 }
 

@@ -31,7 +31,7 @@ import { CameraModeView } from '@/components/home/camera-mode-view';
 import { VoiceModeView } from '@/components/home/voice-mode-view';
 import { ChatModeView } from '@/components/home/chat-mode-view';
 import { PipBrowserWindow } from '@/components/home/pip-browser-window';
-import { ProjectHomeRouter, type ProjectHomeAction } from '@/components/projects/project-home-router';
+import { ProjectHomeRouter, type AllProjectHomeActions } from '@/components/projects/project-home-router';
 import type { ProjectSection } from '@/components/project-gallery';
 import { ProjectMemory } from '@/components/projects/project-memory';
 import { ProjectInstructions } from '@/components/projects/project-instructions';
@@ -715,7 +715,7 @@ export default function Home() {
     }
   }, [activeProjectId, handleNewChat, refreshSidebar, t, toast]);
 
-  const handleProjectAction = useCallback((action: ProjectHomeAction) => {
+  const handleProjectAction = useCallback((action: AllProjectHomeActions) => {
     if (action === 'memory') {
       setActiveProjectView('memory');
       return;

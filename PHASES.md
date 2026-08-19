@@ -25,7 +25,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | ✅ **DONE** | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | ✅ **DONE** | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 | **16** | **Infinity Maps Widget** | ✅ **DONE** | ~12-20h | Phase 14 |
-| **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
+| **17** | **Project Types System (Book, Website, Company, etc.)** | 🔄 IN PROGRESS | ~20-32h | Phase 14, Phase 15 |
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
 | **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
@@ -687,22 +687,25 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 1. **Schema** — Add `type` column to `projects` table in `lib/db/src/schema/projects.ts` + migration
 2. **Type Registry** — `artifacts/api-server/src/lib/project-types.ts` with built-in types definitions
 3. **API** — `project-types.ts` routes: `GET /project-types` (list), `GET /project-types/:id` (detail)
-4. **Frontend** — Project type selector in create modal, type-specific `ProjectHome` components in `components/views/projects/`
-5. **Company Type** — Logo/slogan generator (uses LLM), brand kit UI, promo maker launcher, **Brand Color Palette Generator (Tavily search for color palette inspiration + AI creation), AI Font Pairing/Finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")**
-6. **Website Type** — Build Mode integration, GitHub OAuth, Figma import, deploy status
-7. **Book Type** — Wire existing Book Studio as Book project type home
-8. **App Type** — App scaffolding, Store assets manager, Crash reporting dashboard, Analytics dashboard
-9. **Research Type** — Literature manager, Citation graph, Experiment tracker, Paper draft
-10. **Course Type** — Lesson builder, Video hosting, Quiz engine, Student progress
+4. **Frontend** — Project type selector in create modal, type-specific `ProjectHome` components in `components/views/projects/` ✅ **DONE**
+5. **Company Type** — Logo/slogan generator (uses LLM), brand kit UI, promo maker launcher, **Brand Color Palette Generator (Tavily search for color palette inspiration + AI creation), AI Font Pairing/Finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")** ✅ **FRONTEND DONE** — API routes exist with mock implementations
+6. **Website Type** — Build Mode integration, GitHub OAuth, Figma import, deploy status ✅ **FRONTEND DONE** — ProjectHomeWebsite.tsx created
+7. **Book Type** — Wire existing Book Studio as Book project type home ✅ **FRONTEND DONE** — ProjectHomeBook.tsx created
+8. **App Type** — App scaffolding, Store assets manager, Crash reporting dashboard, Analytics dashboard ✅ **FRONTEND DONE** — ProjectHomeApp.tsx created
+9. **Research Type** — Literature manager, Citation graph, Experiment tracker, Paper draft ✅ **FRONTEND DONE** — ProjectHomeResearch.tsx created
+10. **Course Type** — Lesson builder, Video hosting, Quiz engine, Student progress ✅ **FRONTEND DONE** — ProjectHomeCourse.tsx created
+11. **Dynamic Routing** — ProjectHomeRouter that fetches project type and renders appropriate component ✅ **DONE**
 
 ### Files to Create/Modify
-- `lib/db/src/schema/projects.ts` — add `type` column + migration
-- `artifacts/api-server/src/lib/project-types.ts` (new — registry + definitions)
-- `artifacts/api-server/src/routes/jarvis/project-types.ts` (new — routes)
-- `artifacts/api-server/src/routes/jarvis/index.ts` — mount projectTypesRouter
-- `artifacts/jarvis/src/components/views/projects/` — ProjectHomeCompany, ProjectHomeWebsite, ProjectHomeBook, etc.
-- `artifacts/jarvis/src/components/project-create-modal.tsx` — type selector
-- `artifacts/jarvis/src/lib/project-types.ts` (frontend registry mirror)
+- `lib/db/src/schema/projects.ts` — add `type` column + migration ❌ **PENDING**
+- `artifacts/api-server/src/lib/project-types.ts` (new — registry + definitions) ❌ **PENDING** (frontend mirror exists)
+- `artifacts/api-server/src/routes/jarvis/project-types.ts` (new — routes) ❌ **PENDING**
+- `artifacts/api-server/src/routes/jarvis/index.ts` — mount projectTypesRouter ❌ **PENDING**
+- `artifacts/jarvis/src/components/views/projects/` — ProjectHomeCompany, ProjectHomeWebsite, ProjectHomeBook, etc. ✅ **DONE** (all 6 created)
+- `artifacts/jarvis/src/components/project-create-modal.tsx` — type selector ✅ **DONE**
+- `artifacts/jarvis/src/lib/project-types.ts` (frontend registry mirror) ✅ **DONE**
+- `artifacts/jarvis/src/components/projects/project-home-router.tsx` — dynamic router ✅ **DONE**
+- `artifacts/api-server/src/routes/jarvis/company-tools.ts` — palette/font endpoints ✅ **DONE** (mock implementations)
 
 ---
 
@@ -1012,18 +1015,26 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
+## 🎯 Current Phase: **Phase 17 — Project Types System**
 
 ---
 
-## 🎯 Next Phase: **Phase 16 — Infinity Maps Widget**
+## 🎯 Next Phase: **Phase 17 — Project Types System**
 
-> **IN PROGRESS.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps.
-> 1. **Backend** — `maps.ts` route: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event
-> 2. **Frontend Widget** — `MapsWidget.tsx`: Leaflet/MapLibre map, marker clustering, bottom sheet details, directions links
-> 3. **Widget Type** — Add `maps` to Widget union in `types/widget.ts`, export in `widgets/index.ts`, add case in `conversation-feed.tsx`
-> 4. **Chat Integration** — Add `detectMapsCommand()` in `chat.ts`, emit `widget` SSE event with map config (center, radius, categories)
-> 5. **Styling** — Liquid Glass theme tokens, responsive (mobile: full-screen sheet, desktop: inline widget)
+> **IN PROGRESS (~75% complete).** Project Types that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows.
+> **DONE (Frontend + Core Logic):**
+> - Project type registry with all 7 types (general, book, website, company, app, research, course)
+> - Project creation modal with type selector
+> - Type-specific ProjectHome components for ALL 6 non-general types
+> - Dynamic ProjectHomeRouter that fetches project type and renders correct component
+> - Company tools API with palette/font endpoints (mock implementations using Tavily concept)
+> - i18n translations (EN + NL) for all new company tool strings
+> **PENDING (Backend/Database):**
+> - Database migration: `type` column on `projects` table + migration script
+> - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`)
+> - Migration of existing projects to `type: "general"`
+> - Real Tavily API integration for `company.palette` and `company.font` (currently mock)
+> - Plugin system for custom project types (extensibility)
 
 ---
 

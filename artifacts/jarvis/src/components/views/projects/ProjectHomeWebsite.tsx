@@ -115,7 +115,13 @@ const activityLabelKeys: Record<string, TranslationKey> = {
   file: 'projectHome.activity.file',
 };
 
-const websiteActions = [
+const websiteActions: Array<{
+  action: WebsiteHomeAction;
+  icon: typeof Code;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
+  accent: string;
+}> = [
   { action: 'build' as const, icon: Code, labelKey: 'projectHomeWebsite.build', descriptionKey: 'projectHomeWebsite.buildDesc', accent: 'text-primary bg-primary/10 border-primary/20' },
   { action: 'github' as const, icon: Github, labelKey: 'projectHomeWebsite.github', descriptionKey: 'projectHomeWebsite.githubDesc', accent: 'text-gray-500 bg-gray-500/10 border-gray-500/20' },
   { action: 'figma' as const, icon: Layers, labelKey: 'projectHomeWebsite.figma', descriptionKey: 'projectHomeWebsite.figmaDesc', accent: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
