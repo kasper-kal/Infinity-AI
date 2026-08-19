@@ -61,6 +61,7 @@ export type Widget =
   | { type: 'random'; kind: 'dice' | 'coin' | 'number'; value: number; label: string }
   | { type: 'music'; composition: MusicComposition }
   | { type: 'browser_agent'; goal: string }
+  | { type: 'promo'; jobId: string; status: 'planning' | 'recording' | 'audio' | 'encoding' | 'optimizing' | 'completed' | 'failed'; progress: number; videoUrl?: string; thumbnailUrl?: string; error?: string }
 
 /** A terminal command card shown in chat (from run_terminal SSE events). */
 export interface TerminalResult {

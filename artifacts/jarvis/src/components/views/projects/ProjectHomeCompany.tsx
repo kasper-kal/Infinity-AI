@@ -134,6 +134,7 @@ export function ProjectHomeCompany({
   const [sloganResult, setSloganResult] = useState<string | null>(null);
   const [paletteResult, setPaletteResult] = useState<{ primary: string; secondary: string; accent: string; background: string; text: string } | null>(null);
   const [fontsResult, setFontsResult] = useState<{ heading: { name: string; url: string }; body: { name: string; url: string } } | null>(null);
+  const [brandKit, setBrandKit] = useState<{ colors: { primary: string; secondary: string; accent: string; background: string; text: string }; fonts: { heading: { name: string; url: string }; body: { name: string; url: string } } } | null>(null);
   const locale = lang === 'nl' ? 'nl-NL' : 'en-GB';
 
   const loadHome = useCallback(async () => {
@@ -243,14 +244,17 @@ export function ProjectHomeCompany({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId,
-          name: payload.project.name,
-          description: payload.project.description,
+          url: `https://${payload.project.name.toLowerCase().replace(/\s+/g, '')}.com`, // placeholder URL
+          prompt: `Create a promo video for ${payload.project.name}: ${payload.project.description}`,
+          duration: 30,
+          style: "professional",
+          brandKit: brandKit,
         }),
       });
       if (response.ok) {
         const result = await response.json();
-        // Open promo widget with job ID
+        // Open promo widget with job ID - the widget will be shown via the chat SSE event
+        // For now, we can navigate to a modal or show the widget inline
         onOpenAction?.('promo' as CompanyHomeAction);
       }
     } catch {
@@ -277,6 +281,17 @@ export function ProjectHomeCompany({
       if (response.ok) {
         const result = await response.json();
         setPaletteResult(result.palette);
+        // Update brandKit with colors
+        setBrandKit(prev => ({
+          colors: {
+            primary: result.palette.primary,
+            secondary: result.palette.secondary,
+            accent: result.palette.accent,
+            background: result.palette.background,
+            text: result.palette.text,
+          },
+          fonts: prev?.fonts || { heading: { name: '', url: '' }, body: { name: '', url: '' } },
+        }));
       }
     } catch {
       // Error handled by UI
@@ -306,6 +321,14 @@ export function ProjectHomeCompany({
           heading: { name: result.headingFont.name, url: result.headingFont.url },
           body: { name: result.bodyFont.name, url: result.bodyFont.url },
         });
+        // Update brandKit with fonts
+        setBrandKit(prev => ({
+          colors: prev?.colors || { primary: '', secondary: '', accent: '', background: '', text: '' },
+          fonts: {
+            heading: { name: result.headingFont.name, url: result.headingFont.url },
+            body: { name: result.bodyFont.name, url: result.bodyFont.url },
+          },
+        }));
       }
     } catch {
       // Error handled by UI

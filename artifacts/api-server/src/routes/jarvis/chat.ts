@@ -156,6 +156,28 @@ function detectAgentCommand(text: string): { isAgent: boolean; goal: string } {
   return { isAgent: goal.length > 0, goal };
 }
 
+/**
+ * Detect @Promo command for promo video generation.
+ * Matches: @Promo <url> <description>
+ */
+function detectPromoCommand(text: string): { isPromo: boolean; url: string; description: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Promo\s+(\S+)\s+(.+)$/i);
+  if (!match) return { isPromo: false, url: '', description: '' };
+
+  const url = match[1].trim();
+  const description = match[2].trim();
+
+  // Validate URL
+  try {
+    new URL(url);
+  } catch {
+    return { isPromo: false, url: '', description: '' };
+  }
+
+  return { isPromo: url.length > 0 && description.length > 10, url, description };
+}
+
 /** Detect if the user is asking to draw/generate/create an image. */
 function detectImageRequest(text: string): { isImageRequest: boolean; imagePrompt: string } {
   const t = text.trim().toLowerCase();
@@ -1261,6 +1283,53 @@ router.post("/chat", async (req, res) => {
           goal: agentCheckCmd.goal,
         },
       })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Promo command: Promo video generation ───────────────────────
+    const promoCheck = detectPromoCommand(sanitizedMessage);
+    if (promoCheck.isPromo) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Start the promo job via API
+      try {
+        const promoRes = await fetch("http://localhost:3000/api/jarvis/promo/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: promoCheck.url,
+            prompt: promoCheck.description,
+            duration: 30,
+            style: "professional",
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (promoRes.ok) {
+          const promoData = await promoRes.json() as { jobId: string; status: string; progress: number };
+          // Send the promo widget event - frontend will render PromoWidget
+          res.write(`data: ${JSON.stringify({
+            type: "widget",
+            widget: {
+              type: "promo",
+              jobId: promoData.jobId,
+              status: promoData.status,
+              progress: promoData.progress,
+            },
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Failed to start promo video generation` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error starting promo: ${(err as Error).message}` })}\n\n`);
+      }
+
       res.write("data: [DONE]\n\n");
       res.end();
       return;

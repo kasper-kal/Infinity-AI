@@ -19,3 +19,4 @@ export { CommandCard } from './CommandCard';
 export { FileEditCard } from './FileEditCard';
 export { FigmaWidget, type FigmaTokenCard } from './FigmaWidget';
 export { MapsWidget } from './MapsWidget';
+export { PromoWidget } from './PromoWidget';

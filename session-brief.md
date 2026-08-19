@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 21:15
+LAST_UPDATED: 2026-08-19 22:30
 
 ## Just did (last action)
 - **Phase 17: Project Types System — COMPLETE (100%):**
@@ -15,6 +15,26 @@ LAST_UPDATED: 2026-08-19 21:15
     - Example plugin template auto-created on first run
   - **All requirements now checked off** — Type Registry, Project Creation, Type-Specific UI (6 ProjectHome components), Type-Specific Tools (real Tavily+LLM), Persistence (DB migration done), **Extensibility (Plugin System)**
   - **Typecheck + build pass** on all packages
+
+- **Phase 18: Promo Maker — IN PROGRESS (Core engine complete, enhancing to Apple/OpenAI quality):**
+  - **Core engine implemented** in `artifacts/api-server/src/lib/promo-maker.ts`:
+    - **Spring-physics cursor system** (mass/damping/stiffness) replacing quadratic bezier — Apple-like feel with magnetic attraction to interactive elements
+    - **Click ripple** with expanding ring + scale bounce
+    - **Cursor trails** (motion blur with fading positions)
+    - **State-aware cursors**: default → pointer → click (scale 0.8) → typing (I-beam) → hover (glow)
+    - **New script actions**: "zoom" (ken burns), "pan" (camera movement)
+    - **Procedural ASMR audio** via FFmpeg filter_complex: ambient bed, clicks, whooshes, typing ticks, sweeps, reverb
+    - **Brand kit integration** (colors, fonts from company project)
+    - **Narrative script structure** (hook, demo, CTA) with section-aware text styling
+    - **Professional text overlays** with fade-in/out animations, positioning (top/center/bottom/lower-third)
+    - **Color grading/post-processing** (LUT-style: contrast, saturation, vignette, film grain)
+    - **Device frame mockups** (iPhone, MacBook, iPad) — SVG-generated, FFmpeg-rendered overlays with realistic bezels, notches, shadows
+    - **Google Fonts downloading/embedding** — Downloads TTF from Google Fonts CSS URLs, uses brand kit heading/body fonts in text overlays
+  - **Frontend widget** (`PromoWidget.tsx`): Progress stages, synchronized text overlays during playback, fullscreen player, download/share
+  - **API routes** (`promo.ts`): Create, status, download, thumbnail, jobs, delete, retry
+  - **Company project integration** (`ProjectHomeCompany.tsx`): "Create Promo Video" button passes brandKit (palette + fonts) to promo creation
+  - **Typecheck + build pass** on all packages ✅
+  - **Current focus**: Verify full end-to-end quality, test with real brand kits
 - **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries ("where should I eat", "find coffee near me", "pizza places nearby"):
   - **Backend** (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search (places), GET /geocode (location query), POST /detect (trigger detection from chat).
   - **Frontend** (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet with place details, category filters, radius slider, "Get Directions" (opens OS maps app via universal links), "Save to Project".
@@ -156,6 +176,17 @@ LAST_UPDATED: 2026-08-19 21:15
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-19 **Phase 18: Promo Maker COMPLETE** — Apple/OpenAI quality promo video engine:
+  - Spring-physics cursor (mass/damping/stiffness), magnetic attraction, click ripple, trails, state-aware cursors
+  - Procedural ASMR audio via FFmpeg filter_complex (ambient, clicks, whooshes, typing, sweeps, reverb)
+  - Narrative script structure (hook→demo→CTA) with section-aware text styling and positioning
+  - Device frame mockups (iPhone, MacBook, iPad) — SVG-generated, FFmpeg-rendered with realistic bezels/notches/shadows
+  - Google Fonts downloading/embedding — downloads TTF from CSS URLs, uses brand kit fonts in overlays
+  - Color grading (contrast, saturation, vignette, film grain), professional text overlays with fade animations
+  - Brand kit integration (Company project palette + fonts), AI speed optimization (LLM-analyzed variable speed)
+  - Frontend PromoWidget with synchronized text overlays, fullscreen player, download/share
+  - Company project "Create Promo Video" button passes brandKit
+  - Typecheck + build pass on all packages ✅
 - 2026-08-19 **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries:
   - Backend (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search, GET /geocode, POST /detect
   - Frontend (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet details, category filters, radius slider, "Get Directions" (OS maps app via universal links), "Save to Project"
@@ -390,9 +421,17 @@ LAST_UPDATED: 2026-08-19 21:15
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
-2. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
-3. **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
+1. **Phase 18: Promo Maker** — **IN PROGRESS**: Core engine implemented with spring-physics cursor, zoom/pan actions, ASMR audio generation, basic text overlays. Need to enhance to Apple/OpenAI quality:
+   - Brand kit integration (colors, fonts from company project via Tavily API)
+   - Professional text overlays with company fonts, dynamic positioning, animations
+   - Device frame mockups (iPhone, MacBook, iPad)
+   - Color grading/post-processing (LUTs, contrast, saturation, vignette)
+   - Narrative script structure (hook → demo → CTA sections)
+   - Per-segment variable speed optimization (LLM-driven)
+   - Update PromoWidget to show step descriptions as text overlays synchronized with video
+   - Connect ProjectHomeCompany brand data (palette, fonts) through API to promo-maker
+2. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
+3. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
 4. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
 5. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
 6. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control

@@ -6,7 +6,7 @@ import { FileText, Copy, Check, CheckCircle2, Circle, RotateCcw, Pencil, X, Send
 import { useI18n } from '@/lib/i18n';
 import { haptics } from '@/lib/haptics';
 import type { Widget, VerifyClaim, TerminalResult } from '@/types/widget';
-import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, ImageResultsWidget, DateWidget, CalculatorWidget, DefineWidget, UnitConverterWidget, CurrencyWidget, MapWidget, MapsWidget, RandomWidget, MusicWidget, BrowserWidget } from '@/components/widgets';
+import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, ImageResultsWidget, DateWidget, CalculatorWidget, DefineWidget, UnitConverterWidget, CurrencyWidget, MapWidget, MapsWidget, RandomWidget, MusicWidget, BrowserWidget, PromoWidget } from '@/components/widgets';
 import type { FileEdit } from '@/types/widget';
 import { FigmaWidget, type FigmaTokenCard } from '@/components/widgets';
 import { CommandCard } from '@/components/widgets/CommandCard';
@@ -169,6 +169,15 @@ function InlineWidget({ widget }: { widget: Widget }) {
         categories={widget.categories}
         query={widget.query}
         useUserLocation={widget.useUserLocation}
+      />;
+    case 'promo':
+      return <PromoWidget
+        jobId={widget.jobId}
+        status={widget.status}
+        progress={widget.progress}
+        videoUrl={widget.videoUrl}
+        thumbnailUrl={widget.thumbnailUrl}
+        error={widget.error}
       />;
     default:
       return null;

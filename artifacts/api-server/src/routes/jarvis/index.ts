@@ -63,6 +63,7 @@ import selfEvolutionRouter from "./self-evolution";
 import mapsRouter from "./maps";
 import projectTypesRouter from "./project-types";
 import companyToolsRouter from "./company-tools";
+import promoRouter from "./promo";
 
 const router = Router();
 
@@ -73,6 +74,7 @@ router.use(selfEvolutionRouter);
 router.use(mapsRouter);
 router.use(projectTypesRouter);
 router.use(companyToolsRouter);
+router.use(promoRouter);
 router.use(conversationsRouter);
 router.use(settingsRouter);
 // Mount before the global memory router so scoped /memories/:id mutations can

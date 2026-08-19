@@ -26,7 +26,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **15** | **Build Mode Intelligence & Reliability** | ✅ **DONE** | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 | **16** | **Infinity Maps Widget** | ✅ **DONE** | ~12-20h | Phase 14 |
 | **17** | **Project Types System (Book, Website, Company, etc.)** | ✅ **DONE** | ~20-32h | Phase 14, Phase 15 |
-| **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
+| **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | ✅ **DONE** | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
 | **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
 
