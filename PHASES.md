@@ -1006,9 +1006,36 @@ loop:
 
 ---
 
-## 🔒 Security Hardening Initiative (Critical — Do Before Phase 16)
+## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
 
-The following 11 security issues were identified and must be fixed before proceeding to new features. Each has concrete fix steps.
+---
+
+## 🎯 Next Phase: **Phase 16 — Infinity Maps Widget**
+
+> **IN PROGRESS.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps.
+> 1. **Backend** — `maps.ts` route: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event
+> 2. **Frontend Widget** — `MapsWidget.tsx`: Leaflet/MapLibre map, marker clustering, bottom sheet details, directions links
+> 3. **Widget Type** — Add `maps` to Widget union in `types/widget.ts`, export in `widgets/index.ts`, add case in `conversation-feed.tsx`
+> 4. **Chat Integration** — Add `detectMapsCommand()` in `chat.ts`, emit `widget` SSE event with map config (center, radius, categories)
+> 5. **Styling** — Liquid Glass theme tokens, responsive (mobile: full-screen sheet, desktop: inline widget)
+
+---
+
+## 🎯 Upcoming Phases (New Feature Requests)
+
+> **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API)
+> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools
+> **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
+> **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
+> **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations
+
+> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
+
+---
+
+## 🔒 Security Hardening Initiative (Critical — Must Complete After All Phases)
+
+The following 11 security issues were identified and must be fixed after all feature phases are complete. Each has concrete fix steps.
 
 ### Issue 1: API Key Endpoints Missing Account Authorization (CRITICAL)
 
@@ -1194,30 +1221,3 @@ The following 11 security issues were identified and must be fixed before procee
   - [ ] Redact before sending to client
 - [ ] Add test: log entry containing `sk-test123` → appears as `sk-****`
 - [ ] Verify typecheck + build pass
-
----
-
-## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
-
----
-
-## 🎯 Next Phase: **Phase 16 — Infinity Maps Widget**
-
-> **IN PROGRESS.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps.
-> 1. **Backend** — `maps.ts` route: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event
-> 2. **Frontend Widget** — `MapsWidget.tsx`: Leaflet/MapLibre map, marker clustering, bottom sheet details, directions links
-> 3. **Widget Type** — Add `maps` to Widget union in `types/widget.ts`, export in `widgets/index.ts`, add case in `conversation-feed.tsx`
-> 4. **Chat Integration** — Add `detectMapsCommand()` in `chat.ts`, emit `widget` SSE event with map config (center, radius, categories)
-> 5. **Styling** — Liquid Glass theme tokens, responsive (mobile: full-screen sheet, desktop: inline widget)
-
----
-
-## 🎯 Upcoming Phases (New Feature Requests)
-
-> **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API)
-> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools
-> **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
-> **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
-> **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations
-
-> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.

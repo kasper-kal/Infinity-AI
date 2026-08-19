@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 12:15
+LAST_UPDATED: 2026-08-19 12:30
 
 ## Just did (last action)
 - **Added Security Hardening Initiative to PHASES.md + session-brief.md** — 11 critical security issues identified with concrete fix steps (must fix before Phase 16):
@@ -269,7 +269,7 @@ LAST_UPDATED: 2026-08-19 12:15
     - Full typecheck passes clean on both api-server and acp-server
   - All 11 Phase 15 tasks complete! Next: Phase 16 (Infinity Maps Widget)
 
-- **Security Hardening Initiative (CRITICAL — Added to PHASES.md)** — 11 issues with concrete fix steps:
+- **Security Hardening Initiative (After All Phases)** — 11 issues with concrete fix steps added to end of PHASES.md:
   1. API key endpoints missing account authorization (CRITICAL)
   2. No centralized authentication middleware (CRITICAL)
   3. Build terminal route missing authentication (CRITICAL)
