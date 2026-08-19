@@ -664,7 +664,7 @@ Add an **Infinity Maps** widget that activates when users ask location-based que
 Add **Project Types** that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows:
 - **Book** — Manuscript editor, chapter outline, A5 PDF export, cover designer (extends existing Book Studio)
 - **Website** — Build Mode integration, GitHub sync, Figma import, live preview, deployment
-- **Company** — Logo/slogan generator, promo video creator, website builder, brand kit, promo maker tool
+- **Company** — Logo/slogan generator, promo video creator, website builder, brand kit, promo maker tool, **brand color palette generator (Tavily search for inspiration + AI creation), AI font pairing/finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")**
 - **App** — Mobile/desktop app scaffolding, store assets, crash reporting, analytics dashboard
 - **Research** — Literature manager, citation graph, experiment tracker, paper draft
 - **Course** — Lesson builder, video hosting, quiz engine, student progress
@@ -673,10 +673,13 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 - [ ] **Type Registry** — `project-types.ts` with schema: `id`, `name`, `icon`, `description`, `components[]`, `tools[]`, `defaultViews[]`, `settingsSchema`
 - [ ] **Project Creation** — Type selector in "New Project" modal, sets `project.type` field
 - [ ] **Type-Specific UI** — Each type gets custom `ProjectHome` view (replaces generic dashboard)
-  - **Company**: Logo/Slogan generator (LLM), Promo Video button (opens Promo Maker), Brand Kit (colors, fonts, assets), Website sub-project link
+  - **Company**: Logo/Slogan generator (LLM), Promo Video button (opens Promo Maker), Brand Kit (colors, fonts, assets), Website sub-project link, **Brand Color Palette Generator (Tavily search for inspiration + AI creation), AI Font Pairing/Finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")**
   - **Website**: Build Mode panel, GitHub connect, Figma import, Deploy status, Live Preview
   - **Book**: Chapter outline, Manuscript editor, Cover designer, PDF export, Publish checklist
-- [ ] **Type-Specific Tools** — Register tools per type in Universal Tool Layer (Phase 22): `company.logo`, `company.slogan`, `company.promo`, `website.deploy`, `book.chapter`, etc.
+  - **App**: App scaffolding, Store assets manager, Crash reporting dashboard, Analytics dashboard
+  - **Research**: Literature manager, Citation graph, Experiment tracker, Paper draft
+  - **Course**: Lesson builder, Video hosting, Quiz engine, Student progress
+- [ ] **Type-Specific Tools** — Register tools per type in Universal Tool Layer (Phase 22): `company.logo`, `company.slogan`, `company.promo`, `company.palette`, `company.font`, `website.deploy`, `book.chapter`, etc.
 - [ ] **Persistence** — Add `type` column to `projects` table, migrate existing projects to `type: "general"`
 - [ ] **Extensibility** — Plugin system for custom project types (local JSON definitions)
 
@@ -685,9 +688,12 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 2. **Type Registry** — `artifacts/api-server/src/lib/project-types.ts` with built-in types definitions
 3. **API** — `project-types.ts` routes: `GET /project-types` (list), `GET /project-types/:id` (detail)
 4. **Frontend** — Project type selector in create modal, type-specific `ProjectHome` components in `components/views/projects/`
-5. **Company Type** — Logo/slogan generator (uses LLM), brand kit UI, promo maker launcher
+5. **Company Type** — Logo/slogan generator (uses LLM), brand kit UI, promo maker launcher, **Brand Color Palette Generator (Tavily search for color palette inspiration + AI creation), AI Font Pairing/Finding (Tavily search for fonts matching business description + style preferences like "modern, like SF Pro")**
 6. **Website Type** — Build Mode integration, GitHub OAuth, Figma import, deploy status
 7. **Book Type** — Wire existing Book Studio as Book project type home
+8. **App Type** — App scaffolding, Store assets manager, Crash reporting dashboard, Analytics dashboard
+9. **Research Type** — Literature manager, Citation graph, Experiment tracker, Paper draft
+10. **Course Type** — Lesson builder, Video hosting, Quiz engine, Student progress
 
 ### Files to Create/Modify
 - `lib/db/src/schema/projects.ts` — add `type` column + migration

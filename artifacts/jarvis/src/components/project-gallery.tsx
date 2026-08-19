@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
+import { ProjectCreateModal } from './project-create-modal';
 
 export type ProjectSection =
   | 'home'
@@ -121,6 +122,7 @@ export function ProjectGallery({
   const [galleryQuery, setGalleryQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [busyProjectId, setBusyProjectId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const selectedProjectId = activeProjectId !== undefined ? activeProjectId : localActiveProjectId;
 
@@ -184,22 +186,24 @@ export function ProjectGallery({
     await loadProjectChats(nextProjectId);
   };
 
-  const createProject = async (fromCurrentConversation = false) => {
-    const name = projectDraft.trim();
-    if ((!name && !fromCurrentConversation) || busy) return;
+  const createProject = async (name: string, typeId = 'general', fromConversationId?: string) => {
+    const projectName = name.trim();
+    if (!projectName && !fromConversationId) return;
     setBusy(true);
     try {
       const response = await fetch('/api/jarvis/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...(name ? { name } : {}),
-          ...(fromCurrentConversation && activeConversationId ? { fromConversationId: activeConversationId } : {}),
+          name: projectName,
+          ...(fromConversationId ? { fromConversationId } : {}),
+          type: typeId,
         }),
       });
       if (!response.ok) return;
       const created = await response.json() as Project;
       setProjectDraft('');
+      setCreateModalOpen(false);
       setProjects((current) => [created, ...current.filter((project) => project.id !== created.id)]);
       setLocalActiveProjectId(created.id);
       onOpenProject?.(created.id);
@@ -351,13 +355,20 @@ export function ProjectGallery({
               </div>
 
               <div className="flex gap-1.5">
-                <input value={projectDraft} onChange={(event) => setProjectDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void createProject()} placeholder={t('projectGallery.newProjectPlaceholder')} className="min-w-0 flex-1 rounded-lg bg-secondary/50 px-2.5 py-1.5 text-[11px] outline-none focus:ring-1 focus:ring-primary/40" />
-                <button type="button" onClick={() => void createProject()} disabled={!projectDraft.trim() || busy} className="rounded-lg bg-primary/10 p-1.5 text-primary disabled:opacity-40" title={t('projectGallery.createProject')} aria-label={t('projectGallery.createProject')}><FolderPlus className="h-3.5 w-3.5" /></button>
+                <button
+                  type="button"
+                  onClick={() => setCreateModalOpen(true)}
+                  className="min-w-0 flex-1 rounded-lg bg-secondary/50 px-2.5 py-1.5 text-[11px] outline-none focus:ring-1 focus:ring-primary/40 text-left"
+                  disabled={busy}
+                >
+                  <span className="text-muted-foreground/60">{t('projectGallery.newProjectPlaceholder')}</span>
+                </button>
+                <button type="button" onClick={() => setCreateModalOpen(true)} disabled={busy} className="rounded-lg bg-primary/10 p-1.5 text-primary disabled:opacity-40" title={t('projectGallery.createProject')} aria-label={t('projectGallery.createProject')}><FolderPlus className="h-3.5 w-3.5" /></button>
               </div>
 
               <div className="flex items-center justify-between gap-2">
                 {activeConversationId && (
-                  <button type="button" onClick={() => void createProject(true)} disabled={busy} className="inline-flex min-w-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium text-primary transition hover:bg-primary/10 disabled:opacity-40" title={t('projectGallery.createFromConversation')}>
+                  <button type="button" onClick={() => void createProject('', 'general', activeConversationId)} disabled={busy} className="inline-flex min-w-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium text-primary transition hover:bg-primary/10 disabled:opacity-40" title={t('projectGallery.createFromConversation')}>
                     <MessageSquarePlus className="h-3 w-3 shrink-0" />
                     <span className="truncate">{t('projectGallery.createFromConversation')}</span>
                   </button>
@@ -475,6 +486,13 @@ export function ProjectGallery({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ProjectCreateModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={createProject}
+        activeConversationId={activeConversationId}
+      />
     </div>
   );
 }

@@ -15,6 +15,8 @@ export const projects = pgTable("projects", {
   lastOpenedAt: timestamp("last_opened_at"),
   /** Custom instructions injected as system text into every chat in the project. */
   instructions: text("instructions"),
+  /** Project type: "general", "book", "website", "company", "app", "research", "course" */
+  type: text("type").notNull().default("general"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

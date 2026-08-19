@@ -31,7 +31,7 @@ import { CameraModeView } from '@/components/home/camera-mode-view';
 import { VoiceModeView } from '@/components/home/voice-mode-view';
 import { ChatModeView } from '@/components/home/chat-mode-view';
 import { PipBrowserWindow } from '@/components/home/pip-browser-window';
-import { ProjectHome, type ProjectHomeAction } from '@/components/projects/project-home';
+import { ProjectHomeRouter, type ProjectHomeAction } from '@/components/projects/project-home-router';
 import type { ProjectSection } from '@/components/project-gallery';
 import { ProjectMemory } from '@/components/projects/project-memory';
 import { ProjectInstructions } from '@/components/projects/project-instructions';
@@ -1467,7 +1467,7 @@ export default function Home() {
           )}
 
           {activeProjectId && activeProjectView === 'home' && (
-            <ProjectHome
+            <ProjectHomeRouter
               projectId={activeProjectId}
               onBack={handleProjectBack}
               onContinueConversation={handleProjectContinue}
