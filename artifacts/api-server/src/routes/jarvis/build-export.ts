@@ -455,6 +455,7 @@ router.post("/build/clone/:projectId", async (req: Request, res: Response) => {
       projectId: targetProjectId,
       iteration: 1,
       completed: 0,
+      phase: "planning",
       plan: (checkpoint.plan as Record<string, unknown>) ?? {},
       completedSteps: [],
       workingContext: { ...((checkpoint.workingContext as Record<string, unknown>) ?? {}), clonedFrom: sourceProjectId, clonedFromCheckpoint: checkpoint.id },

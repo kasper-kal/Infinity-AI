@@ -28,6 +28,7 @@ router.post("/checkpoint", async (req: Request, res: Response) => {
       projectId,
       iteration,
       completed,
+      phase: "planning",
       plan: req.body?.plan && typeof req.body.plan === "object" ? req.body.plan : {},
       completedSteps: Array.isArray(req.body?.completedSteps) ? req.body.completedSteps : [],
       workingContext: req.body?.workingContext && typeof req.body.workingContext === "object" ? req.body.workingContext : {},

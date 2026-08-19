@@ -691,6 +691,11 @@ export class JarvisBrowser extends EventEmitter {
     return { ...this.state };
   }
 
+  /** Get the underlying Puppeteer page for advanced operations */
+  getPage(): Page | null {
+    return this.page;
+  }
+
   /** Execute an action and return the result */
   async executeAction(action: BrowseAction): Promise<{ success: boolean; error?: string; data?: any }> {
     try {

@@ -48,6 +48,10 @@ export interface LlmKeyEntry {
   coolDownUntil: number | null; // epoch ms
   uses: number;
   failures: number;
+  /** Provider identifier for cost tracking (e.g., "openrouter", "nvidia", "ollama") */
+  provider?: string;
+  /** Cost per 1k tokens in USD (0 for free tiers) */
+  costPer1kTokens?: number;
 }
 
 /** How many times each API key is tried before moving to the next key. */
@@ -101,6 +105,8 @@ function envKeyEntries(): LlmKeyEntry[] {
       coolDownUntil: h?.coolDownUntil ?? null,
       uses: h?.uses ?? 0,
       failures: h?.failures ?? 0,
+      provider: "openrouter",
+      costPer1kTokens: 0, // free tier
     });
   }
 
@@ -109,6 +115,18 @@ function envKeyEntries(): LlmKeyEntry[] {
     if (!apiKey) continue;
     const baseUrl = process.env[i === 1 ? "OPENAI_LLM_BASE_URL" : `OPENAI_LLM_BASE_URL_${i}`] ?? NVIDIA_BASE_URL;
     const h = envHealth.get(apiKey);
+    let provider = "nvidia";
+    let costPer1kTokens = 0; // NVIDIA NIM is free
+    if (baseUrl.includes("openrouter")) {
+      provider = "openrouter";
+      costPer1kTokens = 0;
+    } else if (baseUrl.includes("ollama") || baseUrl.includes("localhost:11434")) {
+      provider = "ollama";
+      costPer1kTokens = 0;
+    } else if (baseUrl.includes("vllm")) {
+      provider = "vllm";
+      costPer1kTokens = 0;
+    }
     out.push({
       id: `env-${i}`,
       name: i === 1 ? "Env: primary LLM key" : `Env: LLM key #${i}`,
@@ -122,6 +140,8 @@ function envKeyEntries(): LlmKeyEntry[] {
       coolDownUntil: h?.coolDownUntil ?? null,
       uses: h?.uses ?? 0,
       failures: h?.failures ?? 0,
+      provider,
+      costPer1kTokens,
     });
   }
   return out;
@@ -147,6 +167,32 @@ interface PoolRow {
 }
 
 function toEntry(r: PoolRow): LlmKeyEntry {
+  let provider = "llm-provider";
+  let costPer1kTokens = 0;
+  const baseUrl = r.baseUrl.toLowerCase();
+  if (baseUrl.includes("openrouter")) {
+    provider = "openrouter";
+    costPer1kTokens = 0; // free tier
+  } else if (baseUrl.includes("nvidia")) {
+    provider = "nvidia";
+    costPer1kTokens = 0; // free tier
+  } else if (baseUrl.includes("ollama") || baseUrl.includes("localhost:11434")) {
+    provider = "ollama";
+    costPer1kTokens = 0;
+  } else if (baseUrl.includes("vllm")) {
+    provider = "vllm";
+    costPer1kTokens = 0;
+  } else if (baseUrl.includes("groq")) {
+    provider = "groq";
+    costPer1kTokens = 0; // free tier
+  } else if (baseUrl.includes("api.openai.com")) {
+    provider = "openai";
+    costPer1kTokens = 0.0015; // rough estimate
+  } else if (baseUrl.includes("anthropic")) {
+    provider = "anthropic";
+    costPer1kTokens = 0.003; // rough estimate
+  }
+
   return {
     id: r.id,
     name: r.name,
@@ -160,6 +206,8 @@ function toEntry(r: PoolRow): LlmKeyEntry {
     coolDownUntil: r.coolDownUntil ? r.coolDownUntil.getTime() : null,
     uses: r.uses,
     failures: r.failures,
+    provider,
+    costPer1kTokens,
   };
 }
 

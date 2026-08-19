@@ -13,6 +13,424 @@ import { randomUUID } from "node:crypto";
  * credentials are not accidentally exposed by `env` in the terminal.
  */
 
+/**
+ * ============================================================
+ * GIT-FIRST BUILD MODE
+ * ============================================================
+ *
+ * Each build runs in an isolated git worktree on branch `infinity/build/<id>`
+ * with incremental commits per step and final diff generation.
+ */
+
+/**
+ * Build worktree configuration
+ */
+export interface BuildWorktreeConfig {
+  projectId: string;
+  buildId: string;
+  /** Base branch to create worktree from */
+  baseBranch?: string;
+  /** Whether to symlink node_modules (0-euro) */
+  symlinkNodeModules?: boolean;
+}
+
+/**
+ * Build worktree instance
+ */
+export interface BuildWorktree {
+  buildId: string;
+  projectId: string;
+  worktreePath: string;
+  branch: string;
+  baseCommit: string;
+  createdAt: number;
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Incremental commit info
+ */
+export interface StepCommit {
+  stepNumber: number;
+  totalSteps: number;
+  message: string;
+  commitHash: string;
+  timestamp: string;
+  filesChanged: string[];
+  insertions: number;
+  deletions: number;
+}
+
+/**
+ * Final build diff summary
+ */
+export interface BuildDiffSummary {
+  buildId: string;
+  projectId: string;
+  branch: string;
+  baseCommit: string;
+  headCommit: string;
+  totalCommits: number;
+  stepCommits: StepCommit[];
+  filesChanged: string[];
+  totalInsertions: number;
+  totalDeletions: number;
+  diffStat: string;
+  patch: string;
+}
+
+/**
+ * Git-first build state
+ */
+export interface GitFirstBuildState {
+  worktree: BuildWorktree;
+  commits: StepCommit[];
+  currentStep: number;
+  totalSteps: number;
+  status: "initializing" | "running" | "completed" | "failed" | "reverted";
+  error?: string;
+}
+
+/**
+ * Create isolated build worktree (git-first mode)
+ */
+export async function createBuildWorktree(config: BuildWorktreeConfig): Promise<BuildWorktree> {
+  const { projectId, buildId, baseBranch = "main", symlinkNodeModules = true } = config;
+  const id = workspaceKey(projectId);
+  const branch = `infinity/build/${buildId}`;
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+
+  await fs.mkdir(worktreePath, { recursive: true });
+
+  // Get base commit from the main repo or create initial commit
+  let baseCommit: string;
+  try {
+    const mainRepoPath = getWorkspaceRoot(id);
+    const { stdout } = await runGit(mainRepoPath, ["rev-parse", baseBranch]);
+    baseCommit = stdout.trim();
+  } catch {
+    // No main repo, create initial commit in worktree
+    await runGit(worktreePath, ["init", "-q"]);
+    await runGit(worktreePath, ["symbolic-ref", "HEAD", `refs/heads/${branch}`]);
+    await fs.writeFile(path.join(worktreePath, ".infinity"), `# Infinity build workspace for ${id}-${buildId}\n`);
+    await runGit(worktreePath, ["add", "."]);
+    await runGit(worktreePath, ["commit", "-q", "-m", `infinity: init build ${buildId}`]);
+    const { stdout } = await runGit(worktreePath, ["rev-parse", "HEAD"]);
+    baseCommit = stdout.trim();
+  }
+
+  // Create worktree from base commit
+  if (!hasIsolated(`${id}-${buildId}`)) {
+    await runGit(worktreePath, ["init", "-q"]);
+    await runGit(worktreePath, ["checkout", "-q", "-b", branch, baseCommit]);
+  } else {
+    await runGit(worktreePath, ["checkout", "-q", branch]);
+  }
+
+  // Symlink node_modules to global pnpm store
+  if (symlinkNodeModules) {
+    const nmLink = path.join(worktreePath, "node_modules");
+    try {
+      if (!fsSync.existsSync(nmLink)) {
+        await fs.symlink("/workspaces/.pnpm-store/v10", nmLink, "dir");
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
+  const cleanup = async () => {
+    try {
+      // Also remove the worktree from git
+      await runGit(getWorkspaceRoot(id), ["worktree", "remove", "--force", worktreePath]).catch(() => {});
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    } catch { /* ignore */ }
+  };
+
+  return {
+    buildId,
+    projectId: id,
+    worktreePath,
+    branch,
+    baseCommit,
+    createdAt: Date.now(),
+    cleanup,
+  };
+}
+
+/**
+ * Commit a build step with detailed message
+ */
+export async function commitBuildStep(
+  buildId: string,
+  projectId: string,
+  stepNumber: number,
+  totalSteps: number,
+  message: string
+): Promise<StepCommit | null> {
+  const id = workspaceKey(projectId);
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+
+  if (!fsSync.existsSync(path.join(worktreePath, ".git"))) {
+    return null;
+  }
+
+  // Get status before commit
+  const { stdout: statusOut } = await runGit(worktreePath, ["status", "--porcelain"]);
+  const filesChanged = statusOut.trim().split("\n").filter(Boolean).map(l => l.slice(3)).filter(Boolean);
+
+  await runGit(worktreePath, ["add", "-A"]);
+
+  const label = message.trim() || `step ${stepNumber}/${totalSteps}`;
+  const commitMessage = `infinity: step ${stepNumber}/${totalSteps} - ${label}`;
+
+  const { ok } = await runGit(worktreePath, ["commit", "-q", "-m", commitMessage]);
+
+  if (!ok) {
+    return null;
+  }
+
+  // Get commit details
+  const { stdout: hashOut } = await runGit(worktreePath, ["rev-parse", "HEAD"]);
+  const commitHash = hashOut.trim();
+
+  const { stdout: statOut } = await runGit(worktreePath, ["show", "--stat", "--oneline", "HEAD"]);
+  const statLines = statOut.trim().split("\n");
+  let insertions = 0;
+  let deletions = 0;
+  for (const line of statLines) {
+    const match = line.match(/(\d+) insertion.*(\d+) deletion/);
+    if (match) {
+      insertions += parseInt(match[1]);
+      deletions += parseInt(match[2]);
+    }
+  }
+
+  return {
+    stepNumber,
+    totalSteps,
+    message: label,
+    commitHash,
+    timestamp: new Date().toISOString(),
+    filesChanged,
+    insertions,
+    deletions,
+  };
+}
+
+/**
+ * Generate final build diff summary
+ */
+export async function generateBuildDiffSummary(
+  buildId: string,
+  projectId: string,
+  commits: StepCommit[]
+): Promise<BuildDiffSummary | null> {
+  const id = workspaceKey(projectId);
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+
+  if (!fsSync.existsSync(path.join(worktreePath, ".git"))) {
+    return null;
+  }
+
+  // Get head commit
+  const { stdout: headOut } = await runGit(worktreePath, ["rev-parse", "HEAD"]);
+  const headCommit = headOut.trim();
+
+  // Get base commit (first commit in the build branch)
+  const { stdout: baseOut } = await runGit(worktreePath, ["rev-list", "--max-parents=0", "HEAD"]);
+  const baseCommit = baseOut.trim().split("\n")[0];
+
+  // Get full diff stat
+  const { stdout: diffStatOut } = await runGit(worktreePath, ["diff", "--stat", `${baseCommit}..${headCommit}`]);
+  const diffStat = diffStatOut.trim();
+
+  // Get full patch
+  const { stdout: patchOut } = await runGit(worktreePath, ["diff", `${baseCommit}..${headCommit}`]);
+  const patch = patchOut.trim();
+
+  // Collect all files changed
+  const allFiles = new Set<string>();
+  let totalInsertions = 0;
+  let totalDeletions = 0;
+
+  for (const commit of commits) {
+    commit.filesChanged.forEach(f => allFiles.add(f));
+    totalInsertions += commit.insertions;
+    totalDeletions += commit.deletions;
+  }
+
+  return {
+    buildId,
+    projectId: id,
+    branch: `infinity/build/${buildId}`,
+    baseCommit,
+    headCommit,
+    totalCommits: commits.length,
+    stepCommits: commits,
+    filesChanged: Array.from(allFiles),
+    totalInsertions,
+    totalDeletions,
+    diffStat,
+    patch,
+  };
+}
+
+/**
+ * Auto-revert worktree to base state (on failure)
+ */
+export async function revertBuildWorktree(buildId: string, projectId: string): Promise<boolean> {
+  const id = workspaceKey(projectId);
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+
+  if (!fsSync.existsSync(path.join(worktreePath, ".git"))) {
+    return false;
+  }
+
+  // Reset to base commit
+  try {
+    // Find base commit
+    const { stdout: baseOut } = await runGit(worktreePath, ["rev-list", "--max-parents=0", "HEAD"]);
+    const baseCommit = baseOut.trim().split("\n")[0];
+
+    const { ok } = await runGit(worktreePath, ["reset", "--hard", baseCommit]);
+    if (ok) {
+      await runGit(worktreePath, ["clean", "-fd"]);
+    }
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep worktree and offer merge (on success)
+ */
+export async function finalizeBuildWorktree(
+  buildId: string,
+  projectId: string,
+  mergeStrategy: "squash" | "merge" | "rebase" = "squash"
+): Promise<{ success: boolean; mergeCommit?: string; message: string }> {
+  const id = workspaceKey(projectId);
+  const mainRepoPath = getWorkspaceRoot(id);
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+  const branch = `infinity/build/${buildId}`;
+
+  if (!fsSync.existsSync(path.join(worktreePath, ".git"))) {
+    return { success: false, message: "Worktree not found" };
+  }
+
+  try {
+    switch (mergeStrategy) {
+      case "squash": {
+        // Squash merge into main repo
+        await runGit(mainRepoPath, ["merge", "--squash", branch]);
+        const { stdout } = await runGit(mainRepoPath, ["commit", "-m", `infinity: build ${buildId} (squashed)`]);
+        const mergeCommit = stdout.match(/\[([a-f0-9]+)\]/)?.[1] || "unknown";
+        return { success: true, mergeCommit, message: `Squash merged as ${mergeCommit}` };
+      }
+      case "merge": {
+        const { stdout } = await runGit(mainRepoPath, ["merge", "--no-ff", branch, "-m", `infinity: build ${buildId}`]);
+        const mergeCommit = stdout.match(/Merge made by/)?.[0] ? "merged" : "unknown";
+        return { success: true, message: "Merge commit created" };
+      }
+      case "rebase": {
+        await runGit(worktreePath, ["rebase", "main"]);
+        await runGit(mainRepoPath, ["merge", "--ff-only", branch]);
+        return { success: true, message: "Rebased and fast-forward merged" };
+      }
+    }
+  } catch (error) {
+    return { success: false, message: `Finalize failed: ${error instanceof Error ? error.message : String(error)}` };
+  }
+
+  return { success: false, message: "Unknown strategy" };
+}
+
+/**
+ * Get build worktree status
+ */
+export async function getBuildWorktreeStatus(buildId: string, projectId: string): Promise<GitFirstBuildState | null> {
+  const id = workspaceKey(projectId);
+  const worktreePath = path.join(WORKTREES_ROOT, `${id}-${buildId}`);
+
+  if (!fsSync.existsSync(path.join(worktreePath, ".git"))) {
+    return null;
+  }
+
+  const { stdout: logOut } = await runGit(worktreePath, ["log", "--oneline", "--all"]);
+  const commits = logOut.trim().split("\n").filter(Boolean);
+
+  return {
+    worktree: {
+      buildId,
+      projectId: id,
+      worktreePath,
+      branch: `infinity/build/${buildId}`,
+      baseCommit: "",
+      createdAt: 0,
+      cleanup: async () => {},
+    },
+    commits: [],
+    currentStep: commits.length - 1, // minus initial commit
+    totalSteps: 0,
+    status: "running",
+  };
+}
+
+/**
+ * List all build worktrees for a project
+ */
+export async function listBuildWorktrees(projectId: string): Promise<Array<{ buildId: string; branch: string; path: string; exists: boolean }>> {
+  const id = workspaceKey(projectId);
+  const entries: Array<{ buildId: string; branch: string; path: string; exists: boolean }> = [];
+
+  try {
+    const worktreesDir = path.join(WORKTREES_ROOT);
+    const dirs = await fs.readdir(worktreesDir);
+    for (const dir of dirs) {
+      if (dir.startsWith(`${id}-`)) {
+        const buildId = dir.slice(id.length + 1);
+        const worktreePath = path.join(worktreesDir, dir);
+        const exists = fsSync.existsSync(path.join(worktreePath, ".git"));
+        entries.push({
+          buildId,
+          branch: `infinity/build/${buildId}`,
+          path: worktreePath,
+          exists,
+        });
+      }
+    }
+  } catch {
+    // directory doesn't exist
+  }
+
+  return entries;
+}
+
+/**
+ * Clean up old build worktrees (keep last N)
+ */
+export async function cleanupOldBuildWorktrees(projectId: string, keep: number = 5): Promise<number> {
+  const worktrees = await listBuildWorktrees(projectId);
+  const toRemove = worktrees.filter(w => w.exists).slice(keep);
+  let removed = 0;
+
+  for (const wt of toRemove) {
+    try {
+      await fs.rm(wt.path, { recursive: true, force: true });
+      // Also remove git worktree reference
+      const mainRepoPath = getWorkspaceRoot(projectId);
+      await runGit(mainRepoPath, ["worktree", "remove", "--force", wt.path]).catch(() => {});
+      removed++;
+    } catch {
+      // ignore
+    }
+  }
+
+  return removed;
+}
+
 export const WORKSPACE_ROOT = path.resolve(
   __dirname, "..", "..", "..", "..", "artifacts", "workspace",
 );
