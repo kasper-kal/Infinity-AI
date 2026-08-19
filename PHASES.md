@@ -1006,9 +1006,198 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
+## 🔒 Security Hardening Initiative (Critical — Do Before Phase 16)
 
-> **START HERE.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps. Backend: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event. Frontend: MapsWidget.tsx with interactive map, marker clustering, bottom sheet details, directions links.
+The following 11 security issues were identified and must be fixed before proceeding to new features. Each has concrete fix steps.
+
+### Issue 1: API Key Endpoints Missing Account Authorization (CRITICAL)
+
+**Problem**: API key list/update/delete/regenerate routes query by key ID only — no `accountId` ownership check. User A can manipulate User B's keys if they know the ID.
+
+**Fix Steps**:
+- [ ] In `artifacts/api-server/src/routes/jarvis/api-keys.ts`:
+  - [ ] `GET /api/jarvis/api-keys` — add `AND accountId = authenticatedAccountId` to list query
+  - [ ] `GET /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to select query
+  - [ ] `PUT /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to update query
+  - [ ] `DELETE /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to delete query
+  - [ ] `POST /api/jarvis/api-keys/:id/regenerate` — add `AND accountId = authenticatedAccountId` to select + update
+- [ ] Add integration test: create two users, verify User A cannot access User B's keys
+- [ ] Verify typecheck + build pass
+
+### Issue 2: No Centralized Authentication Middleware (CRITICAL)
+
+**Problem**: 40+ routers mounted individually, each must remember auth. No global session middleware protecting authenticated surface.
+
+**Fix Steps**:
+- [ ] Create `artifacts/api-server/src/middleware/auth-middleware.ts`:
+  - [ ] `requireAuth` — validates session cookie, attaches `req.accountId`, returns 401 if missing/invalid
+  - [ ] `requireScope(scope)` — checks account has required scope, returns 403 if not
+  - [ ] `optionalAuth` — attaches `req.accountId` if session valid, continues if not (for public endpoints)
+- [ ] In `artifacts/api-server/src/index.ts`:
+  - [ ] Apply `requireAuth` as global middleware AFTER body parsers, BEFORE router mounting
+  - [ ] Create `publicRouter` for truly public endpoints (health, login, register, OAuth callbacks)
+  - [ ] Mount `publicRouter` before auth middleware
+  - [ ] All other routers now automatically protected
+- [ ] Remove duplicate `getAccountIdFromSession()` calls from individual routes
+- [ ] Verify all existing routes still work, typecheck + build pass
+
+### Issue 3: Build Mode Terminal Route Missing Authentication
+
+**Problem**: `/api/jarvis/build/terminal` accepts user-supplied commands and passes to `runTerminalCommand()` without authentication.
+
+**Fix Steps**:
+- [ ] In `artifacts/api-server/src/routes/jarvis/build.ts`:
+  - [ ] Ensure `/build/terminal` route has `requireAuth` + `requireScope("build:write")`
+  - [ ] Verify workspace ownership: `workspace.projectId` belongs to `req.accountId`
+- [ ] Add test: unauthenticated request to terminal returns 401
+- [ ] Verify typecheck + build pass
+
+### Issue 4: Build Isolation Security Audit Needed (HIGH)
+
+**Problem**: `workspace.ts` executes OS processes and manipulates Git worktrees. Environment restriction ≠ sandboxing.
+
+**Fix Steps**:
+- [ ] Create `artifacts/api-server/src/lib/build-sandbox.ts`:
+  - [ ] `validateCommand(command: string)` — allowlist/denylist patterns, reject destructive commands (`rm -rf`, `git push --force`, `sudo`, etc.)
+  - [ ] `createSandboxedEnv()` — stripped env vars (no API keys, secrets, DB URLs)
+  - [ ] `enforceWorkspaceBoundary(cwd: string, projectRoot: string)` — prevent directory traversal outside project
+  - [ ] `runInSandbox(command, options)` — wraps `runTerminalCommand` with above guards
+- [ ] In `workspace.ts`:
+  - [ ] Replace direct `runTerminalCommand` calls with `runInSandbox`
+  - [ ] Add workspace root validation on worktree creation
+- [ ] Add test: attempt directory escape, destructive command, secret access — all blocked
+- [ ] Verify typecheck + build pass
+
+### Issue 5: Browser Safety Model — Regex URLs Insufficient (HIGH)
+
+**Problem**: Sensitive URL protection is regex-based. Malicious sites can bypass via redirects, iframes, disguised actions.
+
+**Fix Steps**:
+- [ ] Create `artifacts/api-server/src/lib/browser-policy.ts`:
+  - [ ] `ActionClassifier` — classifies browser actions: `NAVIGATE`, `CLICK`, `TYPE`, `FORM_SUBMIT`, `DOWNLOAD`, `SCRIPT_EXECUTE`
+  - [ ] `PolicyEngine` — rules: `ALLOW`, `DENY`, `REQUIRE_APPROVAL` per action + context (domain, element type, form action)
+  - [ ] `SensitiveDomainRegistry` — maintain list + allow dynamic additions, but don't rely solely on domain matching
+  - [ ] `ElementAnalyzer` — inspect target element: `type="password"`, `autocomplete="cc-number"`, form `action` to payment URLs, etc.
+- [ ] In `browser-pool.ts` / browser action handler:
+  - [ ] Before executing action → classify → check policy → if `REQUIRE_APPROVAL` → emit SSE event for human confirmation
+  - [ ] Log all classified actions for audit
+- [ ] Add test: form submit to non-sensitive domain with password field → flagged
+- [ ] Verify typecheck + build pass
+
+### Issue 6: Global 1GB JSON Body Limit (HIGH)
+
+**Problem**: `express.json({ limit: "1gb" })` globally — massive DoS surface.
+
+**Fix Steps**:
+- [ ] In `artifacts/api-server/src/index.ts`:
+  - [ ] Remove global `express.json({ limit: "1gb" })` and `express.urlencoded({ limit: "1gb" })`
+  - [ ] Add per-route body parsers:
+    - [ ] `/chat`, `/memory`, `/research` → `express.json({ limit: "1mb" })`
+    - [ ] `/build/*` → `express.json({ limit: "10mb" })` (for diffs, plans)
+    - [ ] `/upload`, `/files/*` → use `multer` with controlled limits, NOT JSON parser
+    - [ ] `/data/import` → `express.json({ limit: "50mb" })`
+- [ ] Add test: 2MB JSON to `/chat` → 413 Payload Too Large
+- [ ] Verify typecheck + build pass
+
+### Issue 7: CORS Extremely Permissive (MEDIUM)
+
+**Problem**: `app.use(cors())` with no origin restrictions.
+
+**Fix Steps**:
+- [ ] In `artifacts/api-server/src/index.ts`:
+  - [ ] Replace `app.use(cors())` with configured CORS:
+  ```ts
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.FRONTEND_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173'];
+  
+  app.use(cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  }));
+  ```
+- [ ] Add `FRONTEND_URL` to `.env.example`
+- [ ] Test: request from unauthorized origin → CORS error
+- [ ] Verify typecheck + build pass
+
+### Issue 8: Frontend Bundle Size — No Code Splitting Verified (MEDIUM)
+
+**Problem**: Massive dependency surface (TensorFlow, MediaPipe, CodeMirror, Xterm, Radix, etc.) — no evidence of aggressive code splitting/lazy loading.
+
+**Fix Steps**:
+- [ ] In `artifacts/jarvis/vite.config.ts`:
+  - [ ] Verify `build.rollupOptions.output.manualChunks` splits heavy libs:
+    - [ ] `tensorflow` chunk (TensorFlow + MediaPipe)
+    - [ ] `codemirror` chunk (CodeMirror + language packages)
+    - [ ] `xterm` chunk (xterm.js + addons)
+    - [ ] `radix` chunk (Radix primitives)
+    - [ ] `charts` chunk (Recharts, D3 if used)
+  - [ ] Enable `build.cssCodeSplit: true`
+  - [ ] Set `build.chunkSizeWarningLimit: 500` (kb)
+- [ ] In `artifacts/jarvis/src/`:
+  - [ ] Lazy-load heavy views: `BuildView`, `TerminalView`, `SettingsView` via `React.lazy` + `Suspense`
+  - [ ] Lazy-load `CodeEditor`, `Terminal`, `DiffView` components
+  - [ ] Lazy-load `BrowserWidget`, `MapsWidget` (Phase 16)
+- [ ] Run `npm run build` → analyze `dist` chunk sizes → verify no chunk > 500kb gzipped
+- [ ] Verify typecheck + build pass
+
+### Issue 9: Session Invalidation on Password Change Only (LOW)
+
+**Problem**: Sessions only invalidated on password change. No invalidation on: email change, 2FA enable/disable, security settings change, admin revocation.
+
+**Fix Steps**:
+- [ ] In `artifacts/api-server/src/routes/jarvis/auth.ts`:
+  - [ ] `PUT /auth/password` — already invalidates all sessions ✓
+  - [ ] Add `invalidateAllSessions(accountId)` helper
+  - [ ] `PUT /auth/profile` (email change) → call `invalidateAllSessions`
+  - [ ] Add `POST /auth/revoke-sessions` — user can revoke all other sessions
+  - [ ] Add `POST /auth/revoke-session/:sessionId` — revoke specific session
+- [ ] In `artifacts/api-server/src/lib/db/src/schema/sessions.ts`:
+  - [ ] Add `revokedAt` timestamp column
+  - [ ] Add index on `(accountId, revokedAt)`
+- [ ] Update session validation middleware to check `revokedAt`
+- [ ] Verify typecheck + build pass
+
+### Issue 10: No Rate Limiting on Auth Endpoints (LOW)
+
+**Problem**: Login/register/email endpoints have no rate limiting — credential stuffing, enumeration risk.
+
+**Fix Steps**:
+- [ ] Create `artifacts/api-server/src/middleware/rate-limit.ts`:
+  - [ ] In-memory token bucket (or Redis if available) per IP + endpoint
+  - [ ] Config: `maxRequests`, `windowMs`, `keyGenerator`
+- [ ] In `artifacts/api-server/src/routes/jarvis/auth.ts`:
+  - [ ] `POST /auth/login` — 5 req/min per IP
+  - [ ] `POST /auth/register` — 3 req/min per IP
+  - [ ] `POST /auth/password` — 3 req/hour per IP
+  - [ ] `GET /auth/me` — 60 req/min per IP (authenticated)
+- [ ] Return `429 Too Many Requests` with `Retry-After` header
+- [ ] Verify typecheck + build pass
+
+### Issue 11: Secret Redaction Incomplete in Logs/Context (LOW)
+
+**Problem**: Build Mode has secret redaction but not verified across all log paths, SSE events, debug panel, checkpoints.
+
+**Fix Steps**:
+- [ ] Create `artifacts/api-server/src/lib/secret-redaction.ts`:
+  - [ ] `redactSecrets(text: string)` — regex patterns for API keys (sk-*, Bearer *, etc.), passwords, tokens, connection strings
+  - [ ] `redactObject(obj: any)` — recursive redaction for JSON objects
+- [ ] In `build-events.ts`:
+  - [ ] Apply `redactObject` to all event data before emit
+- [ ] In `build-checkpoints.ts`:
+  - [ ] Apply `redactObject` before saving checkpoint
+- [ ] In `build-tools.ts` / `executeTool`:
+  - [ ] Redact tool args/results before logging
+- [ ] In SSE event emission (`chat.ts`, `build.ts`):
+  - [ ] Redact before sending to client
+- [ ] Add test: log entry containing `sk-test123` → appears as `sk-****`
+- [ ] Verify typecheck + build pass
+
+---
+
+## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
 
 ---
 

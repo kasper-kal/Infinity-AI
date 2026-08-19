@@ -4,9 +4,21 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 11:45
+LAST_UPDATED: 2026-08-19 12:15
 
 ## Just did (last action)
+- **Added Security Hardening Initiative to PHASES.md + session-brief.md** — 11 critical security issues identified with concrete fix steps (must fix before Phase 16):
+  1. **API key endpoints missing account authorization (CRITICAL)** — list/update/delete/regenerate query by key ID only, no ownership check
+  2. **No centralized authentication middleware (CRITICAL)** — 40+ routers mounted individually, each must remember auth
+  3. **Build terminal route missing authentication (CRITICAL)** — accepts user commands without auth
+  4. **Build isolation security audit needed (HIGH)** — environment restriction ≠ sandboxing
+  5. **Browser safety model regex URLs insufficient (HIGH)** — malicious sites can bypass via redirects, iframes
+  6. **Global 1GB JSON body limit (HIGH)** — massive DoS surface
+  7. **CORS extremely permissive (MEDIUM)** — no origin restrictions
+  8. **Frontend bundle size — no code splitting verified (MEDIUM)** — massive deps, no evidence of lazy loading
+  9. **Session invalidation on password change only (LOW)** — no invalidation on email change, 2FA, security settings
+  10. **No rate limiting on auth endpoints (LOW)** — credential stuffing, enumeration risk
+  11. **Secret redaction incomplete in logs/context (LOW)** — not verified across all log paths, SSE, debug panel, checkpoints
 - **Added 5 new phases to PHASES.md + session-brief.md** (user feature requests, inserted BEFORE Universal Tool Layer):
   - **Phase 16: Infinity Maps Widget** — Interactive maps for location queries ("I'm craving pizza, where should I eat?"), OpenStreetMap/Overpass API, Leaflet/MapLibre, directions to OS maps apps
   - **Phase 17: Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo maker, Website: build mode/GitHub/Figma, Book: extends Book Studio)
@@ -256,6 +268,19 @@ LAST_UPDATED: 2026-08-19 11:45
     - 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/`: base.json, react-engineer.json, debugger.json, ui-designer.json, api-engineer.json, database-engineer.json, devops-engineer.json, security-auditor.json, performance-engineer.json
     - Full typecheck passes clean on both api-server and acp-server
   - All 11 Phase 15 tasks complete! Next: Phase 16 (Infinity Maps Widget)
+
+- **Security Hardening Initiative (CRITICAL — Added to PHASES.md)** — 11 issues with concrete fix steps:
+  1. API key endpoints missing account authorization (CRITICAL)
+  2. No centralized authentication middleware (CRITICAL)
+  3. Build terminal route missing authentication (CRITICAL)
+  4. Build isolation security audit needed (HIGH)
+  5. Browser safety model regex URLs insufficient (HIGH)
+  6. Global 1GB JSON body limit (HIGH)
+  7. CORS extremely permissive (MEDIUM)
+  8. Frontend bundle size — no code splitting verified (MEDIUM)
+  9. Session invalidation on password change only (LOW)
+  10. No rate limiting on auth endpoints (LOW)
+  11. Secret redaction incomplete in logs/context (LOW)
 
 ## New Phases Added (User Request)
 - **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
