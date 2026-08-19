@@ -1021,14 +1021,14 @@ loop:
 
 ## 🎯 Next Phase: **Phase 17 — Project Types System**
 
-> **IN PROGRESS (~75% complete).** Project Types that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows.
+> **IN PROGRESS (~85% complete).** Project Types that transform how a project looks and behaves. Each type provides tailored UI, tools, and workflows.
 > **DONE (Frontend + Core Logic):**
 > - Project type registry with all 7 types (general, book, website, company, app, research, course)
 > - Project creation modal with type selector
 > - Type-specific ProjectHome components for ALL 6 non-general types
 > - Dynamic ProjectHomeRouter that fetches project type and renders correct component
 > - Company tools API with palette/font endpoints (mock implementations using Tavily concept)
-> - i18n translations (EN + NL) for all new company tool strings
+> - i18n translations (EN + NL) for ALL project type components (Company, Book, Website, App, Research, Course) — fixed duplicate keys and type-safe websiteActions
 > **PENDING (Backend/Database):**
 > - Database migration: `type` column on `projects` table + migration script
 > - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`)
@@ -1040,8 +1040,8 @@ loop:
 
 ## 🎯 Upcoming Phases (New Feature Requests)
 
-> **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API)
-> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools
+> **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API) ✅ **DONE**
+> **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools (~85% complete)
 > **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
 > **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
 > **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations

@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 14:22
+LAST_UPDATED: 2026-08-19 14:45
 
 ## Just did (last action)
 - **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries ("where should I eat", "find coffee near me", "pizza places nearby"):
@@ -13,14 +13,14 @@ LAST_UPDATED: 2026-08-19 14:22
   - **Widget integration**: Added `maps` to Widget union in `types/widget.ts`, exported in `widgets/index.ts`, case in `conversation-feed.tsx`.
   - **Chat integration** (`chat.ts`): `detectMapsCommand()` detects @Maps prefix + 9 natural language patterns ("where should I eat", "coffee near me", "pizza places nearby", etc.). Emits widget SSE event with config (center, radius, categories).
   - **All typecheck + build pass** on both frontend and API server.
-- **Phase 17: Project Types System — Analyzed progress (~75% complete):**
+- **Phase 17: Project Types System — Analyzed progress (~85% complete):**
   - **DONE (Frontend + Core Logic):**
     - Project type registry with all 7 types (general, book, website, company, app, research, course)
     - Project creation modal with type selector
     - Type-specific ProjectHome components for ALL 6 non-general types (Company, Book, Website, App, Research, Course)
     - Dynamic ProjectHomeRouter that fetches project type and renders correct component
     - Company tools API with palette/font endpoints (mock implementations using Tavily concept)
-    - i18n translations (EN + NL) for all new company tool strings
+    - i18n translations (EN + NL) for ALL project type components (Company, Book, Website, App, Research, Course) — fixed duplicate keys and type-safe websiteActions
   - **PENDING (Backend/Database):**
     - Database migration: `type` column on `projects` table + migration script
     - Backend project-types API routes (`GET /project-types`, `GET /project-types/:id`)
