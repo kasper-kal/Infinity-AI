@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "id": "base",
+    "name": "Base Skill",
+    "version": "1.0.0",
+    "description": "Base skill with common conventions and tool preferences for all engineering skills",
+    "category": "architecture",
+    "author": "Infinity Team",
+    "license": "MIT",
+    "tags": ["base", "foundation", "conventions"],
+    "minInfinityVersion": "1.0.0",
+    "dependencies": []
+  },
+  "instructions": "Base engineering principles that apply to all skills:\n\n1. **Code Quality**:\n   - TypeScript strict mode\n   - ESLint + Prettier configured\n   - No any types without justification\n   - Comprehensive error handling\n\n2. **Git Practices**:\n   - Conventional commits (feat:, fix:, refactor:, etc.)\n   - Atomic commits\n   - Meaningful commit messages\n   - Branch naming: type/description\n\n3. **Testing**:\n   - Unit tests for business logic\n   - Integration tests for APIs\n   - E2E tests for critical flows\n   - Test coverage ≥80% for new code\n\n4. **Documentation**:\n   - JSDoc for public APIs\n   - README for each package/module\n   - Architecture decision records (ADRs)\n   - Update docs with code changes\n\n5. **Security Baseline**:\n   - No secrets in code\n   - Input validation\n   - Dependency scanning\n   - Principle of least privilege\n\n6. **Observability**:\n   - Structured logging\n   - Error tracking\n   - Performance monitoring\n   - Health endpoints",
+  "toolPreferences": [
+    { "name": "read_file", "priority": "required", "reason": "Read existing code and patterns" },
+    { "name": "edit_file", "priority": "required", "reason": "Write and modify code" },
+    { "name": "run_command", "priority": "required", "reason": "Run tests, lint, typecheck, build" },
+    { "name": "list_files", "priority": "preferred", "reason": "Explore project structure" },
+    { "name": "git_diff", "priority": "preferred", "reason": "Review changes before committing" }
+  ],
+  "verificationRules": [
+    { "name": "typecheck-passes", "description": "TypeScript compilation passes without errors", "check": "always", "autoFix": true, "fixPrompt": "Fix all TypeScript errors" },
+    { "name": "lint-passes", "description": "ESLint passes without errors", "check": "always", "autoFix": true, "fixPrompt": "Fix all ESLint errors" },
+    { "name": "tests-pass", "description": "All tests pass", "check": "on-completion", "autoFix": false }
+  ],
+  "conventions": [
+    { "name": "typescript-strict", "description": "TypeScript strict mode enabled", "severity": "error" },
+    { "name": "no-any", "description": "Avoid any types - use unknown or proper types", "severity": "warning" },
+    { "name": "conventional-commits", "description": "Use conventional commit format", "severity": "warning" },
+    { "name": "error-handling", "description": "All async operations have error handling", "severity": "error" }
+  ],
+  "environment": {
+    "requiredTools": ["typescript", "eslint", "vitest"],
+    "requiredPackages": [],
+    "setupCommands": ["npm install"]
+  },
+  "roleBindings": ["planner", "coder", "reviewer", "fixer", "diagnostic", "human"]
+}

@@ -17,5 +17,15 @@
     "noEmit": false
   },
   "include": ["src/**/*", "../api-server/src/lib/**/*.ts"],
-  "exclude": ["node_modules", "dist", "../api-server/src/routes"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "../api-server/src/routes",
+    "../api-server/src/lib/build-visual-verification.ts",
+    "../api-server/src/lib/build-done-contract.ts",
+    "../api-server/src/lib/build-human-interface.ts",
+    "../api-server/src/lib/model-router.ts",
+    "../api-server/src/lib/build-project-map.ts",
+    "../api-server/src/lib/build-skills.ts"
+  ]
 }

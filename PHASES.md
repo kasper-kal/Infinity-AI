@@ -23,8 +23,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | ✅ **DONE** | ~40-64h | Independent |
-| **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
-| **16** | **Infinity Maps Widget** | 📋 PLANNED | ~12-20h | Phase 14 |
+| **15** | **Build Mode Intelligence & Reliability** | ✅ **DONE** | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
+| **16** | **Infinity Maps Widget** | 🔄 **IN PROGRESS** | ~12-20h | Phase 14 |
 | **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
@@ -506,19 +506,19 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
 - [x] **Diagnostic agents** — specialized fixer agents per tool type
 
 #### 10. Security Boundaries
-- [ ] **Command allow/deny rules** — configurable per project/agent
-- [ ] **Secret redaction** — API keys, tokens, passwords never in logs/context
-- [ ] **Environment variable protection** — scoped access, no cross-project leakage
-- [ ] **Workspace sandboxing** — worktree isolation, no parent directory escape
-- [ ] **Filesystem boundaries** — allowlist/blocklist paths
-- [ ] **Network permissions** — allowlist domains, block egress by default
-- [ ] **Destructive command confirmation** — rm -rf, git push --force, DB migrations require approval
-- [ ] **Tool permissions per agent** — planner: read-only, coder: write, reviewer: read, fixer: write
-- [ ] **Self-modification guardrails** — only `artifacts/` allowed, never core config/secrets
+- [x] **Command allow/deny rules** — configurable per project/agent
+- [x] **Secret redaction** — API keys, tokens, passwords never in logs/context
+- [x] **Environment variable protection** — scoped access, no cross-project leakage
+- [x] **Workspace sandboxing** — worktree isolation, no parent directory escape
+- [x] **Filesystem boundaries** — allowlist/blocklist paths
+- [x] **Network permissions** — allowlist domains, block egress by default
+- [x] **Destructive command confirmation** — rm -rf, git push --force, DB migrations require approval
+- [x] **Tool permissions per agent** — planner: read-only, coder: write, reviewer: read, fixer: write
+- [x] **Self-modification guardrails** — only `artifacts/` allowed, never core config/secrets
 
 #### 11. Skills System (Reusable Capabilities)
-- [ ] **Skill definition format** — JSON/YAML with instructions, tools, verification rules, conventions
-- [ ] **Built-in skills**:
+- [x] **Skill definition format** — JSON/YAML with instructions, tools, verification rules, conventions
+- [x] **Built-in skills**:
   - `react-engineer` — React patterns, hooks, testing, accessibility
   - `debugger` — reproduce, inspect, patch, verify loop
   - `ui-designer` — implement, browser inspect, screenshot, visually verify
@@ -527,10 +527,10 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
   - `devops-engineer` — CI/CD, Docker, Kubernetes, monitoring
   - `security-auditor` — OWASP, secrets, dependencies, penetration
   - `performance-engineer` — profiling, optimization, bundle analysis
-- [ ] **Skill registry** — discoverable, versioned, composable
-- [ ] **Skill inheritance** — base skill + project overrides
-- [ ] **Skill marketplace** — share/import skills (local first, $0)
-- [ ] **Agent-skill binding** — assign skills to agent roles per project
+- [x] **Skill registry** — discoverable, versioned, composable
+- [x] **Skill inheritance** — base skill + project overrides
+- [x] **Skill marketplace** — share/import skills (local first, $0)
+- [x] **Agent-skill binding** — assign skills to agent roles per project
 
 ### Implementation Plan
 
@@ -593,10 +593,10 @@ Transform Build Mode from "it builds" to "it builds reliably, verifiably, and in
     - Destructive command guard
 
 11. **Skills System** — `build-skills.ts` + skill definitions
-    - Skill schema + loader
-    - Built-in skill definitions
-    - Registry + discovery
-    - Agent-skill binding in orchestrator
+    - Skill schema + loader ✅
+    - Built-in skill definitions ✅
+    - Registry + discovery ✅
+    - Agent-skill binding in orchestrator ✅
 
 ### Files to Create/Modify
 
@@ -1006,26 +1006,20 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 15 — Build Mode Intelligence & Reliability**
+## 🎯 Current Phase: **Phase 16 — Infinity Maps Widget**
 
-> **START HERE.** Addresses 11 critical systems: Visual Verification, Done Contract, Checkpoint/Recovery, Git-First Build, Context Compression, Human Takeover, Model Routing, Project Map, Resilient Tools, Security Boundaries, Skills System. Build new lib files in `artifacts/api-server/src/lib/` and wire into orchestrator.
+> **START HERE.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps. Backend: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event. Frontend: MapsWidget.tsx with interactive map, marker clustering, bottom sheet details, directions links.
 
 ---
 
-## 🎯 Next Phase: **Phase 15 — Build Mode Intelligence & Reliability**
+## 🎯 Next Phase: **Phase 16 — Infinity Maps Widget**
 
-> **PLANNED.** Addresses 10 critical gaps + Skills system. Implementation order:
-> 1. Visual Verification System (browser-based, CI-ready)
-> 2. Done Contract System (deterministic completion)
-> 3. Catastrophic Failure Recovery (checkpoint/resume)
-> 4. Git-First Build Mode (worktree + incremental commits)
-> 5. Context Management & Compression (summarizer pipeline)
-> 6. Human Takeover / Steering (interrupt + inject)
-> 7. Model Routing + Effort Chooser (Lite/High/Max)
-> 8. Build Intelligence / Project Map (persistent subsystem)
-> 9. Tool Failure Handling (resilient wrapper + diagnostic agents)
-> 10. Security Boundaries (permissions, sandboxing, redaction)
-> 11. Skills System (reusable capabilities: react-engineer, debugger, ui-designer, etc.)
+> **IN PROGRESS.** Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps.
+> 1. **Backend** — `maps.ts` route: detect @Maps / location queries, proxy Overpass/Nominatim calls (caching), emit widget event
+> 2. **Frontend Widget** — `MapsWidget.tsx`: Leaflet/MapLibre map, marker clustering, bottom sheet details, directions links
+> 3. **Widget Type** — Add `maps` to Widget union in `types/widget.ts`, export in `widgets/index.ts`, add case in `conversation-feed.tsx`
+> 4. **Chat Integration** — Add `detectMapsCommand()` in `chat.ts`, emit `widget` SSE event with map config (center, radius, categories)
+> 5. **Styling** — Liquid Glass theme tokens, responsive (mobile: full-screen sheet, desktop: inline widget)
 
 ---
 

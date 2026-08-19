@@ -33,7 +33,9 @@ export type BuildEventType =
   | "agent_error"
   | "agent_step_start"
   | "orchestrator"
-  | "orchestrator_start";
+  | "orchestrator_start"
+  | "security"
+  | "skill";
 
 export interface BuildEvent {
   ts: string;
