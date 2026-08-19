@@ -60,6 +60,7 @@ import extensionRouter, { handleExtensionUpgrade } from "./extension";
 import apiKeysRouter from "./api-keys";
 import connectorsRouter from "./connectors";
 import selfEvolutionRouter from "./self-evolution";
+import mapsRouter from "./maps";
 
 const router = Router();
 
@@ -67,6 +68,7 @@ router.use(authRouter);
 router.use(apiKeysRouter);
 router.use(connectorsRouter);
 router.use(selfEvolutionRouter);
+router.use(mapsRouter);
 router.use(conversationsRouter);
 router.use(settingsRouter);
 // Mount before the global memory router so scoped /memories/:id mutations can

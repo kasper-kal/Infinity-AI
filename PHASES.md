@@ -24,7 +24,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
 | **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | ✅ **DONE** | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | ✅ **DONE** | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
-| **16** | **Infinity Maps Widget** | 🔄 **IN PROGRESS** | ~12-20h | Phase 14 |
+| **16** | **Infinity Maps Widget** | ✅ **DONE** | ~12-20h | Phase 14 |
 | **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | 📋 PLANNED | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |

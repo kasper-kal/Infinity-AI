@@ -192,6 +192,22 @@ function detectImageRequest(text: string): { isImageRequest: boolean; imagePromp
   return { isImageRequest: false, imagePrompt: '' };
 }
 
+/** Detect if the user is asking for maps/places (explicit @Maps or natural language). */
+async function detectMapsCommand(text: string): Promise<{ shouldTrigger: boolean; widget?: any; requestId?: string }> {
+  try {
+    const res = await fetch("http://localhost:3000/api/jarvis/maps/detect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { shouldTrigger: false };
+    return await res.json() as { shouldTrigger: boolean; widget?: any; requestId?: string };
+  } catch {
+    return { shouldTrigger: false };
+  }
+}
+
 /** Detect if the user is asking to enter Jarvis Build (set up / build / run a project). */
 function detectBuildModeRequest(text: string): boolean {
   const t = text.trim().toLowerCase();
@@ -1281,6 +1297,24 @@ router.post("/chat", async (req, res) => {
       res.write(`data: ${JSON.stringify({
         type: "screen_share_detected",
         confirmationMessage: "Do you want to share your screen with Jarvis?",
+      })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── Maps auto-detect (explicit @Maps or natural language location queries) ────────
+    // Detects @Maps command or queries like "where should I eat", "coffee near me", "pizza places nearby"
+    const mapsCheck = await detectMapsCommand(sanitizedMessage);
+    if (mapsCheck.shouldTrigger && mapsCheck.widget) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+      res.write(`data: ${JSON.stringify({
+        type: "widget",
+        widget: mapsCheck.widget,
       })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();

@@ -4,10 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 12:30
+LAST_UPDATED: 2026-08-19 12:45
 
 ## Just did (last action)
-- **Added Security Hardening Initiative to PHASES.md + session-brief.md** — 11 critical security issues identified with concrete fix steps (must fix before Phase 16):
+- **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries ("where should I eat", "find coffee near me", "pizza places nearby"):
+  - **Backend** (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search (places), GET /geocode (location query), POST /detect (trigger detection from chat).
+  - **Frontend** (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet with place details, category filters, radius slider, "Get Directions" (opens OS maps app via universal links), "Save to Project".
+  - **Widget integration**: Added `maps` to Widget union in `types/widget.ts`, exported in `widgets/index.ts`, case in `conversation-feed.tsx`.
+  - **Chat integration** (`chat.ts`): `detectMapsCommand()` detects @Maps prefix + 9 natural language patterns ("where should I eat", "coffee near me", "pizza places nearby", etc.). Emits widget SSE event with config (center, radius, categories).
+  - **All typecheck + build pass** on both frontend and API server.
+- **Added Security Hardening Initiative to PHASES.md + session-brief.md** — 11 critical security issues identified with concrete fix steps (must fix before Phase 17):
   1. **API key endpoints missing account authorization (CRITICAL)** — list/update/delete/regenerate query by key ID only, no ownership check
   2. **No centralized authentication middleware (CRITICAL)** — 40+ routers mounted individually, each must remember auth
   3. **Build terminal route missing authentication (CRITICAL)** — accepts user commands without auth
@@ -20,7 +26,6 @@ LAST_UPDATED: 2026-08-19 12:30
   10. **No rate limiting on auth endpoints (LOW)** — credential stuffing, enumeration risk
   11. **Secret redaction incomplete in logs/context (LOW)** — not verified across all log paths, SSE, debug panel, checkpoints
 - **Added 5 new phases to PHASES.md + session-brief.md** (user feature requests, inserted BEFORE Universal Tool Layer):
-  - **Phase 16: Infinity Maps Widget** — Interactive maps for location queries ("I'm craving pizza, where should I eat?"), OpenStreetMap/Overpass API, Leaflet/MapLibre, directions to OS maps apps
   - **Phase 17: Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo maker, Website: build mode/GitHub/Figma, Book: extends Book Studio)
   - **Phase 18: Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API: clicks, typing, whoosh), AI speed optimization (detects slow sections, re-renders at 2-4x with frame blending)
   - **Phase 19: Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when all API keys cooling, build-agent verification loop integration
@@ -143,6 +148,12 @@ LAST_UPDATED: 2026-08-19 12:30
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-19 **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries:
+  - Backend (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search, GET /geocode, POST /detect
+  - Frontend (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet details, category filters, radius slider, "Get Directions" (OS maps app via universal links), "Save to Project"
+  - Widget integration: `maps` type added to Widget union, exported in widgets/index.ts, case in conversation-feed.tsx
+  - Chat integration (`chat.ts`): `detectMapsCommand()` detects @Maps + 9 natural language patterns. Emits widget SSE event
+  - All typecheck + build pass on both frontend and API server
 - 2026-08-19 **Phase 15 Task 11: Skills System COMPLETE** — Created complete reusable capabilities system for Build Mode agents:
   - `build-skills.ts` (800+ lines): SkillDefinition schema (instructions, toolPreferences, verificationRules, conventions, environment, roleBindings, extends), SkillRegistry (discovery by category/tag/role, project-scoped filtering, stats), SkillLoader (JSON/YAML file loading, inheritance resolution with circular detection, merge logic), AgentSkillBinding (per-project/role skill assignments with priority), SkillMarketplace (local-first package management, $0 budget, install/publish/search)
   - 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/`: base.json (foundation), react-engineer.json, debugger.json, ui-designer.json, api-engineer.json, database-engineer.json, devops-engineer.json, security-auditor.json, performance-engineer.json
@@ -252,7 +263,7 @@ LAST_UPDATED: 2026-08-19 12:30
 - **Build Mode (Infinity) Phase 1: Foundation** — **COMPLETE**: Git worktree isolation, checkpoint/resume system, atomic commits, instant rollback. Typecheck + build pass.
 - **Tavily Research (1-hour)**: **COMPLETED** - Competitive analysis to make Infinity "THE BEST IT CAN BE for $0" vs Claude Code, Replit Agent, Cursor, OpenHands, Cline, Aider, Goose. Key findings synthesized into actionable improvements below.
 - **Responsive UI redesign**: **IN PROGRESS** - Phase 14 — Created design tokens + 10 base UI components + 5 layout primitives. Now building feature views (Build, Chat, Terminal, Settings, Projects) with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheets, swipe) implementations. Treat them as different websites for same goal.
-- **Phase 15: Build Mode Intelligence & Reliability** — **TASK 11 (SKILLS SYSTEM) COMPLETE** ✅:
+- **Phase 15: Build Mode Intelligence & Reliability** — **ALL 11 TASKS COMPLETE** ✅:
   - Task 1 (Visual Verification) ✅ DONE
   - Task 2 (Done Contract) ✅ DONE
   - Task 3 (Checkpoint/Recovery) ✅ DONE
@@ -263,11 +274,9 @@ LAST_UPDATED: 2026-08-19 12:30
   - Task 8 (Project Map) ✅ DONE
   - Task 9 (Tool Failure Handling) ✅ DONE
   - Task 10 (Security Boundaries) ✅ DONE
-  - **Task 11 (Skills System) ✅ DONE** — Created complete skills system:
-    - `build-skills.ts` (800+ lines): SkillDefinition schema, SkillRegistry (discovery, categorization, role-based filtering), SkillLoader (file loading with inheritance resolution), AgentSkillBinding (per-project/role bindings), SkillMarketplace (local-first package management, $0)
-    - 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/`: base.json, react-engineer.json, debugger.json, ui-designer.json, api-engineer.json, database-engineer.json, devops-engineer.json, security-auditor.json, performance-engineer.json
-    - Full typecheck passes clean on both api-server and acp-server
-  - All 11 Phase 15 tasks complete! Next: Phase 16 (Infinity Maps Widget)
+  - Task 11 (Skills System) ✅ DONE
+  - All 11 Phase 15 tasks complete!
+- **Phase 16: Infinity Maps Widget** — **COMPLETE**: Interactive maps widget with Overpass/Nominatim backend, Leaflet frontend, widget SSE integration, chat detection for location queries. Typecheck + build pass on both frontend and API server.
 
 - **Security Hardening Initiative (After All Phases)** — 11 issues with concrete fix steps added to end of PHASES.md:
   1. API key endpoints missing account authorization (CRITICAL)
@@ -283,7 +292,7 @@ LAST_UPDATED: 2026-08-19 12:30
   11. Secret redaction incomplete in logs/context (LOW)
 
 ## New Phases Added (User Request)
-- **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
+- **Phase 16: Infinity Maps Widget** — **COMPLETE**: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
 - **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
 - **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
 - **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
@@ -374,16 +383,14 @@ LAST_UPDATED: 2026-08-19 12:30
 
 ## Next actions
 1. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
-2. **Phase 16: Infinity Maps Widget** — PLANNED: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
-3. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
-4. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
-5. **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
-6. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
-7. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
-8. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
-9. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
-10. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-11. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+2. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
+3. **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
+4. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
+5. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
+6. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
+7. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
+8. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
+9. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

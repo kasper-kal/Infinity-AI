@@ -57,6 +57,7 @@ export type Widget =
   | { type: 'unit'; value: number; fromUnit: string; toUnit: string; category: string; label: string }
   | { type: 'currency'; from: string; to: string; amount: number; rate: number; updated: string }
   | { type: 'map'; query: string; lat: number; lon: number; displayName: string }
+  | { type: 'maps'; center: { lat: number; lon: number }; displayName: string; radius: number; categories: string[]; query: string; useUserLocation?: boolean }
   | { type: 'random'; kind: 'dice' | 'coin' | 'number'; value: number; label: string }
   | { type: 'music'; composition: MusicComposition }
   | { type: 'browser_agent'; goal: string }
