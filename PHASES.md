@@ -22,7 +22,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **11** | **ACP Protocol Support** | ✅ **DONE** | ~8-16h | Phase 7 |
 | **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
-| **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | 🔄 IN PROGRESS | ~40-64h | Independent |
+| **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | ✅ **DONE** | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 | **16** | **Infinity Maps Widget** | 📋 PLANNED | ~12-20h | Phase 14 |
 | **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
@@ -1006,9 +1006,9 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 14 — Responsive UI Redesign (Mobile + Desktop)**
+## 🎯 Current Phase: **Phase 15 — Build Mode Intelligence & Reliability**
 
-> **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
+> **START HERE.** Addresses 11 critical systems: Visual Verification, Done Contract, Checkpoint/Recovery, Git-First Build, Context Compression, Human Takeover, Model Routing, Project Map, Resilient Tools, Security Boundaries, Skills System. Build new lib files in `artifacts/api-server/src/lib/` and wire into orchestrator.
 
 ---
 
