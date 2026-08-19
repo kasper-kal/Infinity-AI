@@ -4,7 +4,7 @@
 
 import React, { forwardRef, useEffect, useRef, useState, useMemo } from "react";
 import { EditorView, keymap, ViewUpdate } from "@codemirror/view";
-import { EditorState, Extension, Compartment } from "@codemirror/state";
+import { EditorState, Extension, Compartment, Prec, EditorState as StateEditorState } from "@codemirror/state";
 import { basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -18,19 +18,10 @@ import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
-import { toml } from "@codemirror/lang-toml";
 import { xml } from "@codemirror/lang-xml";
 import { php } from "@codemirror/lang-php";
-import { swift } from "@codemirror/lang-swift";
-import { kotlin } from "@codemirror/lang-kotlin";
-import { ruby } from "@codemirror/lang-ruby";
-import { elixir } from "@codemirror/lang-elixir";
-import { cSharp } from "@codemirror/lang-csharp";
-import { c } from "@codemirror/lang-c";
 import { vue } from "@codemirror/lang-vue";
-import { svelte } from "@codemirror/lang-svelte";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { highContrast } from "@codemirror/view";
 import "./CodeEditor.css";
 
 export type Language =
@@ -47,17 +38,9 @@ export type Language =
   | "markdown"
   | "sql"
   | "yaml"
-  | "toml"
   | "xml"
   | "php"
-  | "swift"
-  | "kotlin"
-  | "ruby"
-  | "elixir"
-  | "csharp"
-  | "c"
   | "vue"
-  | "svelte"
   | "plaintext";
 
 export interface CodeEditorProps {
@@ -97,17 +80,9 @@ const LANGUAGE_MAP: Record<Language, Extension> = {
   markdown: markdown(),
   sql: sql(),
   yaml: yaml(),
-  toml: toml(),
   xml: xml(),
   php: php(),
-  swift: swift(),
-  kotlin: kotlin(),
-  ruby: ruby(),
-  elixir: elixir(),
-  csharp: cSharp(),
-  c: c(),
   vue: vue(),
-  svelte: svelte(),
   plaintext: [],
 };
 
@@ -170,8 +145,8 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
           languageCompartment.current.of(languageExt),
           themeCompartment.current.of(themeExt),
           readOnlyCompartment.current.of(readOnlyExt),
-          EditorView.lineWrapping.of(wordWrap),
-          EditorView.tabSize.of(tabSize),
+          wordWrap ? EditorView.lineWrapping : [],
+          StateEditorState.tabSize.of(tabSize),
           EditorView.theme({
             "&": {
               fontSize: `${fontSize}px`,

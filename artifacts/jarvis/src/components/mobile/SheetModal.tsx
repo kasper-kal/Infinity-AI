@@ -158,17 +158,20 @@ export const SheetModal: React.FC<SheetModalProps> = ({
   // Attach global listeners during drag
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('touchmove', handleDragMove as any, { passive: false });
-      window.addEventListener('mousemove', handleDragMove as any);
+      const handleTouchMove = (e: TouchEvent) => handleDragMove(e as any);
+      const handleMouseMove = (e: MouseEvent) => handleDragMove(e as any);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('touchend', handleDragEnd);
       window.addEventListener('mouseup', handleDragEnd);
       return () => {
-        window.removeEventListener('touchmove', handleDragMove as any);
-        window.removeEventListener('mousemove', handleDragMove as any);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('touchend', handleDragEnd);
         window.removeEventListener('mouseup', handleDragEnd);
       };
     }
+    return undefined;
   }, [isDragging, handleDragMove, handleDragEnd]);
 
   // Prevent body scroll
@@ -179,6 +182,7 @@ export const SheetModal: React.FC<SheetModalProps> = ({
         document.body.style.overflow = '';
       };
     }
+    return undefined;
   }, [open, preventScroll]);
 
   // Handle ESC key

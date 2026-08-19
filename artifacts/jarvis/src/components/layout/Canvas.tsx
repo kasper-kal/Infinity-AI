@@ -170,7 +170,7 @@ export const Canvas = React.forwardRef<CanvasHandle, CanvasProps>(
 
     // Touch handlers for mobile
     const [touchState, setTouchState] = useState<{
-      touches: Touch[] | null;
+      touches: React.Touch[] | null;
       initialDistance: number;
       initialZoom: number;
       initialCenter: { x: number; y: number };

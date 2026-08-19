@@ -65,6 +65,11 @@ const en = {
   /* App / Navigation (used by ChatView and other views) */
   "app.name": "Jarvis",
   "nav.chat": "Chat",
+  "nav.build": "Build",
+  "nav.terminal": "Terminal",
+  "nav.projects": "Projects",
+  "nav.settings": "Settings",
+  "nav.main": "Main",
   "nav.voice": "Voice",
   "nav.camera": "Camera",
   "nav.agent": "Agent",
@@ -75,6 +80,7 @@ const en = {
   /* Common */
   "common.more": "More",
   "common.back": "Back",
+  "common.close": "Close",
   "common.run": "Run",
   "common.running": "Running...",
   "common.confirm": "Confirm",
@@ -997,6 +1003,19 @@ const en = {
   "projects.status.paused": "Paused",
   "projects.status.completed": "Completed",
   "projects.lastModified": "Last modified",
+
+  /* Shortcuts */
+  "shortcuts.title": "Keyboard Shortcuts",
+  "shortcuts.cmdK": "⌘ K",
+  "shortcuts.cmdB": "⌘ B",
+  "shortcuts.cmd1": "⌘ 1-5",
+  "shortcuts.cmdL": "⌘ L",
+  "shortcuts.escape": "Esc",
+  "shortcuts.openPalette": "Open command palette",
+  "shortcuts.toggleSidebar": "Toggle sidebar",
+  "shortcuts.switchViews": "Switch views (Chat, Build, Terminal, Projects, Settings)",
+  "shortcuts.closeDialogs": "Close dialogs/panels",
+  "shortcuts.focusTerminal": "Focus terminal input (Terminal view)",
 } as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1284,6 +1303,11 @@ const nl: Record<keyof typeof en, string> = {
   /* App / Navigation (used by ChatView and other views) */
   "app.name": "Jarvis",
   "nav.chat": "Chat",
+  "nav.build": "Build",
+  "nav.terminal": "Terminal",
+  "nav.projects": "Projecten",
+  "nav.settings": "Instellingen",
+  "nav.main": "Hoofd",
   "nav.voice": "Stem",
   "nav.camera": "Camera",
   "nav.agent": "Agent",
@@ -1294,6 +1318,7 @@ const nl: Record<keyof typeof en, string> = {
   /* Common */
   "common.more": "Meer",
   "common.back": "Terug",
+  "common.close": "Sluiten",
   "common.run": "Uitvoeren",
   "common.running": "Bezig...",
   "common.confirm": "Bevestigen",
@@ -1936,6 +1961,19 @@ const nl: Record<keyof typeof en, string> = {
   "projects.status.paused": "Gepauzeerd",
   "projects.status.completed": "Voltooid",
   "projects.lastModified": "Laatst gewijzigd",
+
+  /* Shortcuts */
+  "shortcuts.title": "Toetsenbordsnelkoppelingen",
+  "shortcuts.cmdK": "⌘ K",
+  "shortcuts.cmdB": "⌘ B",
+  "shortcuts.cmd1": "⌘ 1-5",
+  "shortcuts.cmdL": "⌘ L",
+  "shortcuts.escape": "Esc",
+  "shortcuts.openPalette": "Open commando-palet",
+  "shortcuts.toggleSidebar": "Zijbalk in/uitschakelen",
+  "shortcuts.switchViews": "Wissel weergaven (Chat, Build, Terminal, Projecten, Instellingen)",
+  "shortcuts.closeDialogs": "Dialogen/panelen sluiten",
+  "shortcuts.focusTerminal": "Focus terminal invoer (Terminal-weergave)",
 
   /* Build Studio - Phase 2.1 Diff Preview (NL) */
   "studio.build.progressFilesGenerated": "{n} voorgestelde bestand(en) gegenereerd voor beoordeling.",

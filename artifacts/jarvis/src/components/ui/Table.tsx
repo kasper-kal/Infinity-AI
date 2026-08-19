@@ -42,6 +42,8 @@ export interface TableProps<T> {
   rowClassName?: (row: T) => string;
 }
 
+export type RowAction<T> = (row: T) => ReactNode;
+
 export function Table<T>({
   columns,
   data,
@@ -395,45 +397,48 @@ export function VirtualizedTable<T>({
                 <tr className="table__spacer" style={{ height: offsetY }} aria-hidden="true">
                   <td colSpan={columns.length + (selectable ? 1 : 0) + (renderRowActions ? 1 : 0)} />
                 </tr>
-                {visibleRows.map((row) => {
-                  const rowKey = keyAccessor(row);
-                  return (
-                    <tr
-                      key={rowKey}
-                      className={`table__row ${rowClassName?.(row) || ""} ${isSelected(rowKey) ? "table__row--selected" : ""}`}
-                      style={{ height: rowHeight }}
-                    >
-                      {selectable && (
-                        <td className="table__cell table__cell--checkbox">
-                          <input
-                            type="checkbox"
-                            className="table__checkbox"
-                            checked={selectedKeys.includes(rowKey)}
-                            onChange={(e) => onSelectionChange?.(e.target.checked ? [...selectedKeys, rowKey] : selectedKeys.filter((k) => k !== rowKey))}
-                            aria-label={`Select row ${rowKey}`}
-                          />
-                        </td>
-                      )}
-                      {columns.map((column) => (
-                        <td
-                          key={column.key}
-                          className={`table__cell ${column.className || ""}`}
-                          style={{
-                            textAlign: column.align,
-                            ...column.style,
-                          }}
-                        >
-                          {column.accessor(row)}
-                        </td>
-                      ))}
-                      {renderRowActions && (
-                        <td className="table__cell table__cell--actions">
-                          <div className="table__actions">{renderRowActions(row)}</div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                {(() => {
+                  const isSelected = (key: string) => selectedKeys.includes(key);
+                  return visibleRows.map((row) => {
+                    const rowKey = keyAccessor(row);
+                    return (
+                      <tr
+                        key={rowKey}
+                        className={`table__row ${rowClassName?.(row) || ""} ${isSelected(rowKey) ? "table__row--selected" : ""}`}
+                        style={{ height: rowHeight }}
+                      >
+                        {selectable && (
+                          <td className="table__cell table__cell--checkbox">
+                            <input
+                              type="checkbox"
+                              className="table__checkbox"
+                              checked={selectedKeys.includes(rowKey)}
+                              onChange={(e) => onSelectionChange?.(e.target.checked ? [...selectedKeys, rowKey] : selectedKeys.filter((k) => k !== rowKey))}
+                              aria-label={`Select row ${rowKey}`}
+                            />
+                          </td>
+                        )}
+                        {columns.map((column) => (
+                          <td
+                            key={column.key}
+                            className={`table__cell ${column.className || ""}`}
+                            style={{
+                              textAlign: column.align,
+                              ...column.style,
+                            }}
+                          >
+                            {column.accessor(row)}
+                          </td>
+                        ))}
+                        {renderRowActions && (
+                          <td className="table__cell table__cell--actions">
+                            <div className="table__actions">{renderRowActions(row)}</div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  });
+                })()}
                 <tr className="table__spacer" style={{ height: totalHeight - offsetY - visibleRows.length * rowHeight }} aria-hidden="true">
                   <td colSpan={columns.length + (selectable ? 1 : 0) + (renderRowActions ? 1 : 0)} />
                 </tr>

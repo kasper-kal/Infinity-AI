@@ -69,11 +69,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const [height, setHeight] = React.useState<number | string>("auto");
 
-    React.useImperativeHandle(ref, () => ({
-      ...textareaRef.current,
-      focus: () => textareaRef.current?.focus(),
-      blur: () => textareaRef.current?.blur(),
-    }));
+    React.useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (autoResize) {

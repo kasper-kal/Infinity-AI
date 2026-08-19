@@ -22,3 +22,10 @@ export type { CanvasProps, CanvasViewport, CanvasHandle, CanvasLayerProps, Canva
 // ResponsiveGrid
 export { ResponsiveGrid, GridItem, MasonryGrid, MasonryGridItem, FlexGrid, ContainerQueryGrid } from "./ResponsiveGrid";
 export type { ResponsiveGridProps, GridItemProps, MasonryGridProps, MasonryGridItemProps, FlexGridProps, ContainerQueryGridProps } from "./ResponsiveGrid";
+
+// DesktopShell
+export { DesktopShell, type DesktopShellProps, type DesktopView } from "./DesktopShell";
+
+// AppShellRouter
+export { AppShellRouter, AppShellRouterRoutes } from "./AppShellRouter";
+export type { View } from "./AppShellRouter";

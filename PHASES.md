@@ -22,7 +22,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **11** | **ACP Protocol Support** | ✅ **DONE** | ~8-16h | Phase 7 |
 | **12** | **SWE-Bench Optimization** | ✅ **DONE** | ~12-24h | Phase 8 |
 | **13** | **Self-Evolving Code Capability** | ✅ **DONE** | ~4-8h | Phase 8 |
-| **14** | **Responsive UI Redesign (Mobile + Desktop as Different Websites)** | 🔄 IN PROGRESS | ~40-64h | Independent |
+| **14** | **Responsive UI Redesign (Mobile + Desktop Treated Like Different Websites For The Same Goal)** | 🔄 IN PROGRESS | ~40-64h | Independent |
 | **15** | **Build Mode Intelligence & Reliability** | 📋 PLANNED | ~24-40h | Phase 8, Phase 1, Phase 4.2 |
 | **16** | **Infinity Maps Widget** | 📋 PLANNED | ~12-20h | Phase 14 |
 | **17** | **Project Types System (Book, Website, Company, etc.)** | 📋 PLANNED | ~20-32h | Phase 14, Phase 15 |
@@ -828,7 +828,7 @@ Replace the current "Deep Research → creates a Gem/Expert" flow with a **true 
 ## 🌐 Initiative: Universal Tool Layer (Phases 21–24)
 *Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
 
-## 📦 Phase 16: Universal Tool Layer — Foundation
+## 📦 Phase 21: Universal Tool Layer — Foundation
 
 ### Goal
 Establish the **centralized Universal Tool Registry** and standardized tool contract that every Infinity capability will register with. This is the substrate Phase 17–19 build on. It generalizes the existing Build Mode tool-use architecture (`build-tools.ts`) into a model-agnostic, namespaced, permissioned registry — WITHOUT duplicating the existing tool schemas/execution/retry logic.
@@ -874,7 +874,7 @@ Establish the **centralized Universal Tool Registry** and standardized tool cont
 
 ---
 
-## 📦 Phase 17: Universal Tool Layer — Capability Integration
+## 📦 Phase 22: Universal Tool Layer — Capability Integration
 
 ### Goal
 Register every existing Infinity capability as a namespaced tool in the Phase 16 registry. **Register ONLY functionality that actually exists** — no fake implementations. Build Mode becomes a consumer of the registry, not an isolated ecosystem.
@@ -900,7 +900,7 @@ Register every existing Infinity capability as a namespaced tool in the Phase 16
 
 ---
 
-## 📦 Phase 18: Universal Tool Layer — Agent Loop & UX
+## 📦 Phase 23: Universal Tool Layer — Agent Loop & UX
 
 ### Goal
 Make Chat a real **iterative reasoning/tool loop** where the LLM dynamically chains tools across capabilities in one task, and surface that execution in the UI as an agent timeline.
@@ -930,7 +930,7 @@ Make Chat a real **iterative reasoning/tool loop** where the LLM dynamically cha
 
 ---
 
-## 📦 Phase 19: Universal Tool Layer — Resilience & Persistence
+## 📦 Phase 24: Universal Tool Layer — Resilience & Persistence
 
 ### Goal
 Make the Universal Tool Layer robust to failures and durable across interruptions. Integrates cleanly with existing Build task/event infra — no parallel task system.

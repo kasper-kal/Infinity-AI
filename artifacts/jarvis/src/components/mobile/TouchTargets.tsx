@@ -53,7 +53,7 @@ export const TouchTarget = forwardRef<HTMLDivElement, TouchTargetProps>(
       return null;
     }
 
-    const childProps = child.props as React.HTMLAttributes<HTMLElement>;
+    const childProps = child.props as React.HTMLAttributes<HTMLElement> & { style?: React.CSSProperties };
 
     // Calculate padding needed to reach target size
     // We assume child has some intrinsic size or we expand equally
@@ -71,13 +71,13 @@ export const TouchTarget = forwardRef<HTMLDivElement, TouchTargetProps>(
     };
 
     const expandedStyles: React.CSSProperties = {
-      ...childProps.style,
+      ...(childProps.style || {}),
       minWidth: targetSize,
       minHeight: targetSize,
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-    } as React.CSSProperties;
+    };
 
     return (
       <div
@@ -92,10 +92,9 @@ export const TouchTarget = forwardRef<HTMLDivElement, TouchTargetProps>(
         onKeyDown={disabled ? undefined : childProps.onKeyDown}
       >
         {React.cloneElement(child, {
-          ...childProps,
-          style: visualOnly ? childProps.style : expandedStyles,
-          className: cn(childProps.className, !visualOnly && "relative z-10"),
-        })}
+          style: visualOnly ? (childProps.style as React.CSSProperties | undefined) : expandedStyles,
+          className: cn((childProps as any).className, !visualOnly && "relative z-10"),
+        } as any)}
       </div>
     );
   }
@@ -330,19 +329,67 @@ export const TouchListItem = forwardRef<HTMLDivElement, TouchListItemProps>(
       return TOUCH_TARGET_SIZES[touchSize];
     }, [touchSize]);
 
-    const Component = href ? 'a' : 'div';
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDownDiv = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if ((e.key === 'Enter' || e.key === ' ') && !href) {
         e.preventDefault();
         (e.currentTarget as HTMLElement).click();
       }
     };
 
+    const handleKeyDownAnchor = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !href) {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).click();
+      }
+    };
+
+    if (href) {
+      // Extract and type anchor-specific props
+      const {
+        onClick: divOnClick,
+        onKeyDown: divOnKeyDown,
+        ...anchorProps
+      } = props as React.AnchorHTMLAttributes<HTMLAnchorElement> & typeof props;
+
+      const handleKeyDownAnchor = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !href) {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).click();
+        }
+      };
+
+      return (
+        <a
+          ref={ref as React.Ref<HTMLAnchorElement>}
+          href={href}
+          className={cn(
+            "flex items-center gap-3 w-full",
+            "transition-colors duration-100",
+            "touch-manipulation",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            pressed && "bg-accent/10",
+            divider && "border-b border-border-primary/60",
+            className
+          )}
+          style={{
+            minHeight: targetSize,
+            padding: `0 16px`,
+            ...props.style,
+          }}
+          onClick={divOnClick}
+          onKeyDown={handleKeyDownAnchor}
+          {...anchorProps}
+        >
+          {startContent && <div className="flex-shrink-0" aria-hidden="true">{startContent}</div>}
+          <div className="flex-1 min-w-0">{children}</div>
+          {endContent && <div className="flex-shrink-0" aria-hidden="true">{endContent}</div>}
+        </a>
+      );
+    }
+
     return (
-      <Component
+      <div
         ref={ref}
-        href={href}
         className={cn(
           "flex items-center gap-3 w-full",
           "transition-colors duration-100",
@@ -358,15 +405,15 @@ export const TouchListItem = forwardRef<HTMLDivElement, TouchListItemProps>(
           ...props.style,
         }}
         onClick={onClick}
-        onKeyDown={handleKeyDown}
-        role={href ? undefined : 'button'}
-        tabIndex={href ? undefined : 0}
+        onKeyDown={handleKeyDownDiv}
+        role="button"
+        tabIndex={0}
         {...props}
       >
         {startContent && <div className="flex-shrink-0" aria-hidden="true">{startContent}</div>}
         <div className="flex-1 min-w-0">{children}</div>
         {endContent && <div className="flex-shrink-0" aria-hidden="true">{endContent}</div>}
-      </Component>
+      </div>
     );
   }
 );

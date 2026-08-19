@@ -3,11 +3,41 @@
  */
 
 import React, { forwardRef, ButtonHTMLAttributes } from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 import "./Button.css";
 
+export const buttonVariants = cva("btn", {
+  variants: {
+    variant: {
+      primary: "btn--primary",
+      secondary: "btn--secondary",
+      ghost: "btn--ghost",
+      danger: "btn--danger",
+      glass: "btn--glass",
+      outline: "btn--outline",
+      default: "btn--primary",
+    },
+    size: {
+      xs: "btn--xs",
+      sm: "btn--sm",
+      md: "btn--md",
+      lg: "btn--lg",
+      xl: "btn--xl",
+      icon: "btn--icon",
+      default: "btn--md",
+    },
+  },
+  defaultVariants: {
+    variant: "primary",
+    size: "md",
+  },
+});
+
+export type ButtonVariants = VariantProps<typeof buttonVariants>;
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "glass";
-  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "glass" | "outline" | "default";
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "icon" | "default";
   loading?: boolean;
   icon?: React.ReactNode;
   iconPosition?: "left" | "right";

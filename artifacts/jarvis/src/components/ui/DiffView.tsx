@@ -6,7 +6,7 @@ import React, { useMemo, useState, useCallback, ReactNode } from "react";
 import "./DiffView.css";
 
 export interface DiffLine {
-  type: "add" | "remove" | "unchanged" | "context";
+  type: "add" | "remove" | "unchanged" | "context" | "hidden-context";
   content: string;
   oldLineNumber?: number;
   newLineNumber?: number;
@@ -450,7 +450,7 @@ function computeInlineDiff(oldStr: string, newStr: string): { added: string[]; r
 }
 
 /** File Diff — complete file diff with header */
-export interface FileDiffProps extends DiffViewProps {
+export interface FileDiffProps extends Omit<DiffViewProps, "diff"> {
   oldFile: string;
   newFile: string;
   oldContent: string;

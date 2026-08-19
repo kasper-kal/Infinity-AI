@@ -90,13 +90,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             <div className={ICON_WRAPPER}>
               {React.isValidElement(item.icon)
-                ? React.cloneElement(item.icon as React.ReactElement, {
+                ? React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
                     className: cn(
                       "w-6 h-6",
                       activeId === item.id ? "text-primary" : "text-muted-foreground",
                       "transition-colors duration-150"
                     ),
-                    "aria-hidden": "true",
                   })
                 : item.icon}
               {item.badge != null && (

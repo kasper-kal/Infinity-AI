@@ -53,7 +53,7 @@ export const Tabs: React.FC<TabsProps> = ({
     onChange?.(tabId);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>, tabId: string) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, tabId: string) => {
     const enabledTabs = tabs.filter((t) => !t.disabled);
     const currentIndex = enabledTabs.findIndex((t) => t.id === tabId);
     if (currentIndex === -1) return;

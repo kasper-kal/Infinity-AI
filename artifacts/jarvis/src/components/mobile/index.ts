@@ -20,3 +20,4 @@ export {
   type TouchTargetSize,
   touchTargetStyles,
 } from "./TouchTargets";
+export { MobileShell, type MobileShellProps, type MobileView } from "./MobileShell";

@@ -27,7 +27,7 @@ import { BuildProgressPanel } from "@/components/build-progress-panel";
 import { BuildProgressRing } from "@/components/build-progress-ring";
 import { PlusMenu, type PlusAction } from "@/components/plus-menu";
 import { BuildCommandPalette, type CommandPaletteItem } from "@/components/build-command-palette";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 
@@ -120,7 +120,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
                   size="sm"
                   onClick={() => setBuildTab(tab as typeof buildTab)}
                 >
-                  {t(`build.tabs.${tab}`) || tab}
+                  {(t(`build.tabs.${tab}` as TranslationKey) || tab)}
                 </Button>
               ))}
             </ButtonGroup>

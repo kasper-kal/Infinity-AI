@@ -355,7 +355,7 @@ export const FlexGrid: React.FC<FlexGridProps> = ({
     gap: typeof gap === "number" ? `${gap}px` : gap,
     rowGap: rowGap ? (typeof rowGap === "number" ? `${rowGap}px` : rowGap) : undefined,
     columnGap: colGap ? (typeof colGap === "number" ? `${colGap}px` : colGap) : undefined,
-  }), [gap, rowGap, colGap, alignItems, justifyContent, wrap, style]);
+  } as React.CSSProperties), [gap, rowGap, colGap, alignItems, justifyContent, wrap, style]);
 
   // Calculate item basis from itemsPerRow
   const itemStyles = useMemo(() => {

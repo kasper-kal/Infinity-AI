@@ -34,6 +34,8 @@ export interface SwipeGestureOptions {
   onSwipeCancel?: (direction: SwipeDirection, event: TouchEvent) => void;
 }
 
+type RequiredSwipeGestureOptions = Required<SwipeGestureOptions>;
+
 export interface SwipeGestureState {
   isSwiping: boolean;
   direction: SwipeDirection | null;
@@ -53,10 +55,10 @@ const DEFAULT_OPTIONS: Required<SwipeGestureOptions> = {
   preventDefault: false,
   horizontal: true,
   vertical: true,
-  onSwipeStart: undefined,
-  onSwipeMove: undefined,
-  onSwipeEnd: undefined,
-  onSwipeCancel: undefined,
+  onSwipeStart: () => {},
+  onSwipeMove: () => {},
+  onSwipeEnd: () => {},
+  onSwipeCancel: () => {},
 };
 
 /**
@@ -66,7 +68,7 @@ export function useSwipeGesture(
   targetRef: React.RefObject<HTMLElement | null>,
   options: SwipeGestureOptions = {}
 ) {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const opts: RequiredSwipeGestureOptions = { ...DEFAULT_OPTIONS, ...options };
   const [state, setState] = useState<SwipeGestureState>({
     isSwiping: false,
     direction: null,
@@ -216,7 +218,7 @@ export function useSwipeGesture(
  * Wraps children and provides swipe detection props
  */
 export interface SwipeableAreaProps {
-  children: React.ReactNode;
+  children: React.ReactNode | ((state: SwipeGestureState) => React.ReactNode);
   options?: SwipeGestureOptions;
   className?: string;
   /** Render prop for custom rendering based on swipe state */

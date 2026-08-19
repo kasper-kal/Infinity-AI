@@ -15,6 +15,7 @@ export interface TreeNode<T = unknown> {
   expanded?: boolean;
   icon?: ReactNode;
   className?: string;
+  parentId?: string;
 }
 
 export interface TreeProps<T = unknown> {
@@ -28,6 +29,7 @@ export interface TreeProps<T = unknown> {
   expandedIds?: string[];
   defaultExpandedIds?: string[];
   renderNode?: (node: TreeNode<T>, props: { selected: boolean; expanded: boolean; level: number }) => ReactNode;
+  onContextMenu?: (node: TreeNode<T>, e: React.MouseEvent) => void;
   className?: string;
   style?: React.CSSProperties;
   autoFocus?: boolean;
@@ -296,7 +298,7 @@ function TreeNodeComponent<T>({
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           onKeyDown={(e) => onKeyDown(e, node)}
-          style={{ "--tree-level": level }}
+          style={{ "--tree-level": level } as any}
         >
           {renderNode(node, { selected, expanded, level })}
         </div>
@@ -342,11 +344,11 @@ function TreeNodeComponent<T>({
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onKeyDown={(e) => onKeyDown(e, node)}
-        style={{ "--tree-level": level }}
+        style={{ "--tree-level": level } as any}
       >
         <span className="tree__indent" aria-hidden="true">
           {Array.from({ length: level }).map((_, i) => (
-            <span key={i} className="tree__indent-guide" style={{ "--guide-index": i }} />
+            <span key={i} className="tree__indent-guide" style={{ "--guide-index": i } as any} />
           ))}
           {hasChildren && (
             <button

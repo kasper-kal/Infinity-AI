@@ -2,7 +2,7 @@
  * Tooltip Component — Liquid Glass Design System
  */
 
-import React, { useState, useRef, useEffect, useId, ReactNode } from "react";
+import React, { useState, useRef, useEffect, useId, ReactNode, useCallback } from "react";
 import { createPortal } from "react-dom";
 import "./Tooltip.css";
 
@@ -27,8 +27,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const [positionStyles, setPositionStyles] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const tooltipId = useId();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipId = useId() || "tooltip";
 
   const updatePosition = () => {
     if (!triggerRef.current || !tooltipRef.current) return;
@@ -85,19 +85,19 @@ export const Tooltip: React.FC<TooltipProps> = ({
   };
 
   useEffect(() => {
-    if (open) {
-      window.addEventListener("resize", updatePosition);
-      window.addEventListener("scroll", updatePosition, true);
-      return () => {
-        window.removeEventListener("resize", updatePosition);
-        window.removeEventListener("scroll", updatePosition, true);
-      };
-    }
+    if (!open) return;
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
   }, [open]);
 
   // Handle both single child element and array
-  const child = React.Children.only(children) as React.ReactElement;
+  const child = React.Children.only(children) as React.ReactElement<any>;
   const enhancedChild = React.cloneElement(child, {
+    ...child.props,
     ref: triggerRef,
     onMouseEnter: show,
     onMouseLeave: hide,
@@ -105,7 +105,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     onBlur: hide,
     onKeyDown: handleKeyDown,
     "aria-describedby": open ? tooltipId : undefined,
-  });
+  } as typeof child.props);
 
   const tooltipContent = open ? (
     <div
@@ -129,6 +129,27 @@ export const Tooltip: React.FC<TooltipProps> = ({
   );
 };
 
+/** Compound tooltip API (shadcn-style) for compatibility */
+export const TooltipProvider: React.FC<{
+  children: ReactNode;
+  delayDuration?: number;
+}> = ({ children }) => <>{children}</>;
+
+export const TooltipTrigger: React.FC<{
+  children: ReactNode;
+  asChild?: boolean;
+}> = ({ children }) => <>{children}</>;
+
+export const TooltipContent: React.FC<{
+  children?: ReactNode;
+  className?: string;
+  side?: "top" | "bottom" | "left" | "right";
+  align?: "start" | "center" | "end";
+  hidden?: boolean;
+}> = ({ children, className = "" }) => (
+  <div className={`tooltip__content ${className}`}>{children}</div>
+);
+
 /** Toast Component */
 export interface ToastProps {
   message: string;
@@ -149,13 +170,12 @@ export const Toast: React.FC<ToastProps> = ({
   const toastRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (duration > 0) {
-      const timer = setTimeout(() => {
-        setVisible(false);
-        setTimeout(() => onClose?.(), 200);
-      }, duration);
-      return () => clearTimeout(timer);
-    }
+    if (duration <= 0) return;
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => onClose?.(), 200);
+    }, duration);
+    return () => clearTimeout(timer);
   }, [duration, onClose]);
 
   useEffect(() => {
@@ -241,7 +261,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
     display: "flex",
     flexDirection: "column",
     gap,
-    pointerEvents: "none",
+    pointerEvents: "none" as any,
   };
 
   const positionStyles: Record<string, React.CSSProperties> = {
@@ -254,7 +274,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   };
 
   return (
-    <div style={{ ...containerStyles, ...positionStyles[position] }} pointerEvents="auto">
+    <div style={{ ...containerStyles, ...positionStyles[position], pointerEvents: "auto" as any }}>
       {visibleToasts.map((toast) => (
         <Toast key={toast.id} {...toast} />
       ))}

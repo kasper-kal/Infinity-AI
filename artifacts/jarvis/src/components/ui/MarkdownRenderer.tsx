@@ -5,9 +5,6 @@
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { marked } from "marked";
 import { markedHighlight } from "marked-highlight";
-import { markedFootnote } from "marked-footnote";
-import { markedGfmHeadingId } from "marked-gfm-heading-id";
-import { markedAlert } from "marked-alert";
 import DOMPurify from "dompurify";
 import "./MarkdownRenderer.css";
 
@@ -25,9 +22,9 @@ export interface MarkdownRendererProps {
   /** Enable alerts (GitHub-style) */
   alerts?: boolean;
   /** Custom renderers */
-  renderers?: Partial<marked.Renderer>;
+  renderers?: Record<string, (token: any) => string>;
   /** Extensions */
-  extensions?: marked.TokenizerExtension[];
+  extensions?: any[];
   /** Sanitize HTML (security) */
   sanitize?: boolean;
   /** Allowed tags for sanitization */
@@ -81,34 +78,18 @@ const configureMarked = (options: {
   headingIds: boolean;
   alerts: boolean;
   highlightTheme: "light" | "dark" | "auto";
-  extensions?: marked.TokenizerExtension[];
-  renderers?: Partial<marked.Renderer>;
+  extensions?: any[];
+  renderers?: Record<string, (token: any) => string>;
 }) => {
   const { gfm, footnotes, headingIds, alerts, highlightTheme, extensions, renderers } = options;
 
-  const extensionsArray: marked.TokenizerExtension[] = [];
+  // Reset marked configuration
+  marked.use({
+    gfm: gfm,
+    breaks: gfm,
+  });
 
-  if (gfm) {
-    extensionsArray.push(...[
-      marked.markedGfmBreaks(),
-      marked.markedGfmStrikethrough(),
-      marked.markedGfmTaskList(),
-      marked.markedGfmTable(),
-      marked.markedGfmAutolink(),
-    ]);
-  }
-
-  if (footnotes) {
-    extensionsArray.push(markedFootnote());
-  }
-
-  if (headingIds) {
-    extensionsArray.push(markedGfmHeadingId());
-  }
-
-  if (alerts) {
-    extensionsArray.push(markedAlert());
-  }
+  const extensionsArray: any[] = [];
 
   if (extensions) {
     extensionsArray.push(...extensions);
@@ -131,7 +112,7 @@ const configureMarked = (options: {
 
   // Custom renderers
   if (renderers) {
-    marked.use({ renderer: { ...new marked.Renderer(), ...renderers } });
+    marked.use({ renderer: renderers as any });
   }
 
   return marked;
@@ -231,7 +212,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         /<pre><code class="language-([^"]*)">([\s\S]*?)<\/code><\/pre>/g,
         (match, lang, code) => {
           const lines = code.split("\n");
-          const lineNumbers = lines.map((_, i) => `<span class="markdown-line-number">${i + 1}</span>`).join("");
+          const lineNumbers = lines.map((_: string, i: number) => `<span class="markdown-line-number">${i + 1}</span>`).join("");
           return `
             <div class="markdown-code-block markdown-code-block--numbered" data-language="${lang}">
               <pre><code class="language-${lang || "plaintext"}">${code}</code></pre>
@@ -423,7 +404,11 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
         {(previewMode !== "edit" || previewPosition !== "tab") && (
           <div className="markdown-editor__preview">
-            <MarkdownRenderer content={value} {...rendererProps} />
+            {(() => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { content: _content, ...restRendererProps } = rendererProps;
+              return <MarkdownRenderer content={value} {...restRendererProps} />;
+            })()}
           </div>
         )}
       </div>

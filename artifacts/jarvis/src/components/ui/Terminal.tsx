@@ -70,7 +70,7 @@ export interface TerminalInstance {
   running: boolean;
 }
 
-const Terminal = forwardRef<HTMLDivElement, TerminalProps>(
+const Terminal = forwardRef<TerminalInstance, TerminalProps>(
   (
     {
       command,
@@ -125,8 +125,6 @@ const Terminal = forwardRef<HTMLDivElement, TerminalProps>(
             cursorBlink,
             cursorStyle,
             scrollback,
-            allowPaste,
-            allowTranspose,
             theme: getTheme(theme),
             convertEol: true,
             disableStdin: false,
@@ -136,7 +134,6 @@ const Terminal = forwardRef<HTMLDivElement, TerminalProps>(
             rightClickSelectsWord: true,
             screenReaderMode: false,
             tabStopWidth: 8,
-            unicodeVersion: "15",
             windowsMode: false,
             windowsPty: undefined,
           });
@@ -439,11 +436,17 @@ export const TerminalSession: React.FC<TerminalSessionProps> = ({
         </button>
       </div>
       <div className="terminal-session__content" role="tabpanel">
-        {sessions.find((s) => s.id === activeSessionId)?.terminal?.element && (
-          <div className="terminal-session__active">
-            {sessions.find((s) => s.id === activeSessionId)?.terminal?.element}
-          </div>
-        )}
+        {(() => {
+          const activeSession = sessions.find((s) => s.id === activeSessionId);
+          const element = activeSession?.terminal?.element;
+          if (element) {
+            return (
+              <div className="terminal-session__active" ref={(el) => { if (el) element.appendChild(el); }}>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
     </div>
   );

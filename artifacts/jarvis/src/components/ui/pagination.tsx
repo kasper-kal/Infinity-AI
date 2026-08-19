@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ButtonProps, buttonVariants } from '@/components/ui/button';
+import { ButtonProps, buttonVariants } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 
@@ -35,13 +35,14 @@ PaginationItem.displayName = 'PaginationItem';
 
 type PaginationLinkProps = {
   isActive?: boolean;
-} & Pick<ButtonProps, 'size'> &
+  size?: ButtonProps['size'];
+} &
   React.ComponentProps<'a'>;
 
 const PaginationLink = ({
   className,
   isActive,
-  size = 'icon',
+  size = 'icon' as const,
   ...props
 }: PaginationLinkProps) => (
   <a

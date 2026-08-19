@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
@@ -266,7 +266,7 @@ function SidebarTrigger({
       variant="ghost"
       size="icon"
       className={cn('h-7 w-7', className)}
-      onClick={(event) => {
+      onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         onClick?.(event);
         toggleSidebar();
       }}
@@ -533,14 +533,8 @@ function SidebarMenuButton({
   }
 
   return (
-    <Tooltip>
+    <Tooltip content={(tooltip as { children?: React.ReactNode })?.children ?? null}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent
-        side="right"
-        align="center"
-        hidden={state !== 'collapsed' || isMobile}
-        {...tooltip}
-      />
     </Tooltip>
   );
 }
