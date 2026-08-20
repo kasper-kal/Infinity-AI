@@ -31,6 +31,8 @@ import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factor
 import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
+import { registerAllTools } from "../../lib/tools";
+import { UniversalAgent, runUniversalAgent, type ToolExecutionContext, type AgentLoopResult, type AgentToolEvent } from "../../lib/universal-agent";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
