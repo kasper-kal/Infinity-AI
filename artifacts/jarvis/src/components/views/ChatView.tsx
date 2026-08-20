@@ -38,6 +38,7 @@ export interface ChatViewProps {
   onToggleWebSearch?: () => void;
   suggestions?: string[];
   onSuggestionClick?: (text: string) => void;
+  onDeepResearchExpert?: (conversationId: string) => void;
   status?: "idle" | "thinking" | "transcribing" | "recording" | "wake" | "speaking";
 }
 
@@ -54,6 +55,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onToggleWebSearch,
   suggestions = [],
   onSuggestionClick,
+  onDeepResearchExpert,
   status = "idle",
 }) => {
   const { t } = useI18n();
@@ -254,6 +256,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 isThinking={isBusy}
                 suggestions={suggestions}
                 onSuggestionClick={onSuggestionClick}
+                onDeepResearchExpert={onDeepResearchExpert}
               />
             )}
           </div>

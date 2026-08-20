@@ -179,6 +179,18 @@ function detectPromoCommand(text: string): { isPromo: boolean; url: string; desc
   return { isPromo: url.length > 0 && description.length > 10, url, description };
 }
 
+/** Detect @DeepResearch command for Deep Research v2.
+ * Matches: @DeepResearch <topic>
+ */
+function detectDeepResearchCommand(text: string): { isDeepResearch: boolean; topic: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@DeepResearch\s+(.+)$/i);
+  if (!match) return { isDeepResearch: false, topic: '' };
+
+  const topic = match[1].trim();
+  return { isDeepResearch: topic.length > 0, topic };
+}
+
 /** Detect if the user is asking to draw/generate/create an image. */
 function detectImageRequest(text: string): { isImageRequest: boolean; imagePrompt: string } {
   const t = text.trim().toLowerCase();
@@ -1329,6 +1341,51 @@ router.post("/chat", async (req, res) => {
         }
       } catch (err) {
         res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error starting promo: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @DeepResearch command: Deep Research v2 ─────────────────────
+    const deepResearchCheck = detectDeepResearchCommand(sanitizedMessage);
+    if (deepResearchCheck.isDeepResearch) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Start the deep research job via API
+      try {
+        const drRes = await fetch("http://localhost:3000/api/jarvis/deep-research-v2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic: deepResearchCheck.topic }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (drRes.ok) {
+          const drData = await drRes.json() as { jobId: string };
+          // Send the deep research widget event - frontend will render DeepResearchWidget
+          res.write(`data: ${JSON.stringify({
+            type: "widget",
+            widget: {
+              type: "deep_research",
+              jobId: drData.jobId,
+              topic: deepResearchCheck.topic,
+              phase: "planning",
+              progress: 0,
+              sourcesFound: 0,
+              pagesRead: 0,
+            },
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Failed to start deep research` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error starting deep research: ${(err as Error).message}` })}\n\n`);
       }
 
       res.write("data: [DONE]\n\n");
