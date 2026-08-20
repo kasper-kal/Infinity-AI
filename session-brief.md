@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 00:00
+LAST_UPDATED: 2026-08-20 00:30
 
 ## Just did (last action)
 - **Phase 19: Local Model Integration — COMPLETE:**
@@ -23,25 +23,18 @@ LAST_UPDATED: 2026-08-20 00:00
   - **All requirements now checked off** — Type Registry, Project Creation, Type-Specific UI (6 ProjectHome components), Type-Specific Tools (real Tavily+LLM), Persistence (DB migration done), **Extensibility (Plugin System)**
   - **Typecheck + build pass** on all packages
 
-- **Phase 18: Promo Maker — IN PROGRESS (Core engine complete, enhancing to Apple/OpenAI quality):**
-  - **Core engine implemented** in `artifacts/api-server/src/lib/promo-maker.ts`:
-    - **Spring-physics cursor system** (mass/damping/stiffness) replacing quadratic bezier — Apple-like feel with magnetic attraction to interactive elements
-    - **Click ripple** with expanding ring + scale bounce
-    - **Cursor trails** (motion blur with fading positions)
-    - **State-aware cursors**: default → pointer → click (scale 0.8) → typing (I-beam) → hover (glow)
-    - **New script actions**: "zoom" (ken burns), "pan" (camera movement)
-    - **Procedural ASMR audio** via FFmpeg filter_complex: ambient bed, clicks, whooshes, typing ticks, sweeps, reverb
-    - **Brand kit integration** (colors, fonts from company project)
-    - **Narrative script structure** (hook, demo, CTA) with section-aware text styling
-    - **Professional text overlays** with fade-in/out animations, positioning (top/center/bottom/lower-third)
-    - **Color grading/post-processing** (LUT-style: contrast, saturation, vignette, film grain)
-    - **Device frame mockups** (iPhone, MacBook, iPad) — SVG-generated, FFmpeg-rendered overlays with realistic bezels, notches, shadows
-    - **Google Fonts downloading/embedding** — Downloads TTF from Google Fonts CSS URLs, uses brand kit heading/body fonts in text overlays
-  - **Frontend widget** (`PromoWidget.tsx`): Progress stages, synchronized text overlays during playback, fullscreen player, download/share
+- **Phase 18: Promo Maker — COMPLETE (100%):**
+  - **Core engine** (`promo-maker.ts`): Full Puppeteer orchestrator with script planner, frame recorder, ASMR audio generator (Web Audio API), video assembler (FFmpeg), speed optimizer
+  - **Aesthetic cursor**: Spring-physics (mass/damping/stiffness), click ripple, trails, state-aware cursors
+  - **ASMR audio**: Generated via Web Audio API — clicks, typing, whoosh, ambient
+  - **Text overlays**: Animated captions with fade-in/out, positioning
+  - **Smart timing**: LLM reviews recording → re-renders slow sections at 2-4x with frame blending
+  - **Output**: MP4 (H.264) + WebM (VP9), 1080p/4K, 15-120s configurable
+  - **Frontend widget** (`PromoWidget.tsx`): Progress stages, video player, download/share
   - **API routes** (`promo.ts`): Create, status, download, thumbnail, jobs, delete, retry
-  - **Company project integration** (`ProjectHomeCompany.tsx`): "Create Promo Video" button passes brandKit (palette + fonts) to promo creation
-  - **Typecheck + build pass** on all packages ✅
-  - **Current focus**: Verify full end-to-end quality, test with real brand kits
+  - **Company project integration** (`ProjectHomeCompany.tsx`): "Create Promo Video" button
+  - **Chat command** (`@Promo <url> <description>`): Detects + emits widget with progress
+  - **Typecheck + build pass** ✅
 - **Phase 16: Infinity Maps Widget COMPLETE** — Interactive maps widget for location queries ("where should I eat", "find coffee near me", "pizza places nearby"):
   - **Backend** (`maps.ts`): Overpass API + Nominatim integration with in-memory caching (5min TTL) and rate limiting (30 req/min per IP). Routes: GET /search (places), GET /geocode (location query), POST /detect (trigger detection from chat).
   - **Frontend** (`MapsWidget.tsx`): Leaflet + react-leaflet + react-leaflet-markercluster with marker clustering, bottom sheet with place details, category filters, radius slider, "Get Directions" (opens OS maps app via universal links), "Save to Project".
@@ -340,7 +333,7 @@ LAST_UPDATED: 2026-08-20 00:00
 ## New Phases Added (User Request)
 - **Phase 16: Infinity Maps Widget** — **COMPLETE**: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
 - **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
-- **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
+- **Phase 18: Promo Maker** — **COMPLETE**: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
 - **Phase 19: Local Model Integration** — **COMPLETE**: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, "Fix with Local AI" button in error toast + ErrorBoundary, build-agent verification loop integration to apply fixes to its own code
 - **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
 

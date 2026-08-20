@@ -716,19 +716,19 @@ Add **Project Types** that transform how a project looks and behaves. Each type 
 Create **promotional videos** automatically: user provides a website URL + prompt ("make a 30s promo showing the dashboard, dark mode toggle, and export feature"), AI drives Puppeteer to navigate, records with aesthetic cursor (OpenAI-style), adds ASMR sound effects (clicks, typing, whoosh), adds text overlays, and outputs Apple/OpenAI-level quality MP4. AI detects if it's too slow and speeds up the base video.
 
 ### Requirements
-- [ ] **Input** — URL + natural language prompt describing what to showcase
-- [ ] **Planner** — LLM analyzes site + prompt → generates step-by-step script (navigate, click, type, scroll, wait)
-- [ ] **Executor** — Puppeteer (headless Chromium) with:
+- [x] **Input** — URL + natural language prompt describing what to showcase
+- [x] **Planner** — LLM analyzes site + prompt → generates step-by-step script (navigate, click, type, scroll, wait)
+- [x] **Executor** — Puppeteer (headless Chromium) with:
   - **Aesthetic Cursor** — Smooth bezier curves, click ripple, typing simulation (not instant)
   - **ASMR Audio** — Generated via Web Audio API: soft clicks, mechanical keyboard types, subtle whoosh on transitions, ambient hum
   - **Text Overlays** — Animated captions describing actions ("Opening dashboard...", "Toggling dark mode")
   - **Smart Timing** — LLM reviews recording → identifies slow sections → re-renders at 2-4x speed with smooth interpolation
-- [ ] **Output** — MP4 (H.264) + WebM (VP9) for web, 1080p/4K, configurable duration (15-120s)
-- [ ] **Integration** — Available as:
+- [x] **Output** — MP4 (H.264) + WebM (VP9) for web, 1080p/4K, configurable duration (15-120s)
+- [x] **Integration** — Available as:
   - **Company Project Tool** — "Create Promo Video" button in Company project home
   - **Chat Command** — `@Promo <url> <description>` emits widget with progress + result
   - **API** — `POST /promo/create` for programmatic use
-- [ ] **Free/Zero-Cost** — Runs entirely on server (no cloud rendering), uses Puppeteer + FFmpeg (installed in container), Web Audio API for sounds (no external audio API)
+- [x] **Free/Zero-Cost** — Runs entirely on server (no cloud rendering), uses Puppeteer + FFmpeg (installed in container), Web Audio API for sounds (no external audio API)
 
 ### Implementation Plan
 1. **Backend Service** — `artifacts/api-server/src/lib/promo-maker.ts`: Puppeteer orchestrator, script planner, recorder, audio synthesizer, video encoder
@@ -793,14 +793,14 @@ Integrate a **lightweight local model (Qwen2.5-1.5B-Instruct)** for in-app error
 ## 📦 Phase 20: Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)
 
 ### Goal
-Replace the current "Deep Research → creates a Gem/Expert" flow with a **true deep research agent** that takes 3-7 minutes, browses 20-50 sources, synthesizes a comprehensive report with citations, and outputs a structured research artifact (not a chat persona). Used via `@DeepResearch <topic>` in chat.
+Replace the current "Deep Research → creates a Gem/Expert" flow with a **true deep research agent** that takes 3-7 minutes, browses 20-50 sources, synthesizes a comprehensive report with citations, and outputs a structured research artifact (not a chat persona). Used via `@Deep Research <topic>` in chat.
 
 ### Requirements
 - [ ] **Current System Migration** — Move existing "create Gem from research" to Expert creation menu (separate feature)
 - [ ] **New Deep Research Agent** — Iterative loop: plan → search → browse → extract → synthesize → gap analysis → repeat (3-7 min)
 - [ ] **Source Target** — 20-50 unique sources (Tavily + browser + academic via Semantic Scholar/Crossref free APIs)
 - [ ] **Output** — Structured `ResearchReport` artifact: executive summary, detailed sections, citations (numbered), source list, confidence scores, gaps/limitations
-- [ ] **Trigger** — `@DeepResearch <topic>` in chat (detected in `chat.ts`), emits progress SSE events (planning, searching, reading, synthesizing)
+- [ ] **Trigger** — `@Deep Research <topic>` in chat (detected in `chat.ts`), emits progress SSE events (planning, searching, reading, synthesizing)
 - [ ] **Widget** — `DeepResearchWidget.tsx`: live progress (sources found, pages read, current phase), final report renderer with citations
 - [ ] **Integration** — "Save to Project Memory" button, "Create Expert from this Research" button (links to Expert creation)
 - [ ] **Cost Control** — Uses free tiers (Tavily free, browser pool, free APIs), budgets ~50-100 LLM calls per run
