@@ -53,6 +53,19 @@ ensureFilesTables().catch((err) => {
   logger.error({ err }, "Files table migration skipped, DB unreachable. File storage will use the local-disk fallback.");
 });
 
+// Register Universal Tool Layer tools (Phase 21)
+import("./lib/tools").then(async ({ registerAllTools }) => {
+  try {
+    registerAllTools();
+    const { getRegistryStats } = await import("./lib/tool-registry");
+    logger.info({ count: getRegistryStats().total }, "Universal Tool Registry initialized");
+  } catch (err) {
+    logger.error({ err }, "Failed to initialize Universal Tool Registry");
+  }
+}).catch((err) => {
+  logger.error({ err }, "Failed to load Universal Tool Registry module");
+});
+
 // Create HTTP server
 const server = createServer(app);
 

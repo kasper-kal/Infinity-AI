@@ -4,9 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 03:55
+LAST_UPDATED: 2026-08-20 05:45
 
 ## Just did (last action)
+- **Phase 21: Universal Tool Layer — Foundation — COMPLETE (100%):**
+  - **Created standardized tool contracts** (`tool-types.ts`): `UniversalToolDefinition`, `UniversalToolResult`, `ToolExecutionContext` (extended from Build Mode), `Artifact`, `ToolRisk` (READ/WRITE/DESTRUCTIVE/EXTERNAL_ACTION/SELF_MODIFICATION), `ToolCategory` (web/browser/files/vision/data/memory/research/build/evolution/integration), `ToolPermissions`.
+  - **Created Universal Tool Registry** (`tool-registry.ts`): `registerTool()`, `discoverTools(filter)`, `getToolDefinitionsForLLM(filter)`, `executeTool(name, args, ctx)` with validation, timeout, error normalization, approval enforcement, logging, metadata. `formatToolResults()` generalized from Build Mode.
+  - **Registered Build Mode tools** as first capabilities (`tools/build.ts`): 10 tools namespaced (`files.list`, `files.read`, `files.write`, `build.run_command`, `browser.screenshot`, `browser.inspect_console`, `browser.inspect_dom`, `browser.inspect_accessibility`, `git.diff`, `files.apply_fix`) wrapping existing `build-tools.ts` execution logic — NO duplication.
+  - **Wired registry initialization** into server startup (`index.ts`).
+  - **Verified working**: Server boots, registry initializes with 10 tools (confirmed by startup log: `Universal Tool Registry initialized count: 10`).
+  - **Typecheck + build pass** on all packages ✅
 - **Phase 20: Deep Research v2 — COMPLETE (100%):**
   - **Verified full implementation exists**: Engine (`deep-research-v2.ts`), API routes (`deep-research-v2.ts` router: POST /start, GET /status/:id, GET /stream/:id SSE, POST /cancel, POST /:id/expert), frontend widget (`DeepResearchWidget.tsx` with live SSE progress + final report renderer), chat command detection (`@Deep Research <topic>` in chat.ts), widget type wiring (types/widget.ts, widgets/index.ts, conversation-feed.tsx), i18n keys (EN + NL), db schema (`researchJobsV2` + `researchSourcesV2`).
   - **CRITICAL FIX — runtime DB tables missing**: `auto-migrate.ts` (the real bootstrap) did NOT create `research_jobs_v2` / `research_sources_v2` even though they were in the Drizzle schema. Added both CREATE TABLE + indexes to auto-migrate.ts so the engine actually works at runtime. This was the blocking gap.

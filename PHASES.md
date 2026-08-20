@@ -29,7 +29,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | ✅ **DONE** | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | ✅ COMPLETE | ~8-16h | Phase 8, Phase 13 |
 | **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | ✅ COMPLETE | ~16-24h | Phase 8, Phase 11 |
-| **21** | **Universal Tool Calling (All Modes — Chat, Build, Research, etc.)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
+| **21** | **Universal Tool Calling (All Modes — Chat, Build, Research, etc.)** | ✅ **DONE** | ~16-24h | Phase 8, Phase 13 |
 
 ---
 
@@ -850,13 +850,13 @@ Establish the **centralized Universal Tool Registry** and standardized tool cont
 - `artifacts/api-server/src/lib/self-evolution.ts` — existing self-mod guardrails (path allowlist, checkpoints) to enforce for `evolution.*` tools.
 
 ### Requirements
-- [ ] **Universal Tool Registry** — `artifacts/api-server/src/lib/tool-registry.ts` (new):
+- [x] **Universal Tool Registry** — `artifacts/api-server/src/lib/tool-registry.ts` (new):
   - `registerTool(def: UniversalToolDefinition)`
   - `discoverTools(filter?: ToolDiscoveryFilter): UniversalToolDefinition[]`
   - `getToolDefinitionsForLLM(filter?): LLMTool[]` (namespaced, JSONSchema → LLM tool schema)
   - `executeTool(name, args, ctx): Promise<UniversalToolResult>`
   - Validation (JSONSchema), timeout, retry, error normalization, logging, metadata
-- [ ] **Standardized `UniversalToolDefinition`**:
+- [x] **Standardized `UniversalToolDefinition`**:
   ```ts
   {
     name: string;          // namespaced: "web.search", "browser.navigate", ...
@@ -868,15 +868,15 @@ Establish the **centralized Universal Tool Registry** and standardized tool cont
     execute: (args, ctx: ToolExecutionContext) => Promise<UniversalToolResult>;
   }
   ```
-- [ ] **Standardized `UniversalToolResult`**:
+- [x] **Standardized `UniversalToolResult`**:
   ```ts
   { success: boolean; data?: unknown; summary?: string; error?: string; artifacts?: Artifact[]; metadata?: Record<string, unknown>; }
   ```
-- [ ] **Shared `ToolExecutionContext`** extended from `build-tools.ts` to carry: `userId, conversationId, projectId, workspaceId, taskId, permissions, memories, artifacts, previousToolResults`.
-- [ ] **Permission metadata** — every tool declares a `risk` level; dangerous tools (`DESTRUCTIVE`, `EXTERNAL_ACTION`, `SELF_MODIFICATION`) can require explicit approval.
-- [ ] **Tool selection/filtering** — category-based discovery so the LLM isn't sent the entire schema (general / research / coding / email / data request modes).
-- [ ] **Port existing Build tools into the registry** as first registered tools (list_files → `files.*`, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) — reusing their existing `execute` implementations.
-- [ ] **Model-agnostic** — works with every existing LLM adapter via `llm-adapter.ts`.
+- [x] **Shared `ToolExecutionContext`** extended from `build-tools.ts` to carry: `userId, conversationId, projectId, workspaceId, taskId, permissions, memories, artifacts, previousToolResults`.
+- [x] **Permission metadata** — every tool declares a `risk` level; dangerous tools (`DESTRUCTIVE`, `EXTERNAL_ACTION`, `SELF_MODIFICATION`) can require explicit approval.
+- [x] **Tool selection/filtering** — category-based discovery so the LLM isn't sent the entire schema (general / research / coding / email / data request modes).
+- [x] **Port existing Build tools into the registry** as first registered tools (list_files → `files.*`, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff) — reusing their existing `execute` implementations.
+- [x] **Model-agnostic** — works with every existing LLM adapter via `llm-adapter.ts`.
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/tool-registry.ts` (new)
@@ -1017,11 +1017,11 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 20 — Deep Research v2** ✅ COMPLETE
+## 🎯 Current Phase: **Phase 21 — Universal Tool Layer — Foundation** ✅ COMPLETE
 
 ---
 
-## 🎯 Next Phase: **Phase 21 — Universal Tool Layer — Foundation**
+## 🎯 Next Phase: **Phase 22 — Universal Tool Layer — Capability Integration**
 
 > **Phase 17 — Project Types System: ✅ COMPLETE (100%)**
 > - Project type registry with all 7 types (general, book, website, company, app, research, course)
