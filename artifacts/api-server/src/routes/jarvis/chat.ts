@@ -179,12 +179,12 @@ function detectPromoCommand(text: string): { isPromo: boolean; url: string; desc
   return { isPromo: url.length > 0 && description.length > 10, url, description };
 }
 
-/** Detect @DeepResearch command for Deep Research v2.
- * Matches: @DeepResearch <topic>
+/** Detect @Deep Research command for Deep Research v2.
+ * Matches: @Deep Research <topic>
  */
 function detectDeepResearchCommand(text: string): { isDeepResearch: boolean; topic: string } {
   const trimmed = text.trim();
-  const match = trimmed.match(/^@DeepResearch\s+(.+)$/i);
+  const match = trimmed.match(/^@Deep Research\s+(.+)$/i);
   if (!match) return { isDeepResearch: false, topic: '' };
 
   const topic = match[1].trim();
