@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 16:18
+LAST_UPDATED: 2026-08-20 17:30
 
 ## Just did (last action)
 - **Phase 21: Universal Tool Layer — Foundation — COMPLETE (100%):**
@@ -189,6 +189,12 @@ LAST_UPDATED: 2026-08-20 16:18
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-20 **Timeline Editor COMPLETE** — Full professional timeline editing in PromoWidget:
+  - Clip actions: Split (Scissors), Copy (Copy), Delete (Trash) buttons on selected clips
+  - Volume Envelope Editor modal: canvas-based keyframe editing with click-to-add, drag-to-move, Delete-to-remove, numerical inputs
+  - Volume envelope visualization on audio clips (fade in/out gradients + keyframe curve overlay)
+  - Export timeline as JSON (download button in timeline header) for re-rendering/reuse
+  - Fixed track visibility toggle via onTrackMuteChange with visible parameter
 - 2026-08-20 **Phase 22: Universal Tool Layer — Capability Integration COMPLETE** — Registered ALL 6 existing Infinity capability categories as namespaced tools in the Universal Tool Registry:
   - **Web** (2): `web.search`, `web.weather` — wraps existing Tavily integration from chat.ts
   - **Browser** (5): `browser.navigate`, `browser.screenshot`, `browser.extract`, `browser.click`, `browser.type` — reuses browser-pool.ts + build-tools.ts
@@ -320,6 +326,7 @@ LAST_UPDATED: 2026-08-20 16:18
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
+- **Phase 18: Promo Maker — Timeline Editor COMPLETE** — Full professional timeline editing in PromoWidget: clip split/copy/delete, volume envelope keyframe editor with canvas UI, export as JSON. Core engine + timeline done. Remaining: brand kit, device frames, color grading, narrative structure, speed optimization.
 - **Phase 22: Universal Tool Layer — Capability Integration** — **COMPLETE**: All 6 capability categories registered as 40 namespaced tools in Universal Tool Registry. Web(2), Browser(5), Files(5), Memory(9), Research(8), Build(11). Typecheck + build pass. Server startup verified: `Universal Tool Registry initialized count: 40`.
 - **Phase 21: Universal Tool Layer — Foundation** — **COMPLETE**: UniversalToolDefinition, UniversalToolResult, ToolExecutionContext, ToolRegistry with register/discover/execute, permissions, validation, timeout. Build tools registered as first capabilities. Typecheck + build pass.
 - **Phase 11: ACP Protocol Support** — **COMPLETE**: Typecheck passes cleanly. ACP server exposes 16 tools via HTTP + WebSocket with API key auth and project scoping.
@@ -452,14 +459,13 @@ LAST_UPDATED: 2026-08-20 16:18
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 18: Promo Maker** — **IN PROGRESS**: Core engine implemented with spring-physics cursor, zoom/pan actions, ASMR audio generation, basic text overlays. Need to enhance to Apple/OpenAI quality:
+1. **Phase 18: Promo Maker** — **TIMELINE EDITOR COMPLETE**: Core engine + full timeline editing implemented. Remaining quality enhancements:
    - Brand kit integration (colors, fonts from company project via Tavily API)
    - Professional text overlays with company fonts, dynamic positioning, animations
    - Device frame mockups (iPhone, MacBook, iPad)
    - Color grading/post-processing (LUTs, contrast, saturation, vignette)
    - Narrative script structure (hook → demo → CTA sections)
    - Per-segment variable speed optimization (LLM-driven)
-   - Update PromoWidget to show step descriptions as text overlays synchronized with video
    - Connect ProjectHomeCompany brand data (palette, fonts) through API to promo-maker
 2. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
 3. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)

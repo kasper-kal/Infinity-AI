@@ -721,8 +721,15 @@ Create **promotional videos** automatically: user provides a website URL + promp
 - [x] **Executor** — Puppeteer (headless Chromium) with:
   - **Aesthetic Cursor** — Smooth bezier curves, click ripple, typing simulation (not instant)
   - **ASMR Audio** — Generated via Web Audio API: soft clicks, mechanical keyboard types, subtle whoosh on transitions, ambient hum
+  - **AI-Generated Background Music** — Procedural composition via FFmpeg filter_complex (chord progressions, bass, pads, arpeggios, melody, percussion) with deterministic per-video uniqueness
   - **Text Overlays** — Animated captions describing actions ("Opening dashboard...", "Toggling dark mode")
   - **Smart Timing** — LLM reviews recording → identifies slow sections → re-renders at 2-4x speed with smooth interpolation
+- [x] **Timeline Editor** — Professional multi-track timeline in PromoWidget:
+  - Track lanes: Video, ASMR Audio, Background Music, Text Overlays
+  - Clip editing: drag to reposition, resize handles for trim/extend, split at playhead, copy/paste, delete
+  - Volume envelope editor: canvas-based keyframe editor (click to add, drag to move, Delete to remove, numerical inputs)
+  - Track controls: mute/solo, volume sliders, visibility toggles
+  - Export: download timeline as JSON for re-rendering/reuse
 - [x] **Output** — MP4 (H.264) + WebM (VP9) for web, 1080p/4K, configurable duration (15-120s)
 - [x] **Integration** — Available as:
   - **Company Project Tool** — "Create Promo Video" button in Company project home
@@ -735,10 +742,12 @@ Create **promotional videos** automatically: user provides a website URL + promp
 2. **Script Planner** — LLM prompt: "Analyze this website and user goal, output JSON script: [{action: 'navigate', url, wait}, {action: 'click', selector, delay}, {action: 'type', selector, text, charDelay}, {action: 'scroll', direction, distance}, {action: 'wait', ms}]"
 3. **Puppeteer Recorder** — `page.screencast()` or CDP `Page.startScreencast` for frames, cursor overlay drawn on each frame
 4. **ASMR Audio Engine** — Web Audio API: `AudioContext` + oscillators/gain envelopes for click (short decay sine), type (filtered noise bursts), whoosh (filtered sweep)
-5. **Video Assembly** — FFmpeg (fluent-ffmpeg): frames → video, mix audio track, add text overlays (drawtext filter), encode H.264/VP9
-6. **Speed Optimization** — LLM analyzes frame timestamps vs script → identifies pauses → re-encodes slow segments at 2-4x with frame blending
-7. **API Routes** — `promo.ts`: `POST /create` (start job), `GET /status/:id`, `GET /download/:id`
-8. **Frontend Widget** — `PromoWidget.tsx`: progress stages (planning → recording → audio → encoding → optimizing → done), video player, download/share
+5. **AI-Generated Background Music** — Procedural composition via FFmpeg filter_complex with deterministic RNG seeded from job ID (chord progressions, bass, pads, arpeggios, melody, percussion) — unique per video
+6. **Video Assembly** — FFmpeg (fluent-ffmpeg): frames → video, mix audio tracks (ASMR + background music with crossfades), add text overlays (drawtext filter), encode H.264/VP9
+7. **Speed Optimization** — LLM analyzes frame timestamps vs script → identifies pauses → re-encodes slow segments at 2-4x with frame blending
+8. **API Routes** — `promo.ts`: `POST /create` (start job), `GET /status/:id`, `GET /download/:id`
+9. **Frontend Widget** — `PromoWidget.tsx`: progress stages (planning → recording → audio → encoding → optimizing → done), video player, download/share
+10. **Timeline Editor** — `PromoWidget.tsx` (inline): multi-track timeline with scrubbing, clip drag/resize/split/copy/delete, volume envelope keyframe editor, track mute/volume/visibility, export as JSON
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/promo-maker.ts` (new — core engine)
