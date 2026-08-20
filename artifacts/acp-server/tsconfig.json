@@ -26,6 +26,8 @@
     "../api-server/src/lib/build-human-interface.ts",
     "../api-server/src/lib/model-router.ts",
     "../api-server/src/lib/build-project-map.ts",
-    "../api-server/src/lib/build-skills.ts"
+    "../api-server/src/lib/build-skills.ts",
+    "../api-server/src/lib/deep-research-v2.ts",
+    "../api-server/src/lib/promo-maker.ts"
   ]
 }

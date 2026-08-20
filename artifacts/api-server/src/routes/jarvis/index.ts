@@ -65,6 +65,7 @@ import projectTypesRouter from "./project-types";
 import companyToolsRouter from "./company-tools";
 import promoRouter from "./promo";
 import localModelRouter from "./local-model";
+import deepResearchV2Router from "./deep-research-v2";
 
 const router = Router();
 
@@ -77,6 +78,7 @@ router.use(projectTypesRouter);
 router.use(companyToolsRouter);
 router.use(promoRouter);
 router.use(localModelRouter);
+router.use(deepResearchV2Router);
 router.use(conversationsRouter);
 router.use(settingsRouter);
 // Mount before the global memory router so scoped /memories/:id mutations can

@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import pinoHttp from "pino-http";
@@ -34,6 +35,7 @@ app.use(
   }),
 );
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({ limit: "1gb" }));
 app.use(express.urlencoded({ extended: true, limit: "1gb" }));
 

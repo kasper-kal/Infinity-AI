@@ -10,6 +10,7 @@ export * from "./project-agent";
 export * from "./gmail";
 export * from "./spotify";
 export * from "./research";
+export * from "./research-jobs-v2";
 export * from "./push";
 export * from "./llm-keys";
 export * from "./secrets";
