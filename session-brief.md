@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 05:45
+LAST_UPDATED: 2026-08-20 16:18
 
 ## Just did (last action)
 - **Phase 21: Universal Tool Layer — Foundation — COMPLETE (100%):**
@@ -189,6 +189,16 @@ LAST_UPDATED: 2026-08-20 05:45
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-20 **Phase 22: Universal Tool Layer — Capability Integration COMPLETE** — Registered ALL 6 existing Infinity capability categories as namespaced tools in the Universal Tool Registry:
+  - **Web** (2): `web.search`, `web.weather` — wraps existing Tavily integration from chat.ts
+  - **Browser** (5): `browser.navigate`, `browser.screenshot`, `browser.extract`, `browser.click`, `browser.type` — reuses browser-pool.ts + build-tools.ts
+  - **Files** (5): `files.search`, `files.replace`, `files.list`, `files.read`, `files.write` — reuses workspace.ts + build-tools.ts
+  - **Memory** (9): 6 project (list, read, write, update, delete, pin) + 3 global (list, write, delete) — reuses project-memory.ts / userMemories
+  - **Research** (8): `research.run`, `research.run_v2`, `research.status`, `research.status_v2`, `research.list`, `research.estimate`, `research.cancel`, `research.create_expert`, `research.recover_stuck` — reuses research-engine.ts + deep-research-v2.ts
+  - **Build** (11): `build.list_files`, `build.read_file`, `build.edit_file`, `build.run_command`, `build.screenshot`, `build.inspect_console`, `build.inspect_dom`, `build.inspect_accessibility`, `build.git_diff`, `build.apply_fix` — wraps existing build-tools.ts (renamed to avoid conflicts with proper universal tools)
+  - **Total: 40 tools** registered and verified at server startup (`Universal Tool Registry initialized count: 40`)
+  - Typecheck + build pass on all packages ✅
+  - Server boots successfully with registry initialized
 - 2026-08-20 **Phase 20: Deep Research v2 COMPLETE** — True 3-7 min deep research agent (ChatGPT/Gemini style):
   - Verified all components exist: engine (iterative plan→search→browse→extract→synthesize→gap-analysis loop, max 3 iterations, 20-50 sources via Tavily + browser + Semantic Scholar), API routes, SSE streaming, DeepResearchWidget with live progress + citation-linked report, @Deep Research chat trigger, "Create Expert" button integration.
   - **CRITICAL runtime fix**: `auto-migrate.ts` was missing `research_jobs_v2` / `research_sources_v2` CREATE TABLE statements — added both tables + indexes so the engine actually works at runtime.
@@ -310,6 +320,8 @@ LAST_UPDATED: 2026-08-20 05:45
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
+- **Phase 22: Universal Tool Layer — Capability Integration** — **COMPLETE**: All 6 capability categories registered as 40 namespaced tools in Universal Tool Registry. Web(2), Browser(5), Files(5), Memory(9), Research(8), Build(11). Typecheck + build pass. Server startup verified: `Universal Tool Registry initialized count: 40`.
+- **Phase 21: Universal Tool Layer — Foundation** — **COMPLETE**: UniversalToolDefinition, UniversalToolResult, ToolExecutionContext, ToolRegistry with register/discover/execute, permissions, validation, timeout. Build tools registered as first capabilities. Typecheck + build pass.
 - **Phase 11: ACP Protocol Support** — **COMPLETE**: Typecheck passes cleanly. ACP server exposes 16 tools via HTTP + WebSocket with API key auth and project scoping.
 - **Phase 8: Multi-Agent Orchestration** — **COMPLETE**: Planner→Coder→Reviewer→Fixer pipeline with shared context, parallel execution, verification loop (max 3 fix iterations). New API routes `/build/orchestrate` + `/build/orchestrate/status`. Full workspace typecheck passes.
 - **@Agent Browser Widget + @Browse Tavily Live Text** — **COMPLETE**: Two new commands implemented and verified:

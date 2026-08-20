@@ -20,16 +20,20 @@ import type { UniversalToolDefinition, ToolExecutionContext, UniversalToolResult
 function wrapBuildTool(def: typeof BUILD_TOOL_DEFINITIONS[number]): UniversalToolDefinition {
   // Map Build Mode tool names to namespaced universal names
   const nameMap: Record<string, string> = {
-    list_files: "files.list",
-    read_file: "files.read",
-    edit_file: "files.write",
+    // Note: "files.list", "files.read", "files.write" are registered by files.ts (proper universal tools)
+    // Build Mode tools renamed to avoid conflict
+    list_files: "build.list_files",
+    read_file: "build.read_file",
+    edit_file: "build.edit_file",
     run_command: "build.run_command",
-    screenshot: "browser.screenshot",
+    // Note: "browser.screenshot" is registered by browser.ts (proper universal tool)
+    // Build Mode screenshot renamed to avoid conflict
+    screenshot: "build.screenshot",
     inspect_console: "browser.inspect_console",
     inspect_dom: "browser.inspect_dom",
     inspect_accessibility: "browser.inspect_accessibility",
     git_diff: "git.diff",
-    apply_fix: "files.apply_fix",
+    apply_fix: "build.apply_fix",
   };
 
   // Map Build Mode tools to risk levels
@@ -52,7 +56,7 @@ function wrapBuildTool(def: typeof BUILD_TOOL_DEFINITIONS[number]): UniversalToo
     read_file: "files",
     edit_file: "files",
     run_command: "build",
-    screenshot: "browser",
+    screenshot: "build",
     inspect_console: "browser",
     inspect_dom: "browser",
     inspect_accessibility: "browser",

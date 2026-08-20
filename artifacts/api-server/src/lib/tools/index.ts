@@ -6,15 +6,21 @@
  */
 
 import { registerBuildTools } from "./build";
+import { registerWebTools } from "./web";
+import { registerBrowserTools } from "./browser";
+import { registerFilesTools } from "./files";
+import { registerMemoryTools } from "./memory";
+import { registerResearchTools } from "./research";
+
 export { registerBuildTools } from "./build";
+export { registerWebTools } from "./web";
+export { registerBrowserTools } from "./browser";
+export { registerFilesTools } from "./files";
+export { registerMemoryTools } from "./memory";
+export { registerResearchTools } from "./research";
 // TODO: Add other category registrations as phases progress
-// export { registerWebTools } from "./web";
-// export { registerBrowserTools } from "./browser";
-// export { registerFilesTools } from "./files";
 // export { registerVisionTools } from "./vision";
 // export { registerDataTools } from "./data";
-// export { registerMemoryTools } from "./memory";
-// export { registerResearchTools } from "./research";
 // export { registerEvolutionTools } from "./evolution";
 // export { registerIntegrationTools } from "./integration";
 
@@ -24,5 +30,10 @@ export { registerBuildTools } from "./build";
  */
 export function registerAllTools(): void {
   registerBuildTools();
-  // Other categories will be added in Phase 22
+  registerWebTools();
+  registerBrowserTools();
+  registerFilesTools();
+  registerMemoryTools();
+  registerResearchTools();
+  // Other categories will be added in future phases
 }

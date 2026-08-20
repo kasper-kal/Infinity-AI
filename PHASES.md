@@ -42,8 +42,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
-| **22** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
-| **23** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 22 |
+| **22** | **Universal Tool Layer — Foundation** | ✅ **COMPLETE** | ~16-24h | Phase 8, Phase 13 |
+| **23** | **Universal Tool Layer — Capability Integration** | ✅ **COMPLETE** | ~24-40h | Phase 22 |
 | **24** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 22, Phase 23 |
 | **25** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 22, Phase 24 |
 ### 🌐═══════════════════════════════════════════════════════════════════════════════
@@ -1017,11 +1017,11 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 21 — Universal Tool Layer — Foundation** ✅ COMPLETE
+## 🎯 Current Phase: **Phase 23 — Universal Tool Layer — Agent Loop & UX** 📋 PLANNED
 
 ---
 
-## 🎯 Next Phase: **Phase 22 — Universal Tool Layer — Capability Integration**
+## 🎯 Next Phase: **Phase 23 — Universal Tool Layer — Agent Loop & UX**
 
 > **Phase 17 — Project Types System: ✅ COMPLETE (100%)**
 > - Project type registry with all 7 types (general, book, website, company, app, research, course)
