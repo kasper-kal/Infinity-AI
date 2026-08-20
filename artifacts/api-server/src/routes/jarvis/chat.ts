@@ -30,6 +30,7 @@ import { pooledClient, LLMAllKeysCoolingError, listKeys, resolveManualKey, runOn
 import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
+import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -1719,7 +1720,33 @@ router.post("/chat", async (req, res) => {
     const httpStatus = (err as { status?: number })?.status;
     if (err instanceof LLMAllKeysCoolingError) {
       code = "llm_cooling";
-      msg = "Jarvis is recharging. All AI providers are cooling down. Try again in about 45 minutes.";
+      // Check if local model is available as fallback
+      const localAvailable = await isLocalModelAvailable();
+      if (localAvailable) {
+        // Emit SSE event with local model option for frontend to render button
+        if (res.headersSent) {
+          try {
+            res.write(`data: ${JSON.stringify({
+              type: "local_model_available",
+              message: "Jarvis is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.",
+              model: "qwen2.5:1.5b-instruct",
+              capabilities: {
+                streaming: true,
+                jsonMode: true,
+                toolCalling: false,
+                vision: false,
+                maxContextTokens: 32768,
+                maxOutputTokens: 4096,
+              },
+            })}\n\n`);
+          } catch {
+            // Socket already closed
+          }
+        }
+        msg = "Jarvis is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.";
+      } else {
+        msg = "Jarvis is recharging. All AI providers are cooling down. Try again in about 45 minutes.";
+      }
     } else if (err instanceof Error) {
       const em = err.message;
       if (em.includes("OPENAI_LLM_API_KEY") || em.includes("OPENROUTER_API_KEY")) msg = "LLM API key not configured on the server.";

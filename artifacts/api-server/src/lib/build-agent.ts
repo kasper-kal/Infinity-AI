@@ -23,7 +23,9 @@ import { verifyWorkspace, formatVerificationFeedback } from "./structured-tools"
 import { combineBuildMemory, buildProjectContextForBuild } from "./build-project-context";
 import { withRetry } from "./build-edge-cases";
 import { logBuildEvent } from "./build-telemetry";
-
+import { routeAndExecute, AgentRole, TaskCategory } from "./model-router";
+import { createLocalAdapter, isLocalModelAvailable } from "./adapters/local-adapter";
+import { LLMMessage as LLMMessageType } from "./llm-adapter";
 export interface AgentState {
   phase: "planning" | "exploring" | "implementing" | "verifying" | "fixing" | "done" | "error";
   goal: string;
@@ -196,7 +198,7 @@ async function runAgentIteration(
   );
 
   // Build messages
-  const messages: LLMMessage[] = [
+  const messages: LLMMessageType[] = [
     { role: "system", content: sanitizePrompt(buildAgentSystemPrompt()) },
     {
       role: "user",
@@ -294,6 +296,75 @@ async function runVerification(
 }
 
 /**
+ * Try to get a fix from the local model for a verification failure
+ * Falls back silently if local model is unavailable
+ */
+async function tryLocalModelFix(
+  error: string,
+  context: { file?: string; context?: string } = {}
+): Promise<{ fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }>; success: boolean }> {
+  try {
+    const available = await isLocalModelAvailable();
+    if (!available) {
+      return { fixes: [], success: false };
+    }
+
+    const adapter = await createLocalAdapter();
+
+    const systemPrompt = `You are an expert software engineer proposing a FIX for a build/compilation error.
+
+RULES:
+- Analyze the error and the provided file content
+- Propose a MINIMAL, targeted fix
+- Return ONLY the fixed file content (not the whole file if only a small change)
+- If multiple files need changes, provide each as a separate fix
+- Explain WHY this fix works
+- Be precise - the fix will be applied automatically
+- Return as JSON with fields: fixes[] (each has file, oldCode, newCode, explanation, confidence)`;
+
+    const userPrompt = `Error to fix:
+\`\`\`typescript
+${error}
+\`\`\`
+
+${context.file ? `File: ${context.file}` : ""}
+${context.context ? `Additional context:\n${context.context}` : ""}
+
+Return JSON with fixes array: [{ file, oldCode, newCode, explanation, confidence }]`;
+
+    const messages: LLMMessageType[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+
+    const result = await adapter.complete(messages, {
+      temperature: 0.2,
+      maxTokens: 4096,
+      jsonMode: true,
+    });
+
+    let parsed: { fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }> } | null = null;
+    try {
+      const match = result.content.match(/\{[\s\S]*\}/);
+      if (match) {
+        parsed = JSON.parse(match[0]);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    if (parsed && parsed.fixes && parsed.fixes.length > 0) {
+      return { fixes: parsed.fixes, success: true };
+    }
+
+    return { fixes: [], success: false };
+  } catch (err) {
+    console.error("[build-agent] Local model fix failed:", err);
+    return { fixes: [], success: false };
+  }
+}
+
+/**
  * Main autonomous agent entry point
  */
 export async function runAutonomousAgent(
@@ -308,7 +379,17 @@ export async function runAutonomousAgent(
     data: { goal, workspaceId: context.workspaceId },
   });
 
-  const adapter = await createBestAdapter();
+  // Use model router to get appropriate adapter (with local model fallback for error-fix tasks)
+  const routingResult = await routeAndExecute(
+    "coder",
+    goal,
+    async (adapter: LLMAdapter) => adapter, // Just return the adapter for now
+    { filesChanged: [], errorOutput: "" },
+    undefined,
+    context.projectId,
+    context.workspaceId
+  );
+  const adapter = routingResult.decision.selectedAdapter;
 
   // Initial state
   let state: AgentState = {
@@ -334,6 +415,40 @@ export async function runAutonomousAgent(
         if (!verification.ok) {
           state.phase = "fixing";
           state.errors.push(`Verification failed: ${verification.feedback}`);
+
+          // Try local model fix before next iteration
+          await logBuildEvent(projectId, "local_model_attempt", "Attempting local model fix for verification failure", {
+            data: { feedback: verification.feedback.slice(0, 500) },
+          });
+
+          const localFix = await tryLocalModelFix(verification.feedback, {
+            context: state.toolResults.length > 0 ? JSON.stringify(state.toolResults.slice(-3)) : undefined,
+          });
+
+          if (localFix.success && localFix.fixes.length > 0) {
+            await logBuildEvent(projectId, "local_model_proposed", `Local model proposed ${localFix.fixes.length} fix(es)`, {
+              data: { fixes: localFix.fixes.map(f => ({ file: f.file, confidence: f.confidence, explanation: f.explanation.slice(0, 200) })) },
+            });
+
+            // Apply the first fix via tool call
+            for (const fix of localFix.fixes.slice(0, 3)) {
+              if (fix.file && fix.oldCode && fix.newCode) {
+                try {
+                  const toolResult = await executeTool({
+                    name: "apply_fix",
+                    arguments: { file: fix.file, oldCode: fix.oldCode, newCode: fix.newCode, explanation: fix.explanation },
+                  }, context);
+                  state.toolResults.push(toolResult);
+                  if (!toolResult.success && "error" in toolResult) {
+                    console.warn(`[build-agent] Failed to apply local fix to ${fix.file}:`, toolResult.error);
+                  }
+                } catch (fixError) {
+                  console.warn(`[build-agent] Exception applying local fix:`, fixError);
+                }
+              }
+            }
+          }
+
           // Add verification feedback as a tool result for the next iteration
           state.toolResults.push({
             success: false,

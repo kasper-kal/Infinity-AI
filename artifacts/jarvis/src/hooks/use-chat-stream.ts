@@ -395,6 +395,10 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                   }];
                 });
                 break;
+              case 'local_model_available':
+                // Notify user that local AI model is available for error fixing
+                console.log('[useChatStream] Local model available:', parsed.model);
+                break;
               case 'image_request_detected':
                 // If in voice mode, switch to chat mode so the confirmation card is visible
                 if (mode === 'voice') setMode('chat');

@@ -355,7 +355,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   // Phase 0: Command palette, shortcuts, skeleton loading states
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteItems, setCommandPaletteItems] = useState<CommandPaletteItem[]>([]);
-  const { toasts, dismiss: dismissToast } = useBuildToasts();
+  const { toasts, dismiss: dismissToast, error: toastError } = useBuildToasts();
   const [searchHidden, setSearchHidden] = useState(false);
   const [frameworks, setFrameworks] = useState<TestFramework[]>([]);
   const [selectedFramework, setSelectedFramework] = useState('');
@@ -372,6 +372,47 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const [fsError, setFsError] = useState<string | null>(null);
 
   const [debugFixes, setDebugFixes] = useState<ErrorFix[]>([]);
+
+  // Show build error toast with "Fix with Local AI" action
+  const showBuildErrorToast = useCallback((
+    title: string,
+    error: string,
+    file?: string,
+    context?: string
+  ) => {
+    toastError(
+      title,
+      error,
+      [
+        {
+          label: t('studio.build.localFixAction'),
+          onClick: async () => {
+            try {
+              const { response, data } = await apiJson<{
+                fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }>;
+              }>(`/api/jarvis/local-model/fix`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ error, file, context }),
+              });
+              if (response.ok && data.fixes?.length > 0) {
+                setNotice(t('studio.build.localFixProposed', { n: data.fixes.length }));
+              } else if (!response.ok) {
+                const errorData = data as { error?: string };
+                setNotice(errorData.error ?? t('studio.build.localFixFailed'));
+              } else {
+                setNotice(t('studio.build.localFixFailed'));
+              }
+            } catch (err) {
+              console.error('[BuildStudio] local fix failed', err);
+              setNotice(t('studio.build.localFixFailed'));
+            }
+          },
+          variant: 'primary',
+        },
+      ]
+    );
+  }, [t, toasts]);
   const [debugBusy, setDebugBusy] = useState(false);
   const [debugOutput, setDebugOutput] = useState('');
   const [snapshots, setSnapshots] = useState<HistorySnapshot[]>([]);
@@ -1408,6 +1449,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
           summary = data.error ?? t('studio.build.reviewFailed');
           setCompletion({ summary, deferred, files: [...new Set(allFiles)] });
           setProgressResult(summary, 'error');
+          showBuildErrorToast(t('studio.build.reviewFailed'), summary, undefined, output);
           return;
         }
         summary = data.summary ?? summary;
@@ -1451,6 +1493,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         const message = t('studio.build.pipelineFailed');
         setCompletion({ summary: message, deferred: [], files: [...new Set(allFiles)] });
         setProgressResult(message, 'error');
+        showBuildErrorToast(t('studio.build.pipelineFailed'), message, undefined, error instanceof Error ? error.message : String(error));
       }
     } finally {
       setAutoFixPass(0);

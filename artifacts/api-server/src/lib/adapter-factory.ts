@@ -7,6 +7,7 @@
 
 import { LLMAdapter, OpenAICompatibleAdapter, AdapterConfig, AdapterFactory, LLMAdapterError, LLMCapabilities } from "./llm-adapter";
 import { getHealthyKeys, listKeys, LlmKeyEntry, resolveManualKey } from "./llm-client";
+import { LocalModelAdapter, createLocalAdapter, LOCAL_MODEL_CAPABILITIES } from "./adapters/local-adapter";
 
 /**
  * Default capabilities for OpenRouter auto-router model
@@ -137,6 +138,10 @@ export const adapterFactory: AdapterFactory = {
           }
           return new OpenAICompatibleAdapter(config.baseUrl, config.apiKey, config.modelHint, GENERIC_CAPABILITIES);
 
+        case "ollama":
+        case "local":
+          return await createLocalAdapter(config.baseUrl, config.modelHint);
+
         default:
           throw new LLMAdapterError(`Unknown adapter type: ${config.adapterType}`, "UNKNOWN_ADAPTER_TYPE", false);
       }
@@ -150,7 +155,7 @@ export const adapterFactory: AdapterFactory = {
   },
 
   getAvailableTypes(): string[] {
-    return ["openrouter", "nvidia", "openai-compatible", "auto"];
+    return ["openrouter", "nvidia", "openai-compatible", "ollama", "local", "auto"];
   },
 };
 

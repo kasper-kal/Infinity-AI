@@ -680,6 +680,9 @@ const en = {
   "studio.build.progressMaxPasses": "The review limit was reached. I stopped safely and left the result available for review.",
   "studio.build.progressComplete": "The build loop finished. Review the report and preview evidence below.",
   "studio.build.pipelineFailed": "The build pipeline stopped unexpectedly. Check the progress transcript and preview output.",
+  "studio.build.localFixAction": "Fix with Local AI",
+  "studio.build.localFixProposed": "{n} fix(es) proposed by local AI — review them in the Debug panel.",
+  "studio.build.localFixFailed": "Local AI could not generate a fix. Check that Ollama is running.",
   "studio.build.questionsFailed": "I could not prepare the optional questions. You can retry the request.",
 
   /* Build Studio - Phase 2.1 Diff Preview */
@@ -733,6 +736,17 @@ const en = {
   "studio.build.edgeCases": "Edge Cases",
   "studio.build.edgeRateLimit": "Rate Limit",
   "studio.build.edgeStatus": "Edge Cases Status",
+
+  /* Build Studio - Phase 19 Local Model AI */
+  "studio.build.localExplain": "Explain Error",
+  "studio.build.localFix": "Fix with Local AI",
+  "studio.build.localResults": "Local AI Results",
+  "studio.build.localExplanation": "Explanation",
+  "studio.build.localRootCause": "Root Cause",
+  "studio.build.localFixes": "Suggested Fixes",
+  "studio.build.localOldCode": "Old Code",
+  "studio.build.localNewCode": "New Code",
+  "studio.build.localNoFixes": "No fixes proposed",
 
   /* Build Studio - Local Folder Access (File System Access API) */
   "studio.build.connectLocalFolder": "Connect local folder",
@@ -1362,6 +1376,9 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.progressMaxPasses": "De limiet voor zelfcontrole is bereikt. Ik ben veilig gestopt en heb het resultaat beschikbaar gelaten.",
   "studio.build.progressComplete": "De bouwlus is klaar. Bekijk hieronder het rapport en previewbewijs.",
   "studio.build.pipelineFailed": "De bouwpipeline is onverwacht gestopt. Bekijk het voortgangsoverzicht en de preview-uitvoer.",
+  "studio.build.localFixAction": "Fix met lokale AI",
+  "studio.build.localFixProposed": "{n} fix(es) voorgesteld door lokale AI — bekijk ze in het Debug-paneel.",
+  "studio.build.localFixFailed": "Lokale AI kon geen fix genereren. Controleer of Ollama draait.",
   "studio.build.questionsFailed": "De optionele vragen konden niet worden voorbereid. Je kunt het verzoek opnieuw proberen.",
 
   /* Build Studio - Missing keys from Phase0 */
@@ -1384,6 +1401,18 @@ const nl: Record<keyof typeof en, string> = {
 
   /* Build Studio - Phase 0 Progress Ring */
   "studio.build.progressRingLabel": "Bouwvoortgang",
+
+  /* Build Studio - Phase 19 Local Model AI */
+  "studio.build.localExplain": "Fout uitleggen",
+  "studio.build.localFix": "Fixen met lokale AI",
+  "studio.build.localResults": "Lokale AI-resultaten",
+  "studio.build.localExplanation": "Uitleg",
+  "studio.build.localRootCause": "Oorzaak",
+  "studio.build.localFixes": "Voorgestelde fixes",
+  "studio.build.localOldCode": "Oude code",
+  "studio.build.localNewCode": "Nieuwe code",
+  "studio.build.localNoFixes": "Geen fixes voorgesteld",
+
   ...projectMemoryNl,
   ...projectInstructionsNl,
   ...projectFilesNl,

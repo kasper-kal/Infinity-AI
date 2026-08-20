@@ -31,6 +31,7 @@ import { pooledClient } from "../../lib/llm-client";
 import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt, validateInfinityPrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
+import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
 import { fixerPromptV2 } from "../../lib/build-prompts";

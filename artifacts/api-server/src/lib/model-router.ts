@@ -12,6 +12,7 @@
 import { LLMAdapter, LLMCapabilities } from "./llm-adapter";
 import { adapterFactory, createBestAdapter, createAdapterForKey, createManualAdapter, createAdapterFromEntry } from "./adapter-factory";
 import { listKeys, LlmKeyEntry } from "./llm-client";
+import { isLocalModelAvailable, LOCAL_MODEL_CAPABILITIES } from "./adapters/local-adapter";
 
 /**
  * Model effort tiers
@@ -64,7 +65,7 @@ export interface RoutingDecision {
   role: AgentRole;
   taskCategory: TaskCategory;
   selectedAdapter: LLMAdapter;
-  selectedKey: LlmKeyEntry;
+  selectedKey: LlmKeyEntry | null; // null when using local model
   reasoning: string;
   fallbackAdapters: LLMAdapter[];
   fallbackKeys: LlmKeyEntry[];
@@ -353,29 +354,65 @@ export class ModelRouter {
     }).filter(s => s.capabilityScore > 0) // Must meet minimum capabilities
     .sort((a, b) => b.totalScore - a.totalScore);
 
-    if (scoredKeys.length === 0) {
+    // Try to add local model as fallback for lite tier (or when no keys available)
+    let localAdapter: LLMAdapter | null = null;
+    let localCapabilities: LLMCapabilities | null = null;
+    if (tier === "lite" || scoredKeys.length === 0) {
+      localCapabilities = await this.getLocalModelCapabilities();
+      if (localCapabilities) {
+        // Check if local model meets minimum capabilities
+        const localCapScore = this.scoreCapabilities(localCapabilities, tierConfig.minCapabilities);
+        if (localCapScore > 0) {
+          localAdapter = await import("./adapters/local-adapter").then(m => m.createLocalAdapter());
+        }
+      }
+    }
+
+    // If no scored keys and no local model, throw error
+    if (scoredKeys.length === 0 && !localAdapter) {
       throw new Error(`No available models meet requirements for tier: ${tier}`);
     }
 
-    const best = scoredKeys[0];
-    const fallbacks = scoredKeys.slice(1, 4);
+    let best: typeof scoredKeys[0];
+    let selectedAdapter: LLMAdapter;
+    let selectedKey: LlmKeyEntry | null = null;
+    let reasoning: string;
+    let estimatedCost: number;
 
-    // Create adapters
-    const selectedAdapter = await this.createAdapterFromKey(best.key);
+    if (scoredKeys.length > 0) {
+      best = scoredKeys[0];
+      selectedAdapter = await this.createAdapterFromKey(best.key);
+      selectedKey = best.key;
+      reasoning = `Selected ${best.key.provider}/${best.key.model} (${tierConfig.name} tier) for ${role} role, ${taskCategory} task. Provider score: ${best.providerScore.toFixed(2)}, Capability score: ${best.capabilityScore.toFixed(2)}, Cost score: ${best.costScore.toFixed(2)}`;
+      estimatedCost = this.estimateCost(best.key, tierConfig.estimatedTimeMinutes);
+    } else {
+      // Use local model as primary
+      selectedAdapter = localAdapter!;
+      selectedKey = null;
+      reasoning = `Using local model (${tierConfig.name} tier) for ${role} role, ${taskCategory} task - no cloud keys available`;
+      estimatedCost = 0;
+    }
+
+    // Build fallbacks: remaining scored keys + local model if not already used
+    const fallbacks = scoredKeys.slice(1, 4);
     const fallbackAdapters = await Promise.all(
       fallbacks.map(f => this.createAdapterFromKey(f.key))
     );
 
-    // Estimate cost
-    const estimatedCost = this.estimateCost(best.key, tierConfig.estimatedTimeMinutes);
+    // Add local model as fallback if available and not already primary
+    if (localAdapter && !selectedKey) {
+      // Already using local as primary
+    } else if (localAdapter) {
+      fallbackAdapters.push(localAdapter);
+    }
 
     return {
       tier,
       role,
       taskCategory,
       selectedAdapter,
-      selectedKey: best.key,
-      reasoning: `Selected ${best.key.provider}/${best.key.model} (${tierConfig.name} tier) for ${role} role, ${taskCategory} task. Provider score: ${best.providerScore.toFixed(2)}, Capability score: ${best.capabilityScore.toFixed(2)}, Cost score: ${best.costScore.toFixed(2)}`,
+      selectedKey,
+      reasoning,
       fallbackAdapters,
       fallbackKeys: fallbacks.map(f => f.key),
       estimatedCost,
@@ -590,6 +627,15 @@ export class ModelRouter {
     };
   }
 
+  /**
+   * Get capabilities for local model (not from key pool)
+   */
+  private async getLocalModelCapabilities(): Promise<LLMCapabilities | null> {
+    const available = await isLocalModelAvailable();
+    if (!available) return null;
+    return { ...LOCAL_MODEL_CAPABILITIES };
+  }
+
   private getProviderScore(key: LlmKeyEntry, providerOrder: string[]): number {
     const baseUrl = key.baseUrl.toLowerCase();
     let provider = "unknown";
@@ -706,8 +752,8 @@ export async function routeAndExecute<T>(
     tier: decision.tier,
     role,
     taskCategory: decision.taskCategory,
-    model: decision.selectedKey.model,
-    provider: decision.selectedKey.provider ?? "unknown",
+    model: decision.selectedKey?.model ?? "local",
+    provider: decision.selectedKey?.provider ?? "ollama",
     inputTokens: 0, // Would be filled by adapter
     outputTokens: 0,
     costUsd: decision.estimatedCost,

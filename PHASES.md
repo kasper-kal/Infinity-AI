@@ -29,11 +29,12 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | ✅ **DONE** | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | 📋 PLANNED | ~8-16h | Phase 8, Phase 13 |
 | **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
+| **21** | **Universal Tool Calling (All Modes — Chat, Build, Research, etc.)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
 
 ---
 
 ### 🌐════════════════════════════════════════════════════════════════════════════════
-### 🌐  SEPARATE INITIATIVE: Universal Tool Layer (Phases 21–24)
+### 🌐  SEPARATE INITIATIVE: Universal Tool Layer (Phases 22–25)
 ### 🌐════════════════════════════════════════════════════════════════════════════════
 > **Goal:** Move from "which feature am I using?" → **"what tools does Infinity need to accomplish this goal?"**
 > One centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.
@@ -41,10 +42,10 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 
 | Phase | Title | Status | Est. Effort | Dependencies |
 |-------|-------|--------|-------------|--------------|
-| **21** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
-| **22** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 21 |
-| **23** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 21, Phase 22 |
-| **24** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 21, Phase 23 |
+| **22** | **Universal Tool Layer — Foundation** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
+| **23** | **Universal Tool Layer — Capability Integration** | 📋 PLANNED | ~24-40h | Phase 22 |
+| **24** | **Universal Tool Layer — Agent Loop & UX** | 📋 PLANNED | ~16-24h | Phase 22, Phase 23 |
+| **25** | **Universal Tool Layer — Resilience & Persistence** | 📋 PLANNED | ~12-20h | Phase 22, Phase 24 |
 ### 🌐═══════════════════════════════════════════════════════════════════════════════
 
 ---
@@ -834,7 +835,7 @@ Replace the current "Deep Research → creates a Gem/Expert" flow with a **true 
 
 ---
 
-## 🌐 Initiative: Universal Tool Layer (Phases 21–24)
+## 🌐 Initiative: Universal Tool Layer (Phases 22–25)
 *Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
 
 ## 📦 Phase 21: Universal Tool Layer — Foundation
@@ -1038,9 +1039,10 @@ loop:
 
 > **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API) ✅ **DONE**
 > **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools ✅ **DONE**
-> **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization
+> **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization ✅ **DONE**
 > **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
 > **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations
+> **Phase 21 — Universal Tool Calling** — Tool calling in ALL modes (Chat, Build, Research, etc.), not just serious tools — also lightweight tools like `call_weather_tomorrow`, `call_time`, `call_calculate`, `call_random_joke`
 
 > **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
 

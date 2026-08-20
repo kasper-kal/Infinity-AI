@@ -35,7 +35,9 @@ export type BuildEventType =
   | "orchestrator"
   | "orchestrator_start"
   | "security"
-  | "skill";
+  | "skill"
+  | "local_model_attempt"
+  | "local_model_proposed";
 
 export interface BuildEvent {
   ts: string;

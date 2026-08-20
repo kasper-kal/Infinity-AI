@@ -23,6 +23,9 @@ import {
   AlertTriangle,
   Zap,
   ListChecks,
+  Brain,
+  Wrench,
+  Cpu,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
@@ -132,6 +135,10 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     resolution?: string;
   }>>([]);
   const [rateLimitInfo, setRateLimitInfo] = useState<{ allowed: boolean; retryAfterMs?: number } | null>(null);
+  const [explainBusy, setExplainBusy] = useState(false);
+  const [explainResult, setExplainResult] = useState<{ explanation: string; rootCause: string; fixes: Array<{ title: string; description: string; code?: string }> } | null>(null);
+  const [fixBusy, setFixBusy] = useState(false);
+  const [fixResult, setFixResult] = useState<{ fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }> } | null>(null);
 
   const fetchLive = useCallback(async () => {
     if (loadingRef.current) return;
@@ -411,6 +418,68 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     }
   };
 
+  const handleExplainError = async () => {
+    // Find the most recent error event
+    const errorEvent = events.find(e => e.type === 'error');
+    if (!errorEvent) {
+      alert('No error found in telemetry to explain');
+      return;
+    }
+
+    setExplainBusy(true);
+    try {
+      const { response, data } = await apiJson<{
+        explanation: string;
+        rootCause: string;
+        fixes: Array<{ title: string; description: string; code?: string }>;
+      }>(`/api/jarvis/local-model/explain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: errorEvent.label,
+          context: errorEvent.data ? JSON.stringify(errorEvent.data) : undefined,
+        }),
+      });
+      if (response.ok) {
+        setExplainResult(data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] explain error failed', err);
+    } finally {
+      setExplainBusy(false);
+    }
+  };
+
+  const handleFixError = async () => {
+    // Find the most recent error event
+    const errorEvent = events.find(e => e.type === 'error');
+    if (!errorEvent) {
+      alert('No error found in telemetry to fix');
+      return;
+    }
+
+    setFixBusy(true);
+    try {
+      const { response, data } = await apiJson<{
+        fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }>;
+      }>(`/api/jarvis/local-model/fix`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: errorEvent.label,
+          context: errorEvent.data ? JSON.stringify(errorEvent.data) : undefined,
+        }),
+      });
+      if (response.ok) {
+        setFixResult(data);
+      }
+    } catch (err) {
+      console.error('[DebugPanel] fix error failed', err);
+    } finally {
+      setFixBusy(false);
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -658,6 +727,30 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
               {edgeCasesBusy === 'rate-limit' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.edgeRateLimit') || 'Rate Limit'}</span>}
             </button>
           </div>
+
+          {/* Local Model AI (Phase 19) */}
+          <div className="flex items-center gap-1.5 border-l border-border pl-2.5 ml-2">
+            <button
+              type="button"
+              onClick={handleExplainError}
+              disabled={explainBusy}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.localExplain') || 'Explain Error'}
+            >
+              <Brain className="h-3.5 w-3.5" />
+              {explainBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.localExplain') || 'Explain'}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={handleFixError}
+              disabled={fixBusy}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.localFix') || 'Fix with Local AI'}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              {fixBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="hidden sm:inline">{t('studio.build.localFix') || 'Fix with AI'}</span>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -761,6 +854,86 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
                 {rateLimitInfo.allowed && (
                   <div className="text-emerald-400 text-[10px]">Requests available</div>
                 )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Local Model AI Results (Phase 19) */}
+      {(explainResult || fixResult) && (
+        <div className="shrink-0 border-b border-border bg-secondary/50 p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{t('studio.build.localResults') || 'Local AI Results'}</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {explainResult && (
+              <div className="rounded-lg bg-background p-3 border border-border/50 max-h-64 overflow-auto">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Brain className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-medium text-foreground">{t('studio.build.localExplain') || 'Error Explanation'}</span>
+                </div>
+                <div className="space-y-3 text-[11px]">
+                  <div>
+                    <span className="font-medium text-muted-foreground">{t('studio.build.localExplanation') || 'Explanation:'}</span>
+                    <p className="mt-1 text-foreground whitespace-pre-wrap">{explainResult.explanation}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">{t('studio.build.localRootCause') || 'Root Cause:'}</span>
+                    <p className="mt-1 text-foreground whitespace-pre-wrap">{explainResult.rootCause}</p>
+                  </div>
+                  {explainResult.fixes && explainResult.fixes.length > 0 && (
+                    <div>
+                      <span className="font-medium text-muted-foreground">{t('studio.build.localFixes') || 'Suggested Fixes:'}</span>
+                      <ul className="mt-1 ml-4 space-y-1.5 list-disc text-foreground">
+                        {explainResult.fixes.map((fix, i) => (
+                          <li key={i} className="space-y-1">
+                            <span className="font-medium">{fix.title}</span>
+                            <p className="text-muted-foreground/80">{fix.description}</p>
+                            {fix.code && (
+                              <pre className="mt-1 rounded bg-background/50 p-2 font-mono text-[10px] overflow-auto whitespace-pre-wrap"><code>{fix.code}</code></pre>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {fixResult && (
+              <div className="rounded-lg bg-background p-3 border border-border/50 max-h-64 overflow-auto">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Wrench className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-medium text-foreground">{t('studio.build.localFix') || 'Proposed Fixes'}</span>
+                </div>
+                <div className="space-y-3 text-[11px]">
+                  {fixResult.fixes && fixResult.fixes.length > 0 ? (
+                    fixResult.fixes.map((fix, i) => (
+                      <div key={i} className="rounded border border-border/50 p-2 bg-background/50">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="font-medium text-foreground">{fix.file}</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${fix.confidence > 0.7 ? 'bg-emerald-400/20 text-emerald-400' : fix.confidence > 0.4 ? 'bg-amber-400/20 text-amber-400' : 'bg-rose-400/20 text-rose-400'}`}>
+                            {Math.round(fix.confidence * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground/80 text-[10px] mb-2">{fix.explanation}</p>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="rounded bg-rose-400/10 p-2">
+                            <div className="font-medium text-rose-400 mb-1">{t('studio.build.localOldCode') || 'Old Code'}</div>
+                            <pre className="font-mono whitespace-pre-wrap overflow-auto max-h-32"><code>{fix.oldCode}</code></pre>
+                          </div>
+                          <div className="rounded bg-emerald-400/10 p-2">
+                            <div className="font-medium text-emerald-400 mb-1">{t('studio.build.localNewCode') || 'New Code'}</div>
+                            <pre className="font-mono whitespace-pre-wrap overflow-auto max-h-32"><code>{fix.newCode}</code></pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">{t('studio.build.localNoFixes') || 'No fixes proposed'}</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
