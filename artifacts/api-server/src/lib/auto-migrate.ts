@@ -85,6 +85,48 @@ const CREATE_TABLES = [
     "completed_at" timestamp
   )`,
 
+  // ── Deep Research v2 engine ────────────────────────────────
+  // (separate from the legacy `research_jobs` table; hosts the iterative
+  //  plan→search→browse→extract→synthesize→gap-analysis agent and its sources)
+  `CREATE TABLE IF NOT EXISTS "research_jobs_v2" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "topic" text NOT NULL,
+    "status" text NOT NULL DEFAULT 'queued',
+    "phase" text NOT NULL DEFAULT 'planning',
+    "progress" integer NOT NULL DEFAULT 0,
+    "sources_found" integer NOT NULL DEFAULT 0,
+    "pages_read" integer NOT NULL DEFAULT 0,
+    "current_query" text,
+    "log" text NOT NULL DEFAULT '',
+    "report" jsonb,
+    "iterations" integer NOT NULL DEFAULT 0,
+    "max_iterations" integer NOT NULL DEFAULT 3,
+    "error" text,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "started_at" timestamp,
+    "completed_at" timestamp
+  )`,
+  `CREATE INDEX IF NOT EXISTS "research_jobs_v2_status_idx" ON "research_jobs_v2" ("status")`,
+  `CREATE INDEX IF NOT EXISTS "research_jobs_v2_created_at_idx" ON "research_jobs_v2" ("created_at")`,
+
+  `CREATE TABLE IF NOT EXISTS "research_sources_v2" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "job_id" uuid NOT NULL REFERENCES "research_jobs_v2"("id") ON DELETE CASCADE,
+    "source_id" text NOT NULL UNIQUE,
+    "title" text NOT NULL,
+    "url" text NOT NULL,
+    "snippet" text,
+    "content" text,
+    "source_type" text NOT NULL,
+    "relevance_score" integer NOT NULL DEFAULT 0,
+    "read_at" timestamp,
+    "extraction" jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "research_sources_v2_job_id_idx" ON "research_sources_v2" ("job_id")`,
+  `CREATE INDEX IF NOT EXISTS "research_sources_v2_source_id_idx" ON "research_sources_v2" ("source_id")`,
+  `CREATE INDEX IF NOT EXISTS "research_sources_v2_url_idx" ON "research_sources_v2" ("url")`,
+
   // ── Book Studio jobs ────────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "book_jobs" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

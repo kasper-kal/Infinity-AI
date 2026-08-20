@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 00:30
+LAST_UPDATED: 2026-08-20 03:55
 
 ## Just did (last action)
+- **Phase 20: Deep Research v2 — COMPLETE (100%):**
+  - **Verified full implementation exists**: Engine (`deep-research-v2.ts`), API routes (`deep-research-v2.ts` router: POST /start, GET /status/:id, GET /stream/:id SSE, POST /cancel, POST /:id/expert), frontend widget (`DeepResearchWidget.tsx` with live SSE progress + final report renderer), chat command detection (`@Deep Research <topic>` in chat.ts), widget type wiring (types/widget.ts, widgets/index.ts, conversation-feed.tsx), i18n keys (EN + NL), db schema (`researchJobsV2` + `researchSourcesV2`).
+  - **CRITICAL FIX — runtime DB tables missing**: `auto-migrate.ts` (the real bootstrap) did NOT create `research_jobs_v2` / `research_sources_v2` even though they were in the Drizzle schema. Added both CREATE TABLE + indexes to auto-migrate.ts so the engine actually works at runtime. This was the blocking gap.
+  - **FIX — chat handler jobId mismatch**: chat.ts read `drData.jobId` but the route returns `job.id`. Corrected to `drData.id`.
+  - **FIX — "Create Expert" button never rendered**: `onDeepResearchExpert` prop was optional and never supplied through the active chat path. Threaded it through `chat-mode-view.tsx` → `ConversationFeed` and wired `home.tsx` `ChatView` usage to call `loadConversation(convId)` + `setMode('chat')`. (AppShellRouter's `/app/*` ChatView already passed it through.)
+  - **Typecheck + build pass** on all packages ✅
 - **Phase 19: Local Model Integration — COMPLETE:**
   - Added `apply_fix` tool to build-tools.ts for applying local model fixes
   - Created ErrorBoundary component with "Fix with Local AI" button for any React error
@@ -176,6 +182,12 @@ LAST_UPDATED: 2026-08-20 00:30
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-20 **Phase 20: Deep Research v2 COMPLETE** — True 3-7 min deep research agent (ChatGPT/Gemini style):
+  - Verified all components exist: engine (iterative plan→search→browse→extract→synthesize→gap-analysis loop, max 3 iterations, 20-50 sources via Tavily + browser + Semantic Scholar), API routes, SSE streaming, DeepResearchWidget with live progress + citation-linked report, @Deep Research chat trigger, "Create Expert" button integration.
+  - **CRITICAL runtime fix**: `auto-migrate.ts` was missing `research_jobs_v2` / `research_sources_v2` CREATE TABLE statements — added both tables + indexes so the engine actually works at runtime.
+  - **Fixed chat handler**: jobId field mismatch (route returns `id`, chat expected `jobId`).
+  - **Wired "Create Expert" button**: threaded `onDeepResearchExpert` through active chat path (home.tsx → ChatModeView → ConversationFeed) so the button now renders and navigates to the new expert conversation.
+  - Typecheck + build pass ✅
 - 2026-08-19 **Phase 18: Promo Maker COMPLETE** — Apple/OpenAI quality promo video engine:
   - Spring-physics cursor (mass/damping/stiffness), magnetic attraction, click ripple, trails, state-aware cursors
   - Procedural ASMR audio via FFmpeg filter_complex (ambient, clicks, whooshes, typing, sweeps, reverb)

@@ -28,7 +28,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **17** | **Project Types System (Book, Website, Company, etc.)** | ✅ **DONE** | ~20-32h | Phase 14, Phase 15 |
 | **18** | **Promo Maker (Puppeteer + ASMR + AI Speed Control)** | ✅ **DONE** | ~24-40h | Phase 14, Phase 17 |
 | **19** | **Local Model Integration (Qwen2.5-1.5B for Error Fixing)** | ✅ COMPLETE | ~8-16h | Phase 8, Phase 13 |
-| **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 11 |
+| **20** | **Deep Research v2 (ChatGPT/Gemini Style, 3-7 min)** | ✅ COMPLETE | ~16-24h | Phase 8, Phase 11 |
 | **21** | **Universal Tool Calling (All Modes — Chat, Build, Research, etc.)** | 📋 PLANNED | ~16-24h | Phase 8, Phase 13 |
 
 ---
@@ -796,15 +796,15 @@ Integrate a **lightweight local model (Qwen2.5-1.5B-Instruct)** for in-app error
 Replace the current "Deep Research → creates a Gem/Expert" flow with a **true deep research agent** that takes 3-7 minutes, browses 20-50 sources, synthesizes a comprehensive report with citations, and outputs a structured research artifact (not a chat persona). Used via `@Deep Research <topic>` in chat.
 
 ### Requirements
-- [ ] **Current System Migration** — Move existing "create Gem from research" to Expert creation menu (separate feature)
-- [ ] **New Deep Research Agent** — Iterative loop: plan → search → browse → extract → synthesize → gap analysis → repeat (3-7 min)
-- [ ] **Source Target** — 20-50 unique sources (Tavily + browser + academic via Semantic Scholar/Crossref free APIs)
-- [ ] **Output** — Structured `ResearchReport` artifact: executive summary, detailed sections, citations (numbered), source list, confidence scores, gaps/limitations
-- [ ] **Trigger** — `@Deep Research <topic>` in chat (detected in `chat.ts`), emits progress SSE events (planning, searching, reading, synthesizing)
-- [ ] **Widget** — `DeepResearchWidget.tsx`: live progress (sources found, pages read, current phase), final report renderer with citations
-- [ ] **Integration** — "Save to Project Memory" button, "Create Expert from this Research" button (links to Expert creation)
-- [ ] **Cost Control** — Uses free tiers (Tavily free, browser pool, free APIs), budgets ~50-100 LLM calls per run
-- [ ] **Persistence** — Research runs stored in `research_jobs` table (extend schema), resumable on interruption
+- [x] **Current System Migration** — Move existing "create Gem from research" to Expert creation menu (separate feature)
+- [x] **New Deep Research Agent** — Iterative loop: plan → search → browse → extract → synthesize → gap analysis → repeat (3-7 min)
+- [x] **Source Target** — 20-50 unique sources (Tavily + browser + academic via Semantic Scholar/Crossref free APIs)
+- [x] **Output** — Structured `ResearchReport` artifact: executive summary, detailed sections, citations (numbered), source list, confidence scores, gaps/limitations
+- [x] **Trigger** — `@Deep Research <topic>` in chat (detected in `chat.ts`), emits progress SSE events (planning, searching, reading, synthesizing)
+- [x] **Widget** — `DeepResearchWidget.tsx`: live progress (sources found, pages read, current phase), final report renderer with citations
+- [x] **Integration** — "Save to Project Memory" button, "Create Expert from this Research" button (links to Expert creation)
+- [x] **Cost Control** — Uses free tiers (Tavily free, browser pool, free APIs), budgets ~50-100 LLM calls per run
+- [x] **Persistence** — Research runs stored in `research_jobs_v2` table, resumable on interruption
 
 ### Implementation Plan
 1. **Engine** — `artifacts/api-server/src/lib/deep-research-v2.ts`: `DeepResearchAgent` class with iterative loop, state machine
@@ -1017,11 +1017,11 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 18 — Promo Maker**
+## 🎯 Current Phase: **Phase 20 — Deep Research v2** ✅ COMPLETE
 
 ---
 
-## 🎯 Next Phase: **Phase 18 — Promo Maker**
+## 🎯 Next Phase: **Phase 21 — Universal Tool Layer — Foundation**
 
 > **Phase 17 — Project Types System: ✅ COMPLETE (100%)**
 > - Project type registry with all 7 types (general, book, website, company, app, research, course)
@@ -1041,8 +1041,8 @@ loop:
 > **Phase 16 — Infinity Maps Widget** — Interactive maps for "where should I eat" queries (OpenStreetMap + Overpass API) ✅ **DONE**
 > **Phase 17 — Project Types System** — Book, Website, Company, App, Research, Course types with tailored UI/tools ✅ **DONE**
 > **Phase 18 — Promo Maker** — Puppeteer-driven promo videos with aesthetic cursor, ASMR audio, AI speed optimization ✅ **DONE**
-> **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining
-> **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations
+> **Phase 19 — Local Model Integration** — Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining ✅ **DONE**
+> **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations ✅ **DONE**
 > **Phase 21 — Universal Tool Calling** — Tool calling in ALL modes (Chat, Build, Research, etc.), not just serious tools — also lightweight tools like `call_weather_tomorrow`, `call_time`, `call_calculate`, `call_random_joke`
 
 > **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.

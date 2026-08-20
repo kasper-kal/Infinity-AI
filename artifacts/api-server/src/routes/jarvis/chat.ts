@@ -1367,13 +1367,13 @@ router.post("/chat", async (req, res) => {
         });
 
         if (drRes.ok) {
-          const drData = await drRes.json() as { jobId: string };
+          const drData = await drRes.json() as { id: string };
           // Send the deep research widget event - frontend will render DeepResearchWidget
           res.write(`data: ${JSON.stringify({
             type: "widget",
             widget: {
               type: "deep_research",
-              jobId: drData.jobId,
+              jobId: drData.id,
               topic: deepResearchCheck.topic,
               phase: "planning",
               progress: 0,

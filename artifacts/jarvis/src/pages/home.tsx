@@ -1619,6 +1619,7 @@ export default function Home() {
               onDragOver={setDragOver}
               onDrop={handleComposerDrop}
               onStopSpeaking={handleStopSpeaking}
+              onDeepResearchExpert={(convId) => { void loadConversation(convId); setMode('chat'); }}
             />
           )}
 

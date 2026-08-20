@@ -68,6 +68,7 @@ export interface ChatModeViewProps {
   onDragOver: (v: boolean) => void;
   onDrop: (e: DragEvent) => void;
   onStopSpeaking: () => void;
+  onDeepResearchExpert?: (conversationId: string) => void;
 }
 
 /** Full chat mode: timer strip, mobile widget strip, conversation feed and composer. */
@@ -120,6 +121,7 @@ export function ChatModeView(props: ChatModeViewProps) {
     onChatInputChange,
     onToggleThinking,
     onToggleAgentMode,
+    onDeepResearchExpert,
     onOpenPlusMenu,
     onClosePlusMenu,
     onPlusAction,
@@ -179,6 +181,7 @@ export function ChatModeView(props: ChatModeViewProps) {
           onSourceCodeCancel={onSourceCodeCancel}
           onBuildModeConfirm={onBuildModeConfirm}
           onBuildModeCancel={onBuildModeCancel}
+          onDeepResearchExpert={onDeepResearchExpert}
         />
 
         <ChatComposer
