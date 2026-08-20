@@ -68,6 +68,7 @@ interface ConversationFeedProps {
   onSourceCodeCancel?: () => void;
   onBuildModeConfirm?: () => void;
   onBuildModeCancel?: () => void;
+  onDeepResearchExpert?: (conversationId: string) => void;
 }
 
 /** Collapsible "Thinking" block, shows Jarvis's private reasoning pass.

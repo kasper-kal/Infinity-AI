@@ -4,15 +4,16 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "@/lib/i18n";
-import { useBuildToasts } from "@/hooks/useBuildToasts";
-import { DeepResearchWidgetData, Widget } from "@/types/widget";
-import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
+import { useBuildToasts } from "@/components/build-toast";
+import { Widget } from "@/types/widget";
+import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, CheckCircle, AlertCircle, Search, BookOpen, FileText, Zap, Target, XCircle, ChevronDown } from "lucide-react";
 
+type DeepResearchWidgetData = Extract<Widget, { type: "deep_research" }> & { log?: string[] };
 type DeepResearchPhase = DeepResearchWidgetData["phase"];
 
 const PHASE_LABELS: Record<DeepResearchPhase, string> = {
@@ -40,9 +41,9 @@ const PHASE_ICONS: Record<DeepResearchPhase, React.ReactNode> = {
 };
 
 interface DeepResearchWidgetProps {
-  widget: Widget & { type: "deep_research" };
+  widget: DeepResearchWidgetData;
   onClose: () => void;
-  onCreateExpert?: () => void;
+  onCreateExpert?: (conversationId: string) => void;
 }
 
 async function createExpertFromResearch(jobId: string): Promise<{ expertName: string; conversationId: string } | null> {
@@ -77,10 +78,10 @@ async function createExpertFromResearch(jobId: string): Promise<{ expertName: st
 }
 
 export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepResearchWidgetProps) {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const { success: toastSuccess, error: toastError, info: toastInfo } = useBuildToasts();
   const [data, setData] = useState<DeepResearchWidgetData>(widget);
-  const [eventSource, setEventSource] = useRef<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [creatingExpert, setCreatingExpert] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
@@ -92,8 +93,8 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
       const result = await createExpertFromResearch(widget.jobId);
       if (result) {
         toastSuccess(t("deepResearch.expertCreated", { name: result.expertName }));
-        // Call the parent's onCreateExpert if provided (e.g., to navigate to the expert chat)
-        onCreateExpert?.();
+        // Call the parent's onCreateExpert with the new conversation ID
+        onCreateExpert?.(result.conversationId);
       } else {
         toastError(t("deepResearch.expertCreateFailed"));
       }
@@ -107,33 +108,33 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
   useEffect(() => {
     // Connect to SSE stream
     const es = new EventSource(`/api/jarvis/deep-research-v2/${widget.jobId}/stream`);
-    setEventSource.current = es;
+    eventSourceRef.current = es;
 
     es.onopen = () => setIsConnected(true);
 
-    es.addEventListener("phase", (e) => {
+    es.addEventListener("phase", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
       setData((d) => ({ ...d, phase: payload.phase, progress: payload.progress ?? d.progress }));
     });
 
-    es.addEventListener("progress", (e) => {
+    es.addEventListener("progress", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
       setData((d) => ({ ...d, progress: payload.progress }));
     });
 
-    es.addEventListener("source", (e) => {
+    es.addEventListener("source", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
       setData((d) => ({ ...d, sourcesFound: d.sourcesFound + 1, pagesRead: payload.source.content ? d.pagesRead + 1 : d.pagesRead }));
     });
 
-    es.addEventListener("log", (e) => {
+    es.addEventListener("log", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
-      setData((d) => ({ ...d, log: [...d.log.slice(-50), payload.message] }));
+      setData((d) => ({ ...d, log: [...(d.log ?? []).slice(-50), payload.message] }));
       // Auto-scroll log
       setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" }), 0);
     });
 
-    es.addEventListener("complete", (e) => {
+    es.addEventListener("complete", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
       setData((d) => ({
         ...d,
@@ -147,7 +148,7 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
       toastSuccess(t("deepResearch.complete", { topic: widget.topic }));
     });
 
-    es.addEventListener("error", (e) => {
+    es.addEventListener("error", (e: MessageEvent) => {
       const payload = JSON.parse(e.data);
       setData((d) => ({ ...d, phase: "failed", error: payload.error, progress: d.progress }));
       setIsConnected(false);
@@ -163,7 +164,7 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
 
     return () => {
       es.close();
-      setEventSource.current = null;
+      eventSourceRef.current = null;
     };
   }, [widget.jobId, t, toastSuccess, toastError]);
 
@@ -225,13 +226,21 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
                     {section.heading}
                   </h4>
                   <div className="prose prose-sm max-w-none text-foreground">
-                    {section.content.split("\n").map((p, i) => (
-                      <p key={i} className="mb-2 leading-relaxed">
-                        {p.replace(/\[Source (\d+)\]/g, (_, num) => (
-                          <sup className="text-primary font-mono text-xs ml-0.5">[{num}]</sup>
-                        ))}
-                      </p>
-                    ))}
+                    {section.content.split("\n").map((p, i) => {
+                      // Split by citation markers and render inline
+                      const parts = p.split(/(\[Source \d+\])/);
+                      return (
+                        <p key={i} className="mb-2 leading-relaxed">
+                          {parts.map((part, idx) => {
+                            const match = part.match(/\[Source (\d+)\]/);
+                            if (match) {
+                              return <sup key={idx} className="text-primary font-mono text-xs ml-0.5">[{match[1]}]</sup>;
+                            }
+                            return <span key={idx}>{part}</span>;
+                          })}
+                        </p>
+                      );
+                    })}
                   </div>
                   {section.citations.length > 0 && (
                     <div className="text-xs text-muted-foreground ml-2">
@@ -336,10 +345,10 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
           </div>
           <ScrollArea className="h-48 pr-2">
             <div ref={logRef} className="p-3 space-y-1 font-mono text-xs text-foreground">
-              {data.log.map((entry, i) => (
+              {(data.log ?? []).map((entry, i) => (
                 <div key={i} className="text-muted-foreground/80">{entry}</div>
               ))}
-              {data.log.length === 0 && <div className="text-muted-foreground">{t("deepResearch.waiting")}</div>}
+              {(data.log ?? []).length === 0 && <div className="text-muted-foreground">{t("deepResearch.waiting")}</div>}
             </div>
           </ScrollArea>
         </div>

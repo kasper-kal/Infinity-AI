@@ -81,9 +81,13 @@ router.get("/", (_req: Request, res: Response) => {
  * GET /api/jarvis/deep-research-v2/:id  —  Get job status/report
  * ──────────────────────────────────────────────────────────────── */
 
-router.get("/:id", (req: Request, res: Response) => {
-  const job = getDeepResearchJob(req.params.id);
-  if (!job) return res.status(404).json({ error: "Not found" });
+router.get("/:id", (req: Request, res: Response): void => {
+  const jobId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const job = getDeepResearchJob(jobId);
+  if (!job) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(job);
 });
 
@@ -92,14 +96,14 @@ router.get("/:id", (req: Request, res: Response) => {
  * ──────────────────────────────────────────────────────────────── */
 
 router.get("/:id/stream", (req: Request, res: Response) => {
-  const jobId = req.params.id;
+  const jobId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const job = getDeepResearchJob(jobId);
   if (!job) {
     res.status(404).end();
     return;
   }
 
-  const cleanup = setupSSE(req.res);
+  const cleanup = setupSSE(res);
 
   // Send current state immediately
   sendSSE(res, { type: "phase", jobId, phase: job.phase, progress: job.progress });
@@ -120,10 +124,17 @@ router.get("/:id/stream", (req: Request, res: Response) => {
  * POST /api/jarvis/deep-research-v2/:id/expert  —  Create expert prompt
  * ──────────────────────────────────────────────────────────────── */
 
-router.post("/:id/expert", (req: Request, res: Response) => {
-  const job = getDeepResearchJob(req.params.id);
-  if (!job) return res.status(404).json({ error: "Not found" });
-  if (!job.report) return res.status(400).json({ error: "Report not ready" });
+router.post("/:id/expert", (req: Request, res: Response): void => {
+  const jobId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const job = getDeepResearchJob(jobId);
+  if (!job) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!job.report) {
+    res.status(400).json({ error: "Report not ready" });
+    return;
+  }
 
   const expertPrompt = buildExpertPromptFromReport(job);
   const expertName = `Expert: ${job.topic.slice(0, 80)}`;

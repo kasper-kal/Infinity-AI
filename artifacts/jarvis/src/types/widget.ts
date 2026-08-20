@@ -62,7 +62,7 @@ export type Widget =
   | { type: 'music'; composition: MusicComposition }
   | { type: 'browser_agent'; goal: string }
   | { type: 'promo'; jobId: string; status: 'planning' | 'recording' | 'audio' | 'encoding' | 'optimizing' | 'completed' | 'failed'; progress: number; videoUrl?: string; thumbnailUrl?: string; error?: string }
-  | { type: 'deep_research'; jobId: string; topic: string; phase: 'planning' | 'searching' | 'reading' | 'extracting' | 'synthesizing' | 'gap_analysis' | 'finalizing' | 'completed' | 'failed'; progress: number; sourcesFound: number; pagesRead: number; currentQuery?: string; report?: { executiveSummary: string; sections: { heading: string; content: string; citations: number[] }[]; gapsAndLimitations: string; confidenceScore: number; sourceCount: number }; error?: string }
+  | { type: 'deep_research'; jobId: string; topic: string; phase: 'planning' | 'searching' | 'reading' | 'extracting' | 'synthesizing' | 'gap_analysis' | 'finalizing' | 'completed' | 'failed'; progress: number; sourcesFound: number; pagesRead: number; currentQuery?: string; log?: string[]; report?: { executiveSummary: string; sections: { heading: string; content: string; citations: number[] }[]; gapsAndLimitations: string; confidenceScore: number; sourceCount: number }; error?: string }
 
 /** A terminal command card shown in chat (from run_terminal SSE events). */
 export interface TerminalResult {
