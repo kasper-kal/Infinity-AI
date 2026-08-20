@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-20 17:30
+LAST_UPDATED: 2026-08-20 18:00
 
 ## Just did (last action)
 - **Phase 21: Universal Tool Layer — Foundation — COMPLETE (100%):**
@@ -189,6 +189,16 @@ LAST_UPDATED: 2026-08-20 17:30
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-20 **Phase 14: Fixed TypeScript errors in demo pages and promo-maker** — All typecheck + build pass:
+  - Fixed WidgetShowcase.tsx import (Card from '@/components/ui' instead of '@/components/ui/Card')
+  - Fixed WidgetShowcase.tsx default case to not reference widget.type on never type
+  - Fixed promo-maker.ts TypeScript errors:
+    - Changed numeric literals like 3b, 6b, 7b to strings ('3b', '6b', '7b')
+    - Updated getNoteFromDegree to accept string | number degree
+    - Updated getChordNotes to accept string | number degree
+    - Updated generateMelody to accept typed progression array and chordDuration parameter
+  - Exported Card component from ui/index.ts barrel
+  - All typecheck and build pass cleanly ✅
 - 2026-08-20 **Timeline Editor COMPLETE** — Full professional timeline editing in PromoWidget:
   - Clip actions: Split (Scissors), Copy (Copy), Delete (Trash) buttons on selected clips
   - Volume Envelope Editor modal: canvas-based keyframe editing with click-to-add, drag-to-move, Delete-to-remove, numerical inputs
@@ -467,7 +477,7 @@ LAST_UPDATED: 2026-08-20 17:30
    - Narrative script structure (hook → demo → CTA sections)
    - Per-segment variable speed optimization (LLM-driven)
    - Connect ProjectHomeCompany brand data (palette, fonts) through API to promo-maker
-2. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — IN PROGRESS: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
+2. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — DEMO PAGES COMPLETE: ChatDemo (`/demo/chat`) and WidgetShowcase (`/demo/widgets`) created with side menu + widget-1 through widget-18. Now: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
 3. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
 4. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
 5. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations

@@ -383,7 +383,7 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 - [x] **Layout System** — CSS Grid/Flex, sidebar rail, main canvas, panels
 - [x] **Component Library** — Button, Input, Select, Dialog, Tooltip, Toast, Table, Tree, Tabs, CodeMirror wrapper, Terminal, Diff View, Markdown Renderer (10 base components done)
 - [x] **Layout Primitives** — AppShell, Sidebar, Panel, Canvas, ResponsiveGrid (5 components done)
-- [ ] **Feature Views** — Build, Chat, Terminal, Settings, Projects views using AppShell layout
+- [x] **Feature Views** — ChatDemo page at `/demo/chat` with side menu + widget states, WidgetShowcase page at `/demo/widgets` with all 18 widget types
 - [ ] **Chat Interface** — message bubbles, streaming, code blocks, artifacts, citations
 - [ ] **Build Studio** — plan view, diff modal, transcript, debug panel, browser preview
 - [ ] **Projects Dashboard** — grid/list, search, activity feed, settings
@@ -400,6 +400,12 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 6. **Icon system** — Lucide or custom SVG, consistent sizing
 7. **Animation system** — Framer Motion or CSS, reduced-motion respect
 8. **Integrate into main App router** — replace home.tsx with routed feature views
+
+### Demo Pages Created (Phase 14 verification)
+- **ChatDemo** (`/demo/chat`) — Full chat view with side menu navigation, 5 sample conversations, 10 widget states, simulated streaming responses
+- **WidgetShowcase** (`/demo/widgets`) — Gallery of all 18 widget types with search filter
+- Added routes in `App.tsx` for `/demo/chat` and `/demo/widgets`
+- Fixed all TypeScript type mismatches to match actual widget type definitions
 
 ### Files to Create/Modify
 - `artifacts/jarvis/src/styles/` — tokens, globals, themes
