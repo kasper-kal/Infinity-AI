@@ -163,6 +163,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: [],
     },
   },
+  {
+    name: "apply_fix",
+    description: "Apply a code fix proposed by the local model — replaces oldCode with newCode in the specified file",
+    parameters: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "Relative path to the file to fix" },
+        oldCode: { type: "string", description: "The exact code block to be replaced (must match file content)" },
+        newCode: { type: "string", description: "The corrected code block to insert" },
+        explanation: { type: "string", description: "Why this fix works" },
+      },
+      required: ["file", "oldCode", "newCode"],
+    },
+  },
 ];
 
 /**
@@ -213,6 +227,9 @@ export async function executeTool(
 
       case "git_diff":
         return await toolGitDiff(args, context);
+
+      case "apply_fix":
+        return await toolApplyFix(args, context);
 
       default:
         return { success: false, error: `Unknown tool: ${name}` };
@@ -479,6 +496,49 @@ async function toolGitDiff(args: Record<string, unknown>, context: ToolExecution
     success: result.ok,
     result: { diff: result.stdout, path: diffPath, staged },
     error: result.ok ? undefined : result.stderr,
+  };
+}
+
+/**
+ * Apply a code fix proposed by local model
+ */
+async function toolApplyFix(args: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+  const filePath = args.file as string;
+  const oldCode = args.oldCode as string;
+  const newCode = args.newCode as string;
+  const explanation = (args.explanation as string) || "";
+
+  if (!filePath || !oldCode || !newCode) {
+    return { success: false, error: "file, oldCode, and newCode are required" };
+  }
+
+  const safePath = safeWorkspacePath(filePath, context.workspaceId);
+  if (!safePath) {
+    return { success: false, error: "Path escapes the workspace" };
+  }
+
+  const content = await readWorkspaceFileText(filePath, context.workspaceId);
+
+  // Find oldCode in file
+  const index = content.indexOf(oldCode);
+  if (index === -1) {
+    return {
+      success: false,
+      error: `Could not find the exact code block to replace in ${filePath}. The file may have changed.`,
+    };
+  }
+
+  const updated = content.replace(oldCode, newCode);
+  await writeWorkspaceFile(filePath, updated, context.workspaceId);
+
+  return {
+    success: true,
+    result: {
+      path: filePath,
+      operation: "apply_fix",
+      explanation,
+      changedLines: newCode.split("\n").length,
+    },
   };
 }
 

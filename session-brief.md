@@ -4,9 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-19 22:30
+LAST_UPDATED: 2026-08-20 00:00
 
 ## Just did (last action)
+- **Phase 19: Local Model Integration — COMPLETE:**
+  - Added `apply_fix` tool to build-tools.ts for applying local model fixes
+  - Created ErrorBoundary component with "Fix with Local AI" button for any React error
+  - Wrapped App with ErrorBoundary in App.tsx
+  - Local model already integrated in build-agent verification loop and build-studio toast
+  - All requirements checked off in PHASES.md
+
 - **Phase 17: Project Types System — COMPLETE (100%):**
   - **Plugin system for custom project types implemented:**
     - Backend: `artifacts/api-server/src/lib/project-type-plugins.ts` — Auto-discovers JSON/YAML files in `.infinity/project-types/`, validates with Zod, merges with built-in types, hot-reload via file watcher
@@ -334,7 +341,7 @@ LAST_UPDATED: 2026-08-19 22:30
 - **Phase 16: Infinity Maps Widget** — **COMPLETE**: Interactive maps widget for location queries ("where should I eat"), OpenStreetMap + Overpass API, Leaflet/MapLibre, directions to OS maps apps
 - **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
 - **Phase 18: Promo Maker** — PLANNED: Puppeteer-driven promo videos with aesthetic cursor (OpenAI-style), ASMR sound effects (Web Audio API), AI speed optimization (detects slow sections, re-renders at 2-4x)
-- **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
+- **Phase 19: Local Model Integration** — **COMPLETE**: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, "Fix with Local AI" button in error toast + ErrorBoundary, build-agent verification loop integration to apply fixes to its own code
 - **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
 
 ## Tavily Research Findings — Key Gaps & Actionable Improvements for Infinity
