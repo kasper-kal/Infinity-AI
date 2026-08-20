@@ -5,6 +5,8 @@ import { LanguageProvider } from '@/lib/i18n';
 import Home from '@/pages/home';
 import { AppShellRouter } from '@/components/layout/AppShellRouter';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import ChatDemoPage from '@/pages/ChatDemo';
+import WidgetShowcasePage from '@/pages/WidgetShowcase';
 
 const queryClient = new QueryClient();
 
@@ -19,6 +21,13 @@ function App() {
             </Route>
             <Route path="/app/*">
               <AppShellRouter base="/app" />
+            </Route>
+            {/* Demo pages for Phase 14 Responsive UI */}
+            <Route path="/demo/chat">
+              <ChatDemoPage />
+            </Route>
+            <Route path="/demo/widgets">
+              <WidgetShowcasePage />
             </Route>
           </Router>
           <Toaster />

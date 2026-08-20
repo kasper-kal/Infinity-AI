@@ -7,6 +7,9 @@
 export { Button, IconButton, ButtonGroup } from "./Button";
 export type { ButtonProps, IconButtonProps, ButtonGroupProps } from "./Button";
 
+// Card
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from "./card";
+
 // Input
 export { Input, Textarea, Select } from "./Input";
 export type { InputProps, TextareaProps, SelectProps } from "./Input";

@@ -1535,7 +1535,7 @@ async function generateBackgroundMusic(job: PromoJob, totalDuration: number): Pr
 
   // 4. MELODY - sparse, expressive lead line
   if (styleParams.hasMelody) {
-    const melodyNotes = generateMelody(progression, styleParams, rng);
+    const melodyNotes = generateMelody(progression, styleParams, rng, chordDuration);
     for (let i = 0; i < melodyNotes.length; i++) {
       const { time, freq, duration } = melodyNotes[i];
       filterComplex += `
@@ -1711,7 +1711,7 @@ function transposeKey(key: string, semitones: number): string {
 function generateChordProgression(key: string, scale: string, numChords: number, rng: () => number) {
   // Scale degrees for major/minor
   const majorDegrees = [1, 2, 3, 4, 5, 6, 7];
-  const minorDegrees = [1, 2, 3b, 4, 5, 6b, 7b];
+  const minorDegrees = [1, 2, '3b', 4, 5, '6b', '7b'];
 
   // Common chord progressions (I, V, vi, IV etc.)
   const commonProgressions = {
@@ -1722,10 +1722,10 @@ function generateChordProgression(key: string, scale: string, numChords: number,
       [6, 4, 1, 5], // vi-IV-I-V
     ],
     minor: [
-      [1, 7b, 6b, 5], // i-VII-VI-V
-      [1, 6b, 3b, 7b], // i-VI-III-VII
-      [1, 4, 7b, 3b], // i-iv-VII-III
-      [1, 5, 6b, 4], // i-v-VI-iv
+      [1, '7b', '6b', 5], // i-VII-VI-V
+      [1, '6b', '3b', '7b'], // i-VI-III-VII
+      [1, 4, '7b', '3b'], // i-iv-VII-III
+      [1, 5, '6b', 4], // i-v-VI-iv
     ],
   };
 
@@ -1760,7 +1760,7 @@ function noteToFreq(note: string, octave: number): number {
 /**
  * Get note from scale degree
  */
-function getNoteFromDegree(key: string, scale: string, degree: number): string {
+function getNoteFromDegree(key: string, scale: string, degree: string | number): string {
   const keyMap: Record<string, number> = {
     "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5,
     "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11
@@ -1770,7 +1770,15 @@ function getNoteFromDegree(key: string, scale: string, degree: number): string {
   const minorIntervals = [0, 2, 3, 5, 7, 8, 10];
 
   const intervals = scale === "major" ? majorIntervals : minorIntervals;
-  const degreeIdx = ((degree - 1) % 7 + 7) % 7; // Handle negative
+
+  // Handle string degrees like '3b', '6b', '7b' (flat notes)
+  let degreeIdx: number;
+  if (typeof degree === 'string') {
+    const num = parseInt(degree.replace('b', ''), 10);
+    degreeIdx = ((num - 1) % 7 + 7) % 7;
+  } else {
+    degreeIdx = ((degree - 1) % 7 + 7) % 7;
+  }
   const semitone = (keyMap[key] + intervals[degreeIdx]) % 12;
 
   const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -1780,7 +1788,7 @@ function getNoteFromDegree(key: string, scale: string, degree: number): string {
 /**
  * Get chord notes (root, third, fifth, optionally seventh)
  */
-function getChordNotes(chord: { root: string; degree: number; octave: number }): number[] {
+function getChordNotes(chord: { root: string; degree: string | number; octave: number }): number[] {
   const rootFreq = noteToFreq(chord.root, chord.octave);
   return [
     rootFreq,
@@ -1793,13 +1801,12 @@ function getChordNotes(chord: { root: string; degree: number; octave: number }):
 /**
  * Generate sparse melody notes over chord progression
  */
-function generateMelody(progression: any[], styleParams: any, rng: () => number) {
+function generateMelody(progression: { root: string; degree: string | number; octave: number }[], styleParams: any, rng: () => number, chordDuration: number) {
   const melody = [];
   let currentTime = 0;
 
   for (let i = 0; i < progression.length; i++) {
     const chord = progression[i];
-    const chordDuration = progression.chordDuration || 4; // Will be overridden
 
     // 1-2 melody notes per chord
     const numNotes = rng() < 0.6 ? 1 : 2;
