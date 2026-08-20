@@ -130,7 +130,7 @@ function TypingIndicator() {
   );
 }
 
-function InlineWidget({ widget }: { widget: Widget }) {
+function InlineWidget({ widget, onDeepResearchExpert }: { widget: Widget; onDeepResearchExpert?: (conversationId: string) => void }) {
   switch (widget.type) {
     case 'clock':
       return <ClockWidget timezones={widget.timezones} />;
@@ -181,7 +181,7 @@ function InlineWidget({ widget }: { widget: Widget }) {
         error={widget.error}
       />;
     case 'deep_research':
-      return <DeepResearchWidget widget={widget} onClose={() => {}} onCreateExpert={() => {}} />;
+      return <DeepResearchWidget widget={widget} onClose={() => {}} onCreateExpert={onDeepResearchExpert} />;
     default:
       return null;
   }
@@ -301,6 +301,7 @@ export function ConversationFeed({
   onSourceCodeCancel,
   onBuildModeConfirm,
   onBuildModeCancel,
+  onDeepResearchExpert,
 }: ConversationFeedProps) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -559,7 +560,7 @@ export function ConversationFeed({
               {/* Widget, only for assistant messages */}
               {!isUser && msg.widget && (
                 <div className="w-full max-w-xl">
-                  <InlineWidget widget={msg.widget} />
+                  <InlineWidget widget={msg.widget} onDeepResearchExpert={onDeepResearchExpert} />
                 </div>
               )}
 

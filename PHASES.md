@@ -836,7 +836,7 @@ Replace the current "Deep Research → creates a Gem/Expert" flow with a **true 
 
 ---
 
-## 🌐 Initiative: Universal Tool Layer (Phases 22–25)
+## 🌐 Initiative: Universal Tool Layer (Phases 21–25)
 *Move from "which feature am I using?" to "what tools does Infinity need to accomplish this goal?" — one centralized tool registry, dynamic cross-capability reasoning loop, reusing the existing Build Mode tool architecture.*
 
 ## 📦 Phase 21: Universal Tool Layer — Foundation
