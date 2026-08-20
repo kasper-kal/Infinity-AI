@@ -1230,8 +1230,16 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
     proc.on("error", reject);
   });
 
-  // Generate audio track
-  const audioPath = await generateAudioTrack(job, frames);
+  // Calculate total duration from frames
+  const totalDuration = frames.length > 0
+    ? (frames[frames.length - 1].timestamp / 1000)
+    : job.duration;
+
+  // Generate audio tracks in parallel
+  const [audioPath, musicPath] = await Promise.all([
+    generateAudioTrack(job, frames),
+    generateBackgroundMusic(job, totalDuration),
+  ]);
 
   // Second pass: combine video + audio + text overlays + color grading + device frame
   let filterComplex = "";
@@ -1390,18 +1398,23 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
   }
 
   // Final output with audio
-  // Build inputs: video + audio + device frame (if applicable)
-  let inputArgs = `-i "${rawVideoPath}" -i "${audioPath}"`;
+  // Build inputs: video + ASMR audio + background music + device frame (if applicable)
+  let inputArgs = `-i "${rawVideoPath}" -i "${audioPath}" -i "${musicPath}"`;
+  let audioInputIndex = 2; // music is at index 2
   if (deviceFrame !== "none" && ["iphone", "macbook", "ipad"].includes(deviceFrame)) {
     try {
       const deviceFramePath = await getDeviceFrameImage(deviceFrame as "iphone" | "macbook" | "ipad");
       inputArgs += ` -i "${deviceFramePath}"`;
+      audioInputIndex = 3; // music shifts to index 3
     } catch (e) {
       console.error("[PromoMaker] Device frame input failed:", e);
     }
   }
 
-  const finalCmd = `ffmpeg -y ${inputArgs} -filter_complex "${filterComplex}[${currentLabel}]" -map "[${currentLabel}]" -map 1:a -c:v libx264 -preset slow -crf 18 -c:a aac -b:a 192k -movflags +faststart -shortest "${finalVideoPath}"`;
+  // Mix ASMR audio (input 1) with background music (input audioInputIndex) - music at lower volume
+  const audioMixFilter = `[1:a]volume=0.9[asmr];[${audioInputIndex}:a]volume=0.25[music];[asmr][music]amix=inputs=2:duration=first:dropout_transition=2[mixed_audio];`;
+
+  const finalCmd = `ffmpeg -y ${inputArgs} -filter_complex "${filterComplex}${audioMixFilter}[${currentLabel}]" -map "[${currentLabel}]" -map "[mixed_audio]" -c:v libx264 -preset slow -crf 18 -c:a aac -b:a 192k -movflags +faststart -shortest "${finalVideoPath}"`;
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn("bash", ["-c", finalCmd]);
@@ -1419,6 +1432,393 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
 
   updateJob(job.id, { rawVideoPath, videoPath: finalVideoPath, thumbnailPath, progress: 90 });
   return finalVideoPath;
+}
+
+/**
+ * Generate procedural background music - unique per video
+ * Creates algorithmic composition: chord progression + melody + rhythm + bass
+ * Uses deterministic seed from job ID for reproducibility
+ */
+async function generateBackgroundMusic(job: PromoJob, totalDuration: number): Promise<string> {
+  const musicPath = join(CONFIG.tempDir, `${job.id}_music.wav`);
+
+  // Deterministic seed from job ID for unique but reproducible music
+  const seed = hashString(job.id);
+  const rng = mulberry32(seed);
+
+  // Musical parameters based on style and brand
+  const styleParams = getStyleMusicParams(job.style, job.brandKit, rng);
+
+  // Generate chord progression (4-8 chords for the duration)
+  const chordsPerMinute = 12; // ~5 seconds per chord
+  const numChords = Math.max(4, Math.min(16, Math.floor(totalDuration / 60 * chordsPerMinute)));
+  const chordDuration = totalDuration / numChords;
+
+  const progression = generateChordProgression(styleParams.key, styleParams.scale, numChords, rng);
+
+  // Build FFmpeg filter complex for music
+  let filterComplex = "";
+  let currentLabel = "base";
+  let labelIndex = 0;
+
+  // Base silence
+  filterComplex += `anullsrc=r=44100:cl=stereo:d=${Math.ceil(totalDuration)}[base];`;
+
+  // 1. BASS LINE - root notes of chords, sustained with slight movement
+  for (let i = 0; i < numChords; i++) {
+    const chord = progression[i];
+    const startTime = i * chordDuration;
+    const freq = noteToFreq(chord.root, chord.octave - 1); // Bass is one octave lower
+
+    filterComplex += `
+      anullsrc=r=44100:cl=stereo:d=${chordDuration}[bass_${i}];
+      [bass_${i}]aevalsrc="0.3*sin(2*PI*${freq}*t) + 0.15*sin(2*PI*${freq*2}*t) + 0.05*sin(2*PI*${freq*3}*t)"[bass_gen_${i}];
+      [bass_gen_${i}]lowpass=f=120:width_type=h:w=10[bass_lp_${i}];
+      [bass_lp_${i}]volume=0.25[bass_final_${i}];
+      [${currentLabel}][bass_final_${i}]adelay=${Math.round(startTime * 1000)}|${Math.round(startTime * 1000)}[b${labelIndex}];
+    `;
+    currentLabel = `b${labelIndex}`;
+    labelIndex++;
+  }
+
+  // 2. PAD / AMBIENT CHORDS - sustained chords with slow attack
+  for (let i = 0; i < numChords; i++) {
+    const chord = progression[i];
+    const startTime = i * chordDuration;
+    const notes = getChordNotes(chord);
+
+    // Create chord as sum of sine waves
+    const oscTerms = notes.map((f, idx) => `0.15*sin(2*PI*${f}*t)`).join(" + ");
+
+    filterComplex += `
+      anullsrc=r=44100:cl=stereo:d=${chordDuration}[pad_${i}];
+      [pad_${i}]aevalsrc="${oscTerms}"[pad_gen_${i}];
+      [pad_gen_${i}]lowpass=f=800:width_type=h:w=50[pad_lp_${i}];
+      [pad_lp_${i}]volume=0.12[pad_v_${i}];
+      // Slow attack envelope
+      [pad_v_${i}]afade=t=in:st=0:d=1.5:curve=exp,fade=out:st=${chordDuration - 0.5}:d=0.5[pad_env_${i}];
+      [${currentLabel}][pad_env_${i}]adelay=${Math.round(startTime * 1000)}|${Math.round(startTime * 1000)}[b${labelIndex}];
+    `;
+    currentLabel = `b${labelIndex}`;
+    labelIndex++;
+  }
+
+  // 3. ARPEGGIO / PLUCK - rhythmic arpeggios on chord changes
+  if (styleParams.hasArpeggio) {
+    const arpRate = 8; // 8th notes
+    const arpInterval = 60 / (styleParams.tempo * arpRate / 60); // seconds per note
+
+    for (let i = 0; i < numChords; i++) {
+      const chord = progression[i];
+      const startTime = i * chordDuration;
+      const notes = getChordNotes(chord);
+      const numArpNotes = Math.floor(chordDuration / arpInterval);
+
+      for (let n = 0; n < numArpNotes; n++) {
+        const noteIdx = n % notes.length;
+        const freq = notes[noteIdx];
+        const noteTime = startTime + n * arpInterval;
+        const noteDur = Math.min(arpInterval * 0.8, 0.3);
+
+        filterComplex += `
+          anullsrc=r=44100:cl=stereo:d=${noteDur}[arp_${i}_${n}];
+          [arp_${i}_${n}]aevalsrc="exp(-30*t)*0.4*sin(2*PI*${freq}*t)"[arp_gen_${i}_${n}];
+          [arp_gen_${i}_${n}]highpass=f=400[arp_hp_${i}_${n}];
+          [arp_hp_${i}_${n}]volume=0.08[arp_final_${i}_${n}];
+          [${currentLabel}][arp_final_${i}_${n}]adelay=${Math.round(noteTime * 1000)}|${Math.round(noteTime * 1000)}[b${labelIndex}];
+        `;
+        currentLabel = `b${labelIndex}`;
+        labelIndex++;
+      }
+    }
+  }
+
+  // 4. MELODY - sparse, expressive lead line
+  if (styleParams.hasMelody) {
+    const melodyNotes = generateMelody(progression, styleParams, rng);
+    for (let i = 0; i < melodyNotes.length; i++) {
+      const { time, freq, duration } = melodyNotes[i];
+      filterComplex += `
+        anullsrc=r=44100:cl=stereo:d=${duration}[mel_${i}];
+        [mel_${i}]aevalsrc="exp(-8*t)*(0.35*sin(2*PI*${freq}*t) + 0.15*sin(2*PI*${freq*2}*t))"[mel_gen_${i}];
+        [mel_gen_${i}]highpass=f=300[mel_hp_${i}];
+        [mel_hp_${i}]volume=0.18[mel_final_${i}];
+        [${currentLabel}][mel_final_${i}]adelay=${Math.round(time * 1000)}|${Math.round(time * 1000)}[b${labelIndex}];
+      `;
+      currentLabel = `b${labelIndex}`;
+      labelIndex++;
+    }
+  }
+
+  // 5. PERCUSSION / RHYTHM - subtle shaker/rim pattern
+  if (styleParams.hasPercussion) {
+    const beatInterval = 60 / styleParams.tempo; // quarter note
+    const numBeats = Math.floor(totalDuration / beatInterval);
+
+    for (let b = 0; b < numBeats; b++) {
+      const beatTime = b * beatInterval;
+      const isDownbeat = b % 4 === 0;
+      const isBackbeat = b % 4 === 2;
+
+      if (isDownbeat) {
+        // Kick drum
+        filterComplex += `
+          anullsrc=r=44100:cl=stereo:d=0.5[kick_${b}];
+          [kick_${b}]aevalsrc="exp(-15*t)*sin(2*PI*60*t*exp(-10*t))"[kick_gen_${b}];
+          [kick_gen_${b}]lowpass=f=100[kick_lp_${b}];
+          [kick_lp_${b}]volume=0.25[kick_final_${b}];
+          [${currentLabel}][kick_final_${b}]adelay=${Math.round(beatTime * 1000)}|${Math.round(beatTime * 1000)}[b${labelIndex}];
+        `;
+        currentLabel = `b${labelIndex}`;
+        labelIndex++;
+      } else if (isBackbeat) {
+        // Snare/rim
+        filterComplex += `
+          anullsrc=r=44100:cl=stereo:d=0.15[snare_${b}];
+          [snare_${b}]aevalsrc="exp(-40*t)*(0.5*sin(2*PI*200*t) + 0.3*sin(2*PI*400*t))"[snare_gen_${b}];
+          [snare_gen_${b}]bandpass=f=800:width_type=h:w=300[snare_bp_${b}];
+          [snare_bp_${b}]volume=0.12[snare_final_${b}];
+          [${currentLabel}][snare_final_${b}]adelay=${Math.round(beatTime * 1000)}|${Math.round(beatTime * 1000)}[b${labelIndex}];
+        `;
+        currentLabel = `b${labelIndex}`;
+        labelIndex++;
+      } else {
+        // Closed hi-hat
+        filterComplex += `
+          anullsrc=r=44100:cl=stereo:d=0.05[hat_${b}];
+          [hat_${b}]aevalsrc="exp(-100*t)*0.1*sin(2*PI*8000*t)"[hat_gen_${b}];
+          [hat_gen_${b}]highpass=f=6000[hat_hp_${b}];
+          [hat_hp_${b}]volume=0.06[hat_final_${b}];
+          [${currentLabel}][hat_final_${b}]adelay=${Math.round(beatTime * 1000)}|${Math.round(beatTime * 1000)}[b${labelIndex}];
+        `;
+        currentLabel = `b${labelIndex}`;
+        labelIndex++;
+      }
+    }
+  }
+
+  // 6. SUBTLE REVERB TAIL
+  filterComplex += `
+    [${currentLabel}]aecho=0.8:0.25:80:0.12[reverb];
+    [reverb]volume=0.85[final_music];
+  `;
+
+  // Write filter complex to temp file
+  const filterFile = join(CONFIG.tempDir, `${job.id}_music_filter.txt`);
+  writeFileSync(filterFile, filterComplex);
+
+  // Generate music using FFmpeg
+  const musicCmd = `ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo:d=${Math.ceil(totalDuration)} -filter_complex_script "${filterFile}" -map "[final_music]" -c:a pcm_s16le "${musicPath}"`;
+
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn("bash", ["-c", musicCmd]);
+    proc.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Music generation failed: ${code}`)));
+    proc.on("error", reject);
+  });
+
+  return musicPath;
+}
+
+/**
+ * Hash string to 32-bit integer for deterministic RNG
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Mulberry32 - fast deterministic PRNG
+ */
+function mulberry32(seed: number) {
+  return function() {
+    let t = (seed += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Get musical parameters based on style and brand kit
+ */
+function getStyleMusicParams(
+  style: string,
+  brandKit: PromoJob["brandKit"],
+  rng: () => number
+) {
+  const baseParams = {
+    professional: { key: "C", scale: "major", tempo: 100, hasArpeggio: true, hasMelody: true, hasPercussion: true },
+    energetic: { key: "G", scale: "major", tempo: 130, hasArpeggio: true, hasMelody: true, hasPercussion: true },
+    minimal: { key: "A", scale: "minor", tempo: 80, hasArpeggio: false, hasMelody: true, hasPercussion: false },
+    cinematic: { key: "D", scale: "minor", tempo: 70, hasArpeggio: true, hasMelody: true, hasPercussion: true },
+  };
+
+  const params = { ...baseParams[style as keyof typeof baseParams] || baseParams.professional };
+
+  // Add variation based on brand kit colors (use hue to shift key)
+  if (brandKit?.colors?.primary) {
+    const hue = hexToHue(brandKit.colors.primary);
+    const keyShift = Math.floor(hue / 30) % 12; // 0-11 semitones
+    params.key = transposeKey(params.key, keyShift);
+  }
+
+  return params;
+}
+
+/**
+ * Convert hex color to hue (0-360)
+ */
+function hexToHue(hex: string): number {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  let hue = 0;
+  if (delta !== 0) {
+    if (max === r) hue = ((g - b) / delta) % 6;
+    else if (max === g) hue = (b - r) / delta + 2;
+    else hue = (r - g) / delta + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
+  }
+  return hue;
+}
+
+/**
+ * Transpose key by semitones
+ */
+function transposeKey(key: string, semitones: number): string {
+  const keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const idx = keys.indexOf(key);
+  if (idx === -1) return key;
+  return keys[(idx + semitones) % 12];
+}
+
+/**
+ * Generate chord progression for a key/scale
+ */
+function generateChordProgression(key: string, scale: string, numChords: number, rng: () => number) {
+  // Scale degrees for major/minor
+  const majorDegrees = [1, 2, 3, 4, 5, 6, 7];
+  const minorDegrees = [1, 2, 3b, 4, 5, 6b, 7b];
+
+  // Common chord progressions (I, V, vi, IV etc.)
+  const commonProgressions = {
+    major: [
+      [1, 5, 6, 4], // I-V-vi-IV
+      [1, 6, 4, 5], // I-vi-IV-V
+      [1, 4, 5, 1], // I-IV-V-I
+      [6, 4, 1, 5], // vi-IV-I-V
+    ],
+    minor: [
+      [1, 7b, 6b, 5], // i-VII-VI-V
+      [1, 6b, 3b, 7b], // i-VI-III-VII
+      [1, 4, 7b, 3b], // i-iv-VII-III
+      [1, 5, 6b, 4], // i-v-VI-iv
+    ],
+  };
+
+  const progressions = commonProgressions[scale as keyof typeof commonProgressions] || commonProgressions.major;
+  const baseProgression = progressions[Math.floor(rng() * progressions.length)];
+
+  // Repeat/extend to fill numChords
+  const result = [];
+  for (let i = 0; i < numChords; i++) {
+    const degree = baseProgression[i % baseProgression.length];
+    const root = getNoteFromDegree(key, scale, degree);
+    result.push({ root, degree, octave: 3 });
+  }
+
+  return result;
+}
+
+/**
+ * Get frequency from note name and octave
+ */
+function noteToFreq(note: string, octave: number): number {
+  const noteMap: Record<string, number> = {
+    "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
+    "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
+    "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11
+  };
+  const semitone = noteMap[note] ?? 0;
+  const midiNote = 12 * (octave + 1) + semitone;
+  return 440 * Math.pow(2, (midiNote - 69) / 12);
+}
+
+/**
+ * Get note from scale degree
+ */
+function getNoteFromDegree(key: string, scale: string, degree: number): string {
+  const keyMap: Record<string, number> = {
+    "C": 0, "C#": 1, "D": 2, "D#": 3, "E": 4, "F": 5,
+    "F#": 6, "G": 7, "G#": 8, "A": 9, "A#": 10, "B": 11
+  };
+
+  const majorIntervals = [0, 2, 4, 5, 7, 9, 11];
+  const minorIntervals = [0, 2, 3, 5, 7, 8, 10];
+
+  const intervals = scale === "major" ? majorIntervals : minorIntervals;
+  const degreeIdx = ((degree - 1) % 7 + 7) % 7; // Handle negative
+  const semitone = (keyMap[key] + intervals[degreeIdx]) % 12;
+
+  const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  return noteNames[semitone];
+}
+
+/**
+ * Get chord notes (root, third, fifth, optionally seventh)
+ */
+function getChordNotes(chord: { root: string; degree: number; octave: number }): number[] {
+  const rootFreq = noteToFreq(chord.root, chord.octave);
+  return [
+    rootFreq,
+    rootFreq * Math.pow(2, 4/12), // major third
+    rootFreq * Math.pow(2, 7/12), // perfect fifth
+    rootFreq * Math.pow(2, 11/12), // major seventh
+  ];
+}
+
+/**
+ * Generate sparse melody notes over chord progression
+ */
+function generateMelody(progression: any[], styleParams: any, rng: () => number) {
+  const melody = [];
+  let currentTime = 0;
+
+  for (let i = 0; i < progression.length; i++) {
+    const chord = progression[i];
+    const chordDuration = progression.chordDuration || 4; // Will be overridden
+
+    // 1-2 melody notes per chord
+    const numNotes = rng() < 0.6 ? 1 : 2;
+
+    for (let n = 0; n < numNotes; n++) {
+      const noteTime = currentTime + (n / numNotes) * chordDuration * 0.7;
+      const chordNotes = getChordNotes(chord);
+      // Pick chord tone with preference for root, 3rd, 5th
+      const noteIdx = rng() < 0.5 ? 0 : (rng() < 0.7 ? 1 : 2);
+      const freq = chordNotes[noteIdx] * (rng() < 0.3 ? 2 : 1); // Sometimes up an octave
+      const duration = 0.8 + rng() * 1.2; // 0.8-2.0 seconds
+
+      melody.push({ time: noteTime, freq, duration: Math.min(duration, chordDuration * 0.8) });
+    }
+
+    currentTime += chordDuration;
+  }
+
+  return melody;
 }
 
 /**
