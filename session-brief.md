@@ -7,6 +7,17 @@
 LAST_UPDATED: 2026-08-20 18:00
 
 ## Just did (last action)
+- **Implemented comprehensive @ commands for all modes** — 10 final @ commands now working in chat.ts:
+  - **@Book <prompt>** — Creates a book project (emits book widget with create action)
+  - **@Build <goal>** — Enters Build mode (emits build_mode_detected with goal)
+  - **@Promo <url> <description>** — Generates promo video (existing)
+  - **@Browse <query>** — Tavily live text search (existing)
+  - **@Agent <goal>** — Puppeteer live browser widget (existing)
+  - **@Deep Research <topic>** / **@DeepResearch <topic>** — Deep Research v2 (existing, both formats supported)
+  - **@Maps <query>** / natural language — Interactive maps widget (existing)
+  - **@Image <prompt>** — AI image generation (emits image_request_detected confirmation)
+  - **@Screen share|stop** — Screen sharing control (emits screen_share_detected with action)
+  - **@ProjectName** — References another project (resolves via project-tags API, emits project_reference widget)
 - **Phase 21: Universal Tool Layer — Foundation — COMPLETE (100%):**
   - **Created standardized tool contracts** (`tool-types.ts`): `UniversalToolDefinition`, `UniversalToolResult`, `ToolExecutionContext` (extended from Build Mode), `Artifact`, `ToolRisk` (READ/WRITE/DESTRUCTIVE/EXTERNAL_ACTION/SELF_MODIFICATION), `ToolCategory` (web/browser/files/vision/data/memory/research/build/evolution/integration), `ToolPermissions`.
   - **Created Universal Tool Registry** (`tool-registry.ts`): `registerTool()`, `discoverTools(filter)`, `getToolDefinitionsForLLM(filter)`, `executeTool(name, args, ctx)` with validation, timeout, error normalization, approval enforcement, logging, metadata. `formatToolResults()` generalized from Build Mode.
@@ -189,6 +200,13 @@ LAST_UPDATED: 2026-08-20 18:00
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-21 **Implemented comprehensive @ commands for all modes** — 10 @ commands in chat.ts:
+  - @Book, @Build, @Promo, @Browse, @Agent, @Deep Research/@DeepResearch, @Maps, @Image, @Screen, @ProjectName
+  - Added detection functions: detectBookCommand, detectBuildCommand, detectImageCommand, detectScreenCommand, detectProjectTagCommand
+  - Added handler blocks emitting appropriate SSE widget/events for each command
+  - Updated detectDeepResearchCommand to support both @Deep Research and @DeepResearch
+  - Removed @AgentLoop detection (universal agent is automatic via agentMode flag)
+  - Typecheck passes on chat.ts ✅
 - 2026-08-20 **Phase 14: Fixed TypeScript errors in demo pages and promo-maker** — All typecheck + build pass:
   - Fixed WidgetShowcase.tsx import (Card from '@/components/ui' instead of '@/components/ui/Card')
   - Fixed WidgetShowcase.tsx default case to not reference widget.type on never type

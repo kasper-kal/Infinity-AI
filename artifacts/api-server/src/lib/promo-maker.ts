@@ -64,6 +64,79 @@ export interface PromoScript {
   brandKit?: BrandKit;
 }
 
+export interface PromoTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: "saas" | "ecommerce" | "mobile-app" | "course" | "product-launch" | "custom";
+  script: PromoScript;
+  defaultDuration: number;
+  defaultStyle: "professional" | "energetic" | "minimal" | "cinematic";
+  placeholders: PromoTemplatePlaceholder[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PromoTemplatePlaceholder {
+  key: string; // e.g., "PRODUCT_NAME", "CTA_URL", "FEATURE_1"
+  label: string; // Human-readable label
+  type: "text" | "url" | "selector" | "number";
+  defaultValue?: string;
+  required: boolean;
+  description: string;
+}
+
+export type QualityPreset = "draft" | "standard" | "high" | "ultra";
+
+export interface QualityConfig {
+  width: number;
+  height: number;
+  fps: number;
+  bitrate: string;
+  crf: number;
+  preset: string;
+  audioBitrate: string;
+}
+
+export const QUALITY_PRESETS: Record<QualityPreset, QualityConfig> = {
+  draft: {
+    width: 854,
+    height: 480,
+    fps: 15,
+    bitrate: "500k",
+    crf: 28,
+    preset: "ultrafast",
+    audioBitrate: "64k",
+  },
+  standard: {
+    width: 1280,
+    height: 720,
+    fps: 30,
+    bitrate: "2000k",
+    crf: 23,
+    preset: "medium",
+    audioBitrate: "128k",
+  },
+  high: {
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    bitrate: "5000k",
+    crf: 20,
+    preset: "slow",
+    audioBitrate: "192k",
+  },
+  ultra: {
+    width: 3840,
+    height: 2160,
+    fps: 60,
+    bitrate: "15000k",
+    crf: 18,
+    preset: "veryslow",
+    audioBitrate: "320k",
+  },
+};
+
 export interface PromoJob {
   id: string;
   url: string;
@@ -83,10 +156,15 @@ export interface PromoJob {
   brandKit?: BrandKit;
   // Device frame for mockup
   deviceFrame?: "none" | "iphone" | "macbook" | "ipad" | "auto";
+  // Preview mode - quick low-res render
+  preview?: boolean;
+  // Quality preset
+  quality?: QualityPreset;
   // Internal tracking
   framesDir?: string;
   audioPath?: string;
   rawVideoPath?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface RecordingFrame {
@@ -112,6 +190,10 @@ const CONFIG = {
   cursorSize: 24,
   clickRippleDuration: 300, // ms
   typingSpeed: 80, // ms per char
+  // Preview mode defaults
+  previewWidth: 854,
+  previewHeight: 480,
+  previewFps: 15,
 };
 
 /**
@@ -125,6 +207,83 @@ function initDirs(): void {
   });
 }
 
+// Template storage (in-memory, could be persisted to DB)
+const templates = new Map<string, PromoTemplate>();
+
+/**
+ * Register a template
+ */
+export function registerTemplate(template: PromoTemplate): void {
+  templates.set(template.id, template);
+}
+
+/**
+ * Get a template by ID
+ */
+export function getTemplate(id: string): PromoTemplate | undefined {
+  return templates.get(id);
+}
+
+/**
+ * List all templates
+ */
+export function listTemplates(): PromoTemplate[] {
+  return Array.from(templates.values());
+}
+
+/**
+ * List templates by category
+ */
+export function listTemplatesByCategory(category: PromoTemplate["category"]): PromoTemplate[] {
+  return Array.from(templates.values()).filter(t => t.category === category);
+}
+
+/**
+ * Create a promo job from a template with placeholder values filled in
+ */
+export function createJobFromTemplate(
+  templateId: string,
+  placeholderValues: Record<string, string>,
+  options: { preview?: boolean; quality?: QualityPreset } = {}
+): PromoJob {
+  const template = getTemplate(templateId);
+  if (!template) throw new Error(`Template ${templateId} not found`);
+
+  // Validate required placeholders
+  for (const placeholder of template.placeholders) {
+    if (placeholder.required && !placeholderValues[placeholder.key]) {
+      throw new Error(`Required placeholder ${placeholder.key} (${placeholder.label}) not provided`);
+    }
+  }
+
+  // Apply placeholder values to script
+  const script = JSON.parse(JSON.stringify(template.script));
+  const scriptString = JSON.stringify(script);
+  let filledScriptString = scriptString;
+
+  for (const placeholder of template.placeholders) {
+    const value = placeholderValues[placeholder.key] || placeholder.defaultValue || "";
+    filledScriptString = filledScriptString.replace(
+      new RegExp(`\\{\\{${placeholder.key}\\}\\}`, 'g'),
+      value
+    );
+  }
+
+  const filledScript: PromoScript = JSON.parse(filledScriptString);
+
+  // Create job with filled script
+  const job = createPromoJob(
+    placeholderValues.URL || placeholderValues.SITE_URL || "https://example.com",
+    placeholderValues.PROMPT || template.description,
+    template.defaultDuration,
+    template.defaultStyle,
+    options
+  );
+  job.script = filledScript;
+
+  return job;
+}
+
 /**
  * Create a new promo job
  */
@@ -132,9 +291,13 @@ export function createPromoJob(
   url: string,
   prompt: string,
   duration: number = 30,
-  style: "professional" | "energetic" | "minimal" | "cinematic" = "professional"
+  style: "professional" | "energetic" | "minimal" | "cinematic" = "professional",
+  options: { preview?: boolean; quality?: QualityPreset } = {}
 ): PromoJob {
   initDirs();
+
+  const { preview = false, quality = "standard" } = options;
+  const qualityConfig = QUALITY_PRESETS[quality];
 
   const job: PromoJob = {
     id: randomUUID(),
@@ -147,10 +310,26 @@ export function createPromoJob(
     progress: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    preview,
+    quality,
   };
 
   jobs.set(job.id, job);
   return job;
+}
+
+/**
+ * Create a preview job - quick low-res render for iteration
+ */
+export function createPreviewJob(
+  url: string,
+  prompt: string,
+  duration: number = 15
+): PromoJob {
+  return createPromoJob(url, prompt, duration, "professional", {
+    preview: true,
+    quality: "draft",
+  });
 }
 
 /**
@@ -308,8 +487,11 @@ Use zoom/pan actions for dramatic camera movements in the hook section.`;
 
 /**
  * Record frames using Puppeteer with spring-physics cursor, zoom/pan, device frames
+ * Supports parallel frame capture for faster rendering
  */
-export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
+export async function recordFrames(job: PromoJob, options: { parallel?: boolean; numWorkers?: number } = {}): Promise<RecordingFrame[]> {
+  const { parallel = false, numWorkers = 3 } = options;
+
   if (!job.script) throw new Error("No script generated");
 
   updateJob(job.id, { status: "recording", progress: 30 });
@@ -324,6 +506,19 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
   const puppeteer = await import("puppeteer");
   const { default: puppeteerDefault } = puppeteer;
 
+  if (!parallel || job.script.steps.length <= 2) {
+    // Single-page sequential recording (original behavior)
+    return recordFramesSequential(job, puppeteerDefault, framesDir);
+  }
+
+  // Parallel recording - split steps across workers
+  return recordFramesParallel(job, puppeteerDefault, framesDir, numWorkers);
+}
+
+/**
+ * Sequential frame recording (original implementation)
+ */
+async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, framesDir: string): Promise<RecordingFrame[]> {
   const browser = await puppeteerDefault.launch({
     headless: true,
     args: [
@@ -396,7 +591,23 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
 
       switch (step.action) {
         case "navigate": {
-          await page.goto(step.url || job.url, { waitUntil: "networkidle2", timeout: 30000 });
+          // Navigation with retry and error handling
+          let navSuccess = false;
+          let navAttempts = 0;
+          const maxNavAttempts = 3;
+          while (!navSuccess && navAttempts < maxNavAttempts) {
+            try {
+              await page.goto(step.url || job.url, { waitUntil: "networkidle2", timeout: 30000 });
+              navSuccess = true;
+            } catch (navError) {
+              navAttempts++;
+              console.warn(`[PromoMaker] Navigation attempt ${navAttempts} failed:`, navError);
+              if (navAttempts >= maxNavAttempts) {
+                throw new Error(`Navigation failed after ${maxNavAttempts} attempts: ${navError instanceof Error ? navError.message : String(navError)}`);
+              }
+              await sleep(2000 * navAttempts); // Exponential backoff
+            }
+          }
           // Reset cursor to center on navigation
           await setCursorPosition(page, CONFIG.defaultWidth / 2, CONFIG.defaultHeight / 2);
           await sleep(step.wait || 2000);
@@ -404,39 +615,83 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
         }
         case "click": {
           if (step.selector) {
-            const element = await page.$(step.selector);
-            if (element) {
-              const box = await element.boundingBox();
-              if (box) {
-                const targetX = box.x + box.width / 2;
-                const targetY = box.y + box.height / 2;
-                // Spring-physics move with magnetic attraction
-                await moveCursorSpring(page, targetX, targetY, 600);
-                // Click with ripple
-                await clickCursor(page);
-                await element.click({ delay: step.delay || 80 });
+            // Try primary selector, then fallback selectors
+            const selectors = [
+              step.selector,
+              `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+              `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+              `button:has-text("${step.selector.replace(/^[.#]/, '')}")`,
+            ];
+
+            let element = null;
+            let box = null;
+
+            for (const selector of selectors) {
+              try {
+                element = await page.$(selector);
+                if (element) {
+                  box = await element.boundingBox();
+                  if (box) break;
+                }
+              } catch (e) {
+                // Try next selector
               }
+            }
+
+            if (element && box) {
+              const targetX = box.x + box.width / 2;
+              const targetY = box.y + box.height / 2;
+              // Spring-physics move with magnetic attraction
+              await moveCursorSpring(page, targetX, targetY, 600);
+              // Click with ripple
+              await clickCursor(page);
+              await element.click({ delay: step.delay || 80 });
               await sleep(step.delay || 400);
+            } else {
+              console.warn(`[PromoMaker] Element not found for click: ${step.selector}`);
+              // Continue anyway - log but don't fail
             }
           }
           break;
         }
         case "type": {
           if (step.selector && step.text) {
-            const element = await page.$(step.selector);
-            if (element) {
-              const box = await element.boundingBox();
-              if (box) {
-                const targetX = box.x + box.width / 2;
-                const targetY = box.y + box.height / 2;
-                await moveCursorSpring(page, targetX, targetY, 400);
+            // Try primary selector, then fallback selectors
+            const selectors = [
+              step.selector,
+              `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+              `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+              `input[placeholder*="${step.selector.replace(/^[.#]/, '')}"]`,
+            ];
+
+            let element = null;
+            let box = null;
+
+            for (const selector of selectors) {
+              try {
+                element = await page.$(selector);
+                if (element) {
+                  box = await element.boundingBox();
+                  if (box) break;
+                }
+              } catch (e) {
+                // Try next selector
               }
+            }
+
+            if (element && box) {
+              const targetX = box.x + box.width / 2;
+              const targetY = box.y + box.height / 2;
+              await moveCursorSpring(page, targetX, targetY, 400);
               await element.click();
               // Show typing cursor
               await setCursorTyping(page, true);
               await page.keyboard.type(step.text, { delay: step.charDelay || CONFIG.typingSpeed });
               await setCursorTyping(page, false);
               await sleep(step.delay || 400);
+            } else {
+              console.warn(`[PromoMaker] Element not found for type: ${step.selector}`);
+              // Continue anyway - log but don't fail
             }
           }
           break;
@@ -453,16 +708,35 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
         }
         case "hover": {
           if (step.selector) {
-            const element = await page.$(step.selector);
-            if (element) {
-              const box = await element.boundingBox();
-              if (box) {
-                const targetX = box.x + box.width / 2;
-                const targetY = box.y + box.height / 2;
-                await moveCursorSpring(page, targetX, targetY, 500);
+            const selectors = [
+              step.selector,
+              `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+              `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+            ];
+
+            let element = null;
+            let box = null;
+
+            for (const selector of selectors) {
+              try {
+                element = await page.$(selector);
+                if (element) {
+                  box = await element.boundingBox();
+                  if (box) break;
+                }
+              } catch (e) {
+                // Try next selector
               }
+            }
+
+            if (element && box) {
+              const targetX = box.x + box.width / 2;
+              const targetY = box.y + box.height / 2;
+              await moveCursorSpring(page, targetX, targetY, 500);
               await element.hover();
               await sleep(step.wait || 600);
+            } else {
+              console.warn(`[PromoMaker] Element not found for hover: ${step.selector}`);
             }
           }
           break;
@@ -470,24 +744,43 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
         case "zoom": {
           // New action: zoom into element (ken burns style)
           if (step.selector) {
-            const element = await page.$(step.selector);
-            if (element) {
-              const box = await element.boundingBox();
-              if (box) {
-                // Apply zoom transform to page
-                const scale = step.distance || 1.5;
-                await page.evaluate(([x, y, s]) => {
-                  document.body.style.transformOrigin = `${x}px ${y}px`;
-                  document.body.style.transition = 'transform 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                  document.body.style.transform = `scale(${s}) translate(${-x * (s - 1)}px, ${-y * (s - 1)}px)`;
-                }, [box.x + box.width / 2, box.y + box.height / 2, scale]);
-                await sleep(step.delay || 1500);
-                // Reset zoom
-                await page.evaluate(() => {
-                  document.body.style.transform = 'scale(1) translate(0, 0)';
-                });
-                await sleep(400);
+            const selectors = [
+              step.selector,
+              `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+              `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+            ];
+
+            let element = null;
+            let box = null;
+
+            for (const selector of selectors) {
+              try {
+                element = await page.$(selector);
+                if (element) {
+                  box = await element.boundingBox();
+                  if (box) break;
+                }
+              } catch (e) {
+                // Try next selector
               }
+            }
+
+            if (element && box) {
+              // Apply zoom transform to page
+              const scale = step.distance || 1.5;
+              await page.evaluate(([x, y, s]) => {
+                document.body.style.transformOrigin = `${x}px ${y}px`;
+                document.body.style.transition = 'transform 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                document.body.style.transform = `scale(${s}) translate(${-x * (s - 1)}px, ${-y * (s - 1)}px)`;
+              }, [box.x + box.width / 2, box.y + box.height / 2, scale]);
+              await sleep(step.delay || 1500);
+              // Reset zoom
+              await page.evaluate(() => {
+                document.body.style.transform = 'scale(1) translate(0, 0)';
+              });
+              await sleep(400);
+            } else {
+              console.warn(`[PromoMaker] Element not found for zoom: ${step.selector}`);
             }
           }
           break;
@@ -495,25 +788,44 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
         case "pan": {
           // New action: pan across page
           if (step.selector) {
-            const element = await page.$(step.selector);
-            if (element) {
-              const box = await element.boundingBox();
-              if (box) {
-                const startX = box.x + box.width / 2;
-                const startY = box.y + box.height / 2;
-                const endX = startX + (step.distance || 300);
-                const endY = startY;
-                await page.evaluate(([sx, sy, ex, ey]) => {
-                  document.body.style.transformOrigin = `${sx}px ${sy}px`;
-                  document.body.style.transition = 'transform 1200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                  document.body.style.transform = `translate(${sx - ex}px, ${sy - ey}px) scale(1.2)`;
-                }, [startX, startY, endX, endY]);
-                await sleep(step.delay || 1500);
-                await page.evaluate(() => {
-                  document.body.style.transform = 'scale(1) translate(0, 0)';
-                });
-                await sleep(400);
+            const selectors = [
+              step.selector,
+              `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+              `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+            ];
+
+            let element = null;
+            let box = null;
+
+            for (const selector of selectors) {
+              try {
+                element = await page.$(selector);
+                if (element) {
+                  box = await element.boundingBox();
+                  if (box) break;
+                }
+              } catch (e) {
+                // Try next selector
               }
+            }
+
+            if (element && box) {
+              const startX = box.x + box.width / 2;
+              const startY = box.y + box.height / 2;
+              const endX = startX + (step.distance || 300);
+              const endY = startY;
+              await page.evaluate(([sx, sy, ex, ey]) => {
+                document.body.style.transformOrigin = `${sx}px ${sy}px`;
+                document.body.style.transition = 'transform 1200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                document.body.style.transform = `translate(${sx - ex}px, ${sy - ey}px) scale(1.2)`;
+              }, [startX, startY, endX, endY]);
+              await sleep(step.delay || 1500);
+              await page.evaluate(() => {
+                document.body.style.transform = 'scale(1) translate(0, 0)';
+              });
+              await sleep(400);
+            } else {
+              console.warn(`[PromoMaker] Element not found for pan: ${step.selector}`);
             }
           }
           break;
@@ -535,6 +847,383 @@ export async function recordFrames(job: PromoJob): Promise<RecordingFrame[]> {
 
   updateJob(job.id, { progress: 70 });
   return frames;
+}
+
+/**
+ * Parallel frame recording - splits script steps across multiple browser instances
+ */
+async function recordFramesParallel(job: PromoJob, puppeteerDefault: any, framesDir: string, numWorkers: number): Promise<RecordingFrame[]> {
+  // Split steps into chunks for parallel processing
+  const steps = job.script!.steps;
+  const chunks = chunkArray(steps, Math.ceil(steps.length / numWorkers));
+
+  console.log(`[PromoMaker] Parallel recording: ${chunks.length} workers for ${steps.length} steps`);
+
+  // Launch multiple browsers
+  const browsers: any[] = [];
+  const pages: any[] = [];
+  const clients: any[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const browser = await puppeteerDefault.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+        "--disable-gpu",
+        `--window-size=${CONFIG.defaultWidth},${CONFIG.defaultHeight}`,
+      ],
+      defaultViewport: {
+        width: CONFIG.defaultWidth,
+        height: CONFIG.defaultHeight,
+        deviceScaleFactor: 1,
+      },
+    });
+    browsers.push(browser);
+
+    const page = await browser.newPage();
+    pages.push(page);
+
+    // Initialize spring-physics cursor system
+    await initCursorSystem(page);
+    await setCursorPosition(page, CONFIG.defaultWidth / 2, CONFIG.defaultHeight / 2);
+
+    // Enable CDP for screencast
+    const client = await page.target().createCDPSession();
+    await client.send("Page.startScreencast", {
+      format: "png",
+      quality: 90,
+      maxWidth: CONFIG.defaultWidth,
+      maxHeight: CONFIG.defaultHeight,
+      everyNthFrame: 1,
+    });
+    clients.push(client);
+  }
+
+  // Collect frames from all workers
+  const allFrames: RecordingFrame[] = [];
+  let globalFrameCount = 0;
+
+  // Process each chunk in parallel
+  const workerPromises = chunks.map(async (chunk, chunkIndex) => {
+    const page = pages[chunkIndex];
+    const client = clients[chunkIndex];
+    const browser = browsers[chunkIndex];
+    const workerFrames: RecordingFrame[] = [];
+    let frameCount = 0;
+    let startTime = Date.now();
+    let currentStepIndex = 0;
+
+    // Find the starting step index for this chunk
+    const chunkStartIndex = steps.indexOf(chunk[0]);
+
+    // Handle screencast frames for this worker
+    const frameHandler = async (frame: any) => {
+      const timestamp = Date.now() - startTime;
+
+      const framePath = join(framesDir, `frame_${String(globalFrameCount++).padStart(6, "0")}.png`);
+      writeFileSync(framePath, Buffer.from(frame.data, "base64"));
+
+      workerFrames.push({
+        path: framePath,
+        timestamp,
+        stepIndex: chunkStartIndex + currentStepIndex,
+        cursorX: 0,
+        cursorY: 0,
+        action: chunk[currentStepIndex]?.action || "idle",
+      });
+
+      await client.send("Page.screencastFrameAck", { sessionId: frame.sessionId });
+    };
+
+    client.on("Page.screencastFrame", frameHandler);
+
+    try {
+      // Execute steps for this chunk
+      for (let i = 0; i < chunk.length; i++) {
+        currentStepIndex = i;
+        const step = chunk[i];
+
+        // Execute step (same logic as sequential but using the chunk's steps)
+        await executeStep(page, step, job, chunkStartIndex + i);
+      }
+
+      // Final wait
+      await sleep(1000);
+    } finally {
+      client.off("Page.screencastFrame", frameHandler);
+      await client.send("Page.stopScreencast");
+      await browser.close();
+    }
+
+    return workerFrames;
+  });
+
+  const workerResults = await Promise.all(workerPromises);
+  workerResults.forEach(frames => allFrames.push(...frames));
+
+  // Sort frames by timestamp
+  allFrames.sort((a, b) => a.timestamp - b.timestamp);
+
+  updateJob(job.id, { progress: 70 });
+  return allFrames;
+}
+
+/**
+ * Execute a single step (shared between sequential and parallel)
+ */
+async function executeStep(page: any, step: PromoScriptStep, job: PromoJob, stepIndex: number): Promise<void> {
+  updateJob(job.id, { progress: 30 + Math.floor((stepIndex / job.script!.steps.length) * 40) });
+
+  switch (step.action) {
+    case "navigate": {
+      let navSuccess = false;
+      let navAttempts = 0;
+      const maxNavAttempts = 3;
+      while (!navSuccess && navAttempts < maxNavAttempts) {
+        try {
+          await page.goto(step.url || job.url, { waitUntil: "networkidle2", timeout: 30000 });
+          navSuccess = true;
+        } catch (navError) {
+          navAttempts++;
+          console.warn(`[PromoMaker] Navigation attempt ${navAttempts} failed:`, navError);
+          if (navAttempts >= maxNavAttempts) {
+            throw new Error(`Navigation failed after ${maxNavAttempts} attempts: ${navError instanceof Error ? navError.message : String(navError)}`);
+          }
+          await sleep(2000 * navAttempts);
+        }
+      }
+      await setCursorPosition(page, CONFIG.defaultWidth / 2, CONFIG.defaultHeight / 2);
+      await sleep(step.wait || 2000);
+      break;
+    }
+    case "click": {
+      if (step.selector) {
+        const selectors = [
+          step.selector,
+          `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+          `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+          `button:has-text("${step.selector.replace(/^[.#]/, '')}")`,
+        ];
+
+        let element = null;
+        let box = null;
+
+        for (const selector of selectors) {
+          try {
+            element = await page.$(selector);
+            if (element) {
+              box = await element.boundingBox();
+              if (box) break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+
+        if (element && box) {
+          const targetX = box.x + box.width / 2;
+          const targetY = box.y + box.height / 2;
+          await moveCursorSpring(page, targetX, targetY, 600);
+          await clickCursor(page);
+          await element.click({ delay: step.delay || 80 });
+          await sleep(step.delay || 400);
+        } else {
+          console.warn(`[PromoMaker] Element not found for click: ${step.selector}`);
+        }
+      }
+      break;
+    }
+    case "type": {
+      if (step.selector && step.text) {
+        const selectors = [
+          step.selector,
+          `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+          `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+          `input[placeholder*="${step.selector.replace(/^[.#]/, '')}"]`,
+        ];
+
+        let element = null;
+        let box = null;
+
+        for (const selector of selectors) {
+          try {
+            element = await page.$(selector);
+            if (element) {
+              box = await element.boundingBox();
+              if (box) break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+
+        if (element && box) {
+          const targetX = box.x + box.width / 2;
+          const targetY = box.y + box.height / 2;
+          await moveCursorSpring(page, targetX, targetY, 400);
+          await element.click();
+          await setCursorTyping(page, true);
+          await page.keyboard.type(step.text, { delay: step.charDelay || CONFIG.typingSpeed });
+          await setCursorTyping(page, false);
+          await sleep(step.delay || 400);
+        } else {
+          console.warn(`[PromoMaker] Element not found for type: ${step.selector}`);
+        }
+      }
+      break;
+    }
+    case "scroll": {
+      const direction = step.direction || "down";
+      const distance = step.distance || 500;
+      await page.evaluate((d) => {
+        window.scrollBy({ top: d, behavior: 'smooth' });
+      }, direction === "down" ? distance : -distance);
+      await sleep(step.delay || 1200);
+      break;
+    }
+    case "hover": {
+      if (step.selector) {
+        const selectors = [
+          step.selector,
+          `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+          `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+        ];
+
+        let element = null;
+        let box = null;
+
+        for (const selector of selectors) {
+          try {
+            element = await page.$(selector);
+            if (element) {
+              box = await element.boundingBox();
+              if (box) break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+
+        if (element && box) {
+          const targetX = box.x + box.width / 2;
+          const targetY = box.y + box.height / 2;
+          await moveCursorSpring(page, targetX, targetY, 500);
+          await element.hover();
+          await sleep(step.wait || 600);
+        } else {
+          console.warn(`[PromoMaker] Element not found for hover: ${step.selector}`);
+        }
+      }
+      break;
+    }
+    case "zoom": {
+      if (step.selector) {
+        const selectors = [
+          step.selector,
+          `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+          `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+        ];
+
+        let element = null;
+        let box = null;
+
+        for (const selector of selectors) {
+          try {
+            element = await page.$(selector);
+            if (element) {
+              box = await element.boundingBox();
+              if (box) break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+
+        if (element && box) {
+          const scale = step.distance || 1.5;
+          await page.evaluate(([x, y, s]) => {
+            document.body.style.transformOrigin = `${x}px ${y}px`;
+            document.body.style.transition = 'transform 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            document.body.style.transform = `scale(${s}) translate(${-x * (s - 1)}px, ${-y * (s - 1)}px)`;
+          }, [box.x + box.width / 2, box.y + box.height / 2, scale]);
+          await sleep(step.delay || 1500);
+          await page.evaluate(() => {
+            document.body.style.transform = 'scale(1) translate(0, 0)';
+          });
+          await sleep(400);
+        } else {
+          console.warn(`[PromoMaker] Element not found for zoom: ${step.selector}`);
+        }
+      }
+      break;
+    }
+    case "pan": {
+      if (step.selector) {
+        const selectors = [
+          step.selector,
+          `[data-testid="${step.selector.replace(/^[.#]/, '')}"]`,
+          `[aria-label*="${step.selector.replace(/^[.#]/, '')}"]`,
+        ];
+
+        let element = null;
+        let box = null;
+
+        for (const selector of selectors) {
+          try {
+            element = await page.$(selector);
+            if (element) {
+              box = await element.boundingBox();
+              if (box) break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+
+        if (element && box) {
+          const startX = box.x + box.width / 2;
+          const startY = box.y + box.height / 2;
+          const endX = startX + (step.distance || 300);
+          const endY = startY;
+          await page.evaluate(([sx, sy, ex, ey]) => {
+            document.body.style.transformOrigin = `${sx}px ${sy}px`;
+            document.body.style.transition = 'transform 1200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            document.body.style.transform = `translate(${sx - ex}px, ${sy - ey}px) scale(1.2)`;
+          }, [startX, startY, endX, endY]);
+          await sleep(step.delay || 1500);
+          await page.evaluate(() => {
+            document.body.style.transform = 'scale(1) translate(0, 0)';
+          });
+          await sleep(400);
+        } else {
+          console.warn(`[PromoMaker] Element not found for pan: ${step.selector}`);
+        }
+      }
+      break;
+    }
+    case "wait":
+    default: {
+      await sleep(step.wait || 1000);
+      break;
+    }
+  }
+}
+
+/**
+ * Utility: chunk array into smaller arrays
+ */
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
 }
 
 /**
@@ -1218,11 +1907,25 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
   const rawVideoPath = join(CONFIG.tempDir, `${job.id}_raw.mp4`);
   const finalVideoPath = join(CONFIG.outputDir, `${job.id}.mp4`);
 
+  // Determine quality settings
+  const qualityPreset = job.quality || "standard";
+  const qualityConfig = QUALITY_PRESETS[qualityPreset];
+  const isPreview = job.preview === true;
+
+  // Use preview dimensions if preview mode, otherwise quality preset dimensions
+  const targetWidth = isPreview ? CONFIG.previewWidth : qualityConfig.width;
+  const targetHeight = isPreview ? CONFIG.previewHeight : qualityConfig.height;
+  const targetFps = isPreview ? CONFIG.previewFps : qualityConfig.fps;
+  const targetBitrate = qualityConfig.bitrate;
+  const targetCrf = qualityConfig.crf;
+  const targetPreset = isPreview ? "ultrafast" : qualityConfig.preset;
+  const targetAudioBitrate = qualityConfig.audioBitrate;
+
   // Create video from frames
   const framePattern = join(framesDir, "frame_%06d.png");
 
   // First pass: create raw video from frames
-  const videoCmd = `ffmpeg -y -framerate ${CONFIG.fps} -i "${framePattern}" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" "${rawVideoPath}"`;
+  const videoCmd = `ffmpeg -y -framerate ${targetFps} -i "${framePattern}" -c:v libx264 -preset ${targetPreset} -crf ${targetCrf} -pix_fmt yuv420p -vf "scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2" "${rawVideoPath}"`;
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn("bash", ["-c", videoCmd]);
@@ -1260,8 +1963,8 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
     return `0x${clean}`;
   };
 
-  // Color grading filter - cinematic look
-  const colorGradeFilter = `
+  // Color grading filter - cinematic look (skip for draft preview for speed)
+  const colorGradeFilter = isPreview ? "" : `
     [0:v]
     eq=contrast=1.1:brightness=0.02:saturation=1.15,
     curves=preset=strong_contrast,
@@ -1414,7 +2117,7 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
   // Mix ASMR audio (input 1) with background music (input audioInputIndex) - music at lower volume
   const audioMixFilter = `[1:a]volume=0.9[asmr];[${audioInputIndex}:a]volume=0.25[music];[asmr][music]amix=inputs=2:duration=first:dropout_transition=2[mixed_audio];`;
 
-  const finalCmd = `ffmpeg -y ${inputArgs} -filter_complex "${filterComplex}${audioMixFilter}[${currentLabel}]" -map "[${currentLabel}]" -map "[mixed_audio]" -c:v libx264 -preset slow -crf 18 -c:a aac -b:a 192k -movflags +faststart -shortest "${finalVideoPath}"`;
+  const finalCmd = `ffmpeg -y ${inputArgs} -filter_complex "${filterComplex}${audioMixFilter}[${currentLabel}]" -map "[${currentLabel}]" -map "[mixed_audio]" -c:v libx264 -preset ${targetPreset} -crf ${targetCrf} -c:a aac -b:a ${targetAudioBitrate} -movflags +faststart -shortest "${finalVideoPath}"`;
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn("bash", ["-c", finalCmd]);
@@ -1439,7 +2142,7 @@ export async function assembleVideo(job: PromoJob, frames: RecordingFrame[]): Pr
  * Creates algorithmic composition: chord progression + melody + rhythm + bass
  * Uses deterministic seed from job ID for reproducibility
  */
-async function generateBackgroundMusic(job: PromoJob, totalDuration: number): Promise<string> {
+export async function generateBackgroundMusic(job: PromoJob, totalDuration: number): Promise<string> {
   const musicPath = join(CONFIG.tempDir, `${job.id}_music.wav`);
 
   // Deterministic seed from job ID for unique but reproducible music
@@ -1952,28 +2655,88 @@ Return JSON with speed multipliers per step index:
 }
 
 /**
- * Main orchestrator function
+ * Main orchestrator function with retry/resume capability
  */
 export async function createPromoVideo(
   url: string,
   prompt: string,
   duration: number = 30,
-  style: "professional" | "energetic" | "minimal" | "cinematic" = "professional"
+  style: "professional" | "energetic" | "minimal" | "cinematic" = "professional",
+  options: { maxRetries?: number; resumeFromStep?: number } = {}
 ): Promise<PromoJob> {
+  const { maxRetries = 3, resumeFromStep = 0 } = options;
   const job = createPromoJob(url, prompt, duration, style);
+  job.metadata = { ...job.metadata, maxRetries, currentRetry: 0 };
+
+  const executePhase = async <T>(
+    phaseName: string,
+    phaseFn: () => Promise<T>,
+    progressStart: number,
+    progressEnd: number,
+    stepIndex: number
+  ): Promise<T> => {
+    if (stepIndex < resumeFromStep) {
+      console.log(`[PromoMaker] Skipping ${phaseName} (resume from step ${resumeFromStep})`);
+      return Promise.resolve(null as any);
+    }
+
+    let attempts = 0;
+    while (attempts <= maxRetries) {
+      try {
+        updateJob(job.id, {
+          status: phaseName,
+          progress: progressStart,
+          metadata: { ...job.metadata, currentRetry: attempts, currentPhase: phaseName }
+        });
+
+        const result = await phaseFn();
+
+        updateJob(job.id, { progress: progressEnd });
+        return result;
+      } catch (error) {
+        attempts++;
+        console.error(`[PromoMaker] ${phaseName} attempt ${attempts} failed:`, error);
+
+        if (attempts > maxRetries) {
+          throw new Error(`${phaseName} failed after ${maxRetries} retries: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
+        // Exponential backoff
+        const delay = Math.min(2000 * Math.pow(2, attempts - 1), 30000);
+        console.log(`[PromoMaker] Retrying ${phaseName} in ${delay}ms...`);
+        await sleep(delay);
+      }
+    }
+    throw new Error(`${phaseName} failed unexpectedly`);
+  };
 
   try {
     // Phase 1: Generate script
-    await generateScript(job);
+    let script: PromoScript | null = null;
+    if (resumeFromStep <= 0) {
+      script = await executePhase("planning", () => generateScript(job), 10, 30, 0);
+    } else {
+      script = job.script!;
+    }
 
     // Phase 2: Record frames
-    const frames = await recordFrames(job);
+    let frames: RecordingFrame[] | null = null;
+    if (resumeFromStep <= 1) {
+      frames = await executePhase("recording", () => recordFrames(job), 30, 70, 1);
+    } else {
+      // Re-read frames from disk
+      frames = []; // Would need to implement frame recovery
+    }
 
     // Phase 3: Assemble video with audio
-    await assembleVideo(job, frames);
+    if (resumeFromStep <= 2) {
+      await executePhase("assembling", () => assembleVideo(job, frames!), 70, 90, 2);
+    }
 
     // Phase 4: Optimize speed
-    await optimizeVideoSpeed(job);
+    if (resumeFromStep <= 3) {
+      await executePhase("optimizing", () => optimizeVideoSpeed(job), 90, 95, 3);
+    }
 
     updateJob(job.id, { status: "completed", progress: 100 });
 
@@ -1994,6 +2757,32 @@ export async function createPromoVideo(
 }
 
 /**
+ * Retry a failed job from a specific phase
+ * Phase indices: 0=script, 1=recording, 2=assembly, 3=optimization
+ */
+export async function retryPromoJob(jobId: string, fromPhase: number = 0): Promise<PromoJob> {
+  const job = getPromoJob(jobId);
+  if (!job) throw new Error(`Job ${jobId} not found`);
+
+  if (job.status !== "failed") {
+    throw new Error(`Job ${jobId} is not in failed status (current: ${job.status})`);
+  }
+
+  // Reset job status for retry
+  updateJob(jobId, {
+    status: "planning",
+    progress: 0,
+    error: undefined,
+    metadata: { ...job.metadata, currentRetry: 0 }
+  });
+
+  return createPromoVideo(job.url, job.prompt, job.duration, job.style, {
+    maxRetries: job.metadata?.maxRetries || 3,
+    resumeFromStep: fromPhase
+  });
+}
+
+/**
  * Clean up temporary files for a job
  */
 function cleanupJob(jobId: string): void {
@@ -2008,6 +2797,296 @@ function cleanupJob(jobId: string): void {
     try { rmSync(job.rawVideoPath); } catch {}
   }
 }
+
+/**
+ * Initialize built-in templates
+ */
+function initBuiltInTemplates(): void {
+  // SaaS Product Demo Template
+  registerTemplate({
+    id: "saas-product-demo",
+    name: "SaaS Product Demo",
+    description: "Professional SaaS product demonstration with feature walkthrough",
+    category: "saas",
+    defaultDuration: 45,
+    defaultStyle: "professional",
+    placeholders: [
+      { key: "PRODUCT_NAME", label: "Product Name", type: "text", required: true, description: "Name of your SaaS product" },
+      { key: "SITE_URL", label: "Website URL", type: "url", required: true, description: "Full URL to your product website" },
+      { key: "LOGIN_SELECTOR", label: "Login Button Selector", type: "selector", defaultValue: "button:has-text('Login')", required: false, description: "CSS selector for login button" },
+      { key: "DASHBOARD_SELECTOR", label: "Dashboard Selector", type: "selector", defaultValue: "[data-testid='dashboard']", required: false, description: "CSS selector for dashboard area" },
+      { key: "FEATURE_1_SELECTOR", label: "Feature 1 Selector", type: "selector", required: false, description: "CSS selector for first feature" },
+      { key: "FEATURE_2_SELECTOR", label: "Feature 2 Selector", type: "selector", required: false, description: "CSS selector for second feature" },
+      { key: "CTA_URL", label: "Call-to-Action URL", type: "url", required: true, description: "URL for sign-up or demo request" },
+      { key: "TAGLINE", label: "Product Tagline", type: "text", defaultValue: "The smarter way to work", required: false, description: "Short tagline for the hook section" },
+    ],
+    script: {
+      steps: [
+        { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "Welcome to {{PRODUCT_NAME}}", section: "hook", textStyle: "title", textPosition: "center" },
+        { action: "click", selector: "{{LOGIN_SELECTOR}}", delay: 500, description: "Logging in...", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Loading dashboard...", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "zoom", selector: "{{DASHBOARD_SELECTOR}}", distance: 1.5, delay: 1500, description: "Your command center", section: "demo", textStyle: "subtitle", textPosition: "top" },
+        { action: "pan", selector: "{{FEATURE_1_SELECTOR}}", distance: 300, delay: 1500, description: "Feature: Analytics", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+        { action: "click", selector: "{{FEATURE_1_SELECTOR}}", delay: 500, description: "Exploring analytics", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Real-time insights", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "pan", selector: "{{FEATURE_2_SELECTOR}}", distance: 300, delay: 1500, description: "Feature: Automation", section: "demo", textStyle: "body", textPosition: "bottom-right" },
+        { action: "click", selector: "{{FEATURE_2_SELECTOR}}", delay: 500, description: "Setting up automation", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Workflows that run themselves", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "See all features", section: "cta", textStyle: "subtitle", textPosition: "top" },
+        { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "cta", textStyle: "title", textPosition: "center" },
+        { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Start free trial today", section: "cta", textStyle: "body", textPosition: "center" },
+      ],
+      estimatedDuration: 45,
+      targetDuration: 45,
+      sections: {
+        hook: [{ action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "Welcome to {{PRODUCT_NAME}}", section: "hook", textStyle: "title", textPosition: "center" }],
+        demo: [
+          { action: "click", selector: "{{LOGIN_SELECTOR}}", delay: 500, description: "Logging in...", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Loading dashboard...", section: "demo", textStyle: "caption", textPosition: "center" },
+          { action: "zoom", selector: "{{DASHBOARD_SELECTOR}}", distance: 1.5, delay: 1500, description: "Your command center", section: "demo", textStyle: "subtitle", textPosition: "top" },
+          { action: "pan", selector: "{{FEATURE_1_SELECTOR}}", distance: 300, delay: 1500, description: "Feature: Analytics", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+          { action: "click", selector: "{{FEATURE_1_SELECTOR}}", delay: 500, description: "Exploring analytics", section: "demo", textStyle: "caption", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Real-time insights", section: "demo", textStyle: "caption", textPosition: "center" },
+          { action: "pan", selector: "{{FEATURE_2_SELECTOR}}", distance: 300, delay: 1500, description: "Feature: Automation", section: "demo", textStyle: "body", textPosition: "bottom-right" },
+          { action: "click", selector: "{{FEATURE_2_SELECTOR}}", delay: 500, description: "Setting up automation", section: "demo", textStyle: "caption", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Workflows that run themselves", section: "demo", textStyle: "caption", textPosition: "center" },
+        ],
+        cta: [
+          { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "See all features", section: "cta", textStyle: "subtitle", textPosition: "top" },
+          { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "cta", textStyle: "title", textPosition: "center" },
+          { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Start free trial today", section: "cta", textStyle: "body", textPosition: "center" },
+        ],
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // E-commerce Product Showcase Template
+  registerTemplate({
+    id: "ecommerce-product-showcase",
+    name: "E-commerce Product Showcase",
+    description: "High-energy product showcase for e-commerce with add-to-cart flow",
+    category: "ecommerce",
+    defaultDuration: 30,
+    defaultStyle: "energetic",
+    placeholders: [
+      { key: "PRODUCT_NAME", label: "Product Name", type: "text", required: true, description: "Name of your product" },
+      { key: "SITE_URL", label: "Website URL", type: "url", required: true, description: "Full URL to product page" },
+      { key: "PRODUCT_IMAGE_SELECTOR", label: "Product Image Selector", type: "selector", defaultValue: "[data-testid='product-image']", required: false, description: "CSS selector for product image" },
+      { key: "ADD_TO_CART_SELECTOR", label: "Add to Cart Button", type: "selector", defaultValue: "button:has-text('Add to Cart')", required: false, description: "CSS selector for add to cart button" },
+      { key: "CHECKOUT_SELECTOR", label: "Checkout Button", type: "selector", defaultValue: "button:has-text('Checkout')", required: false, description: "CSS selector for checkout button" },
+      { key: "PRICE", label: "Product Price", type: "text", defaultValue: "$49.99", required: false, description: "Product price for display" },
+      { key: "CTA_URL", label: "Call-to-Action URL", type: "url", required: true, description: "URL for purchase" },
+    ],
+    script: {
+      steps: [
+        { action: "navigate", url: "{{SITE_URL}}", wait: 2000, description: "{{PRODUCT_NAME}} - {{PRICE}}", section: "hook", textStyle: "title", textPosition: "center" },
+        { action: "zoom", selector: "{{PRODUCT_IMAGE_SELECTOR}}", distance: 1.8, delay: 1500, description: "Premium quality", section: "hook", textStyle: "subtitle", textPosition: "top" },
+        { action: "pan", selector: "{{PRODUCT_IMAGE_SELECTOR}}", distance: 400, delay: 1500, description: "Every detail matters", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "click", selector: "{{ADD_TO_CART_SELECTOR}}", delay: 500, description: "Adding to cart...", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 1000, description: "Added! 🎉", section: "demo", textStyle: "title", textPosition: "center" },
+        { action: "click", selector: "{{CHECKOUT_SELECTOR}}", delay: 500, description: "Proceeding to checkout", section: "cta", textStyle: "body", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Fast, secure checkout", section: "cta", textStyle: "subtitle", textPosition: "center" },
+        { action: "navigate", url: "{{CTA_URL}}", wait: 2000, description: "Order yours today", section: "cta", textStyle: "title", textPosition: "center" },
+      ],
+      estimatedDuration: 30,
+      targetDuration: 30,
+      sections: {
+        hook: [
+          { action: "navigate", url: "{{SITE_URL}}", wait: 2000, description: "{{PRODUCT_NAME}} - {{PRICE}}", section: "hook", textStyle: "title", textPosition: "center" },
+          { action: "zoom", selector: "{{PRODUCT_IMAGE_SELECTOR}}", distance: 1.8, delay: 1500, description: "Premium quality", section: "hook", textStyle: "subtitle", textPosition: "top" },
+        ],
+        demo: [
+          { action: "pan", selector: "{{PRODUCT_IMAGE_SELECTOR}}", distance: 400, delay: 1500, description: "Every detail matters", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "click", selector: "{{ADD_TO_CART_SELECTOR}}", delay: 500, description: "Adding to cart...", section: "demo", textStyle: "caption", textPosition: "bottom" },
+          { action: "wait", wait: 1000, description: "Added! 🎉", section: "demo", textStyle: "title", textPosition: "center" },
+        ],
+        cta: [
+          { action: "click", selector: "{{CHECKOUT_SELECTOR}}", delay: 500, description: "Proceeding to checkout", section: "cta", textStyle: "body", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Fast, secure checkout", section: "cta", textStyle: "subtitle", textPosition: "center" },
+          { action: "navigate", url: "{{CTA_URL}}", wait: 2000, description: "Order yours today", section: "cta", textStyle: "title", textPosition: "center" },
+        ],
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // Mobile App Demo Template
+  registerTemplate({
+    id: "mobile-app-demo",
+    name: "Mobile App Demo",
+    description: "Mobile app walkthrough with device frame mockup",
+    category: "mobile-app",
+    defaultDuration: 40,
+    defaultStyle: "cinematic",
+    placeholders: [
+      { key: "APP_NAME", label: "App Name", type: "text", required: true, description: "Name of your mobile app" },
+      { key: "SITE_URL", label: "Website/App Store URL", type: "url", required: true, description: "URL to app website or store page" },
+      { key: "ONBOARDING_SELECTOR", label: "Onboarding Screen Selector", type: "selector", defaultValue: "[data-testid='onboarding']", required: false, description: "CSS selector for onboarding screen" },
+      { key: "HOME_SCREEN_SELECTOR", label: "Home Screen Selector", type: "selector", defaultValue: "[data-testid='home']", required: false, description: "CSS selector for home screen" },
+      { key: "FEATURE_SELECTOR", label: "Key Feature Selector", type: "selector", required: false, description: "CSS selector for key feature" },
+      { key: "CTA_URL", label: "Download URL", type: "url", required: true, description: "App Store / Play Store URL" },
+      { key: "TAGLINE", label: "App Tagline", type: "text", defaultValue: "Simple. Powerful. Yours.", required: false, description: "Short tagline" },
+    ],
+    script: {
+      steps: [
+        { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "{{APP_NAME}}", section: "hook", textStyle: "title", textPosition: "center" },
+        { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "hook", textStyle: "subtitle", textPosition: "center" },
+        { action: "zoom", selector: "{{ONBOARDING_SELECTOR}}", distance: 1.5, delay: 1500, description: "Beautiful onboarding", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "click", selector: "{{ONBOARDING_SELECTOR}}", delay: 500, description: "Swipe to continue", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 1500, description: "Get started in seconds", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "pan", selector: "{{HOME_SCREEN_SELECTOR}}", distance: 300, delay: 1500, description: "Clean, intuitive home", section: "demo", textStyle: "body", textPosition: "top" },
+        { action: "click", selector: "{{FEATURE_SELECTOR}}", delay: 500, description: "Powerful features", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Everything you need", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Download {{APP_NAME}} now", section: "cta", textStyle: "title", textPosition: "center" },
+      ],
+      estimatedDuration: 40,
+      targetDuration: 40,
+      sections: {
+        hook: [
+          { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "{{APP_NAME}}", section: "hook", textStyle: "title", textPosition: "center" },
+          { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "hook", textStyle: "subtitle", textPosition: "center" },
+        ],
+        demo: [
+          { action: "zoom", selector: "{{ONBOARDING_SELECTOR}}", distance: 1.5, delay: 1500, description: "Beautiful onboarding", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "click", selector: "{{ONBOARDING_SELECTOR}}", delay: 500, description: "Swipe to continue", section: "demo", textStyle: "caption", textPosition: "bottom" },
+          { action: "wait", wait: 1500, description: "Get started in seconds", section: "demo", textStyle: "caption", textPosition: "center" },
+          { action: "pan", selector: "{{HOME_SCREEN_SELECTOR}}", distance: 300, delay: 1500, description: "Clean, intuitive home", section: "demo", textStyle: "body", textPosition: "top" },
+          { action: "click", selector: "{{FEATURE_SELECTOR}}", delay: 500, description: "Powerful features", section: "demo", textStyle: "caption", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Everything you need", section: "demo", textStyle: "caption", textPosition: "center" },
+        ],
+        cta: [
+          { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Download {{APP_NAME}} now", section: "cta", textStyle: "title", textPosition: "center" },
+        ],
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // Product Launch Template
+  registerTemplate({
+    id: "product-launch",
+    name: "Product Launch",
+    description: "Cinematic product launch video with problem → solution → CTA",
+    category: "product-launch",
+    defaultDuration: 60,
+    defaultStyle: "cinematic",
+    placeholders: [
+      { key: "PRODUCT_NAME", label: "Product Name", type: "text", required: true, description: "Name of your product" },
+      { key: "SITE_URL", label: "Website URL", type: "url", required: true, description: "Full URL to product website" },
+      { key: "PROBLEM_SELECTOR", label: "Problem Demo Selector", type: "selector", defaultValue: "[data-testid='problem']", required: false, description: "CSS selector for problem demonstration" },
+      { key: "SOLUTION_SELECTOR", label: "Solution Demo Selector", type: "selector", defaultValue: "[data-testid='solution']", required: false, description: "CSS selector for solution demonstration" },
+      { key: "BENEFIT_1_SELECTOR", label: "Benefit 1 Selector", type: "selector", required: false, description: "CSS selector for first benefit" },
+      { key: "BENEFIT_2_SELECTOR", label: "Benefit 2 Selector", type: "selector", required: false, description: "CSS selector for second benefit" },
+      { key: "CTA_URL", label: "Call-to-Action URL", type: "url", required: true, description: "URL for pre-order or waitlist" },
+      { key: "TAGLINE", label: "Product Tagline", type: "text", defaultValue: "The future is here", required: false, description: "Launch tagline" },
+      { key: "LAUNCH_DATE", label: "Launch Date", type: "text", defaultValue: "Coming Soon", required: false, description: "Launch date for CTA" },
+    ],
+    script: {
+      steps: [
+        { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "There's a better way", section: "hook", textStyle: "title", textPosition: "center" },
+        { action: "wait", wait: 2000, description: "The problem with current solutions", section: "hook", textStyle: "body", textPosition: "center" },
+        { action: "zoom", selector: "{{PROBLEM_SELECTOR}}", distance: 1.5, delay: 1500, description: "Frustrating, slow, complex", section: "hook", textStyle: "caption", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Introducing {{PRODUCT_NAME}}", section: "demo", textStyle: "title", textPosition: "center" },
+        { action: "pan", selector: "{{SOLUTION_SELECTOR}}", distance: 400, delay: 1500, description: "Elegant. Fast. Simple.", section: "demo", textStyle: "subtitle", textPosition: "top" },
+        { action: "click", selector: "{{SOLUTION_SELECTOR}}", delay: 500, description: "One click does it all", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "wait", wait: 2000, description: "Benefit: Save 10 hours/week", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+        { action: "pan", selector: "{{BENEFIT_1_SELECTOR}}", distance: 300, delay: 1500, description: "Benefit: Zero learning curve", section: "demo", textStyle: "body", textPosition: "bottom-right" },
+        { action: "pan", selector: "{{BENEFIT_2_SELECTOR}}", distance: 300, delay: 1500, description: "Benefit: Enterprise security", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+        { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "Join thousands of early adopters", section: "cta", textStyle: "subtitle", textPosition: "top" },
+        { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "cta", textStyle: "title", textPosition: "center" },
+        { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "{{LAUNCH_DATE}} - Reserve your spot", section: "cta", textStyle: "body", textPosition: "center" },
+      ],
+      estimatedDuration: 60,
+      targetDuration: 60,
+      sections: {
+        hook: [
+          { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "There's a better way", section: "hook", textStyle: "title", textPosition: "center" },
+          { action: "wait", wait: 2000, description: "The problem with current solutions", section: "hook", textStyle: "body", textPosition: "center" },
+          { action: "zoom", selector: "{{PROBLEM_SELECTOR}}", distance: 1.5, delay: 1500, description: "Frustrating, slow, complex", section: "hook", textStyle: "caption", textPosition: "bottom" },
+        ],
+        demo: [
+          { action: "wait", wait: 2000, description: "Introducing {{PRODUCT_NAME}}", section: "demo", textStyle: "title", textPosition: "center" },
+          { action: "pan", selector: "{{SOLUTION_SELECTOR}}", distance: 400, delay: 1500, description: "Elegant. Fast. Simple.", section: "demo", textStyle: "subtitle", textPosition: "top" },
+          { action: "click", selector: "{{SOLUTION_SELECTOR}}", delay: 500, description: "One click does it all", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "wait", wait: 2000, description: "Benefit: Save 10 hours/week", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+          { action: "pan", selector: "{{BENEFIT_1_SELECTOR}}", distance: 300, delay: 1500, description: "Benefit: Zero learning curve", section: "demo", textStyle: "body", textPosition: "bottom-right" },
+          { action: "pan", selector: "{{BENEFIT_2_SELECTOR}}", distance: 300, delay: 1500, description: "Benefit: Enterprise security", section: "demo", textStyle: "body", textPosition: "bottom-left" },
+        ],
+        cta: [
+          { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "Join thousands of early adopters", section: "cta", textStyle: "subtitle", textPosition: "top" },
+          { action: "wait", wait: 2000, description: "{{TAGLINE}}", section: "cta", textStyle: "title", textPosition: "center" },
+          { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "{{LAUNCH_DATE}} - Reserve your spot", section: "cta", textStyle: "body", textPosition: "center" },
+        ],
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // Course/Content Creator Template
+  registerTemplate({
+    id: "course-content-creator",
+    name: "Course / Content Creator",
+    description: "Educational content showcase for courses and tutorials",
+    category: "course",
+    defaultDuration: 45,
+    defaultStyle: "minimal",
+    placeholders: [
+      { key: "COURSE_NAME", label: "Course Name", type: "text", required: true, description: "Name of your course" },
+      { key: "SITE_URL", label: "Course Landing Page URL", type: "url", required: true, description: "Full URL to course page" },
+      { key: "CURRICULUM_SELECTOR", label: "Curriculum Selector", type: "selector", defaultValue: "[data-testid='curriculum']", required: false, description: "CSS selector for curriculum section" },
+      { key: "LESSON_SELECTOR", label: "Sample Lesson Selector", type: "selector", defaultValue: "[data-testid='lesson']", required: false, description: "CSS selector for sample lesson" },
+      { key: "INSTRUCTOR_SELECTOR", label: "Instructor Bio Selector", type: "selector", defaultValue: "[data-testid='instructor']", required: false, description: "CSS selector for instructor bio" },
+      { key: "CTA_URL", label: "Enrollment URL", type: "url", required: true, description: "URL for enrollment" },
+      { key: "INSTRUCTOR_NAME", label: "Instructor Name", type: "text", defaultValue: "Expert Instructor", required: false, description: "Instructor name for CTA" },
+    ],
+    script: {
+      steps: [
+        { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "{{COURSE_NAME}}", section: "hook", textStyle: "title", textPosition: "center" },
+        { action: "wait", wait: 1500, description: "Master the skills that matter", section: "hook", textStyle: "subtitle", textPosition: "center" },
+        { action: "zoom", selector: "{{CURRICULUM_SELECTOR}}", distance: 1.5, delay: 1500, description: "Comprehensive curriculum", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "pan", selector: "{{CURRICULUM_SELECTOR}}", distance: 300, delay: 1500, description: "10+ modules, 50+ lessons", section: "demo", textStyle: "caption", textPosition: "bottom-left" },
+        { action: "click", selector: "{{LESSON_SELECTOR}}", delay: 500, description: "Sample lesson preview", section: "demo", textStyle: "body", textPosition: "bottom" },
+        { action: "wait", wait: 3000, description: "Learn by doing", section: "demo", textStyle: "caption", textPosition: "center" },
+        { action: "zoom", selector: "{{INSTRUCTOR_SELECTOR}}", distance: 1.3, delay: 1500, description: "Taught by {{INSTRUCTOR_NAME}}", section: "demo", textStyle: "body", textPosition: "top" },
+        { action: "wait", wait: 2000, description: "10 years industry experience", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "Join 5,000+ students", section: "cta", textStyle: "subtitle", textPosition: "top" },
+        { action: "wait", wait: 2000, description: "Enrollment opens now", section: "cta", textStyle: "title", textPosition: "center" },
+        { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Start learning today", section: "cta", textStyle: "body", textPosition: "center" },
+      ],
+      estimatedDuration: 45,
+      targetDuration: 45,
+      sections: {
+        hook: [
+          { action: "navigate", url: "{{SITE_URL}}", wait: 3000, description: "{{COURSE_NAME}}", section: "hook", textStyle: "title", textPosition: "center" },
+          { action: "wait", wait: 1500, description: "Master the skills that matter", section: "hook", textStyle: "subtitle", textPosition: "center" },
+        ],
+        demo: [
+          { action: "zoom", selector: "{{CURRICULUM_SELECTOR}}", distance: 1.5, delay: 1500, description: "Comprehensive curriculum", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "pan", selector: "{{CURRICULUM_SELECTOR}}", distance: 300, delay: 1500, description: "10+ modules, 50+ lessons", section: "demo", textStyle: "caption", textPosition: "bottom-left" },
+          { action: "click", selector: "{{LESSON_SELECTOR}}", delay: 500, description: "Sample lesson preview", section: "demo", textStyle: "body", textPosition: "bottom" },
+          { action: "wait", wait: 3000, description: "Learn by doing", section: "demo", textStyle: "caption", textPosition: "center" },
+          { action: "zoom", selector: "{{INSTRUCTOR_SELECTOR}}", distance: 1.3, delay: 1500, description: "Taught by {{INSTRUCTOR_NAME}}", section: "demo", textStyle: "body", textPosition: "top" },
+          { action: "wait", wait: 2000, description: "10 years industry experience", section: "demo", textStyle: "caption", textPosition: "bottom" },
+        ],
+        cta: [
+          { action: "scroll", direction: "down", distance: 500, delay: 1000, description: "Join 5,000+ students", section: "cta", textStyle: "subtitle", textPosition: "top" },
+          { action: "wait", wait: 2000, description: "Enrollment opens now", section: "cta", textStyle: "title", textPosition: "center" },
+          { action: "navigate", url: "{{CTA_URL}}", wait: 3000, description: "Start learning today", section: "cta", textStyle: "body", textPosition: "center" },
+        ],
+      },
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+// Initialize built-in templates on module load
+initBuiltInTemplates();
 
 /**
  * Sleep utility

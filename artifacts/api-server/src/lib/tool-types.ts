@@ -98,6 +98,10 @@ export interface ToolExecutionContext extends BuildToolExecutionContext {
   artifacts?: Artifact[];
   /** Results of previous tool calls in this task, keyed by call id / name. */
   previousToolResults?: Array<{ id?: string; name: string; result: UniversalToolResult }>;
+  /** Workspace path for file operations */
+  workspacePath?: string;
+  /** Environment variables */
+  env?: Record<string, string | undefined>;
 }
 
 /**

@@ -1060,6 +1060,18 @@ loop:
 > **Phase 20 — Deep Research v2** — True 3-7 min deep research agent (ChatGPT/Gemini style) with citations ✅ **DONE**
 > **Phase 21 — Universal Tool Calling** — Tool calling in ALL modes (Chat, Build, Research, etc.), not just serious tools — also lightweight tools like `call_weather_tomorrow`, `call_time`, `call_calculate`, `call_random_joke`
 
+> **@ Commands Implementation — COMPLETE** — 10 @ commands now working in chat.ts:
+> - @Book <prompt> — Creates a book project
+> - @Build <goal> — Enters Build mode
+> - @Promo <url> <description> — Generates promo video
+> - @Browse <query> — Tavily live text search
+> - @Agent <goal> — Puppeteer live browser widget
+> - @Deep Research <topic> / @DeepResearch <topic> — Deep Research v2
+> - @Maps <query> / natural language — Interactive maps widget
+> - @Image <prompt> — AI image generation
+> - @Screen share|stop — Screen sharing control
+> - @ProjectName — References another project
+
 > **START HERE.** Next unchecked task: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
 
 ---

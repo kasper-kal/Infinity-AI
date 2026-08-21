@@ -22,14 +22,9 @@ import {
   executeTool,
   executeToolSequence,
   formatToolResults,
-  type UniversalToolDefinition,
-  type UniversalToolResult,
-  type ToolExecutionContext,
   type ToolDiscoveryFilter,
-  type ToolCategory,
-  type ToolRisk,
 } from "./tool-registry";
-import { type Artifact } from "./tool-types";
+import { type Artifact, type UniversalToolDefinition, type UniversalToolResult, type ToolExecutionContext, type ToolCategory, type ToolRisk } from "./tool-types";
 
 /** Maximum tool calls per agent loop iteration (prevents runaway loops) */
 const MAX_TOOL_CALLS_PER_LOOP = 25;
@@ -54,8 +49,8 @@ export interface AgentToolCall {
   id: string;
   name: string;
   args: Record<string, unknown>;
-  dependsOn?: string[]; // Tool call IDs this call depends on
-  parallelGroup?: number; // Group number for parallel execution
+  dependsOn: string[]; // Tool call IDs this call depends on
+  parallelGroup: number; // Group number for parallel execution
 }
 
 /** Complete agent loop result */
@@ -257,7 +252,7 @@ export class UniversalAgent {
         type: "tool_error",
         step: this.iterationCount,
         timestamp: new Date().toISOString(),
-        toolCall: { id: "error", name: "agent_loop", args: {} },
+        toolCall: { id: "error", name: "agent_loop", args: {}, dependsOn: [], parallelGroup: 0 },
         toolResult: { success: false, error: error instanceof Error ? error.message : String(error) },
       });
 
@@ -449,7 +444,7 @@ Guidelines:
       id: tc.id || `call-${this.iterationCount}-${index}`,
       name: tc.function.name,
       args: JSON.parse(tc.function.arguments || "{}"),
-      dependsOn: [],
+      dependsOn: [] as string[],
       parallelGroup: 0,
     }));
 
@@ -539,7 +534,8 @@ Guidelines:
     }
 
     // Execute groups in order
-    for (let groupNum = 0; groupNum <= Math.max(...groups.keys(), 0); groupNum++) {
+    const maxGroupNum = groups.size > 0 ? Math.max(...groups.keys()) : 0;
+    for (let groupNum = 0; groupNum <= maxGroupNum; groupNum++) {
       const groupCalls = groups.get(groupNum) || [];
       if (groupCalls.length === 0) continue;
 

@@ -32,7 +32,9 @@ import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
 import { registerAllTools } from "../../lib/tools";
-import { UniversalAgent, runUniversalAgent, type ToolExecutionContext, type AgentLoopResult, type AgentToolEvent } from "../../lib/universal-agent";
+import { UniversalAgent, runUniversalAgent, type AgentLoopResult, type AgentToolEvent } from "../../lib/universal-agent";
+import { getToolDefinitionsForLLM } from "../../lib/tool-registry";
+import { type ToolExecutionContext } from "../../lib/tool-types";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -182,15 +184,83 @@ function detectPromoCommand(text: string): { isPromo: boolean; url: string; desc
 }
 
 /** Detect @Deep Research command for Deep Research v2.
- * Matches: @Deep Research <topic>
+ * Matches: @Deep Research <topic> or @DeepResearch <topic>
+ * UI auto-corrects @DeepResearch to @Deep Research, but we support both.
  */
 function detectDeepResearchCommand(text: string): { isDeepResearch: boolean; topic: string } {
   const trimmed = text.trim();
-  const match = trimmed.match(/^@Deep Research\s+(.+)$/i);
+  // Match both @Deep Research and @DeepResearch
+  const match = trimmed.match(/^@Deep ?Research\s+(.+)$/i);
   if (!match) return { isDeepResearch: false, topic: '' };
 
   const topic = match[1].trim();
   return { isDeepResearch: topic.length > 0, topic };
+}
+
+/** Detect @Book command for creating a book project.
+ * Matches: @Book <prompt>
+ */
+function detectBookCommand(text: string): { isBook: boolean; prompt: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Book\s+(.+)$/i);
+  if (!match) return { isBook: false, prompt: '' };
+
+  const prompt = match[1].trim();
+  return { isBook: prompt.length > 0, prompt };
+}
+
+/** Detect @Build command for entering Build mode.
+ * Matches: @Build <goal>
+ */
+function detectBuildCommand(text: string): { isBuild: boolean; goal: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Build\s+(.+)$/i);
+  if (!match) return { isBuild: false, goal: '' };
+
+  const goal = match[1].trim();
+  return { isBuild: goal.length > 0, goal };
+}
+
+/** Detect @Image command for AI image generation.
+ * Matches: @Image <prompt>
+ */
+function detectImageCommand(text: string): { isImage: boolean; prompt: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Image\s+(.+)$/i);
+  if (!match) return { isImage: false, prompt: '' };
+
+  const prompt = match[1].trim();
+  return { isImage: prompt.length > 0, prompt };
+}
+
+/** Detect @Screen command for screen sharing control.
+ * Matches: @Screen share|stop
+ */
+function detectScreenCommand(text: string): { isScreen: boolean; action: 'share' | 'stop' } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Screen\s+(share|stop)$/i);
+  if (!match) return { isScreen: false, action: 'share' };
+
+  const action = match[1].toLowerCase() as 'share' | 'stop';
+  return { isScreen: true, action };
+}
+
+/** Detect @ProjectName tag for referencing another project.
+ * Matches: @ProjectName (at start or in message)
+ */
+function detectProjectTagCommand(text: string): { isProjectTag: boolean; projectName: string } {
+  const trimmed = text.trim();
+  // Match @ProjectName at start of message or after whitespace
+  const match = trimmed.match(/(?:^|\s)@([A-Za-z][A-Za-z0-9_-]{2,})\b/);
+  if (!match) return { isProjectTag: false, projectName: '' };
+
+  const projectName = match[1];
+  // Exclude known @ commands so they don't get caught as project tags
+  const knownCommands = ['Browse', 'Agent', 'Promo', 'Deep', 'Research', 'Maps', 'Image', 'Screen', 'Book', 'Build', 'Book'];
+  if (knownCommands.some(cmd => cmd.toLowerCase() === projectName.toLowerCase())) {
+    return { isProjectTag: false, projectName: '' };
+  }
+  return { isProjectTag: true, projectName };
 }
 
 /** Detect if the user is asking to draw/generate/create an image. */
@@ -1395,6 +1465,138 @@ router.post("/chat", async (req, res) => {
       return;
     }
 
+    // ── @Book command: Create a book project ─────────────────────────
+    const bookCheck = detectBookCommand(sanitizedMessage);
+    if (bookCheck.isBook) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Send the book project creation widget event
+      res.write(`data: ${JSON.stringify({
+        type: "widget",
+        widget: {
+          type: "book",
+          prompt: bookCheck.prompt,
+          action: "create",
+        },
+      })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Build command: Enter Build mode ────────────────────────────
+    const buildCheckCmd = detectBuildCommand(sanitizedMessage);
+    if (buildCheckCmd.isBuild) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Emit build mode entry event - frontend will open Build terminal
+      res.write(`data: ${JSON.stringify({
+        type: "build_mode_detected",
+        goal: buildCheckCmd.goal,
+        confirmationMessage: `Enter Build mode to: ${buildCheckCmd.goal}`,
+      })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Image command: AI image generation ─────────────────────────
+    const imageCmdCheck = detectImageCommand(sanitizedMessage);
+    if (imageCmdCheck.isImage) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Send image generation confirmation event
+      res.write(`data: ${JSON.stringify({
+        type: "image_request_detected",
+        imagePrompt: imageCmdCheck.prompt,
+        confirmationMessage: `Do you want me to generate an image of ${imageCmdCheck.prompt}?`,
+      })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Screen command: Screen sharing control ──────────────────────
+    const screenCmdCheck = detectScreenCommand(sanitizedMessage);
+    if (screenCmdCheck.isScreen) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      if (screenCmdCheck.action === 'share') {
+        res.write(`data: ${JSON.stringify({
+          type: "screen_share_detected",
+          action: "share",
+          confirmationMessage: "Do you want to share your screen with Jarvis?",
+        })}\n\n`);
+      } else {
+        res.write(`data: ${JSON.stringify({
+          type: "screen_share_detected",
+          action: "stop",
+          confirmationMessage: "Stop screen sharing?",
+        })}\n\n`);
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @ProjectName command: Reference another project ──────────────
+    const projectTagCheck = detectProjectTagCommand(sanitizedMessage);
+    if (projectTagCheck.isProjectTag) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Resolve the project tag via API
+      try {
+        const resolveRes = await fetch("http://localhost:3000/api/jarvis/project-tags/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectName: projectTagCheck.projectName }),
+          signal: AbortSignal.timeout(8000),
+        });
+
+        if (resolveRes.ok) {
+          const projectData = await resolveRes.json() as { id: string; name: string; description: string | null; accessLevel: string };
+          res.write(`data: ${JSON.stringify({
+            type: "widget",
+            widget: {
+              type: "project_reference",
+              projectId: projectData.id,
+              projectName: projectData.name,
+              description: projectData.description,
+              accessLevel: projectData.accessLevel,
+            },
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Project "${projectTagCheck.projectName}" not found` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error resolving project: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
     // ── Agent browser auto-detect ─────────────────────────────────
     // Voice mode: "Jarvis, search for X" opens the PiP browser agent loop.
     // Chat mode: the request flows through the normal LLM path (agent mode
@@ -1492,13 +1694,117 @@ router.post("/chat", async (req, res) => {
       return;
     }
 
+    // ── Universal Agent Loop (agentMode flag) ───────────────────────────
+    // When agentMode=true (from frontend), run the iterative Universal Agent
+    // that dynamically chains tools. This is distinct from the "agent mode"
+    // (research style) - it's the full tool-calling agent loop with parallel
+    // execution, memory, artifacts. No @ command - it's automatic.
+    const useUniversalAgent = agentMode === "true";
+
+    // Build runMessages early so it's available for universal agent
+    const runMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [...chatMessages];
+
+    if (useUniversalAgent) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Build execution context for universal agent
+      const toolContext: ToolExecutionContext = {
+        userId: "default", // TODO: get from auth
+        conversationId: convId,
+        taskId: randomUUID(),
+        projectId: "default",
+        workspaceId: "default",
+        permissions: {
+          allowWrite: useBuildMode,
+          allowExternal: true,
+          allowSelfModification: false,
+        },
+        memories: memoryContext
+          ? memoryContext.split("\n").filter(Boolean).map((line, i) => ({ id: `mem-${i}`, content: line, source: "user" }))
+          : [],
+        artifacts: [],
+        previousToolResults: [],
+        workspacePath: process.cwd(),
+        env: process.env,
+      };
+
+      // Stream agent loop events via SSE
+      const onToolEvent = (event: AgentToolEvent) => {
+        try {
+          res.write(`data: ${JSON.stringify({
+            type: "agent_loop_event",
+            event,
+          })}\n\n`);
+        } catch { /* stream closed */ }
+      };
+
+      // Create LLMAdapter for the universal agent
+      const llmAdapter = await createManualAdapter(keyId);
+
+      // Run the universal agent
+      const agentResult = await runUniversalAgent(
+        llmAdapter,
+        toolContext,
+        sanitizedMessage,
+        {
+          maxToolCalls: 25,
+          maxIterations: 10,
+          temperature: 0.3,
+          systemPrompt: systemParts.join("\n\n"),
+          toolFilter: {},
+          parallelExecution: true,
+          maxParallel: 4,
+          onToolEvent,
+        },
+        runMessages.slice(1).map(m => ({ role: m.role as "user" | "assistant" | "system", content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }))
+      );
+
+      // Stream final response
+      if (agentResult.finalResponse) {
+        // Stream the final answer in chunks for better UX
+        const words = agentResult.finalResponse.split(" ");
+        for (let i = 0; i < words.length; i += 5) {
+          const chunk = words.slice(i, i + 5).join(" ") + " ";
+          res.write(`data: ${JSON.stringify({ type: "token", content: chunk })}\n\n`);
+          await new Promise(r => setTimeout(r, 10)); // Small delay for streaming feel
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({
+        type: "done",
+        conversationId: convId,
+        tokens: agentResult.totalToolCalls,
+        followUp: undefined,
+      })}\n\n`);
+
+      // Persist assistant reply
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "assistant",
+        content: agentResult.finalResponse,
+        reasoning: agentResult.iterations.map(it => it.thought).join("\n\n"),
+      });
+
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, convId));
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
     // ── Tool calling: Jarvis can read his own source code (read-only) ──
     // Stream the first pass WITH the read_source_code tool. If the model
     // decides to inspect code it emits tool_calls instead of text, we then
     // execute the calls and stream a final answer. If the provider rejects
     // the tools param (no function-calling support), we fall back to a plain
     // stream so chat keeps working everywhere.
-    const runMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [...chatMessages];
     const streamToClient = async (
       msgs: OpenAI.Chat.ChatCompletionMessageParam[],
       maxTokensForPass: number,
