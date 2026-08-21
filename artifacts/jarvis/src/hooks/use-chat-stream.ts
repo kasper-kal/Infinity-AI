@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject, type D
 import { looksLikeCodeRequest } from '@/lib/code-intent';
 import type { Widget, FileEdit, TerminalResult, AttachedFile } from '@/types/widget';
 import type { ErrorDetail } from '@/components/error-detail-panel';
-import type { ChatMessage } from '@/components/conversation-feed';
+import type { ChatMessage, AgentToolEvent } from '@/components/conversation-feed';
 import type { EmotionLabel } from '@/hooks/use-emotion-detection';
 import type { AppState } from '@/components/orb';
 import type { ServerTimer } from '@/hooks/use-timer-orchestration';
@@ -416,6 +416,22 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                     },
                   }];
                 });
+                break;
+              case 'agent_loop_event':
+                // Agent loop event for UI timeline (thinking, tool calls, results)
+                if (parsed.event) {
+                  setMessages(prev => {
+                    const updated = [...prev];
+                    const lastIdx = updated.length - 1;
+                    if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+                      const lastMsg = updated[lastIdx];
+                      const agentEvents = [...(lastMsg.agentEvents ?? []), parsed.event];
+                      updated[lastIdx] = { ...lastMsg, agentEvents };
+                      return updated;
+                    }
+                    return updated;
+                  });
+                }
                 break;
               case 'follow_up':
                 // Standalone follow-up event, auto-submit the next task

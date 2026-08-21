@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { FileText, Copy, Check, CheckCircle2, Circle, RotateCcw, Pencil, X, Send, Search, Timer, ChevronDown, Image, Eye, EyeOff, Sun, Lightbulb, Loader2, Wand2, BrainCircuit } from 'lucide-react';
+import { FileText, Copy, Check, CheckCircle2, Circle, RotateCcw, Pencil, X, Send, Search, Timer, ChevronDown, Image, Eye, EyeOff, Sun, Lightbulb, Loader2, Wand2, BrainCircuit, AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { haptics } from '@/lib/haptics';
 import type { Widget, VerifyClaim, TerminalResult } from '@/types/widget';
@@ -44,6 +44,43 @@ export interface ChatMessage {
   fileEdits?: FileEdit[];
   /** Figma design data the AI fetched (from figma_design tool). */
   figma?: FigmaTokenCard;
+  /** Agent loop events for timeline display (thinking, tool calls, results) */
+  agentEvents?: AgentToolEvent[];
+}
+
+/** Agent tool event for UI timeline (matches backend AgentToolEvent) */
+export interface AgentToolEvent {
+  type: "thinking_start" | "thinking_delta" | "thinking_end" | "tool_start" | "tool_progress" | "tool_complete" | "tool_error" | "loop_complete";
+  step: number;
+  timestamp: string;
+  /** For thinking events */
+  content?: string;
+  /** For tool events */
+  toolCall?: {
+    id: string;
+    name: string;
+    args: Record<string, unknown>;
+    dependsOn: string[];
+    parallelGroup: number;
+  };
+  toolResult?: {
+    success: boolean;
+    data?: unknown;
+    summary?: string;
+    error?: string;
+    artifacts?: unknown[];
+  };
+  /** For loop complete */
+  result?: {
+    finalResponse: string;
+    iterations: unknown[];
+    totalToolCalls: number;
+    totalDurationMs: number;
+    artifacts: unknown[];
+    memoriesWritten: string[];
+    converged: boolean;
+    stoppedReason?: "max_iterations" | "max_tool_calls" | "model_done" | "error";
+  };
 }
 
 interface ConversationFeedProps {
@@ -102,6 +139,240 @@ function ThinkingBlock({ reasoning, label }: { reasoning: string; label: string 
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** Agent Timeline - renders the agent loop events as a visual timeline */
+function AgentTimeline({ events }: { events: AgentToolEvent[] }) {
+  const { t } = useI18n();
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+
+  // Group events by step
+  const eventsByStep = new Map<number, AgentToolEvent[]>();
+  for (const event of events) {
+    const stepEvents = eventsByStep.get(event.step) ?? [];
+    stepEvents.push(event);
+    eventsByStep.set(event.step, stepEvents);
+  }
+
+  const sortedSteps = Array.from(eventsByStep.keys()).sort((a, b) => a - b);
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+  };
+
+  const getEventIcon = (type: AgentToolEvent['type']) => {
+    switch (type) {
+      case 'thinking_start':
+      case 'thinking_delta':
+      case 'thinking_end':
+        return <BrainCircuit className="w-3 h-3" strokeWidth={2} />;
+      case 'tool_start':
+        return <Loader2 className="w-3 h-3 animate-spin" />;
+      case 'tool_progress':
+        return <Loader2 className="w-3 h-3 animate-pulse" />;
+      case 'tool_complete':
+        return <CheckCircle2 className="w-3 h-3" />;
+      case 'tool_error':
+        return <AlertTriangle className="w-3 h-3" />;
+      case 'loop_complete':
+        return <Check className="w-3 h-3" />;
+    }
+  };
+
+  const getEventColor = (type: AgentToolEvent['type']) => {
+    switch (type) {
+      case 'thinking_start':
+      case 'thinking_delta':
+      case 'thinking_end':
+        return 'text-blue-400';
+      case 'tool_start':
+        return 'text-purple-400';
+      case 'tool_progress':
+        return 'text-amber-400';
+      case 'tool_complete':
+        return 'text-emerald-400';
+      case 'tool_error':
+        return 'text-rose-400';
+      case 'loop_complete':
+        return 'text-cyan-400';
+    }
+  };
+
+  const getEventLabel = (type: AgentToolEvent['type']) => {
+    switch (type) {
+      case 'thinking_start': return t('agent.thinkingStart') ?? 'Thinking started';
+      case 'thinking_delta': return t('agent.thinkingDelta') ?? 'Thinking...';
+      case 'thinking_end': return t('agent.thinkingEnd') ?? 'Thinking complete';
+      case 'tool_start': return t('agent.toolStart') ?? 'Tool started';
+      case 'tool_progress': return t('agent.toolProgress') ?? 'Tool in progress';
+      case 'tool_complete': return t('agent.toolComplete') ?? 'Tool completed';
+      case 'tool_error': return t('agent.toolError') ?? 'Tool error';
+      case 'loop_complete': return t('agent.loopComplete') ?? 'Loop complete';
+    }
+  };
+
+  return (
+    <div className="w-full max-w-xl mt-2 space-y-1.5">
+      {sortedSteps.map((step) => {
+        const stepEvents = eventsByStep.get(step) ?? [];
+        const isExpanded = expandedSteps.has(step);
+        const hasToolCalls = stepEvents.some(e => e.toolCall);
+        const hasErrors = stepEvents.some(e => e.type === 'tool_error');
+        const isComplete = stepEvents.some(e => e.type === 'loop_complete');
+
+        return (
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-border/40 bg-muted/25 overflow-hidden"
+          >
+            <button
+              onClick={() => setExpandedSteps(prev => {
+                const next = new Set(prev);
+                if (next.has(step)) next.delete(step);
+                else next.add(step);
+                return next;
+              })}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/40 active:bg-muted/50"
+            >
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${getEventColor(stepEvents[stepEvents.length - 1]?.type ?? 'thinking_start')} bg-current/10`}>
+                {getEventIcon(stepEvents[stepEvents.length - 1]?.type ?? 'thinking_start')}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-muted-foreground/60">{formatTime(stepEvents[0].timestamp)}</span>
+                  <span className="text-[11px] font-medium text-foreground">{t('agent.step') ?? 'Step'} {step}</span>
+                  {hasErrors && (
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-rose-400/20 text-rose-400">
+                      {t('agent.hasErrors') ?? 'Has errors'}
+                    </span>
+                  )}
+                  {isComplete && (
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-400/20 text-emerald-400">
+                      {t('agent.complete') ?? 'Complete'}
+                    </span>
+                  )}
+                </div>
+                {stepEvents.length > 1 && (
+                  <div className="mt-1 text-[10px] text-muted-foreground/70 font-mono">
+                    {stepEvents.map((e, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <span className={`w-1.5 h-1.5 rounded-full ${getEventColor(e.type)}`} />
+                        <span>{getEventLabel(e.type)}</span>
+                        {e.toolCall && <span className="text-primary/70 ml-1">{e.toolCall.name}</span>}
+                        {e.toolResult && !e.toolResult.success && (
+                          <span className="text-rose-400 ml-1">✗ {e.toolResult.error?.slice(0, 40)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-muted-foreground/50 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                >
+                  <div className="px-3 pt-1 pb-3 border-t border-border/25 space-y-2">
+                    {stepEvents.map((event, idx) => (
+                      <motion.div
+                        key={`${step}-${idx}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="flex flex-col gap-1 pl-6 border-l border-border/30"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${getEventColor(event.type)} bg-current/10`}>
+                            {getEventIcon(event.type)}
+                          </span>
+                          <span className={`text-[10px] font-medium ${getEventColor(event.type)}`}>{getEventLabel(event.type)}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground/50">{formatTime(event.timestamp)}</span>
+                        </div>
+
+                        {/* Thinking content */}
+                        {event.content && (
+                          <div className="ml-7 text-[11px] text-muted-foreground/80 whitespace-pre-wrap max-h-48 overflow-auto">
+                            {event.content}
+                          </div>
+                        )}
+
+                        {/* Tool call details */}
+                        {event.toolCall && (
+                          <div className="ml-7 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium text-foreground">{event.toolCall.name}</span>
+                              <span className="text-[9px] font-mono text-muted-foreground/50 bg-muted/50 px-1.5 py-0.5 rounded">group {event.toolCall.parallelGroup}</span>
+                              {event.toolCall.dependsOn.length > 0 && (
+                                <span className="text-[9px] text-amber-400">↳ depends on: {event.toolCall.dependsOn.join(', ')}</span>
+                              )}
+                            </div>
+                            <details className="text-[10px] font-mono text-muted-foreground/70">
+                              <summary className="cursor-pointer select-none mb-1">{t('agent.arguments') ?? 'Arguments'}</summary>
+                              <pre className="mt-1 p-2 rounded bg-background/50 overflow-auto whitespace-pre-wrap max-h-32">{JSON.stringify(event.toolCall.args, null, 2)}</pre>
+                            </details>
+                          </div>
+                        )}
+
+                        {/* Tool result details */}
+                        {event.toolResult && (
+                          <div className="ml-7 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-medium ${event.toolResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {event.toolResult.success ? (t('agent.success') ?? 'Success') : (t('agent.error') ?? 'Error')}
+                              </span>
+                              {event.toolResult.summary && (
+                                <span className="text-[10px] text-muted-foreground/80">{event.toolResult.summary}</span>
+                              )}
+                            </div>
+                            {event.toolResult.error && (
+                              <div className="text-[10px] text-rose-400 font-mono">{event.toolResult.error}</div>
+                            )}
+                            {event.toolResult.artifacts && event.toolResult.artifacts.length > 0 && (
+                              <div className="text-[10px] text-primary/80">
+                                {t('agent.artifactsCreated') ?? 'Artifacts created'}: {event.toolResult.artifacts.length}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Loop complete result */}
+                        {event.result && (
+                          <div className="ml-7 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium text-emerald-400">{t('agent.loopComplete') ?? 'Loop Complete'}</span>
+                              <span className="text-[9px] font-mono text-muted-foreground/50 bg-muted/50 px-1.5 py-0.5 rounded">
+                                {event.result.totalToolCalls} tools • {event.result.totalDurationMs}ms
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70">
+                              {t('agent.converged') ?? 'Converged'}: {event.result.converged ? (t('agent.yes') ?? 'Yes') : (t('agent.no') ?? 'No')}
+                              {event.result.stoppedReason && (
+                                <span className="ml-2 text-amber-400">({event.result.stoppedReason})</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -572,6 +843,13 @@ export function ConversationFeed({
                     <FileEditCard key={`fe-${ed.path}-${i}`} edit={ed} />
                   ))}
                   {msg.figma && <FigmaWidget data={msg.figma} />}
+                </div>
+              )}
+
+              {/* Agent timeline - shows the iterative reasoning/tool loop */}
+              {!isUser && msg.agentEvents && msg.agentEvents.length > 0 && (
+                <div className="w-full max-w-xl">
+                  <AgentTimeline events={msg.agentEvents} />
                 </div>
               )}
             </motion.div>

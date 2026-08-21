@@ -1,781 +1,645 @@
 /**
  * Phase 23: Universal Tool Layer — Agent Loop & UX
  *
- * Iterative agent loop that dynamically chains tools across capabilities in one task.
- * LLM → tool call → result → LLM → ... until final response.
+ * Iterative reasoning/tool loop where the LLM dynamically chains tools across
+ * capabilities in one task, surfacing execution in the UI as an agent timeline.
  *
  * Features:
- * - Dynamic tool count (not fixed multi-tool command)
- * - Parallel tool execution with dependency ordering
- * - Memory integration (read relevant, write if needed)
- * - Evolution integration (propose → review → approve → apply → verify)
- * - Artifact interoperability (tool outputs become consumable artifacts)
- * - SSE streaming of tool events for UI timeline
- * - Model-agnostic (depends only on LLMAdapter interface)
+ * - Iterative agent loop: LLM → tool call → result → LLM → ... until final response
+ * - Parallel tool execution: independent calls run concurrently with dependency ordering
+ * - Tool chaining UX: emits AgentToolEvent for each step (Thinking → Web Search → Browser → ... → Done)
+ * - SSE/streaming: emits tool events alongside chat stream (reuse build-events.ts infra)
+ * - Memory integration: agent reads relevant memory, performs task, decides whether to write memory
+ * - Evolution integration: evolution.propose → review → approval → evolution.apply → tests → verify
+ * - Artifacts: tool outputs become interoperable artifacts consumable by later tools
+ * - Model-agnostic: loop only depends on LLMAdapter interface
  */
 
-import { LLMAdapter, LLMCompletionOptions, LLMTool } from "./llm-adapter";
-import {
-  registerTool,
-  discoverTools,
-  getToolDefinitionsForLLM,
-  executeTool,
-  executeToolSequence,
-  formatToolResults,
-  type ToolDiscoveryFilter,
-} from "./tool-registry";
-import { type Artifact, type UniversalToolDefinition, type UniversalToolResult, type ToolExecutionContext, type ToolCategory, type ToolRisk } from "./tool-types";
+import { LLMAdapter, LLMMessage, LLMTool, LLMCompletionOptions, LLMCompletionResult, LLMToolCall } from "./llm-adapter";
 
-/** Maximum tool calls per agent loop iteration (prevents runaway loops) */
-const MAX_TOOL_CALLS_PER_LOOP = 25;
+// Extended message type that includes tool_calls for conversation history (OpenAI API format)
+interface LLMMessageWithToolCalls extends LLMMessage {
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }>;
+}
+import { ToolExecutionContext, UniversalToolResult, Artifact } from "./tool-types";
+import { getToolDefinitionsForLLM, executeTool, formatToolResults } from "./tool-registry";
+import { ToolDiscoveryFilter } from "./tool-registry";
 
-/** Maximum total loop iterations */
-const MAX_LOOP_ITERATIONS = 10;
-
-/** Default temperature for agent reasoning */
-const DEFAULT_TEMPERATURE = 0.3;
-
-/** Result of a single agent loop iteration */
-export interface AgentLoopIteration {
-  step: number;
-  thought: string;
-  toolCalls: AgentToolCall[];
-  toolResults: UniversalToolResult[];
+/** Event emitted for each agent loop step (for SSE streaming to frontend) */
+export interface AgentToolEvent {
+  /** Type of event */
+  type: "thinking" | "tool_call" | "tool_result" | "tool_error" | "artifact" | "memory_read" | "memory_write" | "complete";
+  /** Unique step ID */
+  stepId: string;
+  /** Human-readable label for this step */
+  label: string;
+  /** Tool name if this is a tool call/result */
+  toolName?: string;
+  /** Tool arguments */
+  toolArgs?: Record<string, unknown>;
+  /** Tool result */
+  toolResult?: UniversalToolResult;
+  /** Duration in ms */
+  durationMs?: number;
+  /** Error message if failed */
+  error?: string;
+  /** Artifacts produced */
+  artifacts?: Artifact[];
+  /** Memory read/write info */
+  memoryInfo?: { action: "read" | "write"; count: number; keys: string[] };
+  /** Iteration number */
+  iteration: number;
+  /** Timestamp */
   timestamp: string;
 }
 
-/** Tool call in agent loop (with dependency tracking) */
-export interface AgentToolCall {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-  dependsOn: string[]; // Tool call IDs this call depends on
-  parallelGroup: number; // Group number for parallel execution
-}
-
-/** Complete agent loop result */
-export interface AgentLoopResult {
-  finalResponse: string;
-  iterations: AgentLoopIteration[];
-  totalToolCalls: number;
-  totalDurationMs: number;
-  artifacts: Artifact[];
-  memoriesWritten: string[];
-  converged: boolean;
-  stoppedReason?: "max_iterations" | "max_tool_calls" | "model_done" | "error";
-}
-
-/** Configuration for the universal agent */
+/** Configuration for the universal agent loop */
 export interface UniversalAgentConfig {
-  /** Maximum tool calls allowed in entire loop */
+  /** Maximum number of tool calls in a single iteration */
   maxToolCalls?: number;
-  /** Maximum loop iterations */
+  /** Maximum number of iterations (LLM → tools → LLM cycles) */
   maxIterations?: number;
   /** Temperature for LLM calls */
   temperature?: number;
-  /** System prompt override */
+  /** System prompt to use */
   systemPrompt?: string;
-  /** Tool discovery filter (which capabilities to expose) */
+  /** Tool discovery filter (limits which tools the LLM sees) */
   toolFilter?: ToolDiscoveryFilter;
-  /** Whether to enable parallel tool execution */
+  /** Enable parallel tool execution for independent calls */
   parallelExecution?: boolean;
-  /** Max parallel tools at once */
+  /** Maximum concurrent parallel tool calls */
   maxParallel?: number;
-  /** Callback for streaming tool events (for UI timeline) */
+  /** Callback for streaming tool events via SSE */
   onToolEvent?: (event: AgentToolEvent) => void;
-  /** Callback when loop completes */
-  onComplete?: (result: AgentLoopResult) => void;
+  /** Maximum tokens for LLM response */
+  maxTokens?: number;
 }
 
-/** Tool events for UI streaming */
-export interface AgentToolEvent {
-  type: "thinking_start" | "thinking_delta" | "thinking_end" | "tool_start" | "tool_progress" | "tool_complete" | "tool_error" | "loop_complete";
-  step: number;
-  timestamp: string;
-  /** For thinking events */
-  content?: string;
-  /** For tool events */
-  toolCall?: AgentToolCall;
-  toolResult?: UniversalToolResult;
-  /** For loop complete */
-  result?: AgentLoopResult;
-}
-
-/** Memory entry for agent context */
-export interface AgentMemoryEntry {
-  id: string;
-  content: string;
-  source: "user" | "project" | "tool_result";
-  relevance: number; // 0-1
-  timestamp: string;
-}
-
-/**
- * The Universal Agent - iterative reasoning and tool loop
- */
-export class UniversalAgent {
-  private adapter: LLMAdapter;
-  private config: Required<UniversalAgentConfig>;
-  private context: ToolExecutionContext;
-  private conversationHistory: Array<{ role: "user" | "assistant" | "system"; content: string }>;
-  private memories: AgentMemoryEntry[] = [];
-  private artifacts: Artifact[] = [];
-  private iterationCount = 0;
-  private toolCallCount = 0;
-  private startTime = 0;
-  private converged = false;
-
-  constructor(
-    adapter: LLMAdapter,
-    context: ToolExecutionContext,
-    config: UniversalAgentConfig = {},
-    conversationHistory: Array<{ role: "user" | "assistant" | "system"; content: string }> = []
-  ) {
-    this.adapter = adapter;
-    this.context = context;
-    this.conversationHistory = conversationHistory;
-    this.config = {
-      maxToolCalls: config.maxToolCalls ?? MAX_TOOL_CALLS_PER_LOOP,
-      maxIterations: config.maxIterations ?? MAX_LOOP_ITERATIONS,
-      temperature: config.temperature ?? DEFAULT_TEMPERATURE,
-      systemPrompt: config.systemPrompt ?? this.buildDefaultSystemPrompt(),
-      toolFilter: config.toolFilter ?? {},
-      parallelExecution: config.parallelExecution ?? true,
-      maxParallel: config.maxParallel ?? 4,
-      onToolEvent: config.onToolEvent ?? (() => {}),
-      onComplete: config.onComplete ?? (() => {}),
-    };
-  }
-
-  /**
-   * Run the agent loop until convergence or limits reached
-   */
-  async run(userMessage: string): Promise<AgentLoopResult> {
-    this.startTime = Date.now();
-    this.iterationCount = 0;
-    this.toolCallCount = 0;
-    this.converged = false;
-    this.artifacts = [];
-    this.memories = [];
-
-    // Load relevant memories if available
-    if (this.context.memories?.length) {
-      this.memories = this.context.memories.map((m, i) => ({
-        id: m.id ?? `mem-${i}`,
-        content: m.content,
-        source: "project",
-        relevance: 1.0,
-        timestamp: new Date().toISOString(),
-      }));
-    }
-
-    // Add user message to history
-    this.conversationHistory.push({ role: "user", content: userMessage });
-
-    // Emit initial thinking start
-    this.config.onToolEvent({
-      type: "thinking_start",
-      step: 0,
-      timestamp: new Date().toISOString(),
-    });
-
-    let finalResponse = "";
-
-    try {
-      while (this.iterationCount < this.config.maxIterations && !this.converged) {
-        this.iterationCount++;
-
-        // Check tool call budget
-        if (this.toolCallCount >= this.config.maxToolCalls) {
-          this.converged = true;
-          break;
-        }
-
-        // Run one iteration
-        const iteration = await this.runIteration();
-
-        // Check if model is done (no tool calls in last iteration)
-        if (iteration.toolCalls.length === 0) {
-          finalResponse = iteration.thought || "";
-          this.converged = true;
-          break;
-        }
-
-        // Check if we got a final answer in the thought
-        if (this.isFinalAnswer(iteration.thought)) {
-          finalResponse = this.extractFinalAnswer(iteration.thought);
-          this.converged = true;
-          break;
-        }
-      }
-
-      // If we exited without converging, try one final pass for answer
-      if (!this.converged || !finalResponse) {
-        const finalPass = await this.runFinalPass();
-        finalResponse = finalPass || "I've completed the available tool calls but couldn't generate a final response.";
-      }
-
-      const result: AgentLoopResult = {
-        finalResponse,
-        iterations: [], // Will be populated by runIteration
-        totalToolCalls: this.toolCallCount,
-        totalDurationMs: Date.now() - this.startTime,
-        artifacts: this.artifacts,
-        memoriesWritten: [], // Track written memory keys
-        converged: this.converged,
-        stoppedReason: this.toolCallCount >= this.config.maxToolCalls ? "max_tool_calls" :
-          this.iterationCount >= this.config.maxIterations ? "max_iterations" : "model_done",
-      };
-
-      this.config.onToolEvent({
-        type: "loop_complete",
-        step: this.iterationCount,
-        timestamp: new Date().toISOString(),
-        result,
-      });
-
-      this.config.onComplete(result);
-      return result;
-    } catch (error) {
-      const result: AgentLoopResult = {
-        finalResponse: `Agent loop error: ${error instanceof Error ? error.message : String(error)}`,
-        iterations: [],
-        totalToolCalls: this.toolCallCount,
-        totalDurationMs: Date.now() - this.startTime,
-        artifacts: this.artifacts,
-        memoriesWritten: [],
-        converged: false,
-        stoppedReason: "error",
-      };
-
-      this.config.onToolEvent({
-        type: "tool_error",
-        step: this.iterationCount,
-        timestamp: new Date().toISOString(),
-        toolCall: { id: "error", name: "agent_loop", args: {}, dependsOn: [], parallelGroup: 0 },
-        toolResult: { success: false, error: error instanceof Error ? error.message : String(error) },
-      });
-
-      return result;
-    }
-  }
-
-  /**
-   * Run a single iteration of the agent loop
-   */
-  private async runIteration(): Promise<AgentLoopIteration> {
-    const iteration: AgentLoopIteration = {
-      step: this.iterationCount,
-      thought: "",
-      toolCalls: [],
-      toolResults: [],
-      timestamp: new Date().toISOString(),
-    };
-
-    // Build messages for LLM
-    const messages = this.buildMessages();
-
-    // Get available tools for this iteration
-    const toolDefs = getToolDefinitionsForLLM(this.config.toolFilter);
-
-    // Emit thinking start
-    this.config.onToolEvent({
-      type: "thinking_start",
-      step: this.iterationCount,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Call LLM with tools
-    const completion = await this.adapter.complete(messages, {
-      temperature: this.config.temperature,
-      maxTokens: 4096,
-      tools: toolDefs,
-      toolChoice: "auto",
-    });
-
-    const response = completion.content || "";
-    const toolCalls = completion.toolCalls || [];
-
-    // Emit thinking delta
-    this.config.onToolEvent({
-      type: "thinking_delta",
-      step: this.iterationCount,
-      timestamp: new Date().toISOString(),
-      content: response,
-    });
-
-    iteration.thought = response;
-
-    // If no tool calls, model is done
-    if (toolCalls.length === 0) {
-      this.config.onToolEvent({
-        type: "thinking_end",
-        step: this.iterationCount,
-        timestamp: new Date().toISOString(),
-        content: response,
-      });
-      return iteration;
-    }
-
-    // Convert tool calls to agent tool calls with dependency analysis
-    const agentToolCalls = this.analyzeDependencies(toolCalls);
-    iteration.toolCalls = agentToolCalls;
-
-    // Execute tools (parallel or sequential based on dependencies)
-    const results = await this.executeToolCalls(agentToolCalls);
-    iteration.toolResults = results;
-
-    // Update context with results
-    this.updateContextWithResults(agentToolCalls, results);
-
-    // Add assistant message with tool calls to history
-    this.conversationHistory.push({
-      role: "assistant",
-      content: response + (toolCalls.length > 0 ? `\n\n[Tool calls: ${toolCalls.map(t => t.function.name).join(", ")}]` : ""),
-    });
-
-    // Add tool results to history
-    for (const result of results) {
-      this.conversationHistory.push({
-        role: "assistant" as const,
-        content: `[Tool Result: ${result.success ? "Success" : "Failed"}] ${result.summary || JSON.stringify(result.data).slice(0, 500)}`,
-      });
-    }
-
-    this.config.onToolEvent({
-      type: "thinking_end",
-      step: this.iterationCount,
-      timestamp: new Date().toISOString(),
-      content: response,
-    });
-
-    return iteration;
-  }
-
-  /**
-   * Run a final pass to get a clean answer without tools
-   */
-  private async runFinalPass(): Promise<string> {
-    const messages = this.buildMessages();
-    messages.push({
-      role: "system",
-      content: "Provide a final, comprehensive answer based on all the tool results above. Do not call any more tools - just answer the user's original question.",
-    });
-
-    const completion = await this.adapter.complete(messages, {
-      temperature: this.config.temperature,
-      maxTokens: 4096,
-    });
-
-    return completion.content || "";
-  }
-
-  /**
-   * Build messages array for LLM call
-   */
-  private buildMessages(): Array<{ role: "system" | "user" | "assistant"; content: string }> {
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: this.config.systemPrompt },
-    ];
-
-    // Add memory context if available
-    if (this.memories.length > 0) {
-      const memoryContext = this.memories
-        .filter(m => m.relevance > 0.5)
-        .map(m => `- ${m.content}`)
-        .join("\n");
-      if (memoryContext) {
-        messages.push({
-          role: "system",
-          content: `Relevant memories:\n${memoryContext}`,
-        });
-      }
-    }
-
-    // Add artifact context if available
-    if (this.artifacts.length > 0) {
-      const artifactContext = this.artifacts
-        .map(a => `- ${a.type}${a.id ? `#${a.id}` : ""}${a.title ? ` "${a.title}"` : ""}: ${JSON.stringify(a.data).slice(0, 200)}`)
-        .join("\n");
-      messages.push({
-        role: "system",
-        content: `Available artifacts from previous tool calls:\n${artifactContext}`,
-      });
-    }
-
-    // Add conversation history
-    messages.push(...this.conversationHistory);
-
-    return messages;
-  }
-
-  /**
-   * Build default system prompt for the agent
-   */
-  private buildDefaultSystemPrompt(): string {
-    return `You are an AI agent with access to a universal tool registry spanning multiple capabilities:
-- web: search, fetch, extract
-- browser: navigate, click, type, screenshot, inspect
-- files: list, read, write, upload, move, delete
-- memory: read, write, update, delete
-- research: start, continue, status, extract
-- build: run, workspace, terminal, verify
-- evolution: inspect, propose, apply, verify, rollback
-- integration: gmail, spotify, etc.
-
-Your goal: accomplish the user's request by dynamically chaining tools as needed.
-You can call multiple tools in parallel when they don't depend on each other.
-Think step by step, then call tools. After each tool result, reason about what to do next.
-When you have enough information, provide a final answer without calling more tools.
-
-Guidelines:
-- Prefer parallel tool calls when independent
-- Use memory.read to check for relevant context before searching
-- Use memory.write to save important findings for future tasks
-- Tools return structured artifacts that can be consumed by later tools
-- Never assume - verify with tools when uncertain`;
-  }
-
-  /**
-   * Analyze tool call dependencies for parallel execution
-   */
-  private analyzeDependencies(toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>): AgentToolCall[] {
-    const calls: AgentToolCall[] = toolCalls.map((tc, index) => ({
-      id: tc.id || `call-${this.iterationCount}-${index}`,
-      name: tc.function.name,
-      args: JSON.parse(tc.function.arguments || "{}"),
-      dependsOn: [] as string[],
-      parallelGroup: 0,
-    }));
-
-    // Simple dependency analysis: if a tool reads from a category that a previous tool writes to,
-    // it depends on that tool. More sophisticated analysis could be added.
-    for (let i = 0; i < calls.length; i++) {
-      const call = calls[i];
-      const def = discoverTools({ query: call.name })[0];
-      if (!def) continue;
-
-      const writesCategory = this.getWriteCategory(def);
-      if (!writesCategory) continue;
-
-      // Check subsequent calls for reads from same category
-      for (let j = i + 1; j < calls.length; j++) {
-        const laterDef = discoverTools({ query: calls[j].name })[0];
-        if (!laterDef) continue;
-
-        const readsCategory = this.getReadCategory(laterDef);
-        if (readsCategory === writesCategory || (writesCategory === "memory" && readsCategory === "memory")) {
-          calls[j].dependsOn.push(call.id);
-        }
-      }
-    }
-
-    // Assign parallel groups
-    this.assignParallelGroups(calls);
-
-    return calls;
-  }
-
-  /** Get the category a tool writes to */
-  private getWriteCategory(def: UniversalToolDefinition): ToolCategory | null {
-    if (def.risk === "WRITE" || def.risk === "DESTRUCTIVE" || def.risk === "SELF_MODIFICATION") {
-      return def.category;
-    }
-    return null;
-  }
-
-  /** Get the category a tool reads from */
-  private getReadCategory(def: UniversalToolDefinition): ToolCategory | null {
-    if (def.risk === "READ") {
-      return def.category;
-    }
-    return null;
-  }
-
-  /**
-   * Assign parallel execution groups based on dependencies
-   */
-  private assignParallelGroups(calls: AgentToolCall[]): void {
-    const groups = new Map<string, number>();
-    let maxGroup = 0;
-
-    for (const call of calls) {
-      let group = 0;
-      for (const depId of call.dependsOn) {
-        const depGroup = groups.get(depId) ?? 0;
-        group = Math.max(group, depGroup + 1);
-      }
-      call.parallelGroup = group;
-      groups.set(call.id, group);
-      maxGroup = Math.max(maxGroup, group);
-    }
-
-    // Cap at maxParallel
-    for (const call of calls) {
-      if (call.parallelGroup >= this.config.maxParallel) {
-        call.parallelGroup = this.config.maxParallel - 1;
-      }
-    }
-  }
-
-  /**
-   * Execute tool calls with parallel/sequential strategy
-   */
-  private async executeToolCalls(calls: AgentToolCall[]): Promise<UniversalToolResult[]> {
-    const results: UniversalToolResult[] = [];
-    const resultsById = new Map<string, UniversalToolResult>();
-
-    // Group by parallel group
-    const groups = new Map<number, AgentToolCall[]>();
-    for (const call of calls) {
-      const group = groups.get(call.parallelGroup) ?? [];
-      group.push(call);
-      groups.set(call.parallelGroup, group);
-    }
-
-    // Execute groups in order
-    const maxGroupNum = groups.size > 0 ? Math.max(...groups.keys()) : 0;
-    for (let groupNum = 0; groupNum <= maxGroupNum; groupNum++) {
-      const groupCalls = groups.get(groupNum) || [];
-      if (groupCalls.length === 0) continue;
-
-      // Emit tool start events
-      for (const call of groupCalls) {
-        this.config.onToolEvent({
-          type: "tool_start",
-          step: this.iterationCount,
-          timestamp: new Date().toISOString(),
-          toolCall: call,
-        });
-        this.toolCallCount++;
-      }
-
-      // Execute group in parallel
-      const groupResults = await Promise.all(
-        groupCalls.map(async (call) => {
-          // Check if dependencies are satisfied
-          for (const depId of call.dependsOn) {
-            const depResult = resultsById.get(depId);
-            if (!depResult || !depResult.success) {
-              const errorResult: UniversalToolResult = {
-                success: false,
-                error: `Dependency ${depId} failed or not available`,
-              };
-              this.config.onToolEvent({
-                type: "tool_error",
-                step: this.iterationCount,
-                timestamp: new Date().toISOString(),
-                toolCall: call,
-                toolResult: errorResult,
-              });
-              return errorResult;
-            }
-          }
-
-          // Enrich context with dependency results
-          const enrichedContext = this.buildEnrichedContext(call);
-
-          // Execute tool
-          const result = await executeTool(call.name, call.args, enrichedContext);
-
-          // Emit completion event
-          this.config.onToolEvent({
-            type: result.success ? "tool_complete" : "tool_error",
-            step: this.iterationCount,
-            timestamp: new Date().toISOString(),
-            toolCall: call,
-            toolResult: result,
-          });
-
-          // Collect artifacts
-          if (result.artifacts?.length) {
-            this.artifacts.push(...result.artifacts);
-          }
-
-          // Track memory writes
-          if (call.name.startsWith("memory.write") || call.name.startsWith("memory.update")) {
-            const key = call.args.key as string;
-            if (key) this.memories.push({
-              id: key,
-              content: call.args.value as string,
-              source: "tool_result",
-              relevance: 1.0,
-              timestamp: new Date().toISOString(),
-            });
-          }
-
-          resultsById.set(call.id, result);
-          return result;
-        })
-      );
-
-      results.push(...groupResults);
-    }
-
-    return results;
-  }
-
-  /**
-   * Build enriched context for a tool call including dependency results
-   */
-  private buildEnrichedContext(call: AgentToolCall): ToolExecutionContext {
-    const previousResults: Array<{ id?: string; name: string; result: UniversalToolResult }> = [];
-    for (const depId of call.dependsOn) {
-      // Find the tool call for this dependency
-      // In practice, we'd look it up from the current iteration
-    }
-
-    return {
-      ...this.context,
-      artifacts: this.artifacts,
-      previousToolResults: this.context.previousToolResults ? [...this.context.previousToolResults] : [],
-    };
-  }
-
-  /**
-   * Update agent context with tool results
-   */
-  private updateContextWithResults(calls: AgentToolCall[], results: UniversalToolResult[]): void {
-    // Add artifacts to context
-    for (const result of results) {
-      if (result.artifacts?.length) {
-        this.context.artifacts = [...(this.context.artifacts ?? []), ...result.artifacts];
-      }
-    }
-
-    // Add tool results to context for chaining
-    const previousResults = calls.map((call, i) => ({
-      id: call.id,
-      name: call.name,
-      result: results[i],
-    }));
-
-    this.context.previousToolResults = [
-      ...(this.context.previousToolResults ?? []),
-      ...previousResults,
-    ];
-  }
-
-  /**
-   * Check if the model's thought indicates a final answer
-   */
-  private isFinalAnswer(thought: string): boolean {
-    const lower = thought.toLowerCase();
-    return (
-      lower.includes("final answer") ||
-      lower.includes("in conclusion") ||
-      lower.includes("to summarize") ||
-      lower.includes("answer:") ||
-      (lower.includes("done") && !lower.includes("tool"))
-    );
-  }
-
-  /**
-   * Extract final answer from thought
-   */
-  private extractFinalAnswer(thought: string): string {
-    // Try to find answer after common markers
-    const markers = ["final answer:", "answer:", "in conclusion:", "to summarize:"];
-    for (const marker of markers) {
-      const idx = thought.toLowerCase().indexOf(marker);
-      if (idx >= 0) {
-        return thought.slice(idx + marker.length).trim();
-      }
-    }
-    return thought;
-  }
-
-  /**
-   * Get current agent state (for debugging/monitoring)
-   */
-  getState(): {
+/** Result of running the universal agent */
+export interface AgentLoopResult {
+  /** Final assistant response */
+  finalResponse: string;
+  /** Total number of tool calls made */
+  totalToolCalls: number;
+  /** Total number of iterations */
+  totalIterations: number;
+  /** All tool call results */
+  allToolResults: UniversalToolResult[];
+  /** All artifacts produced */
+  allArtifacts: Artifact[];
+  /** Per-iteration details */
+  iterations: Array<{
     iteration: number;
-    toolCalls: number;
-    converged: boolean;
-    artifacts: number;
-    memories: number;
-  } {
-    return {
-      iteration: this.iterationCount,
-      toolCalls: this.toolCallCount,
-      converged: this.converged,
-      artifacts: this.artifacts.length,
-      memories: this.memories.length,
-    };
-  }
+    thought: string;
+    toolCalls: LLMToolCall[];
+    toolResults: UniversalToolResult[];
+  }>;
+  /** Whether the agent completed successfully */
+  success: boolean;
+  /** Error if failed */
+  error?: string;
 }
 
 /**
- * Factory function to create and run a universal agent
+ * Build the system prompt for the universal agent, including tool descriptions.
+ * The agent gets a clear instruction set about available tools and how to use them.
+ */
+function buildAgentSystemPrompt(basePrompt: string, toolDefs: LLMTool[]): string {
+  const toolList = toolDefs.map(t => `- **${t.function.name}**: ${t.function.description}`).join("\n");
+  const toolSchemas = toolDefs.map(t => `### ${t.function.name}\n${JSON.stringify(t.function.parameters, null, 2)}`).join("\n\n");
+
+  return `${basePrompt}
+
+=== UNIVERSAL TOOL SYSTEM ===
+You have access to the following tools. Use them to accomplish the user's goal.
+**Think step by step.** Call tools when you need information or need to perform actions.
+Tools can be chained — the output of one tool becomes input for the next.
+You can call multiple tools in parallel when they don't depend on each other.
+
+AVAILABLE TOOLS:
+${toolList}
+
+TOOL SCHEMAS:
+${toolSchemas}
+
+TOOL CALLING PROTOCOL:
+1. When you need to use a tool, respond with a JSON object containing "tool_calls" array.
+2. Each tool call must have: id (unique), type: "function", function: { name, arguments (JSON string) }
+3. You can call up to 5 tools in parallel in one response if they are independent.
+4. After tool results are returned, continue reasoning and call more tools if needed.
+5. When you have enough information, provide your final answer (no tool_calls).
+
+MEMORY INTEGRATION:
+- You have access to relevant memories in the context. Read them to understand the user/project.
+- After completing a task, you may write new memories if you learned durable facts.
+- Use the memory tools (memory.read, memory.write) when appropriate.
+
+ARTIFACTS:
+- Tool results may produce artifacts (research reports, charts, screenshots, diffs, etc.).
+- Artifacts are passed forward and can be consumed by subsequent tools.
+- Reference artifacts by their IDs in your reasoning.
+
+EXECUTION RULES:
+- Be efficient: prefer parallel calls when tools are independent.
+- Be thorough: use the right tool for each job, don't guess.
+- Handle errors: if a tool fails, analyze the error and try an alternative approach.
+- Don't repeat failed calls with the same arguments.
+- Stop when you have a complete answer — don't call tools unnecessarily.
+`;
+}
+
+/**
+ * Parse tool calls from LLM response (both complete and stream formats)
+ */
+function parseToolCalls(result: LLMCompletionResult): LLMToolCall[] {
+  return result.toolCalls ?? [];
+}
+
+/**
+ * Check if tool calls have dependencies on each other's results.
+ * Simple heuristic: if a tool's arguments reference another tool's output pattern.
+ */
+function hasDependencies(calls: LLMToolCall[], previousResults: UniversalToolResult[]): boolean {
+  if (calls.length <= 1) return false;
+  // For now, we assume no cross-dependencies within a single batch
+  // A more sophisticated implementation would analyze argument references
+  return false;
+}
+
+/**
+ * Execute a batch of tool calls, either in parallel or sequentially.
+ */
+async function executeToolBatch(
+  calls: LLMToolCall[],
+  context: ToolExecutionContext,
+  parallel: boolean,
+  maxParallel: number,
+  onEvent: (event: AgentToolEvent) => void
+): Promise<UniversalToolResult[]> {
+  const results: UniversalToolResult[] = [];
+
+  if (parallel && calls.length > 1) {
+    // Execute in parallel with concurrency limit
+    const semaphore = async function* (tasks: Array<() => Promise<UniversalToolResult>>) {
+      const executing: Promise<UniversalToolResult>[] = [];
+      for (const task of tasks) {
+        const promise = task();
+        executing.push(promise);
+        if (executing.length >= maxParallel) {
+          yield await Promise.race(executing);
+          // Remove completed
+          const completedIdx = executing.findIndex(p => p === promise);
+          if (completedIdx >= 0) executing.splice(completedIdx, 1);
+        }
+      }
+      // Wait for remaining
+      for (const p of executing) {
+        yield await p;
+      }
+    };
+
+    const tasks = calls.map(call => async () => {
+      const startTime = Date.now();
+      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      // Emit tool_call event
+      onEvent({
+        type: "tool_call",
+        stepId,
+        label: `Calling ${call.function.name}`,
+        toolName: call.function.name,
+        toolArgs: JSON.parse(call.function.arguments || "{}"),
+        iteration: 0,
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const args = JSON.parse(call.function.arguments || "{}");
+        const result = await executeTool(call.function.name, args, context);
+
+        const durationMs = Date.now() - startTime;
+
+        // Emit tool_result event
+        onEvent({
+          type: result.success ? "tool_result" : "tool_error",
+          stepId,
+          label: result.success ? `Completed ${call.function.name}` : `Failed ${call.function.name}`,
+          toolName: call.function.name,
+          toolArgs: args,
+          toolResult: result,
+          durationMs,
+          error: result.error,
+          artifacts: result.artifacts,
+          iteration: 0,
+          timestamp: new Date().toISOString(),
+        });
+
+        return result;
+      } catch (error) {
+        const durationMs = Date.now() - startTime;
+        const message = error instanceof Error ? error.message : String(error);
+
+        onEvent({
+          type: "tool_error",
+          stepId,
+          label: `Error in ${call.function.name}`,
+          toolName: call.function.name,
+          toolArgs: JSON.parse(call.function.arguments || "{}"),
+          error: message,
+          durationMs,
+          iteration: 0,
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          success: false,
+          error: message,
+          metadata: { executionTimeMs: durationMs },
+        };
+      }
+    });
+
+    for await (const result of semaphore(tasks)) {
+      results.push(result);
+    }
+  } else {
+    // Sequential execution
+    for (const call of calls) {
+      const startTime = Date.now();
+      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      onEvent({
+        type: "tool_call",
+        stepId,
+        label: `Calling ${call.function.name}`,
+        toolName: call.function.name,
+        toolArgs: JSON.parse(call.function.arguments || "{}"),
+        iteration: 0,
+        timestamp: new Date().toISOString(),
+      });
+
+      try {
+        const args = JSON.parse(call.function.arguments || "{}");
+        const result = await executeTool(call.function.name, args, context);
+
+        const durationMs = Date.now() - startTime;
+
+        onEvent({
+          type: result.success ? "tool_result" : "tool_error",
+          stepId,
+          label: result.success ? `Completed ${call.function.name}` : `Failed ${call.function.name}`,
+          toolName: call.function.name,
+          toolArgs: args,
+          toolResult: result,
+          durationMs,
+          error: result.error,
+          artifacts: result.artifacts,
+          iteration: 0,
+          timestamp: new Date().toISOString(),
+        });
+
+        results.push(result);
+      } catch (error) {
+        const durationMs = Date.now() - startTime;
+        const message = error instanceof Error ? error.message : String(error);
+
+        onEvent({
+          type: "tool_error",
+          stepId,
+          label: `Error in ${call.function.name}`,
+          toolName: call.function.name,
+          toolArgs: JSON.parse(call.function.arguments || "{}"),
+          error: message,
+          durationMs,
+          iteration: 0,
+          timestamp: new Date().toISOString(),
+        });
+
+        results.push({
+          success: false,
+          error: message,
+          metadata: { executionTimeMs: durationMs },
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Run the universal agent loop.
+ *
+ * This is the core iterative reasoning loop:
+ * 1. LLM receives context + tools
+ * 2. LLM decides to call tools (or respond)
+ * 3. Tools execute (parallel if independent)
+ * 4. Results fed back to LLM
+ * 5. Repeat until final response or max iterations
  */
 export async function runUniversalAgent(
-  adapter: LLMAdapter,
-  context: ToolExecutionContext,
+  llmAdapter: LLMAdapter,
+  baseContext: ToolExecutionContext,
   userMessage: string,
   config: UniversalAgentConfig = {},
-  conversationHistory: Array<{ role: "user" | "assistant" | "system"; content: string }> = []
+  history: LLMMessageWithToolCalls[] = []
 ): Promise<AgentLoopResult> {
-  const agent = new UniversalAgent(adapter, context, config, conversationHistory);
-  return agent.run(userMessage);
-}
+  const {
+    maxToolCalls = 25,
+    maxIterations = 10,
+    temperature = 0.3,
+    systemPrompt = "",
+    toolFilter = {},
+    parallelExecution = true,
+    maxParallel = 4,
+    onToolEvent = () => {},
+    maxTokens = 4096,
+  } = config;
 
-/**
- * Stream agent loop events as SSE for UI timeline
- */
-export function createAgentLoopSSEStream(
-  result: AgentLoopResult,
-  controller: ReadableStreamDefaultController
-): void {
-  // This would be used in the chat route to stream agent loop events
-  // For now, we emit events via the onToolEvent callback
-  // which can be connected to an SSE stream in the route
-}
+  // Get tool definitions for the LLM
+  const toolDefs = getToolDefinitionsForLLM(toolFilter);
+  const fullSystemPrompt = buildAgentSystemPrompt(systemPrompt, toolDefs);
 
-/**
- * Helper to convert agent loop result to SSE events
- */
-export function agentLoopResultToSSE(result: AgentLoopResult): string[] {
-  const events: string[] = [];
+  // Initialize conversation
+  const messages: LLMMessage[] = [
+    { role: "system", content: fullSystemPrompt },
+    ...history,
+    { role: "user", content: userMessage },
+  ];
 
-  for (const iteration of result.iterations) {
-    // Thinking event
-    if (iteration.thought) {
-      events.push(`data: ${JSON.stringify({
-        type: "agent_thinking",
-        step: iteration.step,
-        content: iteration.thought,
-        timestamp: iteration.timestamp,
-      })}\n\n`);
+  const allToolResults: UniversalToolResult[] = [];
+  const allArtifacts: Artifact[] = [];
+  const iterations: AgentLoopResult["iterations"] = [];
+  let totalToolCalls = 0;
+  let success = false;
+  let error: string | undefined;
+  let finalResponse = "";
+
+  // Track tool call counts per iteration
+  let toolCallsThisIteration = 0;
+
+  for (let iteration = 0; iteration < maxIterations; iteration++) {
+    // Emit thinking event
+    const thinkingStepId = `thinking-${Date.now()}`;
+    onToolEvent({
+      type: "thinking",
+      stepId: thinkingStepId,
+      label: `Thinking (iteration ${iteration + 1}/${maxIterations})`,
+      iteration,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Check tool call budget
+    if (totalToolCalls >= maxToolCalls) {
+      onToolEvent({
+        type: "tool_error",
+        stepId: `budget-exceeded-${Date.now()}`,
+        label: "Tool call budget exceeded",
+        error: `Maximum tool calls (${maxToolCalls}) reached`,
+        iteration,
+        timestamp: new Date().toISOString(),
+      });
+      error = "Tool call budget exceeded";
+      break;
     }
 
-    // Tool events
-    for (let i = 0; i < iteration.toolCalls.length; i++) {
-      const call = iteration.toolCalls[i];
-      const toolResult = iteration.toolResults[i];
+    // Call LLM with tools
+    const completionOptions: LLMCompletionOptions = {
+      temperature,
+      maxTokens,
+      tools: toolDefs,
+      toolChoice: "auto",
+    };
 
-      events.push(`data: ${JSON.stringify({
-        type: "agent_tool",
-        step: iteration.step,
-        tool: call.name,
-        args: call.args,
-        success: toolResult.success,
-        summary: toolResult.summary,
-        error: toolResult.error,
-        artifacts: toolResult.artifacts,
-        timestamp: iteration.timestamp,
-      })}\n\n`);
+    let completion: LLMCompletionResult;
+    try {
+      completion = await llmAdapter.complete(messages, completionOptions);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      error = `LLM call failed: ${message}`;
+      onToolEvent({
+        type: "tool_error",
+        stepId: `llm-error-${Date.now()}`,
+        label: "LLM call failed",
+        error: message,
+        iteration,
+        timestamp: new Date().toISOString(),
+      });
+      break;
+    }
+
+    const toolCalls = parseToolCalls(completion);
+    const thought = completion.content || "";
+
+    // Record this iteration
+    iterations.push({
+      iteration,
+      thought,
+      toolCalls,
+      toolResults: [],
+    });
+
+    // If no tool calls, we have our final answer
+    if (toolCalls.length === 0) {
+      finalResponse = thought;
+      success = true;
+      break;
+    }
+
+    // Check if we have room for these tool calls
+    if (totalToolCalls + toolCalls.length > maxToolCalls) {
+      // Trim to fit budget
+      toolCalls.splice(maxToolCalls - totalToolCalls);
+    }
+
+    // Emit tool calls
+    toolCallsThisIteration = toolCalls.length;
+    totalToolCalls += toolCalls.length;
+
+    // Execute tool calls
+    const toolResults = await executeToolBatch(
+      toolCalls,
+      baseContext,
+      parallelExecution,
+      maxParallel,
+      onToolEvent
+    );
+
+    // Update iteration record
+    iterations[iteration].toolResults = toolResults;
+
+    // Collect results and artifacts
+    allToolResults.push(...toolResults);
+    for (const result of toolResults) {
+      if (result.artifacts?.length) {
+        allArtifacts.push(...result.artifacts);
+      }
+    }
+
+    // Build tool results message for next LLM turn
+    const toolResultsMessage: LLMMessage = {
+      role: "tool",
+      content: formatToolResults(toolResults),
+      name: "tool_results",
+    };
+
+    // Add assistant's tool call response and tool results to conversation
+    messages.push({
+      role: "assistant",
+      content: thought,
+      tool_calls: toolCalls.map(tc => ({
+        id: tc.id,
+        type: "function" as const,
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      })),
+    } as LLMMessageWithToolCalls);
+    messages.push(toolResultsMessage);
+
+    // Check if we should continue (if all tools failed, maybe stop?)
+    const allFailed = toolResults.every(r => !r.success);
+    if (allFailed && iteration > 0) {
+      // Multiple iterations of all failures — probably stuck
+      error = "All tool calls failed repeatedly";
+      onToolEvent({
+        type: "tool_error",
+        stepId: `all-failed-${Date.now()}`,
+        label: "All tools failed",
+        error: "All tool calls in this iteration failed",
+        iteration,
+        timestamp: new Date().toISOString(),
+      });
+      break;
     }
   }
 
-  // Final result
-  events.push(`data: ${JSON.stringify({
-    type: "agent_done",
-    response: result.finalResponse,
-    totalToolCalls: result.totalToolCalls,
-    durationMs: result.totalDurationMs,
-    artifacts: result.artifacts,
-    converged: result.converged,
-  })}\n\n`);
+  // If we exited the loop without a final response, use the last thought
+  if (!success && !finalResponse) {
+    finalResponse = iterations[iterations.length - 1]?.thought || "I encountered an issue completing this task.";
+    if (!error) {
+      error = "Max iterations reached without completion";
+    }
+  }
 
-  return events;
+  // Emit completion event
+  onToolEvent({
+    type: "complete",
+    stepId: `complete-${Date.now()}`,
+    label: success ? "Task completed" : "Task ended",
+    iteration: iterations.length,
+    timestamp: new Date().toISOString(),
+  });
+
+  return {
+    finalResponse,
+    totalToolCalls,
+    totalIterations: iterations.length,
+    allToolResults,
+    allArtifacts,
+    iterations,
+    success,
+    error,
+  };
+}
+
+/**
+ * UniversalAgent class for stateful agent execution (e.g., for long-running tasks)
+ */
+export class UniversalAgent {
+  private llmAdapter: LLMAdapter;
+  private context: ToolExecutionContext;
+  private config: UniversalAgentConfig;
+  private history: LLMMessageWithToolCalls[] = [];
+  private totalToolCalls = 0;
+  private totalIterations = 0;
+  private isRunning = false;
+
+  constructor(llmAdapter: LLMAdapter, context: ToolExecutionContext, config: UniversalAgentConfig = {}) {
+    this.llmAdapter = llmAdapter;
+    this.context = context;
+    this.config = config;
+  }
+
+  /**
+   * Run a single turn of the agent (can be called multiple times for conversation)
+   */
+  async run(userMessage: string): Promise<AgentLoopResult> {
+    if (this.isRunning) {
+      throw new Error("Agent is already running");
+    }
+    this.isRunning = true;
+
+    try {
+      const result = await runUniversalAgent(
+        this.llmAdapter,
+        this.context,
+        userMessage,
+        this.config,
+        this.history
+      );
+
+      // Update history with this turn
+      this.history.push({ role: "user", content: userMessage });
+      if (result.finalResponse) {
+        this.history.push({ role: "assistant", content: result.finalResponse });
+      }
+
+      // Add tool call/result pairs to history
+      for (const iteration of result.iterations) {
+        if (iteration.toolCalls.length > 0) {
+          this.history.push({
+            role: "assistant",
+            content: iteration.thought,
+            tool_calls: iteration.toolCalls.map(tc => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.function.name, arguments: tc.function.arguments },
+            })),
+          } as LLMMessageWithToolCalls);
+          this.history.push({
+            role: "tool",
+            content: formatToolResults(iteration.toolResults),
+            name: "tool_results",
+          });
+        }
+      }
+
+      this.totalToolCalls += result.totalToolCalls;
+      this.totalIterations += result.totalIterations;
+
+      return result;
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * Get current agent stats
+   */
+  getStats(): { totalToolCalls: number; totalIterations: number; historyLength: number } {
+    return {
+      totalToolCalls: this.totalToolCalls,
+      totalIterations: this.totalIterations,
+      historyLength: this.history.length,
+    };
+  }
+
+  /**
+   * Reset the agent state
+   */
+  reset(): void {
+    this.history = [];
+    this.totalToolCalls = 0;
+    this.totalIterations = 0;
+  }
+
+  /**
+   * Check if agent is currently running
+   */
+  get running(): boolean {
+    return this.isRunning;
+  }
 }

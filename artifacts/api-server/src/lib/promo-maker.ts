@@ -144,7 +144,7 @@ export interface PromoJob {
   duration: number;
   targetDuration: number; // target duration for the final video
   style: "professional" | "energetic" | "minimal" | "cinematic";
-  status: "planning" | "recording" | "audio" | "encoding" | "optimizing" | "completed" | "failed";
+  status: "planning" | "audio" | "recording" | "encoding" | "optimizing" | "completed" | "failed";
   progress: number; // 0-100
   script?: PromoScript;
   videoPath?: string;
@@ -560,8 +560,10 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
   let currentStepIndex = 0;
   let startTime = Date.now();
 
+  const script = job.script!;
+
   // Handle screencast frames
-  client.on("Page.screencastFrame", async (frame) => {
+  client.on("Page.screencastFrame", async (frame: { data: string; sessionId: number }) => {
     const timestamp = Date.now() - startTime;
 
     // Save frame
@@ -574,7 +576,7 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
       stepIndex: currentStepIndex,
       cursorX: 0, // cursor is rendered in-page now
       cursorY: 0,
-      action: job.script!.steps[currentStepIndex]?.action || "idle",
+      action: script.steps[currentStepIndex]?.action || "idle",
     });
 
     frameCount++;
@@ -583,11 +585,11 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
 
   try {
     // Execute script steps with enhanced actions
-    for (let i = 0; i < job.script.steps.length; i++) {
+    for (let i = 0; i < script.steps.length; i++) {
       currentStepIndex = i;
-      const step = job.script.steps[i];
+      const step = script.steps[i];
 
-      updateJob(job.id, { progress: 30 + Math.floor((i / job.script.steps.length) * 40) });
+      updateJob(job.id, { progress: 30 + Math.floor((i / script.steps.length) * 40) });
 
       switch (step.action) {
         case "navigate": {
@@ -700,7 +702,7 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
           const direction = step.direction || "down";
           const distance = step.distance || 500;
           // Smooth scroll with cursor following
-          await page.evaluate((d) => {
+          await page.evaluate((d: number) => {
             window.scrollBy({ top: d, behavior: 'smooth' });
           }, direction === "down" ? distance : -distance);
           await sleep(step.delay || 1200);
@@ -768,7 +770,7 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
             if (element && box) {
               // Apply zoom transform to page
               const scale = step.distance || 1.5;
-              await page.evaluate(([x, y, s]) => {
+              await page.evaluate(([x, y, s]: [number, number, number]) => {
                 document.body.style.transformOrigin = `${x}px ${y}px`;
                 document.body.style.transition = 'transform 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 document.body.style.transform = `scale(${s}) translate(${-x * (s - 1)}px, ${-y * (s - 1)}px)`;
@@ -814,7 +816,7 @@ async function recordFramesSequential(job: PromoJob, puppeteerDefault: any, fram
               const startY = box.y + box.height / 2;
               const endX = startX + (step.distance || 300);
               const endY = startY;
-              await page.evaluate(([sx, sy, ex, ey]) => {
+              await page.evaluate(([sx, sy, ex, ey]: [number, number, number, number]) => {
                 document.body.style.transformOrigin = `${sx}px ${sy}px`;
                 document.body.style.transition = 'transform 1200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 document.body.style.transform = `translate(${sx - ex}px, ${sy - ey}px) scale(1.2)`;
@@ -1081,7 +1083,7 @@ async function executeStep(page: any, step: PromoScriptStep, job: PromoJob, step
     case "scroll": {
       const direction = step.direction || "down";
       const distance = step.distance || 500;
-      await page.evaluate((d) => {
+      await page.evaluate((d: number) => {
         window.scrollBy({ top: d, behavior: 'smooth' });
       }, direction === "down" ? distance : -distance);
       await sleep(step.delay || 1200);
@@ -1147,7 +1149,7 @@ async function executeStep(page: any, step: PromoScriptStep, job: PromoJob, step
 
         if (element && box) {
           const scale = step.distance || 1.5;
-          await page.evaluate(([x, y, s]) => {
+          await page.evaluate(([x, y, s]: [number, number, number]) => {
             document.body.style.transformOrigin = `${x}px ${y}px`;
             document.body.style.transition = 'transform 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             document.body.style.transform = `scale(${s}) translate(${-x * (s - 1)}px, ${-y * (s - 1)}px)`;
@@ -1191,7 +1193,7 @@ async function executeStep(page: any, step: PromoScriptStep, job: PromoJob, step
           const startY = box.y + box.height / 2;
           const endX = startX + (step.distance || 300);
           const endY = startY;
-          await page.evaluate(([sx, sy, ex, ey]) => {
+          await page.evaluate(([sx, sy, ex, ey]: [number, number, number, number]) => {
             document.body.style.transformOrigin = `${sx}px ${sy}px`;
             document.body.style.transition = 'transform 1200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             document.body.style.transform = `translate(${sx - ex}px, ${sy - ey}px) scale(1.2)`;
@@ -2669,7 +2671,7 @@ export async function createPromoVideo(
   job.metadata = { ...job.metadata, maxRetries, currentRetry: 0 };
 
   const executePhase = async <T>(
-    phaseName: string,
+    phaseName: "planning" | "audio" | "recording" | "encoding" | "optimizing" | "completed" | "failed",
     phaseFn: () => Promise<T>,
     progressStart: number,
     progressEnd: number,
@@ -2730,7 +2732,7 @@ export async function createPromoVideo(
 
     // Phase 3: Assemble video with audio
     if (resumeFromStep <= 2) {
-      await executePhase("assembling", () => assembleVideo(job, frames!), 70, 90, 2);
+      await executePhase("encoding", () => assembleVideo(job, frames!), 70, 90, 2);
     }
 
     // Phase 4: Optimize speed
