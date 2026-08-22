@@ -196,3 +196,216 @@ loop:
 1. **Phase 22** — Universal Tool Layer — Capability Integration
 2. **Phase 23** — Universal Tool Layer — Agent Loop & UX
 3. **Phase 24** — Universal Tool Layer — Resilience & Persistence
+4. **Phase 25** — Orchestration Engine (pipeline, parallel, adversarialVerify, judgePanel)
+5. **Phase 26** — Specialized Subagents (code-reviewer, planner, researcher with schemas)
+6. **Phase 27** — Virtual Worktrees + Parallel Agent Execution
+7. **Phase 28** — Local Terminal Bridge (node-pty WebSocket)
+8. **Phase 29** — MCP Client + Ecosystem Integration
+9. **Phase 30** — VS Code Extension (Infinity Build Panel)
+
+---
+
+## 📦 Phase 25: Orchestration Engine (Claude Code Parity)
+
+### Goal
+Implement the core orchestration primitives that make Claude Code's multi-agent workflows possible — **entirely in-browser, $0 cost**, using prompt engineering + existing chat API.
+
+### Requirements
+- [ ] **pipeline(items, ...stages)** — concurrent, no barrier between stages (item A in stage 3 while B in stage 1)
+- [ ] **parallel(thunks)** — barrier: all complete before returning
+- [ ] **adversarialVerify(claim, votes=3)** — spawn N independent "skeptic" prompts, default to REFUTE, kill claim if majority refute
+- [ ] **judgePanel(task, approaches[], judges[])** — generate N attempts → score with M distinct lenses → synthesize winner + best ideas
+- [ ] **loopUntilDry(finders[], maxRounds=5)** — keep spawning finders until K consecutive rounds return nothing new
+- [ ] **multiModalSweep(searchAngles[])** — parallel agents each searching different way (by-container, by-content, by-entity, by-time)
+- [ ] **completenessCritic(findings[])** — final agent asks "what's missing?" → becomes next round of work
+- [ ] **Quality patterns as reusable functions** — no silent caps, log what was dropped
+
+### Implementation Plan
+1. **Create `artifacts/api-server/src/lib/orchestration-engine.ts`** — pure TypeScript, no external deps
+2. **Export primitives**: `pipeline`, `parallel`, `adversarialVerify`, `judgePanel`, `loopUntilDry`, `multiModalSweep`, `completenessCritic`
+3. **Wire into Build Mode** — replace auto-fix with `adversarialVerify(diff, 3)` → if fails, spawn planner for better fix
+4. **Wire into Universal Agent (Phase 23)** — orchestrate multi-tool chains with quality gates
+5. **Add to tool registry** — `orchestration.pipeline`, `orchestration.parallel`, `orchestration.verify`, `orchestration.judge`
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/orchestration-engine.ts` (new)
+- `artifacts/api-server/src/lib/build-orchestrator.ts` (integrate adversarialVerify in verification loop)
+- `artifacts/api-server/src/lib/universal-agent.ts` (integrate pipeline/parallel for multi-tool chains)
+- `artifacts/api-server/src/lib/tool-registry.ts` (register orchestration tools)
+
+---
+
+## 📦 Phase 26: Specialized Subagents with Schemas
+
+### Goal
+Define **structured-output subagents** with JSON schemas — like Claude Code's `code-reviewer`, `planner`, `researcher` — that can be spawned by the orchestration engine.
+
+### Requirements
+- [ ] **Subagent Registry** — `artifacts/api-server/src/lib/subagents.ts` with:
+  - `code-reviewer`: finds bugs, security, perf — adversarial, defaults to "broken unless proven"
+  - `planner`: decomposes tasks → minimal verifiable steps + risk identification
+  - `researcher`: browse → extract → cite — every claim needs source URL
+  - `fixer`: targeted repairs with verification
+  - `synthesizer`: merges multiple perspectives into coherent output
+- [ ] **Structured Output** — each subagent has Zod schema, validated at tool-call layer (retries on mismatch)
+- [ ] **Model/Effort Override** — per-subagent model tier (Lite/High/Max) and reasoning effort
+- [ ] **Spawn from Orchestration Engine** — `orchestration.spawn(agentType, prompt, schema)`
+- [ ] **Perspective-Diverse Verify** — same finding judged by 3 distinct lenses (correctness, security, perf, reproducibility)
+
+### Implementation Plan
+1. **Define schemas** in `subagents.ts` using Zod (already in deps)
+2. **Create system prompts** optimized for each role
+3. **Add `spawnSubagent` to orchestration-engine.ts** — calls chat API with schema enforcement
+4. **Wire adversarialVerify to use `code-reviewer` × 3** with different seeds
+5. **Wire judgePanel to use `planner` × N + `synthesizer`**
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/subagents.ts` (new)
+- `artifacts/api-server/src/lib/orchestration-engine.ts` (add spawnSubagent)
+- `artifacts/api-server/src/lib/orchestration-engine.ts` (adversarialVerify → 3× code-reviewer)
+
+---
+
+## 📦 Phase 27: Virtual Worktrees + Parallel Agent Execution
+
+### Goal
+**Isolated filesystem per agent** — enables true parallel execution without conflicts. Browser-native using IndexedDB + OPFS (Origin Private File System).
+
+### Requirements
+- [ ] **Virtual Worktree Manager** — `artifacts/api-server/src/lib/virtual-worktree.ts`:
+  - `createWorktree(baseCommit)` → isolated FS snapshot (IndexedDB + OPFS)
+  - `applyPatch(worktreeId, diff)` → apply changes, return new state
+  - `getDiff(worktreeId, baseCommit)` → unified diff
+  - `mergeWorktrees(target, sources[])` — three-way merge, conflict detection
+  - `listWorktrees()` / `deleteWorktree(id)`
+- [ ] **Parallel Agent Runner** — `artifacts/api-server/src/lib/parallel-agents.ts`:
+  - Spawn N agents each with own worktree
+  - Shared context via `BroadcastChannel` (read-only file map, decisions)
+  - Results collected via `Promise.allSettled`
+  - Auto-cleanup on completion/error
+- [ ] **Integration** — Build Mode: each coder agent gets own worktree; reviewer sees merged diff
+- [ ] **Fallback** — if OPFS unavailable, use IndexedDB-only virtual FS
+
+### Implementation Plan
+1. **Virtual FS Layer** — wrapper over `navigator.storage.getDirectory()` (OPFS) + IndexedDB fallback
+2. **Git-like Operations** — diff/patch using `diff` npm package (already in deps), three-way merge
+3. **Agent Isolation** — each agent gets `worktreeId` in `ToolExecutionContext`, all file ops scoped
+4. **Build Orchestrator Integration** — `parallelGroups` → each group gets fresh worktree from base
+5. **Debug UI** — show worktree status, diffs, conflicts in Build Debug panel
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/virtual-worktree.ts` (new)
+- `artifacts/api-server/src/lib/parallel-agents.ts` (new)
+- `artifacts/api-server/src/lib/build-orchestrator.ts` (integrate worktrees for parallel coders)
+- `artifacts/jarvis/src/components/debug/` (worktree visualization panel)
+
+---
+
+## 📦 Phase 28: Local Terminal Bridge (node-pty WebSocket)
+
+### Goal
+**Real terminal in browser** — WebSocket bridge to `node-pty` running locally. User runs `npx infinity-terminal-bridge` once, gets full shell, git, npm, MCP servers.
+
+### Requirements
+- [ ] **Bridge Server** — `artifacts/terminal-bridge/` (new package):
+  - `node-pty` spawns `bash`/`zsh`/`fish` with inherited env
+  - WebSocket server on `ws://localhost:3001` (configurable)
+  - Auth: shared secret from `.infinity/bridge-secret` (generated on first run)
+  - Handles multiple sessions (tabs) via session ID
+  - Forwards stdin/stdout/stderr, resize, signals
+- [ ] **Frontend Terminal** — extend existing `xterm.js` in BuildView:
+  - Connect to `ws://localhost:3001?session=<id>&secret=<secret>`
+  - Reconnect on disconnect, buffer replay
+  - Multiple terminals (tabs) per build
+- [ ] **MCP Server Bridge** — same WebSocket exposes MCP stdio transport:
+  - Filesystem MCP → bridge → local filesystem
+  - Git MCP → bridge → local git
+  - SQLite MCP → bridge → local DB
+  - Any stdio MCP server works
+- [ ] **Zero Config** — `npx infinity-terminal-bridge` auto-generates secret, prints connection URL
+- [ ] **Security** — secret rotation, IP allowlist (localhost only), command allowlist optional
+
+### Implementation Plan
+1. **Create `artifacts/terminal-bridge/`** — minimal Node.js + `ws` + `node-pty`
+2. **Publish to npm** as `infinity-terminal-bridge` (free, public)
+3. **Frontend** — `useTerminalBridge` hook in `BuildView`, auto-connect
+4. **MCP Integration** — stdio-over-WebSocket adapter in `tool-registry.ts`
+5. **Docs** — `TERMINAL_BRIDGE.md` with setup instructions
+
+### Files to Create/Modify
+- `artifacts/terminal-bridge/` (new directory — package.json, src/index.ts, bin/bridge.ts)
+- `artifacts/jarvis/src/hooks/useTerminalBridge.ts` (new)
+- `artifacts/jarvis/src/components/views/BuildView.tsx` (integrate bridge terminal)
+- `artifacts/api-server/src/lib/tool-registry.ts` (MCP-over-bridge tools)
+
+---
+
+## 📦 Phase 29: MCP Client + Ecosystem Integration
+
+### Goal
+**Browser-native MCP client** — connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Infinity becomes an MCP *client*, not just a server.
+
+### Requirements
+- [ ] **MCP Client** — `artifacts/api-server/src/lib/mcp-client.ts`:
+  - Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket
+  - `connect(config)` → discovers tools/resources/prompts
+  - `callTool(name, args)` → typed invocation with timeout/retry
+  - `listTools()` / `listResources()` / `readResource(uri)`
+  - Session management (reconnect, capability negotiation)
+- [ ] **Registry Integration** — MCP tools auto-registered in Universal Tool Registry with `mcp.` namespace
+- [ ] **Built-in Server Configs** — one-click connect to:
+  - `filesystem` (via terminal bridge)
+  - `github` (OAuth + PAT)
+  - `postgres` / `sqlite` / `mysql`
+  - `slack` / `discord` / `notion` / `linear` / `jira`
+  - `brave-search` / `fetch` / `puppeteer`
+- [ ] **Project-Scoped Connections** — each project has its own MCP server configs (encrypted secrets)
+- [ ] **UI** — MCP Servers tab in Project Settings: add/remove/test/configure
+
+### Implementation Plan
+1. **MCP Client Library** — TypeScript implementation of MCP spec (modelcontextprotocol/sdk types)
+2. **Transport Adapters** — stdio-over-bridge, HTTP, SSE, WebSocket
+3. **Tool Registry Bridge** — `MCPToolAdapter` wraps MCP tool → `UniversalToolDefinition`
+4. **Project Settings UI** — `MCPConfigPanel.tsx` in SettingsView
+5. **Secrets Management** — encrypt MCP credentials with project-scoped key
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/mcp-client.ts` (new)
+- `artifacts/api-server/src/lib/mcp-registry.ts` (new — auto-register discovered tools)
+- `artifacts/jarvis/src/components/views/SettingsView.tsx` (MCP servers tab)
+- `artifacts/api-server/src/routes/jarvis/mcp-servers.ts` (new — CRUD for project MCP configs)
+
+---
+
+## 📦 Phase 30: VS Code Extension (Infinity Build Panel)
+
+### Goal
+**Free VS Code Extension** — "Infinity Build" on Marketplace. Sidebar panel with build control, inline diffs, diagnostics, "Send to Infinity" context menu.
+
+### Requirements
+- [ ] **Extension Host** — `artifacts/vscode-extension/`:
+  - Activates on `infinity.build` command or sidebar click
+  - Webview panel loads Infinity Build (localhost or deployed)
+  - `vscode.workspace.fs` ↔ Infinity workspace sync (bidirectional)
+- [ ] **Features**:
+  - **Build Panel** — start/stop build, view plan, diffs, logs, terminal
+  - **Inline Diffs** — `vscode.languages.registerInlineEditProvider` for build-studio changes
+  - **Diagnostics** — `getDiagnostics` MCP → VS Code Problems panel
+  - **Send to Infinity** — right-click file/folder → "Send to Infinity Build" (opens chat with context)
+  - **File Sync** — changes in VS Code → Infinity workspace, vice versa
+  - **Terminal Bridge** — "Open in Infinity Terminal" → connects to local bridge
+- [ ] **Authentication** — VS Code secrets API for API key storage
+- [ ] **Free Publish** — VS Code Marketplace (no cost)
+- [ ] **Auto-Update** — GitHub Releases + `@vscode/extension-auto-update`
+
+### Implementation Plan
+1. **Scaffold Extension** — `yo code` → TypeScript + Webview
+2. **Webview Communication** — `postMessage` API for build control, file sync
+3. **File System Provider** — optional: mount Infinity workspace as virtual FS
+4. **Diagnostics Pipeline** — MCP `diagnostics` tool → VS Code markers
+5. **Marketplace Publish** — `vsce package` → `vsce publish` (free)
+
+### Files to Create/Modify
+- `artifacts/vscode-extension/` (new — full extension)
+- `artifacts/api-server/src/lib/mcp-tools/diagnostics.ts` (MCP tool for diagnostics)
+- `artifacts/jarvis/src/components/views/BuildView.tsx` (extension messaging API)
