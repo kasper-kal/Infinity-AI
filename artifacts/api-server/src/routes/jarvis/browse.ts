@@ -1,6 +1,7 @@
 import { Router } from "express";
 import OpenAI from "openai";
-import { JarvisBrowser, type InteractiveElement } from "../../lib/puppeteer-browser";
+import { JarvisBrowser, type InteractiveElement, type BrowseAction } from "../../lib/puppeteer-browser";
+import { getBrowserPool, type BrowserSlot } from "../../lib/browser-pool";
 import { jarvisConfig } from "../../config/jarvis";
 import * as cheerio from "cheerio";
 import { buildErrorDetail } from "../../lib/error-detail";
@@ -12,52 +13,65 @@ import { LLMAdapter, LLMAdapterError, LLMContentPart } from "../../lib/llm-adapt
 
 const router = Router();
 
-/** Global browser instance, shared across all browse requests */
-let browserInstance: JarvisBrowser | null = null;
-let browserInitializing = false;
+/** Browser pool instance, shared across all browse requests */
+let browserPool: ReturnType<typeof getBrowserPool> | null = null;
 
 /** Agent pause control, set by POST /browse/pause (or auto on manual takeover). */
 let agentPaused = false;
 
-/**
- * Pages the autonomous agent must never act on: account settings, security,
- * email/compose, payments, checkout. If the loop lands here it hands control
- * back to the human instead of clicking around.
- */
-const SENSITIVE_URL_RE =
-  /\b(accounts?\.google\.com|myaccount\.google\.com|pay\.google\.com|play\.google\.com|(mail|calendar)\.google\.com|accounts\.microsoft\.com|id\.apple\.com|login\.live\.com|(?:www\.)?paypal\.com|checkout\.|billing\.|signin\.)/i;
+/** Active browser slot for the agent loop (acquired from pool). */
+let activeBrowserSlot: BrowserSlot | null = null;
 
 /**
- * Get or create the shared browser instance.
+ * Get or create the shared browser pool.
  * Lazy-initialized on first request.
  */
-async function getBrowser(): Promise<JarvisBrowser> {
-  if (!browserInstance && !browserInitializing) {
-    browserInitializing = true;
-    try {
-      browserInstance = new JarvisBrowser();
-      await browserInstance.launch();
-    } catch (err) {
-      browserInstance = null;
-      console.error("[Jarvis Browser] Launch failed:", err);
-      throw err;
-    } finally {
-      browserInitializing = false;
-    }
-  } else if (browserInitializing) {
-    // Wait for initialization to complete
-    await new Promise<void>((resolve) => {
-      const check = () => {
-        if (browserInstance && !browserInitializing) {
-          resolve();
-        } else {
-          setTimeout(check, 200);
-        }
-      };
-      check();
-    });
+async function getBrowserPoolInstance(): Promise<ReturnType<typeof getBrowserPool>> {
+  if (!browserPool) {
+    browserPool = getBrowserPool();
+    await browserPool.initialize();
   }
-  return browserInstance!;
+  return browserPool;
+}
+
+/**
+ * Acquire a browser from the pool for the agent loop.
+ * Returns the browser slot and ensures it's ready.
+ */
+async function acquireBrowserForAgent(): Promise<BrowserSlot> {
+  const pool = await getBrowserPoolInstance();
+
+  if (activeBrowserSlot) {
+    // Check if existing slot is still valid
+    if (activeBrowserSlot.state === "busy" && activeBrowserSlot.browser) {
+      return activeBrowserSlot;
+    }
+    // Release stale slot
+    pool.release(activeBrowserSlot.id);
+    activeBrowserSlot = null;
+  }
+
+  const slot = await pool.acquire("agent-loop");
+  activeBrowserSlot = slot;
+  return slot;
+}
+
+/**
+ * Get the browser instance for the active agent slot.
+ */
+async function getAgentBrowser(): Promise<JarvisBrowser> {
+  const slot = await acquireBrowserForAgent();
+  return slot.browser;
+}
+
+/**
+ * Release the active browser slot back to the pool.
+ */
+function releaseAgentBrowser(): void {
+  if (activeBrowserSlot && browserPool) {
+    browserPool.release(activeBrowserSlot.id);
+    activeBrowserSlot = null;
+  }
 }
 
 // ── Static HTML fetch (original lightweight approach) ──
@@ -154,7 +168,7 @@ router.post("/fetch", async (req, res) => {
  * Execute an action in Jarvis's personal browser.
  * The user can see the browser in real-time via WebSocket screenshots.
  *
- * Body: { action: string, payload?: any }
+ * Body: { action: string, payload?: any, skipPolicyCheck?: boolean }
  *
  * Actions:
  * - navigate: Go to a URL
@@ -167,15 +181,20 @@ router.post("/fetch", async (req, res) => {
  * - forward: Go forward in history
  * - status: Get current browser state (URL, title, etc.)
  * - content: Get page text content
+ *
+ * skipPolicyCheck: true bypasses browser safety policy (for human takeovers)
  */
 router.post("/action", async (req, res) => {
   const startMs = Date.now();
   try {
-    const browser = await getBrowser();
+    const browser = await getAgentBrowser();
+    const pool = await getBrowserPoolInstance();
+    const slot = activeBrowserSlot!;
 
-    const { action, payload } = req.body as {
+    const { action, payload, skipPolicyCheck } = req.body as {
       action?: string;
       payload?: any;
+      skipPolicyCheck?: boolean;
     };
 
     if (!action || typeof action !== "string") {
@@ -183,23 +202,35 @@ router.post("/action", async (req, res) => {
       return;
     }
 
+    // Validate action type
+    const validActions = ["navigate", "click", "type", "enter", "scroll", "screenshot", "back", "forward", "close"] as const;
+    if (!validActions.includes(action as typeof validActions[number])) {
+      res.status(400).json({ error: `Invalid action: ${action}` });
+      return;
+    }
+
     // Manual takeover: if an agent run is active, a manual action pauses it
     // so the loop stops stepping and the human keeps control.
     agentPaused = true;
 
-    const result = await browser.executeAction({ action, payload } as any);
+    const browseAction: BrowseAction = { action: action as BrowseAction["action"], payload };
+    const result = await pool.executeAction(slot.id, browseAction, {
+      skipPolicyCheck: skipPolicyCheck === true,
+    });
 
     if (result.success) {
       res.json({
         success: true,
         data: result.data,
         browserState: browser.getState(),
+        policyCheck: result.policyCheck,
       });
     } else {
       res.json({
         success: false,
         error: result.error,
         browserState: browser.getState(),
+        policyCheck: result.policyCheck,
       });
     }
   } catch (err) {
@@ -217,11 +248,11 @@ router.post("/action", async (req, res) => {
 router.get("/status", async (_req, res) => {
   const startMs = Date.now();
   try {
-    if (!browserInstance) {
+    if (!activeBrowserSlot) {
       res.json({ running: false });
       return;
     }
-    res.json({ running: true, state: browserInstance.getState() });
+    res.json({ running: true, state: activeBrowserSlot.browser.getState() });
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));
     const detail = buildErrorDetail(e, _req as any, 500, startMs);
@@ -476,7 +507,7 @@ router.post("/agent-run", async (req, res) => {
 
   let browser: JarvisBrowser;
   try {
-    browser = await getBrowser();
+    browser = await getAgentBrowser();
   } catch (err) {
     send({ type: "error", message: (err as Error).message });
     send({ type: "done", summary: "The browser could not be started.", steps: 0 });
@@ -498,7 +529,9 @@ router.post("/agent-run", async (req, res) => {
   // Optional head start: navigate first so the LLM sees a real page.
   if (initialUrl && typeof initialUrl === "string") {
     try {
-      await browser.navigate(initialUrl);
+      const pool = await getBrowserPoolInstance();
+      const slot = activeBrowserSlot!;
+      await pool.navigate(slot.id, initialUrl, { skipPolicyCheck: true });
     } catch {
       // Non-fatal, the LLM can still decide to navigate itself.
     }
@@ -579,17 +612,22 @@ router.post("/agent-run", async (req, res) => {
       continue; // re-look at the (now captcha-free) page next iteration
     }
 
-    // Sensitive page, hand control back to the human instead of letting the
-    // agent click around account/settings/email/payment pages.
-    if (state.url && SENSITIVE_URL_RE.test(state.url)) {
-      agentPaused = true;
-      send({ type: "paused", reason: "Jarvis reached a sensitive page (account/settings/email/payment). You have control." });
-      send({ type: "step", step, maxSteps: stepsLimit, action: "paused", reason: "This looks like an account, settings, email, or payment page. Take over manually, or press Resume to let Jarvis continue." });
-      while (agentPaused && !aborted.value) {
-        await sleep(500);
+    // Browser safety policy check - use the policy engine instead of regex
+    // This leverages the new comprehensive browser-policy.ts system
+    if (state.url) {
+      const pool = await getBrowserPoolInstance();
+      const slot = activeBrowserSlot!;
+      const policyCheck = await pool.checkActionPolicy(slot.id, { action: "navigate", payload: state.url });
+      if (!policyCheck.allowed || policyCheck.requiresHumanConfirmation) {
+        agentPaused = true;
+        send({ type: "paused", reason: `Jarvis reached a sensitive page blocked by browser safety policy: ${policyCheck.reason}` });
+        send({ type: "step", step, maxSteps: stepsLimit, action: "paused", reason: `This page requires human confirmation (${policyCheck.decision}). Take over manually, or press Resume to let Jarvis continue.` });
+        while (agentPaused && !aborted.value) {
+          await sleep(500);
+        }
+        if (!aborted.value) send({ type: "resumed" });
+        continue;
       }
-      if (!aborted.value) send({ type: "resumed" });
-      continue;
     }
 
     // 2. Think, ask the vision LLM for the next action, retrying on bad JSON.
@@ -696,7 +734,44 @@ router.post("/agent-run", async (req, res) => {
     }
 
     try {
-      const result = await executeAgentAction(browser, decision, grid);
+      const pool = await getBrowserPoolInstance();
+      const slot = activeBrowserSlot!;
+
+      // Translate agent decision to browse action
+      let browseAction: BrowseAction;
+      switch (decision.action) {
+        case "click_element": {
+          browseAction = { action: "click", payload: { selector: `[data-jarvis-idx="${decision.index}"]` } };
+          break;
+        }
+        case "click": {
+          const px = decision.x! * grid.cellSize - grid.cellSize / 2;
+          const py = decision.y! * grid.cellSize - grid.cellSize / 2;
+          browseAction = { action: "click", payload: { x: px, y: py } };
+          break;
+        }
+        case "type": {
+          browseAction = { action: "type", payload: { text: decision.text ?? "" } };
+          break;
+        }
+        case "navigate": {
+          browseAction = { action: "navigate", payload: decision.url };
+          break;
+        }
+        case "scroll": {
+          browseAction = { action: "scroll", payload: { dx: 0, dy: decision.dy ?? 500 } };
+          break;
+        }
+        default:
+          throw new Error(`Unsupported action: ${decision.action}`);
+      }
+
+      // For agent-run, we use skipPolicyCheck: true since the LLM is making the decisions
+      // The human can always pause/take over if they see something concerning
+      const result = await pool.executeAction(slot.id, browseAction, {
+        skipPolicyCheck: true,
+        context: { userInitiated: false },
+      });
       send({
         type: "action",
         step,
@@ -704,6 +779,7 @@ router.post("/agent-run", async (req, res) => {
         success: result.success,
         error: result.error,
         url: browser.getState().url,
+        policyCheck: result.policyCheck,
       });
       if (!result.success) {
         send({ type: "error", message: `Action failed: ${result.error}` });
@@ -741,16 +817,16 @@ router.post("/agent-run", async (req, res) => {
 });
 
 /**
- * Eagerly start the shared browser at API server startup so its WebSocket
- * server is already listening when the frontend connects.
+ * Eagerly start the browser pool at API server startup so its WebSocket
+ * servers are already listening when the frontend connects.
  * Best-effort: failures are logged but never crash the API server.
  */
 export async function ensureBrowserStarted(): Promise<void> {
   try {
-    await getBrowser();
+    await getBrowserPoolInstance();
   } catch (err) {
     console.error(
-      "[Jarvis Browser] Eager start failed, will retry on first action:",
+      "[Jarvis Browser Pool] Eager start failed, will retry on first action:",
       err,
     );
   }
