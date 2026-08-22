@@ -384,10 +384,11 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 - [x] **Component Library** — Button, Input, Select, Dialog, Tooltip, Toast, Table, Tree, Tabs, CodeMirror wrapper, Terminal, Diff View, Markdown Renderer (10 base components done)
 - [x] **Layout Primitives** — AppShell, Sidebar, Panel, Canvas, ResponsiveGrid (5 components done)
 - [x] **Feature Views** — ChatDemo page at `/demo/chat` with side menu + widget states, WidgetShowcase page at `/demo/widgets` with all 18 widget types
-- [ ] **Chat Interface** — message bubbles, streaming, code blocks, artifacts, citations
-- [ ] **Build Studio** — plan view, diff modal, transcript, debug panel, browser preview
-- [ ] **Projects Dashboard** — grid/list, search, activity feed, settings
-- [ ] **Settings** — unified, searchable, categorized
+- [x] **Build View** — Mobile: BottomNav (terminal/history/tools) + SheetModals (history, tools); Desktop: AppShell with sidebar tabs + right sidebar debug
+- [x] **Chat View** — Mobile: full-screen feed with bottom composer + sheet sidebar; Desktop: AppShell with sidebar conversations + right panel
+- [x] **Terminal View** — Mobile: BottomNav + SheetModal for history; Desktop: AppShell + sidebar history/tools
+- [x] **Settings View** — Mobile: BottomNav for 5 sections; Desktop: AppShell + sidebar sections
+- [x] **Projects View** — Mobile: BottomNav + SheetModal for filter; Desktop: AppShell + sidebar list + gallery grid
 - [ ] **Mobile Experience** — sheet modals, bottom nav, swipe gestures, touch targets
 - [ ] **Desktop Experience** — sidebar nav, keyboard shortcuts, hover states, density controls
 
@@ -395,7 +396,7 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 1. **Design tokens** — `artifacts/jarvis/src/styles/tokens.css` (colors, spacing, typography, shadows, radius, transitions) ✅
 2. **Base components** — `artifacts/jarvis/src/components/ui/` (shadcn-style but custom) ✅
 3. **Layout primitives** — `AppShell`, `Sidebar`, `Panel`, `Canvas`, `ResponsiveGrid` ✅
-4. **Feature views** — `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects
+4. **Feature views** — `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects ✅ **ALL 5 COMPLETE WITH MOBILE + DESKTOP**
 5. **Theme provider** — CSS variables + React context, persistence
 6. **Icon system** — Lucide or custom SVG, consistent sizing
 7. **Animation system** — Framer Motion or CSS, reduced-motion respect
@@ -411,7 +412,7 @@ Complete UI overhaul — "Jarvis looks horrible on mobile and horrible overall."
 - `artifacts/jarvis/src/styles/` — tokens, globals, themes
 - `artifacts/jarvis/src/components/ui/` — 30+ base components
 - `artifacts/jarvis/src/components/layout/` — shell, sidebar, panels
-- `artifacts/jarvis/src/components/views/` — feature views (BuildView, ChatView, TerminalView, SettingsView, ProjectsView) with BOTH desktop and mobile variants
+- `artifacts/jarvis/src/components/views/` — feature views (BuildView, ChatView, TerminalView, SettingsView, ProjectsView) with BOTH desktop and mobile variants ✅ **ALL DONE**
 - `artifacts/jarvis/src/components/mobile/` — mobile-specific: BottomNav, SheetModal, SwipeGesture, PullToRefresh, TouchTargets
 - Every feature view — dual implementation (desktop sidebar + mobile sheets/bottom nav)
 

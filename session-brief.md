@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-22 06:55
+LAST_UPDATED: 2026-08-22 07:45
 
 ## Just did (last action)
+- **Phase 14: Responsive UI Redesign — BuildView Mobile Variant COMPLETE** — Added full mobile implementation to `artifacts/jarvis/src/components/views/BuildView.tsx` (the last view missing mobile support). Mobile variant (lines 106-307) includes:
+  - Mobile header with back button, title, theme toggle, history button
+  - Tab content area switching between terminal, history, and tools
+  - Terminal command input bar with IconButton for send
+  - BottomNav with 3 tabs (terminal, history, tools) with appropriate icons
+  - History SheetModal showing commandHistory with tap-to-reuse in terminal
+  - Tools SheetModal with navigation to plan/terminal tabs
+  - Follows exact patterns from TerminalView.tsx and ProjectsView.tsx
+  - Desktop variant unchanged (lines 310-533) with AppShell + sidebar tabs
+  - Typecheck + build pass ✅
 - **Security fix #4: Build Isolation Security Audit (HIGH) — COMPLETE** — Created `artifacts/api-server/src/lib/build-sandbox.ts` (300+ lines) with command validation (allowlist/denylist patterns), environment sanitization (secret redaction), workspace boundary enforcement (prevents directory traversal), and sandboxed execution. Updated `artifacts/api-server/src/lib/workspace.ts` to use `runInSandbox` for both `runTerminalCommand` and `startInteractiveTerminal`, adding command validation, secret filtering, and path boundary checks. Typecheck + build pass ✅
 - **Security fix #3: Build Mode Terminal Route Authentication (CRITICAL) — COMPLETE** — Added authenticated `/build/terminal`, `/build/terminal/start`, `/build/terminal/stream`, `/build/terminal/stop`, `/build/terminal/reset` routes in `build.ts` with `requireAuth` + `requireScope("build:write")` + workspace ownership verification (`project.accountId === req.accountId`). Fixed TypeScript errors by casting `req` to `AuthenticatedRequest` in all 5 terminal route handlers. Typecheck + build pass ✅
 - **Security fix #2: Centralized Authentication Middleware (CRITICAL) — COMPLETE** — Created `artifacts/api-server/src/middleware/auth-middleware.ts` with `requireAuth`, `requireScope`, `optionalAuth` middleware. Applied globally in `app.ts` with public router for `/auth`, `/health`, `/extension`. Added `scopes` jsonb column to `accounts` table + `revokedAt` column + index to `sessions` table via `auto-migrate.ts`. All routes now automatically protected; duplicate `getAccountIdFromSession()` calls can be removed from individual routes. Typecheck + build pass ✅
@@ -529,14 +539,14 @@ LAST_UPDATED: 2026-08-22 06:55
    - Narrative script structure (hook → demo → CTA sections)
    - Per-segment variable speed optimization (LLM-driven)
    - Connect ProjectHomeCompany brand data (palette, fonts) through API to promo-maker
-3. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — DEMO PAGES COMPLETE: ChatDemo (`/demo/chat`) and WidgetShowcase (`/demo/widgets`) created with side menu + widget-1 through widget-18. Now: Create feature views in `artifacts/jarvis/src/components/views/` for Build, Chat, Terminal, Settings, Projects — each with BOTH desktop (sidebar nav, keyboard shortcuts) and mobile (bottom nav, sheet modals, swipe gestures) implementations. Treat them as different websites for the same goal.
-4. **Phase 17: Project Types System** — PLANNED: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo, Website: build mode/GitHub/Figma, Book: extends Book Studio)
-5. **Phase 19: Local Model Integration** — PLANNED: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration
-6. **Phase 20: Deep Research v2** — PLANNED: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations
-7. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control
-8. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode
-9. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates
-10. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
+2. **Phase 14: Responsive UI Redesign (Mobile + Desktop as Different Websites)** — **FEATURE VIEWS COMPLETE**: All 5 feature views (BuildView, ChatView, TerminalView, SettingsView, ProjectsView) now have BOTH desktop (AppShell + sidebar nav, keyboard shortcuts) and mobile (BottomNav + SheetModals, swipe gestures) implementations. BuildView mobile was the last missing piece — now complete. Next: Integrate feature views into main App router (replace home.tsx with routed feature views).
+3. **Phase 17: Project Types System** — **COMPLETE**: Book, Website, Company, App, Research, Course types with tailored UI/tools (Company: logo/slogan/promo + palette/font generators via Tavily API, Website: build mode/GitHub/Figma, Book: extends Book Studio) — all frontend + backend done, plugin system for custom types
+4. **Phase 19: Local Model Integration** — **COMPLETE**: Qwen2.5-1.5B-Instruct via Ollama for error fixing/explaining, chat fallback when keys cooling, build-agent integration, ErrorBoundary with "Fix with Local AI"
+5. **Phase 20: Deep Research v2** — **COMPLETE**: True 3-7 min deep research agent (ChatGPT/Gemini style), 20-50 sources, iterative plan→search→browse→extract→synthesize→gap analysis loop, structured report with citations, @DeepResearch trigger, Expert creation from research
+6. **Phase 10: Messaging Connectors** — Slack/Discord/Telegram bots for notifications & remote control (backend done, frontend pending)
+7. **Phase 12: SWE-Bench Optimization** — Reproduction-first, test-driven fixing mode (backend done)
+8. **Phase 13: Self-Evolving Code Capability** — Agent modifies own code with safety gates (backend done)
+9. **Chat/voice mode API key fallback logic** — **COMPLETE**: fail → retry button → if fail again → retry button → if clicked, try next API key (try same key once, then switch)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
