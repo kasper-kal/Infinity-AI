@@ -153,6 +153,7 @@ interface AgentBrowserConfirmationCardProps {
 }
 
 export function AgentBrowserConfirmationCard({ onConfirm, onCancel }: AgentBrowserConfirmationCardProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
