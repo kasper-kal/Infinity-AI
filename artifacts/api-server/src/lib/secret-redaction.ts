@@ -246,7 +246,7 @@ export function testRedaction(): { input: string; output: string }[] {
     "AWS Key: AKIAIOSFODNN7EXAMPLE",
     "Private key:\n-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQD...\n-----END PRIVATE KEY-----",
     "GitHub token: ghp_abcdefghijklmnopqrstuvwxyz1234567890",
-    "Slack token: xoxb-test-token-REDACTED-in-tests",
+    "Slack token: xoxb-fake-token-placeholder-for-testing",
     "Stripe key: sk_test_abcdefghijklmnopqrstuvwxyz",
     "Normal text without secrets",
     '{"apiKey": "sk-test12345678901234567890", "normal": "value"}',
