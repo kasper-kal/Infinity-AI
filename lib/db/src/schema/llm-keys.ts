@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, integer, boolean } from "drizzle-orm/pg-core";
+import { accounts } from "./accounts";
 
 /**
  * LLM key pool — one row per provider credential.
@@ -39,6 +40,8 @@ export const llmKeys = pgTable("llm_keys", {
   projectId: text("project_id"),
   /** Scopes/permissions for this key (for user-api keys) */
   scopes: text("scopes").array(),
+  /** Account ID that owns this user-api key (for authorization) */
+  accountId: uuid("account_id").references(() => accounts.id, { onDelete: "cascade" }),
 });
 
 export type LlmKey = typeof llmKeys.$inferSelect;

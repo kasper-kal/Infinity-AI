@@ -4,8 +4,6 @@ import { db, llmKeys, sessions, accounts } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { invalidateKeyPool } from "../../lib/llm-client";
 
-const router = Router();
-
 /**
  * Helper: Get accountId from session cookie
  */
@@ -28,6 +26,8 @@ async function getAccountIdFromSession(req: Request): Promise<string | null> {
 
   return session.accountId;
 }
+
+const router = Router();
 
 /**
  * POST /api/jarvis/api-keys
@@ -67,6 +67,7 @@ router.post("/api-keys", async (req: Request, res: Response) => {
         source: "user-api",
         projectId: projectId || "default",
         scopes: scopes || ["build:read", "build:write", "project:read"],
+        accountId,
       })
       .returning();
 
@@ -105,7 +106,7 @@ router.get("/api-keys", async (req: Request, res: Response) => {
     const keys = await db
       .select()
       .from(llmKeys)
-      .where(eq(llmKeys.source, "user-api"))
+      .where(and(eq(llmKeys.source, "user-api"), eq(llmKeys.accountId, accountId)))
       .orderBy(llmKeys.createdAt);
 
     // Mask the keys
@@ -139,7 +140,7 @@ router.put("/api-keys/:id", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
 
-    const [existing] = await db.select().from(llmKeys).where(eq(llmKeys.id, req.params.id as string));
+    const [existing] = await db.select().from(llmKeys).where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId)));
     if (!existing || existing.source !== "user-api") {
       return res.status(404).json({ success: false, error: "API key not found" });
     }
@@ -161,7 +162,7 @@ router.put("/api-keys/:id", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Nothing to update" });
     }
 
-    const [key] = await db.update(llmKeys).set(patch).where(eq(llmKeys.id, req.params.id as string)).returning();
+    const [key] = await db.update(llmKeys).set(patch).where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId))).returning();
     invalidateKeyPool();
 
     return res.json({
@@ -192,12 +193,12 @@ router.delete("/api-keys/:id", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
 
-    const [existing] = await db.select().from(llmKeys).where(eq(llmKeys.id, req.params.id as string));
+    const [existing] = await db.select().from(llmKeys).where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId)));
     if (!existing || existing.source !== "user-api") {
       return res.status(404).json({ success: false, error: "API key not found" });
     }
 
-    await db.delete(llmKeys).where(eq(llmKeys.id, req.params.id as string));
+    await db.delete(llmKeys).where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId)));
     invalidateKeyPool();
 
     return res.json({ success: true });
@@ -218,7 +219,7 @@ router.post("/api-keys/:id/regenerate", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
 
-    const [existing] = await db.select().from(llmKeys).where(eq(llmKeys.id, req.params.id as string));
+    const [existing] = await db.select().from(llmKeys).where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId)));
     if (!existing || existing.source !== "user-api") {
       return res.status(404).json({ success: false, error: "API key not found" });
     }
@@ -229,7 +230,7 @@ router.post("/api-keys/:id/regenerate", async (req: Request, res: Response) => {
     const [key] = await db
       .update(llmKeys)
       .set({ apiKey: newApiKey })
-      .where(eq(llmKeys.id, req.params.id as string))
+      .where(and(eq(llmKeys.id, req.params.id as string), eq(llmKeys.accountId, accountId)))
       .returning();
 
     invalidateKeyPool();
