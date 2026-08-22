@@ -48,7 +48,7 @@ interface AppOverlaysProps {
   onOpenResearch: () => void;
   onToggleWebSearch: () => void;
   onOpenSettings: () => void;
-  // Jarvis Build
+  // Infinity Build
   buildPanelOpen: boolean;
   onCloseBuild: () => void;
   buildFiles?: { path: string; type: 'file' | 'dir'; size: number }[];
@@ -58,7 +58,7 @@ interface AppOverlaysProps {
   /** "@Build <message>" shortcut: prefill + auto-run the build prompt. */
   buildInitialPrompt?: string | null;
   buildRunKey?: number;
-  /** Legacy Jarvis Build props kept for callers during the Studio migration. */
+  /** Legacy Infinity Build props kept for callers during the Studio migration. */
   buildTab?: string;
   setBuildTab?: (tab: string) => void;
   commandInput?: string;
@@ -152,7 +152,7 @@ export function AppOverlays(props: AppOverlaysProps) {
       <ExpertDialog open={props.expertDialogOpen} onClose={props.onCloseExpert} onCreated={props.onExpertCreated} />
 
       {/* ── Data Lab ── */}
-      <DataLab open={props.dataLabOpen} onClose={props.onCloseDataLab} onAskJarvis={props.onDataLabAsk} />
+      <DataLab open={props.dataLabOpen} onClose={props.onCloseDataLab} onAskInfinity={props.onDataLabAsk} />
 
       {/* ── Command Palette ── */}
       <CommandPalette

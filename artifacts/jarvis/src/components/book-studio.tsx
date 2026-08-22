@@ -509,7 +509,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
                           </span>
                         </div>
                         <p className="text-[10px] font-mono text-muted-foreground/40">
-                          {job.pageCount}p · {job.language} · {job.model ?? (job.apiKey ? 'BYO' : 'Jarvis key')}
+                          {job.pageCount}p · {job.language} · {job.model ?? (job.apiKey ? 'BYO' : 'Infinity key')}
                         </p>
 
                         {(job.status === 'queued' || job.status === 'running') && (

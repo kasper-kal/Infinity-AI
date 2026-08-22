@@ -36,7 +36,7 @@ export interface ChatMessage {
   pendingSourceCode?: { // "Use code for this answer?" confirmation
     userText: string;
   };
-  pendingBuildMode?: { // "Open Jarvis Build?" confirmation
+  pendingBuildMode?: { // "Open Infinity Build?" confirmation
     userText: string;
   };
   /** Thinking mode, private reasoning chain shown in a collapsible block. */
@@ -111,7 +111,7 @@ interface ConversationFeedProps {
   onDeepResearchExpert?: (conversationId: string) => void;
 }
 
-/** Collapsible "Thinking" block, shows Jarvis's private reasoning pass.
+/** Collapsible "Thinking" block, shows Infinity's private reasoning pass.
  *  Collapsed: a quiet row with a right-pointing chevron. Expanded: the chevron
  *  turns downward (⌄) and the reasoning text slides open. */
 function ThinkingBlock({ reasoning, label }: { reasoning: string; label: string }) {

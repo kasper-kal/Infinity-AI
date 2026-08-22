@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, Minimize2, Maximize2, X } from 'lucide-react';
-import { JarvisBrowser } from '@/components/jarvis-browser';
+import { InfinityBrowser } from '@/components/jarvis-browser';
 import { useI18n } from '@/lib/i18n';
 
 interface PipBrowserWindowProps {
@@ -12,7 +12,7 @@ interface PipBrowserWindowProps {
   onGoalHandled: () => void;
 }
 
-/** Draggable PiP floating window hosting the Jarvis agent browser. */
+/** Draggable PiP floating window hosting the Infinity agent browser. */
 export function PipBrowserWindow({ open, fullscreen, agentGoal, onToggleFullscreen, onClose, onGoalHandled }: PipBrowserWindowProps) {
   const { t } = useI18n();
   return (
@@ -44,7 +44,7 @@ export function PipBrowserWindow({ open, fullscreen, agentGoal, onToggleFullscre
             </div>
           </div>
           <div className="flex-1 min-h-0">
-            <JarvisBrowser
+            <InfinityBrowser
               className="h-full border-0 rounded-b-xl"
               autoRunGoal={agentGoal}
               onGoalHandled={onGoalHandled}

@@ -166,7 +166,7 @@ export function ChatComposer(props: ChatComposerProps) {
           </button>
         </div>
 
-        {/* Thinking mode toggle, Jarvis streams his reasoning before answering */}
+        {/* Thinking mode toggle, Infinity streams its reasoning before answering */}
         <button
           onClick={onToggleThinking}
           disabled={isBusy}
@@ -183,7 +183,7 @@ export function ChatComposer(props: ChatComposerProps) {
           />
         </button>
 
-        {/* Agent mode toggle, Jarvis researches with live web search */}
+        {/* Agent mode toggle, Infinity researches with live web search */}
         <button
           onClick={onToggleAgentMode}
           disabled={isBusy}

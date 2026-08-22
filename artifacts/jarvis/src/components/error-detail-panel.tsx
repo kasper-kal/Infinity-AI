@@ -261,7 +261,7 @@ function buildFullTextReport(detail: ErrorDetail): string {
   };
 
   L.push('══════════════════════════════════════════');
-  L.push('  JARVIS ERROR REPORT, EVERYTHING KNOWN');
+  L.push('  INFINITY ERROR REPORT, EVERYTHING KNOWN');
   L.push('══════════════════════════════════════════');
   L.push('');
 

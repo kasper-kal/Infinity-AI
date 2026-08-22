@@ -480,7 +480,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
         popup?.close();
         toast({
           title: 'Gmail + Calendar linked',
-          description: 'Jarvis now has access to your inbox and calendar.',
+          description: 'Infinity now has access to your inbox and calendar.',
           className: 'border-primary/40 bg-background text-foreground font-sans',
           duration: 4000,
         });
@@ -939,7 +939,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                       </p>
                     </div>
 
-                    {/* Personality, how Jarvis talks to you */}
+                    {/* Personality, how Infinity talks to you */}
                     <div className="pt-5 pb-1 border-t border-border/20">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-3.5 h-3.5 text-primary/70" />
@@ -1225,7 +1225,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                       </span>
                       <h3 className="mt-3 text-lg font-bold tracking-tight text-foreground">API Keys</h3>
                       <p className="mt-1 text-[13px] text-muted-foreground/70 text-center px-6">
-                        Service credentials and LLM keys, stored in Jarvis and applied instantly.
+                        Service credentials and LLM keys, stored in Infinity and applied instantly.
                       </p>
                     </div>
 
@@ -1625,7 +1625,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                         J
                       </div>
                       <h3 className="mt-4 text-xl font-bold tracking-tight text-foreground">{t('header.title')}</h3>
-                      <p className="text-[13px] text-muted-foreground/70 mt-1">Jarvis AI · 2026</p>
+                      <p className="text-[13px] text-muted-foreground/70 mt-1">Infinity AI · 2026</p>
                     </div>
                   </motion.div>
                 )}

@@ -18,7 +18,7 @@ interface AgentLogEntry {
   ok?: boolean;
 }
 
-interface JarvisBrowserProps {
+interface InfinityBrowserProps {
   /** CSS class name */
   className?: string;
   /** Called when a new action is taken (for voice command feedback) */
@@ -30,15 +30,15 @@ interface JarvisBrowserProps {
 }
 
 /**
- * Jarvis's Personal Browser component.
+ * Infinity's Personal Browser component.
  * Displays live screenshots from the Puppeteer browser on the backend.
- * The user can see exactly what Jarvis is browsing, and take control.
+ * The user can see exactly what Infinity is browsing, and take control.
  *
- * Includes the autonomous agent mode: give Jarvis a goal and the vision LLM
+ * Includes the autonomous agent mode: give Infinity a goal and the vision LLM
  * drives the browser using a fine-grained grid (tiny cubes) so even small
  * buttons can be clicked precisely.
  */
-export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHandled }: JarvisBrowserProps) {
+export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalHandled }: InfinityBrowserProps) {
   const [state, setState] = useState<BrowserState | null>(null);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -381,7 +381,7 @@ export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHan
         className={`flex items-center gap-2 px-3 py-2 bg-card border border-border/50 rounded-lg text-xs font-mono text-muted-foreground hover:text-foreground transition-colors ${className}`}
       >
         <Globe className="w-3.5 h-3.5" />
-        <span>Jarvis's Browser</span>
+        <span>Infinity's Browser</span>
         {state?.title && <span className="text-[10px] truncate max-w-[120px]">{state.title}</span>}
         <Maximize2 className="w-3 h-3 ml-1" />
       </button>
@@ -466,7 +466,7 @@ export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHan
           value={agentGoal}
           onChange={(e) => setAgentGoal(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') startAgentRun(); }}
-          placeholder="Give Jarvis a goal, it will browse and click for you…"
+          placeholder="Give Infinity a goal, it will browse and click for you…"
           disabled={agentRunning}
           className="flex-1 bg-transparent text-[11px] font-mono py-1 outline-none text-foreground placeholder:text-muted-foreground/50 disabled:opacity-50"
         />
@@ -563,7 +563,7 @@ export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHan
             <img
               ref={imgRef}
               src={screenshot}
-              alt="Jarvis's Browser"
+              alt="Infinity's Browser"
               className="w-full h-full object-contain"
               draggable={false}
             />
@@ -614,7 +614,7 @@ export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHan
                 <Globe className="w-8 h-8 text-muted-foreground/40" />
                 <span className="text-center max-w-[240px] font-sans text-muted-foreground">
                   <span className="block font-semibold text-foreground mb-1">Browser service unavailable</span>
-                  Jarvis could not connect to the in-app browser. Make sure the Jarvis API is running and Chromium is installed on the server.
+                  Infinity could not connect to the in-app browser. Make sure the Infinity API is running and Chromium is installed on the server.
                 </span>
                 <button
                   onClick={() => { setConnectionFailed(false); reconnectAttemptsRef.current = 0; connectWs(); }}
@@ -662,7 +662,7 @@ export function JarvisBrowser({ className = '', onAction, autoRunGoal, onGoalHan
           Scroll Down
         </button>
         <button
-          onClick={() => executeAction('type', { text: 'Hello from Jarvis' })}
+          onClick={() => executeAction('type', { text: 'Hello from Infinity' })}
           className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
         >
           Type Test

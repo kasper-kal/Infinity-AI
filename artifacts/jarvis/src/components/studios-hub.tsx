@@ -31,7 +31,7 @@ const STUDIOS: Studio[] = [
   {
     id: 'voice',
     name: 'Voice',
-    tagline: 'Talk to Jarvis hands-free, hear it reply',
+    tagline: 'Talk to Infinity hands-free, hear it reply',
     replaces: 'Siri · Alexa · Google Assistant',
     icon: AudioWaveform,
     tint: 'bg-indigo-500/10', tintDark: 'dark:bg-indigo-400/15', text: 'text-indigo-500 dark:text-indigo-400',
@@ -54,8 +54,8 @@ const STUDIOS: Studio[] = [
   },
   {
     id: 'build',
-    name: 'Jarvis Build',
-    tagline: 'A Linux workspace Jarvis codes in',
+    name: 'Infinity Build',
+    tagline: 'A Linux workspace Infinity codes in',
     replaces: 'Replit · Claude Code · Cursor',
     icon: Hammer,
     tint: 'bg-amber-500/10', tintDark: 'dark:bg-amber-400/15', text: 'text-amber-500 dark:text-amber-400',

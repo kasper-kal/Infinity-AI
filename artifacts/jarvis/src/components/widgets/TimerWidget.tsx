@@ -53,7 +53,7 @@ export function TimerWidget({ durationSeconds, label, compact, onClose }: TimerW
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   };
 
-  // Reset timer when durationSeconds prop changes (Jarvis edits the timer)
+  // Reset timer when durationSeconds prop changes (Infinity edits the timer)
   useEffect(() => {
     if (durationSeconds !== prevDurationRef.current && durationSeconds > 0) {
       prevDurationRef.current = durationSeconds;

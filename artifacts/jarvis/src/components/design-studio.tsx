@@ -339,7 +339,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
     if (!canvas) return;
     const printWindow = window.open('about:blank', '_blank');
     if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Jarvis design PDF</title><style>body{margin:0;display:grid;place-items:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style></head><body><img src="${canvas.toDataURL('image/png')}" alt="Design" /></body></html>`);
+    printWindow.document.write(`<html><head><title>Infinity design PDF</title><style>body{margin:0;display:grid;place-items:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style></head><body><img src="${canvas.toDataURL('image/png')}" alt="Design" /></body></html>`);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();

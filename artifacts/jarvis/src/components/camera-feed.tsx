@@ -503,7 +503,7 @@ export function CameraFeed({
         </div>
         <p className="text-sm text-foreground/80 font-medium">Camera unavailable</p>
         <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px]">
-          Allow camera access in your browser, or upload a photo instead and Jarvis will run detection on it.
+          Allow camera access in your browser, or upload a photo instead and Infinity will run detection on it.
         </p>
         <div className="flex gap-2 flex-wrap justify-center">
           <button

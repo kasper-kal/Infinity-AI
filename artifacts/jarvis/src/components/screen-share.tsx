@@ -20,7 +20,7 @@ interface ScreenShareProps {
 
 /**
  * Screen sharing component.
- * Allows the user to share their screen, and Jarvis to see and annotate it.
+ * Allows the user to share their screen, and Infinity to see and annotate it.
  */
 export function ScreenShare({ className = '', onFrame, voiceCommand }: ScreenShareProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -158,9 +158,9 @@ export function ScreenShare({ className = '', onFrame, voiceCommand }: ScreenSha
       ) : (
         <div className="flex flex-col items-center justify-center p-6 gap-2 bg-muted/20">
           <Monitor className="w-8 h-8 text-muted-foreground/60" />
-          <p className="text-xs font-mono text-muted-foreground">Share your screen with Jarvis</p>
+          <p className="text-xs font-mono text-muted-foreground">Share your screen with Infinity</p>
           <p className="text-[10px] font-mono text-muted-foreground/50 text-center max-w-[200px]">
-            Jarvis can see what's on your screen and help you with it
+            Infinity can see what's on your screen and help you with it
           </p>
           <button
             onClick={start}

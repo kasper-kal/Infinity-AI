@@ -249,7 +249,7 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
   langRef.current = lang;
 
   // #11: Restart the recognizer if it died while the tab was hidden (tab switch / lock screen).
-  // Without this, "hey Jarvis" stops working after the user backgrounds the app on iOS/Android.
+  // Without this, "hey Infinity" stops working after the user backgrounds the app on iOS/Android.
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
@@ -286,7 +286,7 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
    * Silence all wake-word callbacks without stopping the recognizer.
    * iOS WebKit blocks recognition.start() outside a user gesture, so we must
    * keep the recognizer alive during TTS/thinking rather than stopping and
-   * restarting it. Call this when Jarvis starts thinking or speaking.
+   * restarting it. Call this when Infinity starts thinking or speaking.
    */
   const suppress = useCallback(() => {
     suppressedRef.current = true;
@@ -301,8 +301,8 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
    */
   const unsuppress = useCallback(() => {
     suppressedRef.current = false;
-    // 800ms cooldown so TTS-echo audio (Jarvis saying "Jarvis" in a response,
-    // or mic picking up his voice) doesn't trigger a false wake/command.
+    // 800ms cooldown so TTS-echo audio (Infinity saying "Infinity" in a response,
+    // or mic picking up its voice) doesn't trigger a false wake/command.
     unsuppressCooldownRef.current = Date.now() + 800;
   }, []);
 
@@ -329,7 +329,7 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
       } else {
         // Non-gesture context (e.g. setTimeout after TTS). Starting a new
         // recognizer here is blocked on iOS. Fall back to wake mode so the
-        // user can tap or say "hey Jarvis" to continue.
+        // user can tap or say "hey Infinity" to continue.
         commandModeRef.current = false;
         onCommandTimeoutRef.current?.();
       }

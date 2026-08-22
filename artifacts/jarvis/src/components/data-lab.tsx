@@ -16,8 +16,8 @@ import { haptics } from '@/lib/haptics';
 interface DataLabDialogProps {
   open: boolean;
   onClose: () => void;
-  /** Ask Jarvis to analyze the loaded data, payload is a text summary. */
-  onAskJarvis: (summaryText: string) => void;
+  /** Ask Infinity to analyze the loaded data, payload is a text summary. */
+  onAskInfinity: (summaryText: string) => void;
 }
 
 interface ParsedData {
@@ -98,7 +98,7 @@ function buildChartData(data: ParsedData) {
 
 const CHART_COLORS = ['#007AFF', '#5856D6', '#FF9F0A', '#34C759', '#FF2D55', '#64D2FF', '#BF5AF2'];
 
-export function DataLab({ open, onClose, onAskJarvis }: DataLabDialogProps) {
+export function DataLab({ open, onClose, onAskInfinity }: DataLabDialogProps) {
   const { t } = useI18n();
   const [data, setData] = useState<ParsedData | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -144,8 +144,8 @@ export function DataLab({ open, onClose, onAskJarvis }: DataLabDialogProps) {
     onClose();
   };
 
-  /** Build a compact summary to hand to Jarvis for analysis. */
-  const askJarvis = () => {
+  /** Build a compact summary to hand to Infinity for analysis. */
+  const askInfinity = () => {
     if (!data) return;
     haptics.medium?.();
     const numeric = data.numericColumns.slice(0, 5)
@@ -164,7 +164,7 @@ export function DataLab({ open, onClose, onAskJarvis }: DataLabDialogProps) {
       'Please analyze this data: identify trends, anomalies, and anything interesting. Be specific and cite numbers.',
     ].join('\n');
     close();
-    onAskJarvis(summary);
+    onAskInfinity(summary);
   };
 
   const chartData = data ? buildChartData(data) : [];
@@ -319,11 +319,11 @@ export function DataLab({ open, onClose, onAskJarvis }: DataLabDialogProps) {
                       {t('datalab.newFile')}
                     </button>
                     <button
-                      onClick={askJarvis}
+                      onClick={askInfinity}
                       className="flex-1 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      {t('datalab.askJarvis')}
+                      {t('datalab.askInfinity')}
                     </button>
                   </div>
                 </>

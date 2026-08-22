@@ -26,7 +26,7 @@ interface UseScreenShareReturn {
 
 /**
  * Hook for screen sharing via getDisplayMedia API.
- * Allows Jarvis to see and annotate the user's screen.
+ * Allows Infinity to see and annotate the user's screen.
  */
 export function useScreenShare({
   onFrame,

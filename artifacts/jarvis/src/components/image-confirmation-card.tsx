@@ -122,7 +122,7 @@ export function ScreenShareConfirmationCard({ onConfirm, onCancel }: ScreenShare
               SCREEN SHARE REQUEST
             </p>
             <p className="text-[11px] font-mono text-muted-foreground/60 truncate">
-              Do you want to share your screen with Jarvis?
+              Do you want to share your screen with Infinity?
             </p>
           </div>
         </div>
@@ -221,7 +221,7 @@ interface SourceCodeConfirmationCardProps {
   onCancel: () => void;
 }
 
-/** "Use code for this answer?", Confirm allows Jarvis to read his own source
+/** "Use code for this answer?", Confirm allows Infinity to read its own source
  *  code for this message; Cancel still sends the message but without code access. */
 export function SourceCodeConfirmationCard({ userText, onConfirm, onCancel }: SourceCodeConfirmationCardProps) {
   const { t } = useI18n();
@@ -282,7 +282,7 @@ interface BuildModeConfirmationCardProps {
   onCancel: () => void;
 }
 
-/** "Open Jarvis Build?", Confirm gives Jarvis a Linux terminal + workspace to
+/** "Open Infinity Build?", Confirm gives Infinity a Linux terminal + workspace to
  *  set up the requested project (Replit-style). Cancel sends the message
  *  normally, no shell access. */
 export function BuildModeConfirmationCard({ userText, onConfirm, onCancel }: BuildModeConfirmationCardProps) {
@@ -302,10 +302,10 @@ export function BuildModeConfirmationCard({ userText, onConfirm, onCancel }: Bui
           </div>
           <div className="min-w-0">
             <p className="text-[11px] font-display font-semibold tracking-wider text-emerald-300">
-              JARVIS BUILD
+              INFINITY BUILD
             </p>
             <p className="text-[11px] font-mono text-muted-foreground/60 truncate">
-              Jarvis gets a Linux terminal + workspace to set this up
+              Infinity gets a Linux terminal + workspace to set this up
             </p>
           </div>
         </div>

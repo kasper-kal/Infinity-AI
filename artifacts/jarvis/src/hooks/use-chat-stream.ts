@@ -112,10 +112,10 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
 
   const processUserText = useCallback(async (userText: string, file?: AttachedFile | null, speak = true, codeAllowance?: boolean, researchMode = false, buildAllowance?: boolean, keyId?: string) => {
     // ── "Use code for this answer?" confirmation gate ─────────────
-    // If the message looks like a question about Jarvis's own code and the
+    // If the message looks like a question about Infinity's own code and the
     // user hasn't decided yet, show the confirmation card first. Confirm
     // re-sends with code access (codeAllowance=true); Cancel re-sends without
-    // it (false), the message is never dropped, Jarvis still answers.
+    // it (false), the message is never dropped, Infinity still answers.
     if (codeAllowance === undefined && isChatMode && looksLikeCodeRequest(userText)) {
       pendingCodeRef.current = { userText, file: file ?? null, speak };
       setSuggestions([]);
@@ -210,7 +210,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
           // Body isn't JSON, the API server is likely down or restarting
           // (a gateway/proxy-level 502/500). Explain it instead of a bare number.
           const hint = res.status >= 500
-            ? 'The Jarvis server is unreachable right now (likely restarting or down). Wait a few seconds and retry.'
+            ? 'The Infinity server is unreachable right now (likely restarting or down). Wait a few seconds and retry.'
             : `Server returned HTTP ${res.status} with an unexpected response.`;
           handleError(hint, undefined, () => processUserTextRef.current?.(userText, file, speak));
         }
@@ -281,7 +281,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                 break;
               case 'done':
                 convId = parsed.conversationId ?? convId;
-                // Auto-follow-up: when Jarvis signals the next step (Jarvis Build
+                // Auto-follow-up: when Infinity signals the next step (Infinity Build
                 // multi-step workflows), auto-submit it after a short delay.
                 if (parsed.followUp && typeof parsed.followUp === 'string') {
                   const task = parsed.followUp.trim().slice(0, 200);
@@ -343,7 +343,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                 break;
               case 'terminal_result':
                 // The AI ran a shell command, show it as a clean minimal card
-                // on the current assistant message and log it for Jarvis Build.
+                // on the current assistant message and log it for Infinity Build.
                 {
                   const tr: TerminalResult = { command: parsed.command, exitCode: parsed.exitCode ?? 0, output: parsed.output ?? '' };
                   setSessionCommands(prev => [...prev, tr]);

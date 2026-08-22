@@ -266,7 +266,7 @@ export function ResearchPanel({ jobs, onClose, onOpenExpert, onStarted, onCancel
                 {t('research.start')}
               </button>
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed text-center">
-                Runs in the background for hours, you can close this tab. Jarvis notifies you when the expert is ready.
+                Runs in the background for hours, you can close this tab. Infinity notifies you when the expert is ready.
               </p>
             </motion.div>
           )}
