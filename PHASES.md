@@ -1155,6 +1155,7 @@ The following 11 security issues were identified and must be fixed after all fea
   - [x] Added `checkActionPolicy()` method
   - [x] Policy enforcement in `executeAction()`, `navigate()`, `click()`, `type()` with `skipPolicyCheck` option for human takeovers
   - [x] Returns `PolicyCheckResult` with decision, reason, requiresHumanConfirmation
+- [x] **Integration in browse.ts routes** — Replaced legacy single-browser (`browserInstance`, `SENSITIVE_URL_RE` regex) with pool-based architecture + BrowserPolicy engine. Agent loop uses `pool.checkActionPolicy()` for sensitive page detection instead of regex. Manual actions support `skipPolicyCheck` for human takeovers.
 - [x] Resolved GitHub secret scanning push block by rewriting history (filter-branch) to remove test Slack token from historical commit
 - [x] Typecheck + build pass ✅
 
@@ -1196,23 +1197,7 @@ The following 11 security issues were identified and must be fixed after all fea
 - [x] Build passes with chunks well under 500kb gzipped (largest gzipped: index ~600kb, codemirror ~360kb, react-heavy ~126kb)
 - [x] Typecheck + build pass
 
-**Problem**: Sensitive URL protection is regex-based. Malicious sites can bypass via redirects, iframes, disguised actions.
-
-**Fix Steps**:
-- [x] Create `artifacts/api-server/src/lib/browser-policy.ts` (1000+ lines):
-  - [x] `ActionClassifier` — classifies 11 browser action types: `NAVIGATE`, `CLICK`, `TYPE`, `FORM_SUBMIT`, `DOWNLOAD`, `SCRIPT_EXECUTE`, `SCROLL`, `BACK`, `FORWARD`, `CLOSE`, `UNKNOWN`
-  - [x] `PolicyEngine` — priority-based rule evaluation with decisions: `ALLOW`, `DENY`, `REQUIRE_APPROVAL` per action + context (domain, element type, form action)
-  - [x] `SensitiveDomainRegistry` — 8 categories (payment, banking, crypto, government, email, social, cloud, auth) with 200+ domains, dynamic additions, suffix matching
-  - [x] `ElementAnalyzer` — inspects target elements for `type="password"`, `autocomplete="cc-number"`, sensitive autocomplete values, sensitive name/id patterns
-  - [x] `BrowserPolicy` main class combining all components — Singleton pattern with `getBrowserPolicy()`/`setBrowserPolicy()`
-- [x] In `browser-pool.ts`:
-  - [x] Added `checkActionPolicy()` method
-  - [x] Policy enforcement in `executeAction()`, `navigate()`, `click()`, `type()` with `skipPolicyCheck` option for human takeovers
-  - [x] Returns `PolicyCheckResult` with decision, reason, requiresHumanConfirmation
-- [x] Resolved GitHub secret scanning push block by rewriting history (filter-branch) to remove test Slack token from historical commit
-- [x] Typecheck + build pass ✅
-
-### Issue 6: Global 1GB JSON Body Limit (HIGH)
+### Issue 6: Global 1GB JSON Body Limit (HIGH) ✅ **COMPLETE**
 
 **Problem**: `express.json({ limit: "1gb" })` globally — massive DoS surface.
 
