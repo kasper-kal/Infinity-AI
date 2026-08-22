@@ -37,6 +37,7 @@ import { UniversalAgent, runUniversalAgent, type AgentLoopResult, type AgentTool
 import { getToolDefinitionsForLLM } from "../../lib/tool-registry";
 import { type ToolExecutionContext } from "../../lib/tool-types";
 import { optionalApiKeyAuth } from "../../middlewares/api-key-auth";
+import { redactSSEData } from "../../lib/secret-redaction";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -1766,9 +1767,10 @@ router.post("/chat", requireAuth, async (req, res) => {
       // Stream agent loop events via SSE
       const onToolEvent = (event: AgentToolEvent) => {
         try {
+          const redactedEvent = redactSSEData(event);
           res.write(`data: ${JSON.stringify({
             type: "agent_loop_event",
-            event,
+            event: redactedEvent,
           })}\n\n`);
         } catch { /* stream closed */ }
       };

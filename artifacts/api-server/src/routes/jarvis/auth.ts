@@ -2,10 +2,12 @@ import { Router, type Request, type Response } from "express";
 import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
 import { db, accounts, sessions } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { invalidateAllSessions, revokeSession } from "../../middleware/auth-middleware";
+import { loginRateLimiter, registerRateLimiter, passwordRateLimiter, authMeRateLimiter } from "../../middleware/rate-limit";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
@@ -32,7 +34,7 @@ const COOKIE_OPTIONS = {
  * POST /api/jarvis/auth/register
  * Register a new account
  */
-router.post("/auth/register", async (req: Request, res: Response) => {
+router.post("/auth/register", registerRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, displayName } = req.body as {
       email?: string;
@@ -97,7 +99,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
  * POST /api/jarvis/auth/login
  * Login with email and password
  */
-router.post("/auth/login", async (req: Request, res: Response) => {
+router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
 
@@ -165,7 +167,7 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
  * GET /api/jarvis/auth/me
  * Get current authenticated account
  */
-router.get("/auth/me", async (req: Request, res: Response) => {
+router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.jarvis_session;
     if (!token) {
@@ -208,7 +210,8 @@ router.get("/auth/me", async (req: Request, res: Response) => {
 
 /**
  * PUT /api/jarvis/auth/profile
- * Update account profile (display name, avatar)
+ * Update account profile (display name, avatar, email)
+ * Email change invalidates all other sessions for security
  */
 router.put("/auth/profile", async (req: Request, res: Response) => {
   try {
@@ -227,11 +230,22 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Session expired" });
     }
 
-    const { displayName, avatarUrl } = req.body as { displayName?: string; avatarUrl?: string };
+    const { displayName, avatarUrl, email } = req.body as { displayName?: string; avatarUrl?: string; email?: string };
 
     const updates: Partial<typeof accounts.$inferInsert> = {};
+    let emailChanged = false;
     if (displayName !== undefined) updates.displayName = displayName.trim().slice(0, 100);
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl.trim().slice(0, 500);
+    if (email !== undefined) {
+      const newEmail = email.toLowerCase().trim();
+      // Check if email is already taken
+      const existing = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.email, newEmail)).limit(1);
+      if (existing.length > 0 && existing[0].id !== session.accountId) {
+        return res.status(409).json({ success: false, error: "An account with this email already exists" });
+      }
+      updates.email = newEmail;
+      emailChanged = true;
+    }
     updates.updatedAt = new Date();
 
     const [account] = await db
@@ -239,6 +253,19 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
       .set(updates)
       .where(eq(accounts.id, session.accountId))
       .returning();
+
+    // Invalidate all other sessions if email changed (security)
+    if (emailChanged) {
+      await invalidateAllSessions(session.accountId);
+      // Create new session for current client
+      const newToken = randomUUID();
+      await db.insert(sessions).values({
+        token: newToken,
+        accountId: account.id,
+        expiresAt: new Date(Date.now() + COOKIE_OPTIONS.maxAge),
+      });
+      res.cookie("jarvis_session", newToken, COOKIE_OPTIONS);
+    }
 
     return res.json({
       success: true,
@@ -259,7 +286,7 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
  * PUT /api/jarvis/auth/password
  * Change password
  */
-router.put("/auth/password", async (req: Request, res: Response) => {
+router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.jarvis_session;
     if (!token) {
@@ -316,6 +343,81 @@ router.put("/auth/password", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("[Auth] Password change error:", err);
     return res.status(500).json({ success: false, error: "Failed to change password" });
+  }
+});
+
+/**
+ * POST /api/jarvis/auth/revoke-sessions
+ * Revoke all other sessions for the current account (keep current session)
+ */
+router.post("/auth/revoke-sessions", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.jarvis_session;
+    if (!token) {
+      return res.status(401).json({ success: false, error: "Not authenticated" });
+    }
+
+    const [session] = await db
+      .select({ accountId: sessions.accountId, expiresAt: sessions.expiresAt })
+      .from(sessions)
+      .where(eq(sessions.token, token))
+      .limit(1);
+
+    if (!session || (session.expiresAt && session.expiresAt < new Date())) {
+      return res.status(401).json({ success: false, error: "Session expired" });
+    }
+
+    // Revoke all other sessions (not current)
+    const now = new Date();
+    await db
+      .update(sessions)
+      .set({ revokedAt: now })
+      .where(and(eq(sessions.accountId, session.accountId), ne(sessions.token, token)));
+
+    return res.json({ success: true, message: "All other sessions revoked" });
+  } catch (err) {
+    console.error("[Auth] Revoke sessions error:", err);
+    return res.status(500).json({ success: false, error: "Failed to revoke sessions" });
+  }
+});
+
+/**
+ * POST /api/jarvis/auth/revoke-session/:sessionId
+ * Revoke a specific session by its token
+ */
+router.post("/auth/revoke-session/:sessionId", async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.jarvis_session;
+    if (!token) {
+      return res.status(401).json({ success: false, error: "Not authenticated" });
+    }
+
+    const [session] = await db
+      .select({ accountId: sessions.accountId, expiresAt: sessions.expiresAt })
+      .from(sessions)
+      .where(eq(sessions.token, token))
+      .limit(1);
+
+    if (!session || (session.expiresAt && session.expiresAt < new Date())) {
+      return res.status(401).json({ success: false, error: "Session expired" });
+    }
+
+    const { sessionId } = req.params as { sessionId: string };
+
+    // Can't revoke own current session via this endpoint
+    if (sessionId === token) {
+      return res.status(400).json({ success: false, error: "Cannot revoke current session, use logout instead" });
+    }
+
+    const success = await revokeSession(sessionId);
+    if (!success) {
+      return res.status(404).json({ success: false, error: "Session not found or already revoked" });
+    }
+
+    return res.json({ success: true, message: "Session revoked" });
+  } catch (err) {
+    console.error("[Auth] Revoke session error:", err);
+    return res.status(500).json({ success: false, error: "Failed to revoke session" });
   }
 });
 

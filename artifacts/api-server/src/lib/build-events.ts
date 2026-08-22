@@ -1,5 +1,6 @@
 import { createWriteStream, WriteStream } from "node:fs";
 import { stdout } from "node:process";
+import { redactBuildEventData } from "./secret-redaction";
 
 /**
  * Build event types for JSONL streaming output
@@ -76,12 +77,15 @@ export class BuildEventEmitter {
   }
 
   private emit(type: BuildEventType, data: Record<string, unknown>): void {
+    // Redact secrets from event data before emitting
+    const redactedData = redactBuildEventData(data);
+
     const event: BuildEvent = {
       type,
       timestamp: new Date().toISOString(),
       projectId: this.projectId,
       buildId: this.buildId,
-      data,
+      data: redactedData,
     };
 
     this.eventCount++;
@@ -91,7 +95,7 @@ export class BuildEventEmitter {
     }
 
     if (this.verbose) {
-      console.error(`[${event.timestamp}] ${type}:`, JSON.stringify(data));
+      console.error(`[${event.timestamp}] ${type}:`, JSON.stringify(redactedData));
     }
   }
 

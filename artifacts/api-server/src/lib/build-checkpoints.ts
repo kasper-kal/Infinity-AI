@@ -4,6 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getWorkspaceRoot, safeWorkspacePath } from "./workspace";
+import { redactCheckpointData, redactArray } from "./secret-redaction";
 
 /**
  * Phase 1.2 — Checkpoint persistence & resume.
@@ -155,6 +156,13 @@ export interface ResumeOptions {
 }
 
 export async function saveCheckpoint(data: CheckpointData): Promise<string> {
+  // Redact secrets from checkpoint data before saving
+  const redactedPlan = redactCheckpointData(data.plan);
+  const redactedCompletedSteps = redactArray(data.completedSteps);
+  const redactedWorkingContext = redactCheckpointData(data.workingContext);
+  const redactedFileSnapshots = data.fileSnapshots ? redactCheckpointData(data.fileSnapshots) : undefined;
+  const redactedTokenUsage = data.tokenUsage ? redactCheckpointData(data.tokenUsage) : undefined;
+
   const existing = await db
     .select({ id: buildCheckpoints.id })
     .from(buildCheckpoints)
@@ -169,11 +177,11 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
       .set({
         iteration: data.iteration,
         completed: data.completed,
-        plan: data.plan,
-        completedSteps: data.completedSteps,
-        workingContext: data.workingContext,
-        fileSnapshots: data.fileSnapshots ?? null,
-        tokenUsage: data.tokenUsage ?? {},
+        plan: redactedPlan,
+        completedSteps: redactedCompletedSteps,
+        workingContext: redactedWorkingContext,
+        fileSnapshots: redactedFileSnapshots ?? null,
+        tokenUsage: redactedTokenUsage ?? {},
         updatedAt: new Date(),
       })
       .where(eq(buildCheckpoints.id, existing[0].id));
@@ -187,11 +195,11 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
       projectId: data.projectId,
       iteration: data.iteration,
       completed: data.completed,
-      plan: data.plan,
-      completedSteps: data.completedSteps,
-      workingContext: data.workingContext,
-      fileSnapshots: data.fileSnapshots ?? null,
-      tokenUsage: data.tokenUsage ?? {},
+      plan: redactedPlan,
+      completedSteps: redactedCompletedSteps,
+      workingContext: redactedWorkingContext,
+      fileSnapshots: redactedFileSnapshots ?? null,
+      tokenUsage: redactedTokenUsage ?? {},
     })
     .returning({ id: buildCheckpoints.id });
   return row.id;

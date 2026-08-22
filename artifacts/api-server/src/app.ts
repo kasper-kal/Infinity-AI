@@ -8,6 +8,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { buildErrorDetail } from "./lib/error-detail";
 import { requireAuth, optionalAuth } from "./middleware/auth-middleware";
+import multer from "multer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +16,14 @@ const app: Express = express();
 
 // Trust the first proxy (Replit, nginx, etc.) so req.ip reflects real client IP
 app.set("trust proxy", 1);
+
+// Per-route body parsers (replaces global 1GB limit - security fix)
+const json1mb = express.json({ limit: "1mb" });
+const json10mb = express.json({ limit: "10mb" });
+const json50mb = express.json({ limit: "50mb" });
+const urlencoded1mb = express.urlencoded({ extended: true, limit: "1mb" });
+const urlencoded10mb = express.urlencoded({ extended: true, limit: "10mb" });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.use(
   pinoHttp({
@@ -35,17 +44,27 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+// CORS configuration - security fix: restrict origins
+const allowedOrigins = process.env.NODE_ENV === "production"
+  ? [process.env.FRONTEND_URL].filter((v): v is string => Boolean(v))
+  : ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+}));
 app.use(cookieParser());
-app.use(express.json({ limit: "1gb" }));
-app.use(express.urlencoded({ extended: true, limit: "1gb" }));
+// Note: body parsers now applied per-route below
 
 // Public router for endpoints that don't require authentication
 const publicRouter = express.Router();
 
 // Mount public endpoints BEFORE auth middleware
 // These must be explicitly listed as public
-publicRouter.use("/auth", (await import("./routes/jarvis/auth")).default);
+publicRouter.use("/auth", urlencoded1mb, (await import("./routes/jarvis/auth")).default);
 publicRouter.use("/health", (await import("./routes/health")).default);
 publicRouter.use("/extension", (await import("./routes/jarvis/extension")).default);
 
@@ -56,6 +75,26 @@ app.use("/api", publicRouter);
 app.use("/api", requireAuth);
 
 // Main router (all routes now require auth by default)
+// Apply per-route body parsers based on endpoint category
+// /chat, /memory, /research → 1mb
+// /build/* → 10mb
+// /files/*, /import/upload → multer
+// /data/import → 50mb
+app.use("/api/jarvis/chat", json1mb, urlencoded1mb);
+app.use("/api/jarvis/memories", json1mb, urlencoded1mb);
+app.use("/api/jarvis/project-memories", json1mb, urlencoded1mb);
+app.use("/api/jarvis/research", json1mb, urlencoded1mb);
+app.use("/api/jarvis/build", json10mb, urlencoded10mb);
+app.use("/api/jarvis/build-checkpoints", json10mb, urlencoded10mb);
+app.use("/api/jarvis/build-telemetry", json10mb, urlencoded10mb);
+app.use("/api/jarvis/build-export", json10mb, urlencoded10mb);
+app.use("/api/jarvis/build-schedules", json10mb, urlencoded10mb);
+app.use("/api/files", upload.any()); // multipart for file uploads
+app.use("/api/import", upload.any()); // multipart for archive imports
+// For data import endpoints if they exist
+app.use("/api/jarvis/data", json50mb, urlencoded10mb);
+// Default for all other jarvis routes: 1mb
+app.use("/api/jarvis", json1mb, urlencoded1mb);
 app.use("/api", router);
 
 // ── Serve built frontend static files (production only) ──

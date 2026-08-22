@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { db, sessions, accounts } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 /**
@@ -204,4 +204,29 @@ export function getAccountId(req: AuthenticatedRequest): string | null {
  */
 export function hasScope(req: AuthenticatedRequest, scope: string): boolean {
   return req.account?.scopes?.includes(scope) ?? false;
+}
+
+/**
+ * Invalidate all sessions for an account (on email change, 2FA change, security settings change)
+ * Sets revokedAt to now for all active sessions
+ */
+export async function invalidateAllSessions(accountId: string): Promise<number> {
+  const now = new Date();
+  const result = await db
+    .update(sessions)
+    .set({ revokedAt: now })
+    .where(and(eq(sessions.accountId, accountId), isNull(sessions.revokedAt)));
+  return result.rowCount ?? 0;
+}
+
+/**
+ * Revoke a specific session by token
+ */
+export async function revokeSession(sessionToken: string): Promise<boolean> {
+  const now = new Date();
+  const result = await db
+    .update(sessions)
+    .set({ revokedAt: now })
+    .where(and(eq(sessions.token, sessionToken), isNull(sessions.revokedAt)));
+  return (result.rowCount ?? 0) > 0;
 }

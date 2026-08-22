@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -6,12 +6,15 @@ import { FileText, Copy, Check, CheckCircle2, Circle, RotateCcw, Pencil, X, Send
 import { useI18n } from '@/lib/i18n';
 import { haptics } from '@/lib/haptics';
 import type { Widget, VerifyClaim, TerminalResult } from '@/types/widget';
-import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, ImageResultsWidget, DateWidget, CalculatorWidget, DefineWidget, UnitConverterWidget, CurrencyWidget, MapWidget, MapsWidget, RandomWidget, MusicWidget, BrowserWidget, PromoWidget, DeepResearchWidget } from '@/components/widgets';
+import { ClockWidget, WeatherWidget, TimerWidget, AlarmWidget, CalendarWidget, ImageResultsWidget, DateWidget, CalculatorWidget, DefineWidget, UnitConverterWidget, CurrencyWidget, MapWidget, RandomWidget, MusicWidget, BrowserWidget, CommandCard, FigmaWidget, type FigmaTokenCard } from '@/components/widgets';
 import type { FileEdit } from '@/types/widget';
-import { FigmaWidget, type FigmaTokenCard } from '@/components/widgets';
-import { CommandCard } from '@/components/widgets/CommandCard';
 import { FileEditCard } from '@/components/widgets/FileEditCard';
 import { ImageConfirmationCard, ImageGeneratingCard, ScreenShareConfirmationCard, AgentBrowserConfirmationCard, SourceCodeConfirmationCard, BuildModeConfirmationCard } from '@/components/image-confirmation-card';
+
+// Lazy-load heavy widgets (security fix: bundle size)
+const MapsWidget = lazy(() => import('@/components/widgets/MapsWidget').then(m => ({ default: m.MapsWidget })));
+const PromoWidget = lazy(() => import('@/components/widgets/PromoWidget').then(m => ({ default: m.PromoWidget })));
+const DeepResearchWidget = lazy(() => import('@/components/widgets/DeepResearchWidget').then(m => ({ default: m.DeepResearchWidget })));
 
 export interface ChatMessage {
   /** Stable client-side id, avoids duplicate-key warnings during stream updates. */
@@ -434,25 +437,37 @@ function InlineWidget({ widget, onDeepResearchExpert }: { widget: Widget; onDeep
     case 'browser_agent':
       return <BrowserWidget goal={widget.goal} />;
     case 'maps':
-      return <MapsWidget
-        center={widget.center}
-        displayName={widget.displayName}
-        radius={widget.radius}
-        categories={widget.categories}
-        query={widget.query}
-        useUserLocation={widget.useUserLocation}
-      />;
+      return (
+        <Suspense fallback={<div className="flex items-center justify-center p-8" aria-label="Loading maps widget...">Loading maps…</div>}>
+          <MapsWidget
+            center={widget.center}
+            displayName={widget.displayName}
+            radius={widget.radius}
+            categories={widget.categories}
+            query={widget.query}
+            useUserLocation={widget.useUserLocation}
+          />
+        </Suspense>
+      );
     case 'promo':
-      return <PromoWidget
-        jobId={widget.jobId}
-        status={widget.status}
-        progress={widget.progress}
-        videoUrl={widget.videoUrl}
-        thumbnailUrl={widget.thumbnailUrl}
-        error={widget.error}
-      />;
+      return (
+        <Suspense fallback={<div className="flex items-center justify-center p-8" aria-label="Loading promo widget...">Loading promo…</div>}>
+          <PromoWidget
+            jobId={widget.jobId}
+            status={widget.status}
+            progress={widget.progress}
+            videoUrl={widget.videoUrl}
+            thumbnailUrl={widget.thumbnailUrl}
+            error={widget.error}
+          />
+        </Suspense>
+      );
     case 'deep_research':
-      return <DeepResearchWidget widget={widget} onClose={() => {}} onCreateExpert={onDeepResearchExpert} />;
+      return (
+        <Suspense fallback={<div className="flex items-center justify-center p-8" aria-label="Loading research widget...">Loading research…</div>}>
+          <DeepResearchWidget widget={widget} onClose={() => {}} onCreateExpert={onDeepResearchExpert} />
+        </Suspense>
+      );
     default:
       return null;
   }

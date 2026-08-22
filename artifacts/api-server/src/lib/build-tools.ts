@@ -30,6 +30,7 @@ import {
 } from "./workspace";
 import { getBrowserPool } from "./browser-pool";
 import type { BrowserSlot, ScreenshotViewport } from "./browser-pool";
+import { redactToolData, safeLogObject } from "./secret-redaction";
 
 export interface ToolCall {
   name: string;
@@ -200,40 +201,63 @@ export async function executeTool(
   const { name, arguments: args } = toolCall;
 
   try {
+    let result: ToolResult;
+
     switch (name) {
       case "list_files":
-        return await toolListFiles(args, context);
+        result = await toolListFiles(args, context);
+        break;
 
       case "read_file":
-        return await toolReadFile(args, context);
+        result = await toolReadFile(args, context);
+        break;
 
       case "edit_file":
-        return await toolEditFile(args, context);
+        result = await toolEditFile(args, context);
+        break;
 
       case "run_command":
-        return await toolRunCommand(args, context);
+        result = await toolRunCommand(args, context);
+        break;
 
       case "screenshot":
-        return await toolScreenshot(args, context);
+        result = await toolScreenshot(args, context);
+        break;
 
       case "inspect_console":
-        return await toolInspectConsole(args, context);
+        result = await toolInspectConsole(args, context);
+        break;
 
       case "inspect_dom":
-        return await toolInspectDom(args, context);
+        result = await toolInspectDom(args, context);
+        break;
 
       case "inspect_accessibility":
-        return await toolInspectAccessibility(args, context);
+        result = await toolInspectAccessibility(args, context);
+        break;
 
       case "git_diff":
-        return await toolGitDiff(args, context);
+        result = await toolGitDiff(args, context);
+        break;
 
       case "apply_fix":
-        return await toolApplyFix(args, context);
+        result = await toolApplyFix(args, context);
+        break;
 
       default:
         return { success: false, error: `Unknown tool: ${name}` };
     }
+
+    // Redact secrets from tool args and result before returning
+    if (result.result || result.error) {
+      const redacted = redactToolData(name, args, result.result);
+      result = {
+        ...result,
+        result: redacted.result,
+      };
+    }
+
+    return result;
   } catch (error) {
     return {
       success: false,

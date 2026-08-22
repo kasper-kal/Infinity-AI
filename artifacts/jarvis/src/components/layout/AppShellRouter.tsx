@@ -4,16 +4,11 @@
  * Routes to MobileShell (< 1024px) or DesktopShell (≥ 1024px)
  */
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, Suspense, lazy } from "react";
 import { Route, Switch, useLocation, useRoute } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell, type MobileView } from "@/components/mobile";
 import { DesktopShell, type DesktopView } from "./DesktopShell";
-import { BuildView } from "@/components/views/BuildView";
-import { ChatView } from "@/components/views/ChatView";
-import { TerminalView } from "@/components/views/TerminalView";
-import { SettingsView } from "@/components/views/SettingsView";
-import { ProjectsView } from "@/components/views/ProjectsView";
 
 export type View = 'chat' | 'build' | 'terminal' | 'projects' | 'settings';
 
@@ -21,6 +16,13 @@ interface AppShellRouterProps {
   /** Base path for routing */
   base?: string;
 }
+
+// Lazy-load heavy views for code splitting (security fix: bundle size)
+const ChatView = lazy(() => import("@/components/views/ChatView").then(m => ({ default: m.ChatView })));
+const BuildView = lazy(() => import("@/components/views/BuildView").then(m => ({ default: m.BuildView })));
+const TerminalView = lazy(() => import("@/components/views/TerminalView").then(m => ({ default: m.TerminalView })));
+const SettingsView = lazy(() => import("@/components/views/SettingsView").then(m => ({ default: m.SettingsView })));
+const ProjectsView = lazy(() => import("@/components/views/ProjectsView").then(m => ({ default: m.ProjectsView })));
 
 /**
  * Wrapper to provide required props for ChatView
@@ -71,11 +73,15 @@ function getViewComponent(view: View) {
 }
 
 /**
- * View content component - renders the active view
+ * View content component - renders the active view with Suspense for lazy loading
  */
 function ViewContent({ activeView }: { activeView: View }) {
   const Component = getViewComponent(activeView);
-  return <Component />;
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-full" aria-label="Loading view...">Loading…</div>}>
+      <Component />
+    </Suspense>
+  );
 }
 
 /**
