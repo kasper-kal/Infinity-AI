@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import OpenAI from "openai";
 import { fileTypeFromBuffer } from "file-type";
 import { extractRawText } from "mammoth";
@@ -36,6 +36,7 @@ import { registerAllTools } from "../../lib/tools";
 import { UniversalAgent, runUniversalAgent, type AgentLoopResult, type AgentToolEvent } from "../../lib/universal-agent";
 import { getToolDefinitionsForLLM } from "../../lib/tool-registry";
 import { type ToolExecutionContext } from "../../lib/tool-types";
+import { optionalApiKeyAuth } from "../../middlewares/api-key-auth";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -977,7 +978,21 @@ async function extractFileText(
   return { text: "[Unsupported file type]", mimeType, isImage: false };
 }
 
-router.post("/chat", async (req, res) => {
+/** Middleware: require either session auth or valid API key */
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const hasSession = !!(req as any).accountId || req.cookies?.jarvis_session;
+  const hasApiKey = !!(req as any).apiKeyInfo;
+  if (!hasSession && !hasApiKey) {
+    res.status(401).json({ error: "Authentication required (session or API key)" });
+    return;
+  }
+  next();
+}
+
+// Apply optional API key auth to all chat routes, then requireAuth
+router.use(optionalApiKeyAuth);
+
+router.post("/chat", requireAuth, async (req, res) => {
   const startMs = Date.now();
   // Per-request UUID used to key the project-memory extraction queue.
   // Never use the message text as a key — identical messages in different

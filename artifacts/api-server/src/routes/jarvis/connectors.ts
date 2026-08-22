@@ -13,7 +13,7 @@ router.use(apiKeyAuth);
 router.use(requireScope("build:write", "project:write"));
 
 /** GET /api/jarvis/connectors — List all connectors for a project */
-router.get("/connectors", async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
     if (!projectId) {
@@ -49,7 +49,7 @@ router.get("/connectors", async (req: Request, res: Response) => {
 });
 
 /** POST /api/jarvis/connectors — Create a new connector */
-router.post("/connectors", async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const { projectId, platform, name, config, notifyOn, enabled = true } = req.body;
 
@@ -101,7 +101,7 @@ router.post("/connectors", async (req: Request, res: Response) => {
 });
 
 /** GET /api/jarvis/connectors/:id — Get a connector with recent notifications */
-router.get("/connectors/:id", async (req: Request, res: Response) => {
+router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);
@@ -130,7 +130,7 @@ router.get("/connectors/:id", async (req: Request, res: Response) => {
 });
 
 /** PUT /api/jarvis/connectors/:id — Update a connector */
-router.put("/connectors/:id", async (req: Request, res: Response) => {
+router.put("/:id", async (req: Request, res: Response) => {
   try {
     const { name, config, enabled, notifyOn } = req.body;
 
@@ -181,7 +181,7 @@ router.put("/connectors/:id", async (req: Request, res: Response) => {
 });
 
 /** DELETE /api/jarvis/connectors/:id — Delete a connector */
-router.delete("/connectors/:id", async (req: Request, res: Response) => {
+router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const [existing] = await db.select().from(connectors).where(eq(connectors.id, id)).limit(1);

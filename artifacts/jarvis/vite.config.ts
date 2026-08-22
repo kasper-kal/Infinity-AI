@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
+// Increase memory limit for build
+if (process.env.NODE_OPTIONS?.includes('--max-old-space-size') === false) {
+  process.env.NODE_OPTIONS = '--max-old-space-size=8192 ' + (process.env.NODE_OPTIONS || '');
+}
+
 const rawPort = process.env.PORT;
 const port = rawPort ? Number(rawPort) : 5173;
 
@@ -31,8 +36,13 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
     sourcemap: false,
-    minify: 'esbuild',
+    minify: false,
     target: 'esnext',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
   },
   server: {
     port,

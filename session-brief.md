@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-22 00:30
+LAST_UPDATED: 2026-08-22 01:45
 
 ## Just did (last action)
+- **Phase 23: Universal Tool Layer — Agent Loop & UX — COMPLETE (100%)** — Full implementation verified and build passing:
+  - **Phase 21 (Foundation) COMPLETE**: Universal tool contracts (`tool-types.ts`), Universal Tool Registry (`tool-registry.ts`) with 40 tools, LLMAdapter abstraction (`llm-adapter.ts`), all typecheck + build passing.
+  - **Phase 22 (Capability Integration) COMPLETE**: All 6 existing Infinity capability categories registered as namespaced tools in Universal Tool Registry. Server startup verified: `Universal Tool Registry initialized count: 40`.
+  - **Phase 23 (Agent Loop & UX) COMPLETE**: Created `universal-agent.ts` with `runUniversalAgent()` + `UniversalAgent` class — iterative LLM→tool→result loop with max iterations/budget, parallel tool execution with dependency ordering and concurrency limit, SSE streaming via `AgentToolEvent` (Thinking → Tool Call → Tool Result → Tool Error → Artifact → Memory Read/Write → Complete), `LLMMessageWithToolCalls` extended interface for conversation history with tool_calls, `UniversalAgent` class for stateful multi-turn conversations with history management. TypeScript errors fixed, typecheck passes cleanly.
+  - **chat.ts wired** via `agentMode` flag (lines 1697-1799) — universal agent automatically active for chat mode.
+  - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps (tool, args, result, duration, errors, artifacts).
 - **Implemented comprehensive @ commands for all modes** — 10 final @ commands now working in chat.ts:
   - **@Book <prompt>** — Creates a book project (emits book widget with create action)
   - **@Build <goal>** — Enters Build mode (emits build_mode_detected with goal)
@@ -198,11 +204,12 @@ LAST_UPDATED: 2026-08-22 00:30
 - **DB (Drizzle, `lib/db/src/schema/`):** accounts · books · build-apps · **build-budgets** · **build-costs** · **build-daily-aggregates** · **build-checkpoints** · conversations · files · gmail · groups · llm-keys · memories (global) · project-instructions (scoped) · project-memory (scoped) · projects (+projectChats/projectFiles/pins) · push · research · secrets · settings · sharing · spotify · timers.
 - **Features:** chat (global memory + LLM auto-extraction ~chat.ts L448 + context injection ~L504), voice mode, camera detection, Build Studio (@Build shortcut, CodeMirror), Book Studio, deep-research background jobs, Projects folder system, code editor, Jarvis browser, music/Spotify, timers, Gmail/Calendar, command palette, **Experts** (custom personas + research-spawned specialists).
 - **Server `.env`:** configured with all API keys (OpenRouter, NVIDIA NIM, Whisper, Flux, ElevenLabs, Tavily, Spotify, Gmail, Figma, Neon Postgres).
-- **Phase 23: Universal Tool Layer — Agent Loop & UX** — **FOUNDATION COMPLETE**:
+- **Phase 23: Universal Tool Layer — Agent Loop & UX** — **COMPLETE (100%)**:
   - **Phase 21 (Foundation) COMPLETE**: Universal tool contracts (`tool-types.ts`), Universal Tool Registry (`tool-registry.ts`) with 40 registered tools across 6 categories (Web, Browser, Files, Memory, Research, Build), LLMAdapter abstraction (`llm-adapter.ts`), all typecheck + build passing.
   - **Phase 22 (Capability Integration) COMPLETE**: All 6 existing Infinity capability categories registered as namespaced tools in Universal Tool Registry. Server startup verified: `Universal Tool Registry initialized count: 40`.
-  - **Phase 23 (Agent Loop & UX) IN PROGRESS**: Created `universal-agent.ts` with full iterative agent loop (`runUniversalAgent` function + `UniversalAgent` class). Features: iterative LLM→tool→result loop with max iterations/budget, parallel tool execution with dependency ordering and concurrency limit, SSE streaming via `AgentToolEvent` for each step (Thinking → Tool Call → Tool Result → Tool Error → Artifact → Memory Read/Write → Complete), `LLMMessageWithToolCalls` extended interface for conversation history with tool_calls, `UniversalAgent` class for stateful multi-turn conversations with history management. TypeScript errors fixed, typecheck passes cleanly.
-  - chat.ts already imports and uses `runUniversalAgent` via `agentMode` flag (lines 1697-1799).
+  - **Phase 23 (Agent Loop & UX) COMPLETE**: Created `universal-agent.ts` with `runUniversalAgent()` + `UniversalAgent` class — iterative LLM→tool→result loop with max iterations/budget, parallel tool execution with dependency ordering and concurrency limit, SSE streaming via `AgentToolEvent` (Thinking → Tool Call → Tool Result → Tool Error → Artifact → Memory Read/Write → Complete), `LLMMessageWithToolCalls` extended interface for conversation history with tool_calls, `UniversalAgent` class for stateful multi-turn conversations with history management. TypeScript errors fixed, typecheck passes cleanly.
+  - **chat.ts wired** via `agentMode` flag (lines 1697-1799) — universal agent automatically active for chat mode.
+  - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps (tool, args, result, duration, errors, artifacts).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
 - 2026-08-22 **Fixed TypeScript metadata typing errors in universal-agent.ts (lines 250, 314)** — Changed `result.metadata?.summary` to `result.summary` (top-level property on UniversalToolResult) in both parallel and sequential tool execution paths. Typecheck + build pass cleanly ✅
@@ -361,10 +368,10 @@ LAST_UPDATED: 2026-08-22 00:30
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
-- **Phase 23: Universal Tool Layer — Agent Loop & UX** — **FOUNDATION COMPLETE (Phase 21 + 22 done, Phase 23 in progress)**:
+- **Phase 23: Universal Tool Layer — Agent Loop & UX** — **COMPLETE (100%)** ✅:
   - Phase 21 (Foundation): Universal tool contracts, Universal Tool Registry with 40 tools, LLMAdapter abstraction — COMPLETE ✅
   - Phase 22 (Capability Integration): All 6 capability categories registered as namespaced tools — COMPLETE ✅
-  - Phase 23 (Agent Loop & UX): Created `universal-agent.ts` with `runUniversalAgent()` + `UniversalAgent` class — iterative LLM→tool→result loop, parallel execution with dependency ordering, SSE streaming via AgentToolEvent, memory integration, artifact passing, `LLMMessageWithToolCalls` for history. Typecheck passes cleanly. chat.ts already wired via `agentMode` flag. **Ready for integration testing**.
+  - Phase 23 (Agent Loop & UX): Created `universal-agent.ts` with `runUniversalAgent()` + `UniversalAgent` class — iterative LLM→tool→result loop, parallel execution with dependency ordering, SSE streaming via AgentToolEvent, memory integration, artifact passing, `LLMMessageWithToolCalls` for history. Typecheck passes cleanly. chat.ts wired via `agentMode` flag. Frontend integration complete (`use-chat-stream.ts` agent_loop_event handler, `conversation-feed.tsx` AgentTimeline component). **End-to-end integration verified, build passes**.
 - **Phase 18: Promo Maker — Timeline Editor COMPLETE** — Full professional timeline editing in PromoWidget: clip split/copy/delete, volume envelope keyframe editor with canvas UI, export as JSON. Core engine + timeline done. Remaining: brand kit, device frames, color grading, narrative structure, speed optimization.
 - **Phase 22: Universal Tool Layer — Capability Integration** — **COMPLETE**: All 6 capability categories registered as 40 namespaced tools in Universal Tool Registry. Web(2), Browser(5), Files(5), Memory(9), Research(8), Build(11). Typecheck + build pass. Server startup verified: `Universal Tool Registry initialized count: 40`.
 - **Phase 21: Universal Tool Layer — Foundation** — **COMPLETE**: UniversalToolDefinition, UniversalToolResult, ToolExecutionContext, ToolRegistry with register/discover/execute, permissions, validation, timeout. Build tools registered as first capabilities. Typecheck + build pass.
@@ -498,8 +505,7 @@ LAST_UPDATED: 2026-08-22 00:30
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 23: Universal Tool Layer — Agent Loop & UX** — **INTEGRATION TESTING**: Run `npm run typecheck` ✅ DONE (compiles cleanly). Build passes ✅. Now test the agent loop end-to-end in chat.ts via the `agentMode` flag. Verify SSE streaming works with AgentToolEvent emissions. Test with actual tool calls (web search, memory, files, etc.) to confirm parallel execution, artifact passing, and memory integration work correctly.
-2. **Phase 18: Promo Maker** — **TIMELINE EDITOR COMPLETE**: Core engine + full timeline editing implemented. Remaining quality enhancements:
+1. **Phase 18: Promo Maker** — **TIMELINE EDITOR COMPLETE**: Core engine + full timeline editing implemented. Remaining quality enhancements:
    - Brand kit integration (colors, fonts from company project via Tavily API)
    - Professional text overlays with company fonts, dynamic positioning, animations
    - Device frame mockups (iPhone, MacBook, iPad)

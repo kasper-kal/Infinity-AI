@@ -21,7 +21,7 @@ router.use(apiKeyAuth);
 router.use(requireScope("build:write"));
 
 /** GET /api/jarvis/build/schedules — List all schedules for a project */
-router.get("/build/schedules", async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
     if (!projectId) {
@@ -45,7 +45,7 @@ router.get("/build/schedules", async (req: Request, res: Response) => {
 });
 
 /** POST /api/jarvis/build/schedules — Create a new build schedule */
-router.post("/build/schedules", async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   try {
     const input = req.body as Omit<NewBuildSchedule, "id" | "createdAt" | "updatedAt" | "runCount" | "nextRunAt" | "lastRunAt" | "lastRunResult" | "lastError" | "status">;
 
@@ -77,7 +77,7 @@ router.post("/build/schedules", async (req: Request, res: Response) => {
 });
 
 /** GET /api/jarvis/build/schedules/:id — Get a schedule with recent runs */
-router.get("/build/schedules/:id", async (req: Request, res) => {
+router.get("/:id", async (req: Request, res) => {
   try {
     const schedule = await getScheduleWithRuns(req.params.id as string);
     if (!schedule) {
@@ -92,7 +92,7 @@ router.get("/build/schedules/:id", async (req: Request, res) => {
 });
 
 /** PUT /api/jarvis/build/schedules/:id — Update a schedule */
-router.put("/build/schedules/:id", async (req: Request, res) => {
+router.put("/:id", async (req: Request, res) => {
   try {
     const input = req.body as Partial<Pick<BuildSchedule, "name" | "cron" | "config" | "status" | "notifyOnCompletion">>;
 
@@ -109,7 +109,7 @@ router.put("/build/schedules/:id", async (req: Request, res) => {
 });
 
 /** DELETE /api/jarvis/build/schedules/:id — Delete a schedule */
-router.delete("/build/schedules/:id", async (req: Request, res) => {
+router.delete("/:id", async (req: Request, res) => {
   try {
     const deleted = await deleteSchedule(req.params.id as string);
     if (!deleted) {
@@ -124,7 +124,7 @@ router.delete("/build/schedules/:id", async (req: Request, res) => {
 });
 
 /** POST /api/jarvis/build/schedules/:id/trigger — Manually trigger a schedule (Run now) */
-router.post("/build/schedules/:id/trigger", async (req: Request, res) => {
+router.post("/:id/trigger", async (req: Request, res) => {
   try {
     const result = await triggerSchedule(req.params.id as string);
     res.json(result);
@@ -135,7 +135,7 @@ router.post("/build/schedules/:id/trigger", async (req: Request, res) => {
 });
 
 /** GET /api/jarvis/build/schedules/:id/runs — Get paginated run history for a schedule */
-router.get("/build/schedules/:id/runs", async (req: Request, res) => {
+router.get("/:id/runs", async (req: Request, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const offset = parseInt(req.query.offset as string) || 0;

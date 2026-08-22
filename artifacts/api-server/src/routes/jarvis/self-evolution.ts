@@ -23,7 +23,7 @@ router.use(apiKeyAuth);
 router.use(requireScope("project:write"));
 
 /** GET /api/jarvis/self-evolution/config — Get current evolution config */
-router.get("/self-evolution/config", async (req: Request, res: Response) => {
+router.get("/config", async (req: Request, res: Response) => {
   try {
     res.json(getEvolutionConfig());
   } catch (err) {
@@ -33,7 +33,7 @@ router.get("/self-evolution/config", async (req: Request, res: Response) => {
 });
 
 /** PUT /api/jarvis/self-evolution/config — Update evolution config */
-router.put("/self-evolution/config", async (req: Request, res: Response) => {
+router.put("/config", async (req: Request, res: Response) => {
   try {
     setEvolutionConfig(req.body);
     res.json(getEvolutionConfig());
@@ -44,7 +44,7 @@ router.put("/self-evolution/config", async (req: Request, res: Response) => {
 });
 
 /** POST /api/jarvis/self-evolution/check-path — Check if a path is allowed for modification */
-router.post("/self-evolution/check-path", async (req: Request, res: Response) => {
+router.post("/check-path", async (req: Request, res: Response) => {
   try {
     const { path } = req.body;
     if (!path) {
@@ -59,7 +59,7 @@ router.post("/self-evolution/check-path", async (req: Request, res: Response) =>
 });
 
 /** POST /api/jarvis/self-evolution/propose — Create an evolution proposal */
-router.post("/self-evolution/propose", async (req: Request, res: Response) => {
+router.post("/propose", async (req: Request, res: Response) => {
   try {
     const { projectId, title, description, files, rationale } = req.body;
 
@@ -80,7 +80,7 @@ router.post("/self-evolution/propose", async (req: Request, res: Response) => {
 });
 
 /** POST /api/jarvis/self-evolution/apply — Apply an evolution proposal */
-router.post("/self-evolution/apply", async (req: Request, res: Response) => {
+router.post("/apply", async (req: Request, res: Response) => {
   try {
     const proposal = req.body as EvolutionProposal;
 
@@ -105,7 +105,7 @@ router.post("/self-evolution/apply", async (req: Request, res: Response) => {
 });
 
 /** POST /api/jarvis/self-evolution/run-cycle — Run a full self-evolution cycle */
-router.post("/self-evolution/run-cycle", async (req: Request, res: Response) => {
+router.post("/run-cycle", async (req: Request, res: Response) => {
   try {
     const { projectId, goal, maxProposals = 3 } = req.body;
 
@@ -126,7 +126,7 @@ router.post("/self-evolution/run-cycle", async (req: Request, res: Response) => 
 });
 
 /** POST /api/jarvis/self-evolution/checkpoint — Create a checkpoint */
-router.post("/self-evolution/checkpoint", async (req: Request, res: Response) => {
+router.post("/checkpoint", async (req: Request, res: Response) => {
   try {
     const { projectId, description = "manual checkpoint" } = req.body;
 
@@ -146,7 +146,7 @@ router.post("/self-evolution/checkpoint", async (req: Request, res: Response) =>
 });
 
 /** POST /api/jarvis/self-evolution/rollback — Rollback to a checkpoint */
-router.post("/self-evolution/rollback", async (req: Request, res: Response) => {
+router.post("/rollback", async (req: Request, res: Response) => {
   try {
     const { projectId, checkpointId } = req.body;
 
@@ -170,7 +170,7 @@ router.post("/self-evolution/rollback", async (req: Request, res: Response) => {
 });
 
 /** GET /api/jarvis/self-evolution/checkpoints — List checkpoints */
-router.get("/self-evolution/checkpoints", async (req: Request, res: Response) => {
+router.get("/checkpoints", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
     if (!projectId) {
@@ -187,7 +187,7 @@ router.get("/self-evolution/checkpoints", async (req: Request, res: Response) =>
 });
 
 /** GET /api/jarvis/self-evolution/history — Get evolution history */
-router.get("/self-evolution/history", async (req: Request, res: Response) => {
+router.get("/history", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
     if (!projectId) {
