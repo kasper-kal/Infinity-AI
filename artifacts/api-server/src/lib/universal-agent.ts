@@ -28,6 +28,8 @@ interface LLMMessageWithToolCalls extends LLMMessage {
 import { ToolExecutionContext, UniversalToolResult, Artifact } from "./tool-types";
 import { getToolDefinitionsForLLM, executeTool, formatToolResults } from "./tool-registry";
 import { ToolDiscoveryFilter } from "./tool-registry";
+import { executeUniversalToolWithResilience, classifyToolFailure, runUniversalToolHealthCheck, type ResilientExecutionOptions } from "./tool-resilience";
+import { getTaskPersistenceManager, type PersistentTaskState, type TaskStatus } from "./tool-persistence";
 
 /** Event emitted for each agent loop step (for SSE streaming to frontend) */
 export interface AgentToolEvent {
@@ -89,6 +91,14 @@ export interface UniversalAgentConfig {
   onTokenStream?: (token: string) => void;
   /** Maximum tokens for LLM response */
   maxTokens?: number;
+  /** Enable resilient execution with retry, circuit breaker, fallback */
+  enableResilience?: boolean;
+  /** Resilience execution options */
+  resilienceOptions?: ResilientExecutionOptions;
+  /** Task ID for persistence (enables checkpointing and recovery) */
+  taskId?: string;
+  /** Enable auto-checkpointing */
+  autoCheckpoint?: boolean;
 }
 
 /** Result of running the universal agent */
@@ -183,7 +193,7 @@ function hasDependencies(calls: LLMToolCall[], previousResults: UniversalToolRes
 }
 
 /**
- * Execute a batch of tool calls, either in parallel or sequentially.
+ * Execute a batch of tool calls with resilience (retry, circuit breaker, fallback, diagnostic)
  */
 async function executeToolBatch(
   calls: LLMToolCall[],
@@ -192,54 +202,85 @@ async function executeToolBatch(
   maxParallel: number,
   onEvent: (event: AgentToolEvent) => void,
   iteration: number,
-  parallelGroup: number
+  parallelGroup: number,
+  enableResilience: boolean,
+  resilienceOptions?: ResilientExecutionOptions
 ): Promise<UniversalToolResult[]> {
   const results: UniversalToolResult[] = [];
 
-  if (parallel && calls.length > 1) {
-    // Execute in parallel with concurrency limit
-    const semaphore = async function* (tasks: Array<() => Promise<UniversalToolResult>>) {
-      const executing: Promise<UniversalToolResult>[] = [];
-      for (const task of tasks) {
-        const promise = task();
-        executing.push(promise);
-        if (executing.length >= maxParallel) {
-          yield await Promise.race(executing);
-          // Remove completed
-          const completedIdx = executing.findIndex(p => p === promise);
-          if (completedIdx >= 0) executing.splice(completedIdx, 1);
+  const executeWithResilience = async (call: LLMToolCall): Promise<UniversalToolResult> => {
+    const startTime = Date.now();
+    const args = JSON.parse(call.function.arguments || "{}");
+
+    onEvent({
+      type: "tool_start",
+      step: iteration,
+      timestamp: new Date().toISOString(),
+      toolCall: {
+        id: call.id,
+        name: call.function.name,
+        args,
+        dependsOn: [],
+        parallelGroup,
+      },
+    });
+
+    if (enableResilience) {
+      // Use resilient execution wrapper - wrap executeTool to match expected signature
+      const executeFn = async (toolArgs: Record<string, unknown>, toolContext: ToolExecutionContext) => {
+        return executeTool(call.function.name, toolArgs, toolContext);
+      };
+      const result = await executeUniversalToolWithResilience(
+        call.function.name,
+        args,
+        context,
+        executeFn,
+        {
+          ...resilienceOptions,
+          onProgress: (stage, info) => {
+            resilienceOptions?.onProgress?.(stage, info);
+            if (stage === "tool_failed" || stage === "tool_exception") {
+              onEvent({
+                type: "tool_error",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                toolResult: {
+                  success: false,
+                  error: info.error as string,
+                  data: { stage, ...info },
+                },
+              });
+            } else if (stage === "fallback") {
+              onEvent({
+                type: "tool_progress",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                toolResult: {
+                  success: false,
+                  data: { fallback: info.to, from: info.from },
+                },
+              });
+            } else if (stage === "diagnostic") {
+              onEvent({
+                type: "tool_progress",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                toolResult: {
+                  success: false,
+                  data: { diagnostic: info.agent },
+                },
+              });
+            }
+          },
         }
-      }
-      // Wait for remaining
-      for (const p of executing) {
-        yield await p;
-      }
-    };
-
-    const tasks = calls.map((call, idx) => async () => {
-      const startTime = Date.now();
-
-      // Emit tool_start event
-      onEvent({
-        type: "tool_start",
-        step: iteration,
-        timestamp: new Date().toISOString(),
-        toolCall: {
-          id: call.id,
-          name: call.function.name,
-          args: JSON.parse(call.function.arguments || "{}"),
-          dependsOn: [],
-          parallelGroup,
-        },
-      });
-
+      );
+      return result;
+    } else {
+      // Standard execution without resilience
       try {
-        const args = JSON.parse(call.function.arguments || "{}");
         const result = await executeTool(call.function.name, args, context);
-
         const durationMs = Date.now() - startTime;
 
-        // Emit tool_complete event
         onEvent({
           type: result.success ? "tool_complete" : "tool_error",
           step: iteration,
@@ -274,70 +315,39 @@ async function executeToolBatch(
           metadata: { executionTimeMs: durationMs },
         };
       }
-    });
+    }
+  };
+
+  if (parallel && calls.length > 1) {
+    // Execute in parallel with concurrency limit
+    const semaphore = async function* (tasks: Array<() => Promise<UniversalToolResult>>) {
+      const executing: Promise<UniversalToolResult>[] = [];
+      for (const task of tasks) {
+        const promise = task();
+        executing.push(promise);
+        if (executing.length >= maxParallel) {
+          yield await Promise.race(executing);
+          // Remove completed
+          const completedIdx = executing.findIndex(p => p === promise);
+          if (completedIdx >= 0) executing.splice(completedIdx, 1);
+        }
+      }
+      // Wait for remaining
+      for (const p of executing) {
+        yield await p;
+      }
+    };
+
+    const tasks = calls.map((call) => () => executeWithResilience(call));
 
     for await (const result of semaphore(tasks)) {
       results.push(result);
     }
   } else {
     // Sequential execution
-    for (let idx = 0; idx < calls.length; idx++) {
-      const call = calls[idx];
-      const startTime = Date.now();
-
-      onEvent({
-        type: "tool_start",
-        step: iteration,
-        timestamp: new Date().toISOString(),
-        toolCall: {
-          id: call.id,
-          name: call.function.name,
-          args: JSON.parse(call.function.arguments || "{}"),
-          dependsOn: [],
-          parallelGroup,
-        },
-      });
-
-      try {
-        const args = JSON.parse(call.function.arguments || "{}");
-        const result = await executeTool(call.function.name, args, context);
-
-        const durationMs = Date.now() - startTime;
-
-        onEvent({
-          type: result.success ? "tool_complete" : "tool_error",
-          step: iteration,
-          timestamp: new Date().toISOString(),
-          toolResult: {
-            success: result.success,
-            data: result.data,
-            summary: result.summary,
-            error: result.error,
-            artifacts: result.artifacts,
-          },
-        });
-
-        results.push(result);
-      } catch (error) {
-        const durationMs = Date.now() - startTime;
-        const message = error instanceof Error ? error.message : String(error);
-
-        onEvent({
-          type: "tool_error",
-          step: iteration,
-          timestamp: new Date().toISOString(),
-          toolResult: {
-            success: false,
-            error: message,
-          },
-        });
-
-        results.push({
-          success: false,
-          error: message,
-          metadata: { executionTimeMs: durationMs },
-        });
-      }
+    for (const call of calls) {
+      const result = await executeWithResilience(call);
+      results.push(result);
     }
   }
 
@@ -370,8 +380,12 @@ export async function runUniversalAgent(
     parallelExecution = true,
     maxParallel = 4,
     onToolEvent = () => {},
-    onTokenStream = () => {},
+    onTokenStream,
     maxTokens = 4096,
+    enableResilience = true,
+    resilienceOptions = {},
+    taskId,
+    autoCheckpoint = true,
   } = config;
 
   // Get tool definitions for the LLM
@@ -525,7 +539,9 @@ export async function runUniversalAgent(
       maxParallel,
       onToolEvent,
       iteration,
-      parallelGroup
+      parallelGroup,
+      enableResilience,
+      resilienceOptions
     );
 
     // Update iteration record
@@ -560,16 +576,33 @@ export async function runUniversalAgent(
 
     // Check if we should continue (if all tools failed, maybe stop?)
     const allFailed = toolResults.every(r => !r.success);
-    if (allFailed && iteration > 0) {
-      // Multiple iterations of all failures — probably stuck
-      error = "All tool calls failed repeatedly";
+    if (allFailed) {
+      // All tools failed in this iteration - check for specific error types to surface
+      const permissionDenied = toolResults.some(r =>
+        r.error?.includes("requires explicit approval") ||
+        r.error?.includes("permission") ||
+        r.metadata?.requiresApproval === true
+      );
+      const rateLimited = toolResults.some(r =>
+        r.error?.includes("rate limit") ||
+        r.error?.includes("429")
+      );
+
+      if (permissionDenied) {
+        error = toolResults.find(r => r.error?.includes("requires explicit approval"))?.error || "Tool execution requires permission";
+      } else if (rateLimited) {
+        error = toolResults.find(r => r.error?.includes("rate limit"))?.error || "Rate limit exceeded";
+      } else {
+        error = "All tool calls failed";
+      }
+
       onToolEvent({
         type: "tool_error",
         step: iteration,
         timestamp: new Date().toISOString(),
         toolResult: {
           success: false,
-          error: "All tool calls in this iteration failed",
+          error,
         },
       });
       break;

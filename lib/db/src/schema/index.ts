@@ -25,5 +25,6 @@ export * from "./build-budgets";
 export * from "./build-schedules";
 export * from "./connectors";
 export * from "./books";
+export * from "./task-states";
 // NOTE: the `files` table intentionally lives OUTSIDE this barrel. It belongs
 // to the separate files database (see lib/db/src/index.ts filesDb).
