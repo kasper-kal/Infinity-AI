@@ -27,6 +27,9 @@ import { BuildProgressPanel } from "@/components/build-progress-panel";
 import { BuildProgressRing } from "@/components/build-progress-ring";
 import { PlusMenu, type PlusAction } from "@/components/plus-menu";
 import { BuildCommandPalette, type CommandPaletteItem } from "@/components/build-command-palette";
+import { BottomNav, type BottomNavItem } from "@/components/mobile/BottomNav";
+import { SheetModal } from "@/components/mobile/SheetModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
@@ -51,6 +54,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   initialPrompt,
   buildRunKey,
 }) => {
+  const isMobile = useIsMobile();
   const { t } = useI18n();
   const { theme, resolved, toggle: toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -62,6 +66,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [plusMenuCoords, setPlusMenuCoords] = useState<{ top: number; left: number } | null>(null);
+
+  // Mobile state
+  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'tools'>('terminal');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
 
   const handlePlusAction = useCallback((action: PlusAction) => {
     setPlusMenuOpen(false);
@@ -93,6 +103,211 @@ export const BuildView: React.FC<BuildViewProps> = ({
     }
   }, []);
 
+  /* ── Mobile variant ── */
+  if (isMobile) {
+    const bottomNavItems: BottomNavItem[] = [
+      {
+        id: 'terminal',
+        label: t('build.tabs.terminal'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+        ),
+      },
+      {
+        id: 'history',
+        label: t('build.sidebar.recentBuilds'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+          </svg>
+        ),
+      },
+      {
+        id: 'tools',
+        label: t('build.sidebar.sections.tools'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14.7 6.3a4 4 0 0 0 5.4 5.4L21 11M3 21l5.7-5.7M9 9l-6 6M14 4l6 6" />
+          </svg>
+        ),
+      },
+    ];
+
+    return (
+      <div className="h-dvh flex flex-col bg-background text-foreground overflow-hidden">
+        {/* Mobile header */}
+        <header className="shrink-0 glass-strong border-b border-border-primary/60 px-4 py-3 flex items-center gap-3">
+          {onBack && (
+            <IconButton
+              onClick={onBack}
+              aria-label={t('common.back')}
+              variant="ghost"
+              size="sm"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </IconButton>
+          )}
+          <h1 className="text-lg font-semibold flex-1">{t('build.title')}</h1>
+          <IconButton
+            onClick={() => toggleTheme()}
+            aria-label={t('settings.theme')}
+            variant="ghost"
+            size="sm"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {theme === 'dark' ? (
+                <circle cx="12" cy="12" r="5" />
+              ) : (
+                <>
+                  <circle cx="12" cy="12" r="5" />
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </>
+              )}
+            </svg>
+          </IconButton>
+          <IconButton
+            onClick={() => setHistoryOpen(true)}
+            aria-label={t('build.sidebar.recentBuilds')}
+            variant="ghost"
+            size="sm"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          </IconButton>
+        </header>
+
+        {/* Build tab content */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {bottomNavTab === 'terminal' && (
+            <div className="flex flex-col h-full">
+              <Terminal
+                theme={resolved as 'light' | 'dark'}
+                onReady={(term) => {
+                  if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
+                }}
+              />
+            </div>
+          )}
+          {bottomNavTab === 'history' && (
+            <div className="flex flex-col h-full">
+              <BuildTranscript toolCalls={[]} autoScroll />
+            </div>
+          )}
+          {bottomNavTab === 'tools' && (
+            <div className="flex flex-col h-full p-4 space-y-4">
+              <BuildDebugPanel workspaceId={projectId ?? ''} />
+            </div>
+          )}
+        </div>
+
+        {/* Command input bar for terminal */}
+        {bottomNavTab === 'terminal' && (
+          <div className="shrink-0 border-t border-border-primary bg-bg-elevated/50 backdrop-blur-xl p-3 safe-area-inset-bottom">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm font-mono">$</span>
+              <Input
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCommandSubmit()}
+                placeholder={t('build.terminal.placeholder')}
+                disabled={commandBusy}
+                className="flex-1"
+              />
+              <IconButton
+                onClick={handleCommandSubmit}
+                disabled={commandBusy || !commandInput.trim()}
+                aria-label={t('common.run')}
+                variant="primary"
+                size="sm"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </IconButton>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom nav */}
+        <BottomNav
+          items={bottomNavItems}
+          activeId={bottomNavTab}
+          onChange={(id) => {
+            setBottomNavTab(id as typeof bottomNavTab);
+            if (id === 'history') setHistoryOpen(true);
+            if (id === 'tools') setToolsOpen(true);
+          }}
+        />
+
+        {/* History sheet */}
+        <SheetModal
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          title={t('build.sidebar.recentBuilds')}
+          defaultSnapPoint="half"
+        >
+          <div className="space-y-2">
+            {commandHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {t('build.transcriptEmpty')}
+              </p>
+            ) : (
+              commandHistory.map((cmd, i) => (
+                <button
+                  key={`${cmd}-${i}`}
+                  onClick={() => {
+                    setCommandInput(cmd);
+                    setHistoryOpen(false);
+                    setBottomNavTab('terminal');
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated font-mono text-sm"
+                >
+                  <span className="text-muted-foreground">$ </span>
+                  {cmd}
+                </button>
+              ))
+            )}
+          </div>
+        </SheetModal>
+
+        {/* Tools sheet */}
+        <SheetModal
+          open={toolsOpen}
+          onOpenChange={setToolsOpen}
+          title={t('build.sidebar.sections.tools')}
+          defaultSnapPoint="half"
+        >
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                setBuildTab('plan');
+                setToolsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
+            >
+              {t('build.sidebar.plan')}
+            </button>
+            <button
+              onClick={() => {
+                setBuildTab('terminal');
+                setToolsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
+            >
+              {t('build.sidebar.terminal')}
+            </button>
+          </div>
+        </SheetModal>
+      </div>
+    );
+  }
+
+  /* ── Desktop variant ── */
   return (
     <AppShell
       header={
