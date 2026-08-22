@@ -373,6 +373,7 @@ const CREATE_TABLES = [
     "password_hash" text NOT NULL,
     "display_name" text NOT NULL DEFAULT '',
     "avatar_url" text,
+    "scopes" jsonb NOT NULL DEFAULT '[]'::jsonb,
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
@@ -381,7 +382,8 @@ const CREATE_TABLES = [
     "token" text NOT NULL UNIQUE,
     "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
     "created_at" timestamp NOT NULL DEFAULT now(),
-    "expires_at" timestamp
+    "expires_at" timestamp,
+    "revoked_at" timestamp
   )`,
 
   // ── Jarvis Build saved apps ────────────────────────────────────
@@ -483,6 +485,13 @@ const ALTER_TABLES = [
 
   // push_subscriptions
   `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "user_agent" text NOT NULL DEFAULT ''`,
+
+  // accounts, scopes column for auth middleware
+  `ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS "scopes" jsonb NOT NULL DEFAULT '[]'::jsonb`,
+
+  // sessions, revoked_at column for session revocation
+  `ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "revoked_at" timestamp`,
+  `CREATE INDEX IF NOT EXISTS "sessions_account_revoked_idx" ON "sessions" ("account_id", "revoked_at")`,
 
   // gmail / spotify
   `ALTER TABLE "gmail_tokens" ADD COLUMN IF NOT EXISTS "email" text NOT NULL DEFAULT ''`,

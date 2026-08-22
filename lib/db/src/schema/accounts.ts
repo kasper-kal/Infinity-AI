@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, jsonb } from "drizzle-orm/pg-core";
 
 /**
  * Minimal local accounts for invited users (groupchats). The primary user has
@@ -11,6 +11,7 @@ export const accounts = pgTable("accounts", {
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull().default(""),
   avatarUrl: text("avatar_url"),
+  scopes: jsonb("scopes").notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -24,6 +25,7 @@ export const sessions = pgTable("sessions", {
     .references(() => accounts.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
 });
 
 export type Account = typeof accounts.$inferSelect;

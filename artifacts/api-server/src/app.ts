@@ -7,6 +7,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { buildErrorDetail } from "./lib/error-detail";
+import { requireAuth, optionalAuth } from "./middleware/auth-middleware";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,22 @@ app.use(cookieParser());
 app.use(express.json({ limit: "1gb" }));
 app.use(express.urlencoded({ extended: true, limit: "1gb" }));
 
+// Public router for endpoints that don't require authentication
+const publicRouter = express.Router();
+
+// Mount public endpoints BEFORE auth middleware
+// These must be explicitly listed as public
+publicRouter.use("/auth", (await import("./routes/jarvis/auth")).default);
+publicRouter.use("/health", (await import("./routes/health")).default);
+publicRouter.use("/extension", (await import("./routes/jarvis/extension")).default);
+
+// Apply public routes
+app.use("/api", publicRouter);
+
+// Global authentication middleware - protects all remaining /api routes
+app.use("/api", requireAuth);
+
+// Main router (all routes now require auth by default)
 app.use("/api", router);
 
 // ── Serve built frontend static files (production only) ──
