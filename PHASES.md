@@ -1123,21 +1123,21 @@ The following 11 security issues were identified and must be fixed after all fea
 - [x] Fixed TypeScript errors by casting `req` to `AuthenticatedRequest` in all 5 terminal route handlers
 - [x] Verify typecheck + build pass
 
-### Issue 4: Build Isolation Security Audit Needed (HIGH)
+### Issue 4: Build Isolation Security Audit Needed (HIGH) ✅ **COMPLETE**
 
 **Problem**: `workspace.ts` executes OS processes and manipulates Git worktrees. Environment restriction ≠ sandboxing.
 
 **Fix Steps**:
-- [ ] Create `artifacts/api-server/src/lib/build-sandbox.ts`:
-  - [ ] `validateCommand(command: string)` — allowlist/denylist patterns, reject destructive commands (`rm -rf`, `git push --force`, `sudo`, etc.)
-  - [ ] `createSandboxedEnv()` — stripped env vars (no API keys, secrets, DB URLs)
-  - [ ] `enforceWorkspaceBoundary(cwd: string, projectRoot: string)` — prevent directory traversal outside project
-  - [ ] `runInSandbox(command, options)` — wraps `runTerminalCommand` with above guards
-- [ ] In `workspace.ts`:
-  - [ ] Replace direct `runTerminalCommand` calls with `runInSandbox`
-  - [ ] Add workspace root validation on worktree creation
-- [ ] Add test: attempt directory escape, destructive command, secret access — all blocked
-- [ ] Verify typecheck + build pass
+- [x] Create `artifacts/api-server/src/lib/build-sandbox.ts`:
+  - [x] `validateCommand(command: string)` — allowlist/denylist patterns, reject destructive commands (`rm -rf`, `git push --force`, `sudo`, etc.)
+  - [x] `createSandboxedEnv()` — stripped env vars (no API keys, secrets, DB URLs)
+  - [x] `enforceWorkspaceBoundary(cwd: string, projectRoot: string)` — prevent directory traversal outside project
+  - [x] `runInSandbox(command, options)` — wraps `runTerminalCommand` with above guards
+- [x] In `workspace.ts`:
+  - [x] Replace direct `runTerminalCommand` calls with `runInSandbox`
+  - [x] Add workspace root validation on worktree creation
+- [x] Add test: attempt directory escape, destructive command, secret access — all blocked
+- [x] Verify typecheck + build pass
 
 ### Issue 5: Browser Safety Model — Regex URLs Insufficient (HIGH)
 

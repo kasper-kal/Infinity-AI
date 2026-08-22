@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import * as fsSync from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { runInSandbox, validateCommand, createSandboxedEnv, enforceWorkspaceBoundary } from "./build-sandbox";
 
 /**
  * Jarvis Build workspace primitives.
@@ -537,48 +538,37 @@ export async function resetSession(sessionId: string, workspaceId = "default"): 
 }
 
 /** Run one capped command and preserve its working directory between calls. */
-export function runTerminalCommand(
+export async function runTerminalCommand(
   sessionId: string,
   command: string,
   opts: { timeoutMs?: number; maxOutput?: number; workspaceId?: string; env?: Record<string, string> } = {},
 ): Promise<TerminalRun> {
-  return new Promise((resolve) => {
-    const workspaceId = opts.workspaceId ?? "default";
-    const timeoutMs = Math.min(opts.timeoutMs ?? 15_000, 30_000);
-    const maxOutput = Math.min(opts.maxOutput ?? 30_000, 100_000);
-    const cwd = getSessionCwd(sessionId, workspaceId);
-    const boundedCommand = command.slice(0, MAX_COMMAND_LENGTH);
-    const script = `cd ${safeShellEscape(cwd)}; ${boundedCommand}; printf '\\n__CWD__=%s\\n' "$PWD"`;
-    const child = execFile(
-      "/bin/bash",
-      ["-lc", script],
-      {
-        cwd,
-        timeout: timeoutMs,
-        maxBuffer: maxOutput * 2,
-        killSignal: "SIGKILL",
-        env: getWorkspaceCommandEnvironment(opts.env),
-      },
-      (err, stdout, stderr) => {
-        let out = stdout ?? "";
-        const marker = out.match(/\n__CWD__=(.+)\n?$/);
-        const newCwd = marker?.[1]?.trim();
-        if (marker?.index !== undefined) out = out.slice(0, marker.index);
-        const root = getWorkspaceRoot(workspaceId);
-        if (newCwd && path.isAbsolute(newCwd) && (newCwd === root || newCwd.startsWith(`${root}${path.sep}`))) {
-          SESSIONS.set(sessionKey(workspaceId, sessionId), newCwd);
-        }
-        const code = err && typeof err === "object" && "code" in err ? (err as { code?: number | string }).code : 0;
-        resolve({
-          stdout: out.slice(-maxOutput),
-          stderr: (stderr ?? "").slice(-maxOutput),
-          cwd: SESSIONS.get(sessionKey(workspaceId, sessionId)) ?? root,
-          exitCode: err ? (typeof code === "number" ? code : 1) : 0,
-          timedOut: (err as { killed?: boolean } | null)?.killed === true,
-        });
-      },
-    );
+  const workspaceId = opts.workspaceId ?? "default";
+  const timeoutMs = Math.min(opts.timeoutMs ?? 15_000, 60_000);
+  const maxOutput = Math.min(opts.maxOutput ?? 30_000, 200_000);
+  const cwd = getSessionCwd(sessionId, workspaceId);
+
+  // Use sandboxed execution with command validation, environment sanitization, and workspace boundary enforcement
+  const result = await runInSandbox(command, {
+    timeoutMs,
+    maxOutput,
+    workspaceId,
+    env: opts.env,
+    cwd,
   });
+
+  // Update session cwd if it changed and is still within workspace
+  if (result.cwd) {
+    SESSIONS.set(sessionKey(workspaceId, sessionId), result.cwd);
+  }
+
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    cwd: result.cwd,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+  };
 }
 
 /** Start a command that can be observed and stopped by the terminal UI. */
@@ -592,15 +582,28 @@ export async function startInteractiveTerminal(
   const key = sessionKey(workspaceId, sessionId);
   const existing = RUNNING.get(key);
   if (existing) stopInteractiveTerminal(existing.id);
+
+  // Validate command using sandbox rules
+  const validation = validateCommand(command);
+  if (!validation.allowed) {
+    throw new Error(validation.reason || "Command validation failed");
+  }
+
+  // Get and validate workspace cwd
   const cwd = getSessionCwd(sessionId, workspaceId);
+  const safeCwd = enforceWorkspaceBoundary(cwd, workspaceId);
+
+  // Create sandboxed environment (sanitizes secrets)
+  const env = createSandboxedEnv(opts.env);
+
   const id = randomUUID();
-  const child = spawn("/bin/bash", ["-lc", command.slice(0, MAX_COMMAND_LENGTH)], {
-    cwd,
-    env: getWorkspaceCommandEnvironment(opts.env),
+  const child = spawn("/bin/bash", ["-lc", validation.sanitizedCommand ?? command.slice(0, MAX_COMMAND_LENGTH)], {
+    cwd: safeCwd,
+    env,
     stdio: ["pipe", "pipe", "pipe"],
   });
   const terminal: InteractiveTerminal = {
-    id, workspaceId, sessionId, child, cwd, output: "", startedAt: Date.now(),
+    id, workspaceId, sessionId, child, cwd: safeCwd, output: "", startedAt: Date.now(),
     listeners: new Set(), done: false, exitCode: null,
   };
   RUNNING.set(key, terminal);
@@ -613,8 +616,8 @@ export async function startInteractiveTerminal(
   child.on("exit", (code) => {
     terminal.done = true;
     terminal.exitCode = typeof code === "number" ? code : 1;
-    SESSIONS.set(key, cwd);
-    emit({ type: "exit", exitCode: terminal.exitCode, cwd });
+    SESSIONS.set(key, safeCwd);
+    emit({ type: "exit", exitCode: terminal.exitCode, cwd: safeCwd });
     // Keep the completed session briefly so a fast command can still be
     // connected to by the SSE endpoint after the start response returns.
     setTimeout(() => { if (RUNNING.get(key)?.id === id) RUNNING.delete(key); }, 60_000);

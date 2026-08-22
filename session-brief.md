@@ -4,9 +4,10 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-22 06:35
+LAST_UPDATED: 2026-08-22 06:55
 
 ## Just did (last action)
+- **Security fix #4: Build Isolation Security Audit (HIGH) — COMPLETE** — Created `artifacts/api-server/src/lib/build-sandbox.ts` (300+ lines) with command validation (allowlist/denylist patterns), environment sanitization (secret redaction), workspace boundary enforcement (prevents directory traversal), and sandboxed execution. Updated `artifacts/api-server/src/lib/workspace.ts` to use `runInSandbox` for both `runTerminalCommand` and `startInteractiveTerminal`, adding command validation, secret filtering, and path boundary checks. Typecheck + build pass ✅
 - **Security fix #3: Build Mode Terminal Route Authentication (CRITICAL) — COMPLETE** — Added authenticated `/build/terminal`, `/build/terminal/start`, `/build/terminal/stream`, `/build/terminal/stop`, `/build/terminal/reset` routes in `build.ts` with `requireAuth` + `requireScope("build:write")` + workspace ownership verification (`project.accountId === req.accountId`). Fixed TypeScript errors by casting `req` to `AuthenticatedRequest` in all 5 terminal route handlers. Typecheck + build pass ✅
 - **Security fix #2: Centralized Authentication Middleware (CRITICAL) — COMPLETE** — Created `artifacts/api-server/src/middleware/auth-middleware.ts` with `requireAuth`, `requireScope`, `optionalAuth` middleware. Applied globally in `app.ts` with public router for `/auth`, `/health`, `/extension`. Added `scopes` jsonb column to `accounts` table + `revokedAt` column + index to `sessions` table via `auto-migrate.ts`. All routes now automatically protected; duplicate `getAccountIdFromSession()` calls can be removed from individual routes. Typecheck + build pass ✅
 - **Security fix #1: API Key Endpoints Account Authorization (CRITICAL) — COMPLETE** — Scoped all api-keys endpoints (list, update, delete, regenerate) by `accountId` ownership check. Added `accountId` column to `llm_keys` schema. Typecheck + build pass ✅
