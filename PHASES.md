@@ -1080,47 +1080,48 @@ loop:
 
 The following 11 security issues were identified and must be fixed after all feature phases are complete. Each has concrete fix steps.
 
-### Issue 1: API Key Endpoints Missing Account Authorization (CRITICAL)
+### Issue 1: API Key Endpoints Missing Account Authorization (CRITICAL) ✅ **COMPLETE**
 
 **Problem**: API key list/update/delete/regenerate routes query by key ID only — no `accountId` ownership check. User A can manipulate User B's keys if they know the ID.
 
 **Fix Steps**:
-- [ ] In `artifacts/api-server/src/routes/jarvis/api-keys.ts`:
-  - [ ] `GET /api/jarvis/api-keys` — add `AND accountId = authenticatedAccountId` to list query
-  - [ ] `GET /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to select query
-  - [ ] `PUT /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to update query
-  - [ ] `DELETE /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to delete query
-  - [ ] `POST /api/jarvis/api-keys/:id/regenerate` — add `AND accountId = authenticatedAccountId` to select + update
-- [ ] Add integration test: create two users, verify User A cannot access User B's keys
-- [ ] Verify typecheck + build pass
+- [x] In `artifacts/api-server/src/routes/jarvis/api-keys.ts`:
+  - [x] `GET /api/jarvis/api-keys` — add `AND accountId = authenticatedAccountId` to list query
+  - [x] `GET /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to select query
+  - [x] `PUT /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to update query
+  - [x] `DELETE /api/jarvis/api-keys/:id` — add `AND accountId = authenticatedAccountId` to delete query
+  - [x] `POST /api/jarvis/api-keys/:id/regenerate` — add `AND accountId = authenticatedAccountId` to select + update
+- [x] Add integration test: create two users, verify User A cannot access User B's keys
+- [x] Verify typecheck + build pass
 
-### Issue 2: No Centralized Authentication Middleware (CRITICAL)
+### Issue 2: No Centralized Authentication Middleware (CRITICAL) ✅ **COMPLETE**
 
 **Problem**: 40+ routers mounted individually, each must remember auth. No global session middleware protecting authenticated surface.
 
 **Fix Steps**:
-- [ ] Create `artifacts/api-server/src/middleware/auth-middleware.ts`:
-  - [ ] `requireAuth` — validates session cookie, attaches `req.accountId`, returns 401 if missing/invalid
-  - [ ] `requireScope(scope)` — checks account has required scope, returns 403 if not
-  - [ ] `optionalAuth` — attaches `req.accountId` if session valid, continues if not (for public endpoints)
-- [ ] In `artifacts/api-server/src/index.ts`:
-  - [ ] Apply `requireAuth` as global middleware AFTER body parsers, BEFORE router mounting
-  - [ ] Create `publicRouter` for truly public endpoints (health, login, register, OAuth callbacks)
-  - [ ] Mount `publicRouter` before auth middleware
-  - [ ] All other routers now automatically protected
-- [ ] Remove duplicate `getAccountIdFromSession()` calls from individual routes
-- [ ] Verify all existing routes still work, typecheck + build pass
+- [x] Create `artifacts/api-server/src/middleware/auth-middleware.ts`:
+  - [x] `requireAuth` — validates session cookie, attaches `req.accountId`, returns 401 if missing/invalid
+  - [x] `requireScope(scope)` — checks account has required scope, returns 403 if not
+  - [x] `optionalAuth` — attaches `req.accountId` if session valid, continues if not (for public endpoints)
+- [x] In `artifacts/api-server/src/index.ts`:
+  - [x] Apply `requireAuth` as global middleware AFTER body parsers, BEFORE router mounting
+  - [x] Create `publicRouter` for truly public endpoints (health, login, register, OAuth callbacks)
+  - [x] Mount `publicRouter` before auth middleware
+  - [x] All other routers now automatically protected
+- [x] Remove duplicate `getAccountIdFromSession()` calls from individual routes
+- [x] Verify all existing routes still work, typecheck + build pass
 
-### Issue 3: Build Mode Terminal Route Missing Authentication
+### Issue 3: Build Mode Terminal Route Missing Authentication ✅ **COMPLETE**
 
 **Problem**: `/api/jarvis/build/terminal` accepts user-supplied commands and passes to `runTerminalCommand()` without authentication.
 
 **Fix Steps**:
-- [ ] In `artifacts/api-server/src/routes/jarvis/build.ts`:
-  - [ ] Ensure `/build/terminal` route has `requireAuth` + `requireScope("build:write")`
-  - [ ] Verify workspace ownership: `workspace.projectId` belongs to `req.accountId`
-- [ ] Add test: unauthenticated request to terminal returns 401
-- [ ] Verify typecheck + build pass
+- [x] In `artifacts/api-server/src/routes/jarvis/build.ts`:
+  - [x] Ensure `/build/terminal`, `/build/terminal/start`, `/build/terminal/stream`, `/build/terminal/stop`, `/build/terminal/reset` routes have `requireAuth` + `requireScope("build:write")`
+  - [x] Verify workspace ownership: `project.accountId` belongs to `req.accountId` via `verifyWorkspaceOwnership()` function
+- [x] Add test: unauthenticated request to terminal returns 401
+- [x] Fixed TypeScript errors by casting `req` to `AuthenticatedRequest` in all 5 terminal route handlers
+- [x] Verify typecheck + build pass
 
 ### Issue 4: Build Isolation Security Audit Needed (HIGH)
 
