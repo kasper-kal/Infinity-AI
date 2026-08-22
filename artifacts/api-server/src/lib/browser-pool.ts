@@ -1,5 +1,6 @@
 import { JarvisBrowser, type BrowserState, type InteractiveElement, type BrowseAction } from "./puppeteer-browser";
 import { EventEmitter } from "events";
+import { getBrowserPolicy, type PolicyCheckResult, type ActionContext } from "./browser-policy";
 
 /**
  * Phase 4.2 — Browser Pool.
@@ -211,22 +212,148 @@ export class BrowserPool extends EventEmitter {
     }));
   }
 
-  /** Execute an action on a specific browser. */
-  async executeAction(browserId: string, action: BrowseAction): Promise<{ success: boolean; error?: string; data?: any }> {
+  /** Check an action against browser safety policy before execution. */
+  async checkActionPolicy(
+    browserId: string,
+    action: BrowseAction,
+    context: Partial<ActionContext> = {}
+  ): Promise<PolicyCheckResult> {
+    const slot = this.slots.find((s) => s.id === browserId);
+    if (!slot) return { allowed: false, decision: "DENY", reason: "Browser not found", requiresHumanConfirmation: false, classification: { actionType: "UNKNOWN", confidence: 0, details: "Browser not found" } };
+
+    const policy = getBrowserPolicy();
+    const fullContext: ActionContext = {
+      url: slot.browser.getState().url,
+      domain: slot.browser.getState().url ? new URL(slot.browser.getState().url).hostname : undefined,
+      userInitiated: context.userInitiated,
+      ...context,
+    };
+
+    return policy.checkAction(action, fullContext);
+  }
+
+  /** Execute an action on a specific browser with policy enforcement. */
+  async executeAction(
+    browserId: string,
+    action: BrowseAction,
+    options: { skipPolicyCheck?: boolean; context?: Partial<ActionContext> } = {}
+  ): Promise<{ success: boolean; error?: string; data?: any; policyCheck?: PolicyCheckResult }> {
     const slot = this.slots.find((s) => s.id === browserId);
     if (!slot) return { success: false, error: "Browser not found" };
     slot.lastActivity = Date.now();
+
+    // Skip policy check if explicitly requested (e.g., for human-initiated actions during takeover)
+    if (!options.skipPolicyCheck) {
+      const policyCheck = await this.checkActionPolicy(browserId, action, options.context);
+      if (!policyCheck.allowed) {
+        return {
+          success: false,
+          error: `Blocked by browser safety policy: ${policyCheck.reason}`,
+          policyCheck,
+        };
+      }
+      if (policyCheck.requiresHumanConfirmation) {
+        return {
+          success: false,
+          error: `Requires human confirmation: ${policyCheck.reason}`,
+          policyCheck,
+        };
+      }
+      // Policy allows, proceed with execution
+      const result = await slot.browser.executeAction(action);
+      return { ...result, policyCheck };
+    }
+
     return slot.browser.executeAction(action);
   }
 
-  /** Navigate a browser to a URL. */
-  async navigate(browserId: string, url: string): Promise<{ success: boolean; error?: string; data?: any }> {
+  /** Navigate a browser to a URL with policy enforcement. */
+  async navigate(
+    browserId: string,
+    url: string,
+    options: { skipPolicyCheck?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string; data?: any; policyCheck?: PolicyCheckResult }> {
     const slot = this.slots.find((s) => s.id === browserId);
     if (!slot) return { success: false, error: "Browser not found" };
     slot.lastActivity = Date.now();
+
+    if (!options.skipPolicyCheck) {
+      const policyCheck = await this.checkActionPolicy(browserId, { action: "navigate", payload: url });
+      if (!policyCheck.allowed) {
+        return {
+          success: false,
+          error: `Blocked by browser safety policy: ${policyCheck.reason}`,
+          policyCheck,
+        };
+      }
+      if (policyCheck.requiresHumanConfirmation) {
+        return {
+          success: false,
+          error: `Requires human confirmation: ${policyCheck.reason}`,
+          policyCheck,
+        };
+      }
+    }
+
     try {
       await slot.browser.navigate(url);
       return { success: true, data: { url: slot.browser.getState().url, title: slot.browser.getState().title } };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+
+  /** Click at coordinates or on a selector with policy enforcement. */
+  async click(
+    browserId: string,
+    target: { selector?: string; x?: number; y?: number },
+    options: { skipPolicyCheck?: boolean; context?: Partial<ActionContext> } = {}
+  ): Promise<{ success: boolean; error?: string; data?: any; policyCheck?: PolicyCheckResult }> {
+    const slot = this.slots.find((s) => s.id === browserId);
+    if (!slot) return { success: false, error: "Browser not found" };
+    slot.lastActivity = Date.now();
+
+    if (!options.skipPolicyCheck) {
+      const policyCheck = await this.checkActionPolicy(browserId, { action: "click", payload: target }, options.context);
+      if (!policyCheck.allowed) {
+        return { success: false, error: `Blocked by browser safety policy: ${policyCheck.reason}`, policyCheck };
+      }
+      if (policyCheck.requiresHumanConfirmation) {
+        return { success: false, error: `Requires human confirmation: ${policyCheck.reason}`, policyCheck };
+      }
+    }
+
+    try {
+      await slot.browser.click(target);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+
+  /** Type text with policy enforcement. */
+  async type(
+    browserId: string,
+    text: string,
+    options: { skipPolicyCheck?: boolean; context?: Partial<ActionContext> } = {}
+  ): Promise<{ success: boolean; error?: string; data?: any; policyCheck?: PolicyCheckResult }> {
+    const slot = this.slots.find((s) => s.id === browserId);
+    if (!slot) return { success: false, error: "Browser not found" };
+    slot.lastActivity = Date.now();
+
+    if (!options.skipPolicyCheck) {
+      const policyCheck = await this.checkActionPolicy(browserId, { action: "type", payload: { text } }, options.context);
+      if (!policyCheck.allowed) {
+        return { success: false, error: `Blocked by browser safety policy: ${policyCheck.reason}`, policyCheck };
+      }
+      if (policyCheck.requiresHumanConfirmation) {
+        return { success: false, error: `Requires human confirmation: ${policyCheck.reason}`, policyCheck };
+      }
+    }
+
+    try {
+      await slot.browser.type(text);
+      return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
