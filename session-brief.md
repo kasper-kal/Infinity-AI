@@ -4,9 +4,11 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-22 04:55
+LAST_UPDATED: 2026-08-22 06:30
 
 ## Just did (last action)
+- **Security fix #2: Centralized Authentication Middleware (CRITICAL) — COMPLETE** — Created `artifacts/api-server/src/middleware/auth-middleware.ts` with `requireAuth`, `requireScope`, `optionalAuth` middleware. Applied globally in `app.ts` with public router for `/auth`, `/health`, `/extension`. Added `scopes` jsonb column to `accounts` table + `revokedAt` column + index to `sessions` table via `auto-migrate.ts`. All routes now automatically protected; duplicate `getAccountIdFromSession()` calls can be removed from individual routes. Typecheck + build pass ✅
+- **Security fix #1: API Key Endpoints Account Authorization (CRITICAL) — COMPLETE** — Scoped all api-keys endpoints (list, update, delete, regenerate) by `accountId` ownership check. Added `accountId` column to `llm_keys` schema. Typecheck + build pass ✅
 - **Phase 23: Universal Tool Layer — Agent Loop & UX — COMPLETE (100%)** — Full implementation verified and build passing:
   - **Phase 21 (Foundation) COMPLETE**: Universal tool contracts (`tool-types.ts`), Universal Tool Registry (`tool-registry.ts`) with 40 tools, LLMAdapter abstraction (`llm-adapter.ts`), all typecheck + build passing.
   - **Phase 22 (Capability Integration) COMPLETE**: All 6 existing Infinity capability categories registered as namespaced tools in Universal Tool Registry. Server startup verified: `Universal Tool Registry initialized count: 40`.
@@ -213,6 +215,8 @@ LAST_UPDATED: 2026-08-22 04:55
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-22 **Security fix #2: Centralized Authentication Middleware (CRITICAL) — COMPLETE** — Created `artifacts/api-server/src/middleware/auth-middleware.ts` with `requireAuth`, `requireScope`, `optionalAuth` middleware. Applied globally in `app.ts` with public router for `/auth`, `/health`, `/extension`. Added `scopes` jsonb column to `accounts` table + `revokedAt` column + index to `sessions` table via `auto-migrate.ts`. All routes now automatically protected; duplicate `getAccountIdFromSession()` calls can be removed from individual routes. Typecheck + build pass ✅
+- 2026-08-22 **Security fix #1: API Key Endpoints Account Authorization (CRITICAL) — COMPLETE** — Scoped all api-keys endpoints (list, update, delete, regenerate) by `accountId` ownership check. Added `accountId` column to `llm_keys` schema. Typecheck + build pass ✅
 - 2026-08-22 **Phase 24: Universal Tool Layer — Resilience & Persistence COMPLETE (100%)** — Implemented full resilience and persistence layer for the universal agent loop:
   - **tool-resilience.ts** (~600 lines): Failure classification (transient/recoverable/permanent/resource_exhausted/dependency_failed/permission_denied/validation_error/timeout/unknown), exponential backoff retry with jitter, circuit breaker pattern (closed→open→half-open→closed), fallback tools per category, diagnostic agents for failing tools, health checks, resilience metrics tracking
   - **tool-persistence.ts** (~700 lines): Persistent task state with `task_states` DB table, checkpointing (auto + manual), recovery plans, pending approvals with resume logic, pause/resume/cancel, progress tracking, export/import

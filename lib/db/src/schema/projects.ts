@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 import { conversations } from "./conversations";
+import { accounts } from "./accounts";
 
 /**
  * ChatGPT-style Projects: a named, colored folder that groups related chats.
@@ -17,6 +18,8 @@ export const projects = pgTable("projects", {
   instructions: text("instructions"),
   /** Project type: "general", "book", "website", "company", "app", "research", "course" */
   type: text("type").notNull().default("general"),
+  /** Account that owns this project (for authorization) */
+  accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

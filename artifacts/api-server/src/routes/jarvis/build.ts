@@ -6,6 +6,7 @@ import { desc, eq } from "drizzle-orm";
 import { buildApps, db } from "@workspace/db";
 import { logActivity } from "./project-activity";
 import { apiKeyAuth, requireScope, optionalApiKeyAuth } from "../../middlewares/api-key-auth";
+import { requireAuth, type AuthenticatedRequest } from "../../middleware/auth-middleware";
 import {
   ensureWorkspace,
   getSessionCwd,
@@ -434,8 +435,8 @@ function serializeSavedApp(row: typeof buildApps.$inferSelect) {
   return { ...row, metadata: row.metadata ?? {} };
 }
 
-/** Middleware: require either session auth or valid API key */
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
+/** Middleware: require either session auth or valid API key (local build routes) */
+function requireBuildAuth(req: Request, res: Response, next: NextFunction): void {
   const hasSession = !!(req as any).accountId || req.cookies?.jarvis_session;
   const hasApiKey = !!(req as any).apiKeyInfo;
   if (!hasSession && !hasApiKey) {
@@ -1807,6 +1808,169 @@ router.get("/build/preview/status", requireAuth, async (req, res) => {
   const workspaceId = cleanText(req.query.workspaceId, 64) || "default";
   const entry = previewProcesses.get(previewKey(workspaceId, sessionId));
   res.json(entry ? { running: true, workspaceId, port: entry.port, command: entry.command, output: entry.output.slice(-4000) } : { running: false, workspaceId });
+});
+
+/**
+ * Build Terminal Routes — Secure terminal access for build mode
+ * Requires authentication + build:write scope + workspace ownership
+ */
+import { projects } from "@workspace/db";
+import { and } from "drizzle-orm";
+
+async function verifyWorkspaceOwnership(projectId: string, accountId: string): Promise<boolean> {
+  if (!projectId || projectId === "default") return true; // default workspace is shared
+  const [project] = await db
+    .select({ id: projects.id, accountId: projects.accountId })
+    .from(projects)
+    .where(eq(projects.id, projectId));
+  // Allow if project exists and (no owner set OR owner matches accountId)
+  return !!project && (!project.accountId || project.accountId === accountId);
+}
+
+router.post("/build/terminal", requireAuth, requireScope("build:write"), async (req: AuthenticatedRequest, res) => {
+  try {
+    const projectId = cleanText(req.body?.projectId, 64) || "default";
+    const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+    const command = cleanText(req.body?.command, 12000);
+    const sessionId = cleanText(req.body?.sessionId, 100) || "studio-terminal";
+
+    if (!command) {
+      res.status(400).json({ error: "command is required" });
+      return;
+    }
+
+    // Verify workspace ownership
+    const isOwner = await verifyWorkspaceOwnership(projectId, req.accountId!);
+    if (!isOwner) {
+      res.status(403).json({ error: "Workspace access denied" });
+      return;
+    }
+
+    const { runTerminalCommand } = await import("../../lib/workspace");
+    await ensureWorkspace(workspaceId);
+    const result = await runTerminalCommand(sessionId, command, { workspaceId });
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "Build terminal command failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Terminal failed" });
+  }
+});
+
+router.post("/build/terminal/start", requireAuth, requireScope("build:write"), async (req: AuthenticatedRequest, res) => {
+  try {
+    const projectId = cleanText(req.body?.projectId, 64) || "default";
+    const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+    const command = cleanText(req.body?.command, 12000);
+    const sessionId = cleanText(req.body?.sessionId, 100) || "studio-terminal";
+
+    if (!command) {
+      res.status(400).json({ error: "command is required" });
+      return;
+    }
+
+    // Verify workspace ownership
+    const isOwner = await verifyWorkspaceOwnership(projectId, req.accountId!);
+    if (!isOwner) {
+      res.status(403).json({ error: "Workspace access denied" });
+      return;
+    }
+
+    const { startInteractiveTerminal } = await import("../../lib/workspace");
+    const terminal = await startInteractiveTerminal(sessionId, command, { workspaceId });
+    res.status(201).json({ id: terminal.id, sessionId, workspaceId, cwd: terminal.cwd, startedAt: terminal.startedAt });
+  } catch (err) {
+    req.log.error({ err }, "Build terminal start failed");
+    res.status(400).json({ error: err instanceof Error ? err.message : "Could not start terminal" });
+  }
+});
+
+router.get("/build/terminal/stream", requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = typeof req.query.id === "string" ? req.query.id : "";
+    if (!id) {
+      res.status(400).json({ error: "id is required" });
+      return;
+    }
+
+    const { findInteractiveTerminal, subscribeInteractiveTerminal } = await import("../../lib/workspace");
+    const terminal = findInteractiveTerminal(id);
+    if (!terminal) {
+      res.status(404).json({ error: "Terminal session not found" });
+      return;
+    }
+
+    // Verify workspace ownership
+    const projectId = cleanText(req.query.projectId, 64) || terminal.workspaceId;
+    const isOwner = await verifyWorkspaceOwnership(projectId, req.accountId!);
+    if (!isOwner) {
+      res.status(403).json({ error: "Workspace access denied" });
+      return;
+    }
+
+    res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+    res.flushHeaders();
+    const send = (event: unknown) => {
+      try { res.write(`data: ${JSON.stringify(event)}\n\n`); } catch { /* client disconnected */ }
+    };
+    send({ type: "snapshot", output: terminal.output, done: terminal.done, exitCode: terminal.exitCode });
+    const unsubscribe = subscribeInteractiveTerminal(terminal, (event) => { send(event); if (event.type === "exit") res.end(); });
+    req.on("close", unsubscribe);
+  } catch (err) {
+    req.log.error({ err }, "Build terminal stream failed");
+    res.status(500).json({ error: "Terminal stream failed" });
+  }
+});
+
+router.post("/build/terminal/stop", requireAuth, requireScope("build:write"), async (req: AuthenticatedRequest, res) => {
+  try {
+    const id = cleanText(req.body?.id, 64);
+    if (!id) {
+      res.status(400).json({ error: "id is required" });
+      return;
+    }
+
+    const { stopInteractiveTerminal, findInteractiveTerminal } = await import("../../lib/workspace");
+    const terminal = findInteractiveTerminal(id);
+    if (!terminal) {
+      res.status(404).json({ error: "Terminal session not found" });
+      return;
+    }
+
+    // Verify workspace ownership
+    const isOwner = await verifyWorkspaceOwnership(terminal.workspaceId, req.accountId!);
+    if (!isOwner) {
+      res.status(403).json({ error: "Workspace access denied" });
+      return;
+    }
+
+    const ok = stopInteractiveTerminal(id);
+    res.json({ ok });
+  } catch (err) {
+    req.log.error({ err }, "Build terminal stop failed");
+    res.status(500).json({ error: "Terminal stop failed" });
+  }
+});
+
+router.post("/build/terminal/reset", requireAuth, requireScope("build:write"), async (req: AuthenticatedRequest, res) => {
+  try {
+    const projectId = cleanText(req.body?.projectId, 64) || "default";
+    const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
+    const sessionId = cleanText(req.body?.sessionId, 100) || "studio-terminal";
+
+    // Verify workspace ownership
+    const isOwner = await verifyWorkspaceOwnership(projectId, req.accountId!);
+    if (!isOwner) {
+      res.status(403).json({ error: "Workspace access denied" });
+      return;
+    }
+
+    const { resetSession } = await import("../../lib/workspace");
+    await resetSession(sessionId, workspaceId);
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "Build terminal reset failed");
+    res.status(500).json({ error: "Terminal reset failed" });
+  }
 });
 
 /**

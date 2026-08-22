@@ -199,6 +199,8 @@ const CREATE_TABLES = [
     "pinned" boolean NOT NULL DEFAULT false,
     "last_opened_at" timestamp,
     "instructions" text,
+    "type" text NOT NULL DEFAULT 'general',
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
@@ -482,6 +484,9 @@ const ALTER_TABLES = [
   `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "description" text NOT NULL DEFAULT ''`,
   `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "pinned" boolean NOT NULL DEFAULT false`,
   `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "last_opened_at" timestamp`,
+  `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "type" text NOT NULL DEFAULT 'general'`,
+  `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
+  `CREATE INDEX IF NOT EXISTS "projects_account_id_idx" ON "projects" ("account_id")`,
 
   // push_subscriptions
   `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "user_agent" text NOT NULL DEFAULT ''`,
