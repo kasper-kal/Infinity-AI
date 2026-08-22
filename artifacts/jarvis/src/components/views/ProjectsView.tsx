@@ -34,37 +34,6 @@ interface Project {
   lastModified: string;
 }
 
-const SAMPLE_PROJECTS: Project[] = [
-  {
-    id: 'project-1',
-    name: 'E-commerce API',
-    description: 'REST API for online store with payments',
-    status: 'active',
-    lastModified: '2026-08-18',
-  },
-  {
-    id: 'project-2',
-    name: 'Dashboard UI',
-    description: 'Analytics dashboard with charts',
-    status: 'paused',
-    lastModified: '2026-08-15',
-  },
-  {
-    id: 'project-3',
-    name: 'Chat Bot',
-    description: 'Customer support automation',
-    status: 'completed',
-    lastModified: '2026-08-10',
-  },
-  {
-    id: 'project-4',
-    name: 'Mobile App',
-    description: 'React Native app for iOS/Android',
-    status: 'active',
-    lastModified: '2026-08-17',
-  },
-];
-
 const STATUS_COLORS: Record<Project['status'], string> = {
   active: 'bg-green-500/20 text-green-600 dark:text-green-400',
   paused: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
@@ -78,7 +47,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const { t } = useI18n();
-  const [projects, setProjects] = useState<Project[]>(SAMPLE_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);

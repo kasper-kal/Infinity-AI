@@ -366,7 +366,7 @@ export function WidgetShowcasePage() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Filter widgets..."
+                placeholder={t('widgetShowcase.filterPlaceholder')}
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
                 className="w-64 bg-secondary/50 border border-transparent focus:border-border/60 text-foreground placeholder:text-muted-foreground/50 text-sm pl-9 pr-4 py-2 font-rounded rounded-full outline-none transition-all"

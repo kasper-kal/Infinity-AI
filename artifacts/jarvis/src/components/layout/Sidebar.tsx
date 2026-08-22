@@ -5,6 +5,8 @@
 
 import React, { useState, useCallback, useMemo, ReactNode } from "react";
 import "./Sidebar.css";
+import { ConnectorMenu } from "./ConnectorMenu";
+import "./ConnectorMenu.css";
 
 export interface SidebarProps {
   /** Sidebar content */

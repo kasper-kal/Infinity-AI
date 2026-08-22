@@ -14,6 +14,7 @@ import { StudiosHub, type StudioId } from '@/components/studios-hub';
 import { CommandCard } from '@/components/widgets/CommandCard';
 import type { TerminalResult } from '@/types/widget';
 import { BuildStudio } from '@/components/build-studio';
+import { useI18n } from '@/lib/i18n';
 
 interface AppOverlaysProps {
   // Settings
@@ -83,11 +84,12 @@ interface AppOverlaysProps {
 }
 
 function CloneForm({ onClone }: { onClone: (url: string) => void }) {
+  const { t } = useI18n();
   const [url, setUrl] = useState('');
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (url.trim()) { onClone(url.trim()); setUrl(''); } }} className="flex items-center gap-2 w-full max-w-sm">
-      <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/user/repo.git" className="flex-1 min-w-0 bg-muted/40 border border-border/30 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-primary/40 transition-colors" spellCheck={false} />
-      <button type="submit" disabled={!url.trim()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/15 transition-colors disabled:opacity-40"><Download className="w-3.5 h-3.5" />Clone</button>
+      <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={t('cloneForm.placeholder')} className="flex-1 min-w-0 bg-muted/40 border border-border/30 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-primary/40 transition-colors" spellCheck={false} />
+      <button type="submit" disabled={!url.trim()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/15 transition-colors disabled:opacity-40"><Download className="w-3.5 h-3.5" />{t('cloneForm.clone')}</button>
     </form>
   );
 }

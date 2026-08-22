@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { AppShell, AppShellSidebarSection, AppShellSidebarNavItem, AppShellHeader } from "@/components/layout/AppShell";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ConnectorMenu } from "@/components/layout/ConnectorMenu";
 import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
@@ -131,6 +132,8 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
           />
         ))}
       </AppShellSidebarSection>
+
+      <ConnectorMenu />
     </Sidebar>
   ), [activeView, collapsed, onNavigate, t]);
 

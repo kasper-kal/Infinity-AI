@@ -429,7 +429,7 @@ export function BuildDiffPreview({
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search in diff…"
+                placeholder={t('studio.build.diffSearchPlaceholder')}
                 className="rounded-lg border border-border bg-input pl-8 pr-3 py-1.5 w-64 text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
               />
             </div>

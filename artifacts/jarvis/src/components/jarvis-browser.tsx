@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Circle, Globe, ArrowLeft, ArrowRight, RotateCcw, Maximize2, Minimize2, Bot, Play, Square, Pause, Grid3X3, Loader2, MousePointer2 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 interface BrowserState {
   url: string;
@@ -39,6 +40,7 @@ interface InfinityBrowserProps {
  * buttons can be clicked precisely.
  */
 export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalHandled }: InfinityBrowserProps) {
+  const { t } = useI18n();
   const [state, setState] = useState<BrowserState | null>(null);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -423,7 +425,7 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Enter URL or search..."
+            placeholder={t('browser.urlPlaceholder')}
             className="flex-1 bg-transparent text-xs font-mono py-1 outline-none text-foreground placeholder:text-muted-foreground/50"
           />
         </div>
@@ -466,7 +468,7 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
           value={agentGoal}
           onChange={(e) => setAgentGoal(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') startAgentRun(); }}
-          placeholder="Give Infinity a goal, it will browse and click for you…"
+          placeholder={t('browser.agentPlaceholder')}
           disabled={agentRunning}
           className="flex-1 bg-transparent text-[11px] font-mono py-1 outline-none text-foreground placeholder:text-muted-foreground/50 disabled:opacity-50"
         />

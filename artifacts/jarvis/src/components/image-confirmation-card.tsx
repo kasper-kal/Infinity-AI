@@ -189,7 +189,7 @@ export function AgentBrowserConfirmationCard({ onConfirm, onCancel }: AgentBrows
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && query.trim()) onConfirm(query.trim()); if (e.key === 'Escape') onCancel(); }}
-            placeholder="Type your search query..."
+            placeholder={t('chat.searchPlaceholder')}
             className="w-full px-3 py-2 rounded-lg bg-background border border-border/50 text-foreground placeholder:text-muted-foreground/40 font-mono text-[11px] outline-none focus:border-cyan-400/50"
           />
         </div>

@@ -24,6 +24,7 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
 import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MoreHorizontal, Layout, Code, Eye, Monitor } from "lucide-react";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -66,6 +67,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'chat' | 'agent' | 'camera'>('chat');
+  const [buildMode, setBuildMode] = useState<'visual' | 'chat'>('visual');
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -199,23 +202,155 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </Tooltip>
       )}
 
-      <IconButton
-        onClick={() => toggleTheme()}
-        variant="ghost"
-        size="sm"
-        aria-label={t('settings.theme')}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          {theme === 'dark' ? (
-            <circle cx="12" cy="12" r="5"/>
-          ) : (
-            <>
-              <circle cx="12" cy="12" r="5"/>
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-            </>
-          )}
-        </svg>
-      </IconButton>
+      {/* Chat Menu with Build Mode Toggle */}
+      <div className="relative">
+        <IconButton
+          onClick={() => setChatMenuOpen(!chatMenuOpen)}
+          variant="ghost"
+          size="sm"
+          aria-label={t('common.more')}
+        >
+          <MoreHorizontal className="w-5 h-5" />
+        </IconButton>
+
+        {chatMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setChatMenuOpen(false)} aria-hidden="true" />
+            <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-border/60 bg-card/95 p-2 shadow-apple-xl backdrop-blur-xl">
+              {/* Build Mode Section */}
+              <div className="border-b border-border/30 pb-2 mb-2">
+                <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {t('build.mode.title')}
+                </p>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => { setBuildMode('visual'); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      buildMode === 'visual'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <Layout className="w-4 h-4 flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="font-medium">{t('build.mode.visual')}</p>
+                      <p className="text-xs text-muted-foreground/70">{t('build.mode.visualDesc')}</p>
+                    </div>
+                    {buildMode === 'visual' && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBuildMode('chat'); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      buildMode === 'chat'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <Code className="w-4 h-4 flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="font-medium">{t('build.mode.chat')}</p>
+                      <p className="text-xs text-muted-foreground/70">{t('build.mode.chatDesc')}</p>
+                    </div>
+                    {buildMode === 'chat' && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Build Visual Tools (only shown in visual mode) */}
+              {buildMode === 'visual' && (
+                <div className="border-b border-border/30 pb-2 mb-2">
+                  <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t('build.mode.title')} Tools
+                  </p>
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => { setChatMenuOpen(false); }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground"
+                    >
+                      <Eye className="w-4 h-4 flex-shrink-0" />
+                      <span>{t('build.mode.preview')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setChatMenuOpen(false); }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground"
+                    >
+                      <Code className="w-4 h-4 flex-shrink-0" />
+                      <span>{t('build.mode.code')}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {onToggleThinking && (
+                  <button
+                    type="button"
+                    onClick={() => { onToggleThinking(); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      thinkingEnabled
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    <span>{t('input.thinking')}</span>
+                    {thinkingEnabled && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
+
+                {onToggleWebSearch && (
+                  <button
+                    type="button"
+                    onClick={() => { onToggleWebSearch(); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      webSearchEnabled
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <span>{t('input.webSearch')}</span>
+                    {webSearchEnabled && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => { toggleTheme(); setChatMenuOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground"
+                >
+                  {theme === 'dark' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                  )}
+                  <span>{t('settings.theme')}</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 

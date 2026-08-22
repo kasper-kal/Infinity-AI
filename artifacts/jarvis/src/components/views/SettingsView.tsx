@@ -155,7 +155,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
+              placeholder={t('settings.apiKeyPlaceholder')}
               type="password"
             />
           </div>

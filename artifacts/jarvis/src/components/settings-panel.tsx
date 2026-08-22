@@ -929,7 +929,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                       <textarea
                         value={form.user_profile}
                         onChange={e => setForm(f => ({ ...f, user_profile: e.target.value }))}
-                        placeholder="e.g. My name is Alex. I'm a software engineer based in London."
+                        placeholder={t('settings.userProfilePlaceholder')}
                         rows={4}
                         maxLength={2000}
                         className="w-full bg-card border border-border text-foreground placeholder:text-muted-foreground/40 font-mono text-[12px] px-4 py-3 rounded-xl outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/10 transition-all resize-none leading-relaxed mt-3"
@@ -1427,7 +1427,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                                   type="password"
                                   value={secretDrafts[item.env] ?? ''}
                                   onChange={e => setSecretDrafts(d => ({ ...d, [item.env]: e.target.value }))}
-                                  placeholder={item.configured ? 'Paste new key to replace…' : 'Paste key…'}
+                                  placeholder={item.configured ? t('settings.apiKeyPlaceholderReplace') : t('settings.apiKeyPlaceholderNew')}
                                   className="flex-1 min-w-0 bg-background border border-border text-foreground placeholder:text-muted-foreground/40 font-mono text-[11px] px-3 py-2 rounded-md outline-none focus:border-primary/60 transition-all"
                                 />
                                 <button

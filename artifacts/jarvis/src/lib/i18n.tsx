@@ -36,6 +36,7 @@ const en = {
   "chat.useCodePrompt": "Allow Infinity to read its own code for this answer?",
   "chat.useCodeConfirm": "USE CODE",
   "chat.useCodeCancel": "SKIP CODE",
+  "chat.searchPlaceholder": "Type your search query...",
   "header.backendOffline": "Backend offline, API server may not be running",
 
   /* Sidebar / Navigation */
@@ -202,6 +203,9 @@ const en = {
   "settings.userProfile": "User Profile",
   "settings.userProfileHint":
     "A few sentences about yourself. Infinity reads this every conversation to personalise replies.",
+  "settings.userProfilePlaceholder": "e.g. My name is Alex. I'm a software engineer based in London.",
+  "settings.apiKeyPlaceholderNew": "Paste key…",
+  "settings.apiKeyPlaceholderReplace": "Paste new key to replace…",
   "settings.memories": "Memories",
   "settings.memoriesHint":
     "Facts Infinity has picked up during conversations. Edit or delete any entry.",
@@ -219,6 +223,26 @@ const en = {
   "settings.connected": "Connected",
   "settings.disconnect": "Disconnect",
   "settings.disconnecting": "Disconnecting…",
+
+  /* Connectors / Integrations */
+  "connectors.title": "Integrations",
+  "connectors.subtitle": "Connect external services to extend Infinity's capabilities",
+  "connectors.connect": "Connect",
+  "connectors.connected": "Connected",
+  "connectors.disconnect": "Disconnect",
+  "connectors.authorizing": "Authorizing…",
+  "connectors.spotify": "Spotify",
+  "connectors.spotifyDesc": "Access your music library, playlists, and listening history",
+  "connectors.googleCalendar": "Google Calendar",
+  "connectors.googleCalendarDesc": "Read and manage your calendar events and schedule",
+  "connectors.gmail": "Gmail",
+  "connectors.gmailDesc": "Search, read, and send emails from your inbox",
+  "connectors.slack": "Slack",
+  "connectors.slackDesc": "Send messages, search conversations, and manage channels",
+  "connectors.github": "GitHub",
+  "connectors.githubDesc": "Access repositories, issues, pull requests, and code",
+  "connectors.figma": "Figma",
+  "connectors.figmaDesc": "Browse designs, components, and export assets",
   "settings.webSearch": "Web Search",
   "settings.webSearchHint": "Let Infinity search the web",
   "settings.webSearchPowered": "Powered by Tavily.",
@@ -413,6 +437,15 @@ const en = {
   "build.menuItem": "Infinity Build",
   "build.title": "Infinity Build",
   "build.terminalHint": "Linux sandbox, ask Infinity to build something",
+
+  /* Build Mode Toggle */
+  "build.mode.title": "Build Mode",
+  "build.mode.visual": "Visual (Replit-style)",
+  "build.mode.visualDesc": "Visual editor with live preview, file tree, and sandbox",
+  "build.mode.chat": "Chat Style",
+  "build.mode.chatDesc": "Build happens inline in chat, no pop-ups",
+  "build.mode.preview": "Preview",
+  "build.mode.code": "Code Viewer",
 
   /* Build View */
   "build.tabs.plan": "Plan",
@@ -632,6 +665,17 @@ const en = {
   "studio.build.scaffoldPlaceholder": "Build a landing page for a coffee shop",
   "studio.build.terminalHint": "Persistent workspace terminal",
   "studio.build.commandPlaceholder": "npm install, git status, python ...",
+  "studio.build.packageSearchPlaceholder": "Search npm / PyPI / crates.io…",
+  "studio.build.commitMessagePlaceholder": "Commit message",
+  "studio.build.newBranchPlaceholder": "New branch name",
+  "studio.build.workspaceSearchPlaceholder": "Search query (supports regex)",
+  "studio.build.replacePlaceholder": "Replace with…",
+  "studio.build.dbQueryPlaceholder": "SELECT * FROM table LIMIT 50",
+  "studio.build.apiBaseUrlPlaceholder": "Base URL (http://localhost:PORT)",
+  "studio.build.apiEndpointPlaceholder": "/api/items",
+  "studio.build.apiBodyPlaceholder": "JSON body (for POST / PUT / PATCH)",
+  "studio.build.agentGoalPlaceholder": "Tell Infinity what to do in the website, for example: submit the signup form",
+  "studio.build.extraInstructionsPlaceholder": "Optional extra instructions for Infinity Build. These are added to, not a replacement for, the built-in Infinity Build rules.",
   "studio.build.run": "Run",
   "studio.build.runCommand": "Run command",
   "studio.build.port": "Port",
@@ -733,6 +777,7 @@ const en = {
   "studio.build.diffPreviewTitle": "Review proposed changes",
   "studio.build.diffApply": "Apply changes",
   "studio.build.diffReject": "Reject",
+  "studio.build.diffSearchPlaceholder": "Search in diff…",
 
   /* Build Studio - Phase 5.1 Debug panel (telemetry) */
   "studio.build.debug": "Debug",
@@ -766,6 +811,34 @@ const en = {
   "studio.build.debugExportTar": "Export tar.gz",
   "studio.build.debugShare": "Share",
   "studio.build.debugClone": "Clone",
+
+  /* Group Settings */
+  "groupSettings.title": "Group settings",
+  "groupSettings.description": "Turn this conversation into a shared space. Human groups use a one-time 4-digit invite code. AI groups persist persona members here; autonomous persona turns are the next collaboration slice.",
+  "groupSettings.namePlaceholder": "Group name",
+  "groupSettings.humanGroup": "Human group",
+  "groupSettings.aiGroupSetup": "AI group setup",
+  "groupSettings.joinWithInvite": "Join with an invite",
+  "groupSettings.joinDescription": "Create an account while joining. The code is single-use and expires after 24 hours.",
+  "groupSettings.codePlaceholder": "4-digit code",
+  "groupSettings.namePlaceholder2": "Your name",
+  "groupSettings.emailPlaceholder": "Email",
+  "groupSettings.passwordPlaceholder": "Password",
+  "groupSettings.joinGroup": "Join group",
+  "groupSettings.infinityParticipation": "Infinity participation",
+  "groupSettings.alwaysResponds": "Always responds",
+  "groupSettings.onlyWhenMentioned": "Only when @Infinity",
+  "groupSettings.invitePerson": "Invite a person",
+  "groupSettings.inviteDescription": "Codes expire after 24 hours and are single-use.",
+  "groupSettings.generateInvite": "Generate",
+  "groupSettings.regenerateInvite": "Regenerate",
+  "groupSettings.copyInviteCode": "Copy invite code",
+  "groupSettings.participants": "Participants",
+  "groupSettings.invitedAccount": "Invited account",
+
+  /* Clone Form */
+  "cloneForm.placeholder": "https://github.com/user/repo.git",
+  "cloneForm.clone": "Clone",
 
   /* Build Studio - Phase 5.3 Edge Cases */
   "studio.build.edgePreflight": "Preflight Check",
@@ -818,6 +891,10 @@ const en = {
   "studio.build.commandPaletteNavigate": "Navigate",
   "studio.build.commandPaletteSelect": "Select",
   "studio.build.commandPaletteClose": "Close",
+
+  /* Browser Agent */
+  "browser.urlPlaceholder": "Enter URL or search...",
+  "browser.agentPlaceholder": "Give Infinity a goal, it will browse and click for you…",
 
   /* Build Studio - Phase 0 Progress Ring */
   "studio.build.progressRingLabel": "Build progress",
@@ -1166,6 +1243,7 @@ const en = {
   "settings.notifications": "Notifications",
   "settings.apiKeys": "API Keys",
   "settings.apiKeysDescription": "Manage your API keys for AI providers",
+  "settings.apiKeyPlaceholder": "sk-...",
   "settings.advanced": "Advanced",
   "settings.resetToDefaults": "Reset to defaults",
 
@@ -1181,6 +1259,9 @@ const en = {
   "projects.status.paused": "Paused",
   "projects.status.completed": "Completed",
   "projects.lastModified": "Last modified",
+
+  /* Widget Showcase */
+  "widgetShowcase.filterPlaceholder": "Filter widgets...",
 
   /* Shortcuts */
   "shortcuts.title": "Keyboard Shortcuts",
@@ -1439,6 +1520,10 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.commandPaletteSelect": "Selecteren",
   "studio.build.commandPaletteClose": "Sluiten",
 
+  /* Browser Agent */
+  "browser.urlPlaceholder": "Voer URL in of zoek...",
+  "browser.agentPlaceholder": "Geef Infinity een doel, het zal voor je browsen en klikken…",
+
   /* Build Studio - Phase 0 Progress Ring */
   "studio.build.progressRingLabel": "Bouwvoortgang",
 
@@ -1481,6 +1566,7 @@ const nl: Record<keyof typeof en, string> = {
   "chat.useCodePrompt": "Mag Infinity zijn eigen code lezen voor dit antwoord?",
   "chat.useCodeConfirm": "GEBRUIK CODE",
   "chat.useCodeCancel": "ZONDER CODE",
+  "chat.searchPlaceholder": "Typ uw zoekopdracht...",
   "header.backendOffline":
     "Backend offline, de API-server draait mogelijk niet",
 
@@ -1648,6 +1734,9 @@ const nl: Record<keyof typeof en, string> = {
   "settings.userProfile": "Gebruikersprofiel",
   "settings.userProfileHint":
     "Een paar zinnen over jezelf. Infinity leest dit bij elk gesprek om antwoorden te personaliseren.",
+  "settings.userProfilePlaceholder": "bijv. Ik heet Alex. Ik ben een software engineer in Londen.",
+  "settings.apiKeyPlaceholderNew": "Plak sleutel…",
+  "settings.apiKeyPlaceholderReplace": "Plak nieuwe sleutel om te vervangen…",
   "settings.memories": "Geheugen",
   "settings.memoriesHint":
     "Feiten die Infinity tijdens gesprekken heeft opgepikt. Bewerk of verwijder elk item.",
@@ -1666,6 +1755,27 @@ const nl: Record<keyof typeof en, string> = {
   "settings.connected": "Verbonden",
   "settings.disconnect": "Verbinding verbreken",
   "settings.disconnecting": "Verbinding verbreken…",
+
+  /* Connectors / Integrations */
+  "connectors.title": "Integraties",
+  "connectors.subtitle": "Verbind externe diensten om Infinity's mogelijkheden uit te breiden",
+  "connectors.connect": "Verbinden",
+  "connectors.connected": "Verbonden",
+  "connectors.disconnect": "Verbinding verbreken",
+  "connectors.authorizing": "Autoriseren…",
+  "connectors.spotify": "Spotify",
+  "connectors.spotifyDesc": "Toegang tot je muziekbibliotheek, afspeellijsten en luistergeschiedenis",
+  "connectors.googleCalendar": "Google Agenda",
+  "connectors.googleCalendarDesc": "Lees en beheer je kalenderitems en schema",
+  "connectors.gmail": "Gmail",
+  "connectors.gmailDesc": "Zoek, lees en verstuur e-mails vanuit je inbox",
+  "connectors.slack": "Slack",
+  "connectors.slackDesc": "Verstuur berichten, zoek gesprekken en beheer kanalen",
+  "connectors.github": "GitHub",
+  "connectors.githubDesc": "Toegang tot repositories, issues, pull requests en code",
+  "connectors.figma": "Figma",
+  "connectors.figmaDesc": "Blader door ontwerpen, componenten en exporteer assets",
+
   "settings.webSearch": "Webzoekopdracht",
   "settings.webSearchHint": "Laat Infinity op internet zoeken",
   "settings.webSearchPowered": "Mogelijk gemaakt door Tavily.",
@@ -1861,6 +1971,15 @@ const nl: Record<keyof typeof en, string> = {
   "build.menuItem": "Infinity Build",
   "build.title": "Infinity Build",
   "build.terminalHint": "Linux-sandbox, vraag Infinity om iets te bouwen",
+
+  /* Build Mode Toggle */
+  "build.mode.title": "Bouwmodus",
+  "build.mode.visual": "Visueel (Replit-stijl)",
+  "build.mode.visualDesc": "Visuele editor met live preview, bestandsboom en sandbox",
+  "build.mode.chat": "Chat-stijl",
+  "build.mode.chatDesc": "Bouw gebeurt inline in chat, geen pop-ups",
+  "build.mode.preview": "Preview",
+  "build.mode.code": "Codeviewer",
 
   /* Build View */
   "build.tabs.plan": "Plan",
@@ -2080,6 +2199,17 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.scaffoldPlaceholder": "Bouw een landingspagina voor een koffiebar",
   "studio.build.terminalHint": "Persistente werkruimteterminal",
   "studio.build.commandPlaceholder": "npm install, git status, python ...",
+  "studio.build.packageSearchPlaceholder": "Zoek npm / PyPI / crates.io…",
+  "studio.build.commitMessagePlaceholder": "Commit-bericht",
+  "studio.build.newBranchPlaceholder": "Nieuwe branch-naam",
+  "studio.build.workspaceSearchPlaceholder": "Zoekopdracht (regex ondersteund)",
+  "studio.build.replacePlaceholder": "Vervangen door…",
+  "studio.build.dbQueryPlaceholder": "SELECT * FROM table LIMIT 50",
+  "studio.build.apiBaseUrlPlaceholder": "Basis-URL (http://localhost:PORT)",
+  "studio.build.apiEndpointPlaceholder": "/api/items",
+  "studio.build.apiBodyPlaceholder": "JSON-body (voor POST / PUT / PATCH)",
+  "studio.build.agentGoalPlaceholder": "Vertel Infinity wat het op de website moet doen, bijv.: vul het aanmeldformulier in",
+  "studio.build.extraInstructionsPlaceholder": "Optionele extra instructies voor Infinity Build. Deze worden toegevoegd, niet als vervanging voor de ingebouwde Infinity Build regels.",
   "studio.build.run": "Uitvoeren",
   "studio.build.runCommand": "Commando uitvoeren",
   "studio.build.port": "Poort",
@@ -2303,6 +2433,7 @@ const nl: Record<keyof typeof en, string> = {
   "settings.notifications": "Meldingen",
   "settings.apiKeys": "API-sleutels",
   "settings.apiKeysDescription": "Beheer je API-sleutels voor AI-providers",
+  "settings.apiKeyPlaceholder": "sk-...",
   "settings.advanced": "Geavanceerd",
   "settings.resetToDefaults": "Standaardinstellingen herstellen",
 
@@ -2318,6 +2449,9 @@ const nl: Record<keyof typeof en, string> = {
   "projects.status.paused": "Gepauzeerd",
   "projects.status.completed": "Voltooid",
   "projects.lastModified": "Laatst gewijzigd",
+
+  /* Widget Showcase */
+  "widgetShowcase.filterPlaceholder": "Widgets filteren...",
 
   /* Shortcuts */
   "shortcuts.title": "Toetsenbordsnelkoppelingen",
@@ -2340,6 +2474,7 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.diffPreviewTitle": "Beoordeel voorgestelde wijzigingen",
   "studio.build.diffApply": "Wijzigingen toepassen",
   "studio.build.diffReject": "Weigeren",
+  "studio.build.diffSearchPlaceholder": "Zoeken in diff…",
 
   /* Build Studio - Phase 5.1 Debug panel (telemetry) */
   "studio.build.debug": "Debug",
@@ -2373,6 +2508,34 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.debugExportTar": "Exporteer tar.gz",
   "studio.build.debugShare": "Delen",
   "studio.build.debugClone": "Klonen",
+
+  /* Group Settings */
+  "groupSettings.title": "Groepsinstellingen",
+  "groupSettings.description": "Zet dit gesprek om in een gedeelde ruimte. Menselijke groepen gebruiken een eenmalige 4-cijferige uitnodigingscode. AI-groepen bewaren persoona-leden hier; autonomie voor persona's is de volgende stap.",
+  "groupSettings.namePlaceholder": "Groepsnaam",
+  "groupSettings.humanGroup": "Menselijke groep",
+  "groupSettings.aiGroupSetup": "AI-groep instellen",
+  "groupSettings.joinWithInvite": "Deelnemen met uitnodiging",
+  "groupSettings.joinDescription": "Maak een account aan tijdens het deelnemen. De code is eenmalig en verloopt na 24 uur.",
+  "groupSettings.codePlaceholder": "4-cijferige code",
+  "groupSettings.namePlaceholder2": "Je naam",
+  "groupSettings.emailPlaceholder": "E-mail",
+  "groupSettings.passwordPlaceholder": "Wachtwoord",
+  "groupSettings.joinGroup": "Deelname aan groep",
+  "groupSettings.infinityParticipation": "Infinity deelname",
+  "groupSettings.alwaysResponds": "Reageert altijd",
+  "groupSettings.onlyWhenMentioned": "Alleen bij @Infinity",
+  "groupSettings.invitePerson": "Nodig iemand uit",
+  "groupSettings.inviteDescription": "Codes verlopen na 24 uur en zijn eenmalig.",
+  "groupSettings.generateInvite": "Genereren",
+  "groupSettings.regenerateInvite": "Opnieuw genereren",
+  "groupSettings.copyInviteCode": "Kopieer uitnodigingscode",
+  "groupSettings.participants": "Deelnemers",
+  "groupSettings.invitedAccount": "Uitgenodigd account",
+
+  /* Clone Form */
+  "cloneForm.placeholder": "https://github.com/user/repo.git",
+  "cloneForm.clone": "Klonen",
 
   /* Build Studio - Phase 5.3 Edge Cases */
   "studio.build.edgePreflight": "Preflight-controle",

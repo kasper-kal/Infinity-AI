@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download, FileText, FolderPlus, Link2, MoreHorizontal, Pin, Search, Users, X } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 interface ConversationActionsProps {
   conversationId: string | null;
@@ -9,6 +10,7 @@ interface Project { id: string; name: string; color: string; }
 interface ChatMessage { role: string; content: string; }
 
 export function ConversationActions({ conversationId }: ConversationActionsProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<'share' | 'files' | 'search' | 'project' | null>(null);
   const [pinned, setPinned] = useState(false);
@@ -104,7 +106,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
             <div className="max-h-[55vh] overflow-y-auto p-5">
               {panel === 'share' && <div className="space-y-4"><p className="text-sm leading-relaxed text-muted-foreground">Anyone with this link can view this entire conversation, including any personal context in it.</p>{shareUrl && <div className="break-all rounded-xl bg-secondary/60 p-3 font-mono text-xs">{shareUrl}</div>}<button type="button" onClick={() => shareUrl && navigator.clipboard?.writeText(shareUrl)} className="rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Copy link</button></div>}
               {panel === 'files' && <div className="space-y-2">{files.map((file) => <a key={file.id} href={file.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-border/40 p-3 text-xs hover:border-primary/40"><FileText className="h-4 w-4 text-primary" /><span className="truncate">{file.name}</span></a>)}{files.length === 0 && <p className="text-xs text-muted-foreground/60">No files are attached to this conversation.</p>}</div>}
-              {panel === 'search' && <div className="space-y-3"><div className="flex items-center gap-2 rounded-full bg-secondary/60 px-3 py-2"><Search className="h-3.5 w-3.5 text-muted-foreground/60" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search messages" className="min-w-0 flex-1 bg-transparent text-xs outline-none" /></div>{messages.filter((message) => !query.trim() || message.content.toLowerCase().includes(query.toLowerCase())).map((message, index) => <div key={index} className="rounded-xl border border-border/30 p-3 text-xs"><span className="mr-2 text-[10px] font-semibold uppercase text-primary">{message.role}</span>{message.content}</div>)}</div>}
+              {panel === 'search' && <div className="space-y-3"><div className="flex items-center gap-2 rounded-full bg-secondary/60 px-3 py-2"><Search className="h-3.5 w-3.5 text-muted-foreground/60" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('chat.searchPlaceholder')} className="min-w-0 flex-1 bg-transparent text-xs outline-none" /></div>{messages.filter((message) => !query.trim() || message.content.toLowerCase().includes(query.toLowerCase())).map((message, index) => <div key={index} className="rounded-xl border border-border/30 p-3 text-xs"><span className="mr-2 text-[10px] font-semibold uppercase text-primary">{message.role}</span>{message.content}</div>)}</div>}
               {panel === 'project' && <div className="space-y-2">{projects.map((project) => <button type="button" key={project.id} onClick={() => void addToProject(project.id)} className="flex w-full items-center gap-3 rounded-xl border border-border/40 p-3 text-left text-xs hover:border-primary/40"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />{project.name}</button>)}{projects.length === 0 && <p className="text-xs text-muted-foreground/60">Create a project in the sidebar first.</p>}</div>}
             </div>
           </div>
