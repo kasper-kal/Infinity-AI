@@ -14,6 +14,7 @@ import {
   projectMemories,
   spotifyTokens,
   gmailTokens,
+  sessions,
 } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import {
@@ -982,6 +983,21 @@ router.post("/chat", async (req, res) => {
   // Never use the message text as a key — identical messages in different
   // projects would cross-contaminate the extraction target.
   const requestId = randomUUID();
+
+  // Extract userId from session cookie if available
+  let userId: string | null = null;
+  const sessionToken = req.cookies?.jarvis_session;
+  if (sessionToken) {
+    const [session] = await db
+      .select({ accountId: sessions.accountId, expiresAt: sessions.expiresAt })
+      .from(sessions)
+      .where(eq(sessions.token, sessionToken))
+      .limit(1);
+    if (session && session.expiresAt && session.expiresAt > new Date()) {
+      userId = session.accountId;
+    }
+  }
+
   const {
     userMessage,
     conversationId,
@@ -1713,11 +1729,11 @@ router.post("/chat", async (req, res) => {
 
       // Build execution context for universal agent
       const toolContext: ToolExecutionContext = {
-        userId: "default", // TODO: get from auth
+        userId: userId ?? "anonymous",
         conversationId: convId,
         taskId: randomUUID(),
-        projectId: "default",
-        workspaceId: "default",
+        projectId: projectContext?.projectId ?? "default",
+        workspaceId: projectContext?.projectId ?? "default",
         permissions: {
           allowWrite: useBuildMode,
           allowExternal: true,
@@ -1759,20 +1775,14 @@ router.post("/chat", async (req, res) => {
           parallelExecution: true,
           maxParallel: 4,
           onToolEvent,
+          onTokenStream: (token: string) => {
+            try {
+              res.write(`data: ${JSON.stringify({ type: "token", content: token })}\n\n`);
+            } catch { /* stream closed */ }
+          },
         },
         runMessages.slice(1).map(m => ({ role: m.role as "user" | "assistant" | "system", content: typeof m.content === "string" ? m.content : JSON.stringify(m.content) }))
       );
-
-      // Stream final response
-      if (agentResult.finalResponse) {
-        // Stream the final answer in chunks for better UX
-        const words = agentResult.finalResponse.split(" ");
-        for (let i = 0; i < words.length; i += 5) {
-          const chunk = words.slice(i, i + 5).join(" ") + " ";
-          res.write(`data: ${JSON.stringify({ type: "token", content: chunk })}\n\n`);
-          await new Promise(r => setTimeout(r, 10)); // Small delay for streaming feel
-        }
-      }
 
       res.write(`data: ${JSON.stringify({
         type: "done",

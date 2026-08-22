@@ -31,30 +31,40 @@ import { ToolDiscoveryFilter } from "./tool-registry";
 
 /** Event emitted for each agent loop step (for SSE streaming to frontend) */
 export interface AgentToolEvent {
-  /** Type of event */
-  type: "thinking" | "tool_call" | "tool_result" | "tool_error" | "artifact" | "memory_read" | "memory_write" | "complete";
-  /** Unique step ID */
-  stepId: string;
-  /** Human-readable label for this step */
-  label: string;
-  /** Tool name if this is a tool call/result */
-  toolName?: string;
-  /** Tool arguments */
-  toolArgs?: Record<string, unknown>;
-  /** Tool result */
-  toolResult?: UniversalToolResult;
-  /** Duration in ms */
-  durationMs?: number;
-  /** Error message if failed */
-  error?: string;
-  /** Artifacts produced */
-  artifacts?: Artifact[];
-  /** Memory read/write info */
-  memoryInfo?: { action: "read" | "write"; count: number; keys: string[] };
-  /** Iteration number */
-  iteration: number;
-  /** Timestamp */
+  /** Type of event - matches frontend AgentToolEvent in conversation-feed.tsx */
+  type: "thinking_start" | "thinking_delta" | "thinking_end" | "tool_start" | "tool_progress" | "tool_complete" | "tool_error" | "loop_complete";
+  /** Step number (iteration) */
+  step: number;
+  /** ISO timestamp */
   timestamp: string;
+  /** For thinking events */
+  content?: string;
+  /** For tool events */
+  toolCall?: {
+    id: string;
+    name: string;
+    args: Record<string, unknown>;
+    dependsOn: string[];
+    parallelGroup: number;
+  };
+  toolResult?: {
+    success: boolean;
+    data?: unknown;
+    summary?: string;
+    error?: string;
+    artifacts?: unknown[];
+  };
+  /** For loop complete */
+  result?: {
+    finalResponse: string;
+    iterations: unknown[];
+    totalToolCalls: number;
+    totalDurationMs: number;
+    artifacts: unknown[];
+    memoriesWritten: string[];
+    converged: boolean;
+    stoppedReason?: "max_iterations" | "max_tool_calls" | "model_done" | "error";
+  };
 }
 
 /** Configuration for the universal agent loop */
@@ -75,6 +85,8 @@ export interface UniversalAgentConfig {
   maxParallel?: number;
   /** Callback for streaming tool events via SSE */
   onToolEvent?: (event: AgentToolEvent) => void;
+  /** Callback for streaming final response tokens via SSE */
+  onTokenStream?: (token: string) => void;
   /** Maximum tokens for LLM response */
   maxTokens?: number;
 }
@@ -178,7 +190,9 @@ async function executeToolBatch(
   context: ToolExecutionContext,
   parallel: boolean,
   maxParallel: number,
-  onEvent: (event: AgentToolEvent) => void
+  onEvent: (event: AgentToolEvent) => void,
+  iteration: number,
+  parallelGroup: number
 ): Promise<UniversalToolResult[]> {
   const results: UniversalToolResult[] = [];
 
@@ -202,19 +216,21 @@ async function executeToolBatch(
       }
     };
 
-    const tasks = calls.map(call => async () => {
+    const tasks = calls.map((call, idx) => async () => {
       const startTime = Date.now();
-      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-      // Emit tool_call event
+      // Emit tool_start event
       onEvent({
-        type: "tool_call",
-        stepId,
-        label: `Calling ${call.function.name}`,
-        toolName: call.function.name,
-        toolArgs: JSON.parse(call.function.arguments || "{}"),
-        iteration: 0,
+        type: "tool_start",
+        step: iteration,
         timestamp: new Date().toISOString(),
+        toolCall: {
+          id: call.id,
+          name: call.function.name,
+          args: JSON.parse(call.function.arguments || "{}"),
+          dependsOn: [],
+          parallelGroup,
+        },
       });
 
       try {
@@ -223,19 +239,18 @@ async function executeToolBatch(
 
         const durationMs = Date.now() - startTime;
 
-        // Emit tool_result event
+        // Emit tool_complete event
         onEvent({
-          type: result.success ? "tool_result" : "tool_error",
-          stepId,
-          label: result.success ? `Completed ${call.function.name}` : `Failed ${call.function.name}`,
-          toolName: call.function.name,
-          toolArgs: args,
-          toolResult: result,
-          durationMs,
-          error: result.error,
-          artifacts: result.artifacts,
-          iteration: 0,
+          type: result.success ? "tool_complete" : "tool_error",
+          step: iteration,
           timestamp: new Date().toISOString(),
+          toolResult: {
+            success: result.success,
+            data: result.data,
+            summary: result.summary,
+            error: result.error,
+            artifacts: result.artifacts,
+          },
         });
 
         return result;
@@ -245,14 +260,12 @@ async function executeToolBatch(
 
         onEvent({
           type: "tool_error",
-          stepId,
-          label: `Error in ${call.function.name}`,
-          toolName: call.function.name,
-          toolArgs: JSON.parse(call.function.arguments || "{}"),
-          error: message,
-          durationMs,
-          iteration: 0,
+          step: iteration,
           timestamp: new Date().toISOString(),
+          toolResult: {
+            success: false,
+            error: message,
+          },
         });
 
         return {
@@ -268,18 +281,21 @@ async function executeToolBatch(
     }
   } else {
     // Sequential execution
-    for (const call of calls) {
+    for (let idx = 0; idx < calls.length; idx++) {
+      const call = calls[idx];
       const startTime = Date.now();
-      const stepId = `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
       onEvent({
-        type: "tool_call",
-        stepId,
-        label: `Calling ${call.function.name}`,
-        toolName: call.function.name,
-        toolArgs: JSON.parse(call.function.arguments || "{}"),
-        iteration: 0,
+        type: "tool_start",
+        step: iteration,
         timestamp: new Date().toISOString(),
+        toolCall: {
+          id: call.id,
+          name: call.function.name,
+          args: JSON.parse(call.function.arguments || "{}"),
+          dependsOn: [],
+          parallelGroup,
+        },
       });
 
       try {
@@ -289,17 +305,16 @@ async function executeToolBatch(
         const durationMs = Date.now() - startTime;
 
         onEvent({
-          type: result.success ? "tool_result" : "tool_error",
-          stepId,
-          label: result.success ? `Completed ${call.function.name}` : `Failed ${call.function.name}`,
-          toolName: call.function.name,
-          toolArgs: args,
-          toolResult: result,
-          durationMs,
-          error: result.error,
-          artifacts: result.artifacts,
-          iteration: 0,
+          type: result.success ? "tool_complete" : "tool_error",
+          step: iteration,
           timestamp: new Date().toISOString(),
+          toolResult: {
+            success: result.success,
+            data: result.data,
+            summary: result.summary,
+            error: result.error,
+            artifacts: result.artifacts,
+          },
         });
 
         results.push(result);
@@ -309,14 +324,12 @@ async function executeToolBatch(
 
         onEvent({
           type: "tool_error",
-          stepId,
-          label: `Error in ${call.function.name}`,
-          toolName: call.function.name,
-          toolArgs: JSON.parse(call.function.arguments || "{}"),
-          error: message,
-          durationMs,
-          iteration: 0,
+          step: iteration,
           timestamp: new Date().toISOString(),
+          toolResult: {
+            success: false,
+            error: message,
+          },
         });
 
         results.push({
@@ -357,6 +370,7 @@ export async function runUniversalAgent(
     parallelExecution = true,
     maxParallel = 4,
     onToolEvent = () => {},
+    onTokenStream = () => {},
     maxTokens = 4096,
   } = config;
 
@@ -382,26 +396,34 @@ export async function runUniversalAgent(
   // Track tool call counts per iteration
   let toolCallsThisIteration = 0;
 
+  const loopStartTime = Date.now();
+
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    // Emit thinking event
-    const thinkingStepId = `thinking-${Date.now()}`;
+    // Emit thinking_start event
     onToolEvent({
-      type: "thinking",
-      stepId: thinkingStepId,
-      label: `Thinking (iteration ${iteration + 1}/${maxIterations})`,
-      iteration,
+      type: "thinking_start",
+      step: iteration,
       timestamp: new Date().toISOString(),
+    });
+
+    // Emit thinking_delta with the prompt context
+    onToolEvent({
+      type: "thinking_delta",
+      step: iteration,
+      timestamp: new Date().toISOString(),
+      content: `Evaluating ${toolDefs.length} available tools for iteration ${iteration + 1}/${maxIterations}`,
     });
 
     // Check tool call budget
     if (totalToolCalls >= maxToolCalls) {
       onToolEvent({
         type: "tool_error",
-        stepId: `budget-exceeded-${Date.now()}`,
-        label: "Tool call budget exceeded",
-        error: `Maximum tool calls (${maxToolCalls}) reached`,
-        iteration,
+        step: iteration,
         timestamp: new Date().toISOString(),
+        toolResult: {
+          success: false,
+          error: `Maximum tool calls (${maxToolCalls}) reached`,
+        },
       });
       error = "Tool call budget exceeded";
       break;
@@ -423,17 +445,26 @@ export async function runUniversalAgent(
       error = `LLM call failed: ${message}`;
       onToolEvent({
         type: "tool_error",
-        stepId: `llm-error-${Date.now()}`,
-        label: "LLM call failed",
-        error: message,
-        iteration,
+        step: iteration,
         timestamp: new Date().toISOString(),
+        toolResult: {
+          success: false,
+          error: message,
+        },
       });
       break;
     }
 
     const toolCalls = parseToolCalls(completion);
     const thought = completion.content || "";
+
+    // Emit thinking_end with the thought
+    onToolEvent({
+      type: "thinking_end",
+      step: iteration,
+      timestamp: new Date().toISOString(),
+      content: thought || "No reasoning provided",
+    });
 
     // Record this iteration
     iterations.push({
@@ -443,9 +474,34 @@ export async function runUniversalAgent(
       toolResults: [],
     });
 
-    // If no tool calls, we have our final answer
+    // If no tool calls, we have our final answer - stream it if onTokenStream is provided
     if (toolCalls.length === 0) {
-      finalResponse = thought;
+      // Use streaming for the final response if onTokenStream callback is provided
+      if (onTokenStream) {
+        try {
+          const streamOptions: LLMCompletionOptions = {
+            temperature,
+            maxTokens,
+            tools: toolDefs,
+            toolChoice: "none", // Force no tool calls for final response
+          };
+
+          let streamedContent = "";
+          for await (const chunk of llmAdapter.stream(messages, streamOptions)) {
+            if (chunk.content) {
+              streamedContent += chunk.content;
+              onTokenStream(chunk.content);
+            }
+            if (chunk.done) break;
+          }
+          finalResponse = streamedContent || thought;
+        } catch (streamErr) {
+          // Fallback to non-streamed content if streaming fails
+          finalResponse = thought;
+        }
+      } else {
+        finalResponse = thought;
+      }
       success = true;
       break;
     }
@@ -460,13 +516,16 @@ export async function runUniversalAgent(
     toolCallsThisIteration = toolCalls.length;
     totalToolCalls += toolCalls.length;
 
-    // Execute tool calls
+    // Execute tool calls - assign parallel groups for concurrent calls
+    const parallelGroup = toolCalls.length > 1 ? 1 : 0;
     const toolResults = await executeToolBatch(
       toolCalls,
       baseContext,
       parallelExecution,
       maxParallel,
-      onToolEvent
+      onToolEvent,
+      iteration,
+      parallelGroup
     );
 
     // Update iteration record
@@ -506,11 +565,12 @@ export async function runUniversalAgent(
       error = "All tool calls failed repeatedly";
       onToolEvent({
         type: "tool_error",
-        stepId: `all-failed-${Date.now()}`,
-        label: "All tools failed",
-        error: "All tool calls in this iteration failed",
-        iteration,
+        step: iteration,
         timestamp: new Date().toISOString(),
+        toolResult: {
+          success: false,
+          error: "All tool calls in this iteration failed",
+        },
       });
       break;
     }
@@ -524,13 +584,23 @@ export async function runUniversalAgent(
     }
   }
 
-  // Emit completion event
+  const totalDurationMs = Date.now() - loopStartTime;
+
+  // Emit loop_complete event
   onToolEvent({
-    type: "complete",
-    stepId: `complete-${Date.now()}`,
-    label: success ? "Task completed" : "Task ended",
-    iteration: iterations.length,
+    type: "loop_complete",
+    step: iterations.length,
     timestamp: new Date().toISOString(),
+    result: {
+      finalResponse,
+      iterations: iterations.map(it => ({ iteration: it.iteration, thought: it.thought, toolCalls: it.toolCalls.length, toolResults: it.toolResults.length })),
+      totalToolCalls,
+      totalDurationMs,
+      artifacts: allArtifacts,
+      memoriesWritten: [],
+      converged: success,
+      stoppedReason: error ? "error" : "model_done",
+    },
   });
 
   return {

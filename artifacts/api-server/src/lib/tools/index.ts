@@ -11,6 +11,7 @@ import { registerBrowserTools } from "./browser";
 import { registerFilesTools } from "./files";
 import { registerMemoryTools } from "./memory";
 import { registerResearchTools } from "./research";
+import { registerEvolutionTools } from "./evolution";
 
 export { registerBuildTools } from "./build";
 export { registerWebTools } from "./web";
@@ -18,10 +19,10 @@ export { registerBrowserTools } from "./browser";
 export { registerFilesTools } from "./files";
 export { registerMemoryTools } from "./memory";
 export { registerResearchTools } from "./research";
+export { registerEvolutionTools } from "./evolution";
 // TODO: Add other category registrations as phases progress
 // export { registerVisionTools } from "./vision";
 // export { registerDataTools } from "./data";
-// export { registerEvolutionTools } from "./evolution";
 // export { registerIntegrationTools } from "./integration";
 
 /**
@@ -35,5 +36,6 @@ export function registerAllTools(): void {
   registerFilesTools();
   registerMemoryTools();
   registerResearchTools();
+  registerEvolutionTools();
   // Other categories will be added in future phases
 }

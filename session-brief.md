@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-21 22:10
+LAST_UPDATED: 2026-08-22 00:30
 
 ## Just did (last action)
 - **Implemented comprehensive @ commands for all modes** — 10 final @ commands now working in chat.ts:
@@ -205,6 +205,7 @@ LAST_UPDATED: 2026-08-21 22:10
   - chat.ts already imports and uses `runUniversalAgent` via `agentMode` flag (lines 1697-1799).
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-22 **Fixed TypeScript metadata typing errors in universal-agent.ts (lines 250, 314)** — Changed `result.metadata?.summary` to `result.summary` (top-level property on UniversalToolResult) in both parallel and sequential tool execution paths. Typecheck + build pass cleanly ✅
 - 2026-08-21 **Fixed TypeScript error in universal-agent.ts** — Added `as LLMMessageWithToolCalls` cast when pushing assistant message with tool_calls to history, resolving TS2322 error where object literal specified unknown property 'tool_calls' on LLMMessage type.
 - 2026-08-21 **Implemented comprehensive @ commands for all modes** — 10 @ commands in chat.ts:
   - @Book, @Build, @Promo, @Browse, @Agent, @Deep Research/@DeepResearch, @Maps, @Image, @Screen, @ProjectName
@@ -497,7 +498,7 @@ LAST_UPDATED: 2026-08-21 22:10
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 23: Universal Tool Layer — Agent Loop & UX** — **INTEGRATION TESTING**: Run `npm run typecheck` to verify universal-agent.ts compiles cleanly, then test the agent loop end-to-end in chat.ts via the `agentMode` flag. Verify SSE streaming works with AgentToolEvent emissions. Test with actual tool calls (web search, memory, files, etc.) to confirm parallel execution, artifact passing, and memory integration work correctly.
+1. **Phase 23: Universal Tool Layer — Agent Loop & UX** — **INTEGRATION TESTING**: Run `npm run typecheck` ✅ DONE (compiles cleanly). Build passes ✅. Now test the agent loop end-to-end in chat.ts via the `agentMode` flag. Verify SSE streaming works with AgentToolEvent emissions. Test with actual tool calls (web search, memory, files, etc.) to confirm parallel execution, artifact passing, and memory integration work correctly.
 2. **Phase 18: Promo Maker** — **TIMELINE EDITOR COMPLETE**: Core engine + full timeline editing implemented. Remaining quality enhancements:
    - Brand kit integration (colors, fonts from company project via Tavily API)
    - Professional text overlays with company fonts, dynamic positioning, animations
