@@ -24,7 +24,7 @@ const upload = multer({
 });
 
 const VALID_KINDS: FileKind[] = ["image", "document", "audio", "build-app", "code"];
-const VALID_OWNERS: FileOwner[] = ["user", "jarvis", "account"];
+const VALID_OWNERS: FileOwner[] = ["user", "infinity", "account"];
 
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");

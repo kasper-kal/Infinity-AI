@@ -2,7 +2,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Persistent cross-chat memory.
- * Each row represents one fact Jarvis has learned about the user.
+ * Each row represents one fact Infinity has learned about the user.
  * The `topic` column is used as an upsert key — if the same topic
  * is learned again, the value is updated rather than duplicated.
  */

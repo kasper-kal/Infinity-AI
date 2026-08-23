@@ -25,7 +25,7 @@ function getIdParam(req: Request): string {
 }
 
 /**
- * GET /api/jarvis/project-types
+ * GET /api/infinity/project-types
  * List all available project types (built-in + plugins)
  */
 router.get("/", (_req: Request, res: Response) => {
@@ -34,7 +34,7 @@ router.get("/", (_req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/:id
+ * GET /api/infinity/project-types/:id
  * Get details for a specific project type (built-in or plugin)
  */
 router.get("/:id", (req: Request, res: Response) => {
@@ -49,7 +49,7 @@ router.get("/:id", (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/project-types/validate
+ * POST /api/infinity/project-types/validate
  * Validate if a project type ID is valid (built-in or plugin)
  */
 router.post("/validate", (req: Request, res: Response) => {
@@ -64,7 +64,7 @@ router.post("/validate", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/:id/tools
+ * GET /api/infinity/project-types/:id/tools
  * Get available tools for a project type (for Universal Tool Layer integration)
  */
 router.get("/:id/tools", (req: Request, res: Response) => {
@@ -83,7 +83,7 @@ router.get("/:id/tools", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/:id/views
+ * GET /api/infinity/project-types/:id/views
  * Get default views for a project type
  */
 router.get("/:id/views", (req: Request, res: Response) => {
@@ -101,7 +101,7 @@ router.get("/:id/views", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/:id/components
+ * GET /api/infinity/project-types/:id/components
  * Get available components for a project type
  */
 router.get("/:id/components", (req: Request, res: Response) => {
@@ -119,7 +119,7 @@ router.get("/:id/components", (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/project-types/plugins/reload
+ * POST /api/infinity/project-types/plugins/reload
  * Reload all plugins from disk
  */
 router.post("/plugins/reload", (_req: Request, res: Response) => {
@@ -133,7 +133,7 @@ router.post("/plugins/reload", (_req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/plugins/directory
+ * GET /api/infinity/project-types/plugins/directory
  * Get the plugin directory path
  */
 router.get("/plugins/directory", (_req: Request, res: Response) => {
@@ -143,7 +143,7 @@ router.get("/plugins/directory", (_req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/project-types/plugins/create
+ * POST /api/infinity/project-types/plugins/create
  * Create a new plugin template file
  */
 router.post("/plugins/create", (req: Request, res: Response) => {
@@ -166,7 +166,7 @@ router.post("/plugins/create", (req: Request, res: Response) => {
 });
 
 /**
- * DELETE /api/jarvis/project-types/plugins/:id
+ * DELETE /api/infinity/project-types/plugins/:id
  * Delete a custom plugin
  */
 router.delete("/plugins/:id", (req: Request, res: Response) => {
@@ -190,7 +190,7 @@ router.delete("/plugins/:id", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-types/plugins
+ * GET /api/infinity/project-types/plugins
  * List all loaded plugins
  */
 router.get("/plugins", (_req: Request, res: Response) => {

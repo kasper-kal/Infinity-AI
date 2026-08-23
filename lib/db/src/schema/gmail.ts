@@ -1,7 +1,7 @@
 import { pgTable, text, timestamp, bigint } from "drizzle-orm/pg-core";
 
 /**
- * Stores the Gmail OAuth tokens for the single user of this Jarvis instance.
+ * Stores the Gmail OAuth tokens for the single user of this Infinity instance.
  * Using a single-row table keyed by a constant id ("default").
  */
 export const gmailTokens = pgTable("gmail_tokens", {

@@ -7,7 +7,7 @@ import path from "node:path";
 const router = Router();
 
 /**
- * POST /api/jarvis/project-tags/resolve
+ * POST /api/infinity/project-tags/resolve
  * Resolve @ProjectName tag to fetch project metadata and file list.
  * Returns project info + all accessible files in view-only mode by default.
  */
@@ -62,7 +62,7 @@ router.post("/resolve", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-tags/files/:projectId
+ * GET /api/infinity/project-tags/files/:projectId
  * Fetch all files from a referenced project (respecting access level).
  */
 router.get("/files/:projectId", async (req: Request, res: Response) => {
@@ -102,7 +102,7 @@ router.get("/files/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/project-tags/escalate-access
+ * POST /api/infinity/project-tags/escalate-access
  * Escalate access from "view" to "edit" for a referenced project.
  * User confirms this action via UI dialog.
  */
@@ -163,7 +163,7 @@ router.post("/escalate-access", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/project-tags/list
+ * GET /api/infinity/project-tags/list
  * List all available projects for @ tagging autocomplete.
  */
 router.get("/list", async (req: Request, res: Response) => {

@@ -20,7 +20,7 @@ const router = Router();
 router.use(apiKeyAuth);
 router.use(requireScope("build:write"));
 
-/** GET /api/jarvis/build/schedules — List all schedules for a project */
+/** GET /api/infinity/build/schedules — List all schedules for a project */
 router.get("/", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
@@ -44,7 +44,7 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-/** POST /api/jarvis/build/schedules — Create a new build schedule */
+/** POST /api/infinity/build/schedules — Create a new build schedule */
 router.post("/", async (req: Request, res: Response) => {
   try {
     const input = req.body as Omit<NewBuildSchedule, "id" | "createdAt" | "updatedAt" | "runCount" | "nextRunAt" | "lastRunAt" | "lastRunResult" | "lastError" | "status">;
@@ -76,7 +76,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/jarvis/build/schedules/:id — Get a schedule with recent runs */
+/** GET /api/infinity/build/schedules/:id — Get a schedule with recent runs */
 router.get("/:id", async (req: Request, res) => {
   try {
     const schedule = await getScheduleWithRuns(req.params.id as string);
@@ -91,7 +91,7 @@ router.get("/:id", async (req: Request, res) => {
   }
 });
 
-/** PUT /api/jarvis/build/schedules/:id — Update a schedule */
+/** PUT /api/infinity/build/schedules/:id — Update a schedule */
 router.put("/:id", async (req: Request, res) => {
   try {
     const input = req.body as Partial<Pick<BuildSchedule, "name" | "cron" | "config" | "status" | "notifyOnCompletion">>;
@@ -108,7 +108,7 @@ router.put("/:id", async (req: Request, res) => {
   }
 });
 
-/** DELETE /api/jarvis/build/schedules/:id — Delete a schedule */
+/** DELETE /api/infinity/build/schedules/:id — Delete a schedule */
 router.delete("/:id", async (req: Request, res) => {
   try {
     const deleted = await deleteSchedule(req.params.id as string);
@@ -123,7 +123,7 @@ router.delete("/:id", async (req: Request, res) => {
   }
 });
 
-/** POST /api/jarvis/build/schedules/:id/trigger — Manually trigger a schedule (Run now) */
+/** POST /api/infinity/build/schedules/:id/trigger — Manually trigger a schedule (Run now) */
 router.post("/:id/trigger", async (req: Request, res) => {
   try {
     const result = await triggerSchedule(req.params.id as string);
@@ -134,7 +134,7 @@ router.post("/:id/trigger", async (req: Request, res) => {
   }
 });
 
-/** GET /api/jarvis/build/schedules/:id/runs — Get paginated run history for a schedule */
+/** GET /api/infinity/build/schedules/:id/runs — Get paginated run history for a schedule */
 router.get("/:id/runs", async (req: Request, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);

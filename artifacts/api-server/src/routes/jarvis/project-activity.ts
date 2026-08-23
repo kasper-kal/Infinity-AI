@@ -1,7 +1,7 @@
 /**
  * Project Activity API (Phase M — step 15).
  *
- *  GET /api/jarvis/projects/:id/activity   list project activity feed (newest first, paginated)
+ *  GET /api/infinity/projects/:id/activity   list project activity feed (newest first, paginated)
  *
  * Every handler resolves the owning project strictly by id; activity is never
  * reachable outside its project.

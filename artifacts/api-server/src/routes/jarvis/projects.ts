@@ -766,7 +766,7 @@ router.post("/conversations/:id/share", async (req, res) => {
     }
     const token = randomBytes(18).toString("base64url");
     const [row] = await db.insert(shareLinks).values({ conversationId: req.params.id, token }).returning();
-    res.status(201).json({ token: row.token, url: `/api/jarvis/share/${row.token}` });
+    res.status(201).json({ token: row.token, url: `/api/infinity/share/${row.token}` });
   } catch (err) {
     res.status(500).json({ error: "Failed to create share link" });
   }

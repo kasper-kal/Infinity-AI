@@ -37,7 +37,7 @@ const JobIdParamSchema = z.object({
 });
 
 /**
- * POST /api/jarvis/promo/create
+ * POST /api/infinity/promo/create
  * Create a new promo video generation job
  */
 router.post("/create", async (req: Request, res: Response) => {
@@ -76,7 +76,7 @@ router.post("/create", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/promo/status/:id
+ * GET /api/infinity/promo/status/:id
  * Check the status of a promo video generation job
  */
 router.get("/status/:id", (req: Request, res: Response) => {
@@ -98,8 +98,8 @@ router.get("/status/:id", (req: Request, res: Response) => {
     style: job.style,
     status: job.status,
     progress: job.progress,
-    videoUrl: job.videoPath ? `/api/jarvis/promo/download/${job.id}` : null,
-    thumbnailUrl: job.thumbnailPath ? `/api/jarvis/promo/thumbnail/${job.id}` : null,
+    videoUrl: job.videoPath ? `/api/infinity/promo/download/${job.id}` : null,
+    thumbnailUrl: job.thumbnailPath ? `/api/infinity/promo/thumbnail/${job.id}` : null,
     error: job.error,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
@@ -118,7 +118,7 @@ router.get("/status/:id", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/promo/download/:id
+ * GET /api/infinity/promo/download/:id
  * Download the generated promo video
  */
 router.get("/download/:id", async (req: Request, res: Response) => {
@@ -170,7 +170,7 @@ router.get("/download/:id", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/promo/thumbnail/:id
+ * GET /api/infinity/promo/thumbnail/:id
  * Get the thumbnail for a promo video
  */
 router.get("/thumbnail/:id", async (req: Request, res: Response) => {
@@ -198,7 +198,7 @@ router.get("/thumbnail/:id", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/promo/jobs
+ * GET /api/infinity/promo/jobs
  * List all promo jobs (paginated)
  */
 router.get("/jobs", (req: Request, res: Response) => {
@@ -228,7 +228,7 @@ router.get("/jobs", (req: Request, res: Response) => {
 });
 
 /**
- * DELETE /api/jarvis/promo/:id
+ * DELETE /api/infinity/promo/:id
  * Delete a promo job and its files
  */
 router.delete("/:id", (req: Request, res: Response) => {
@@ -246,7 +246,7 @@ router.delete("/:id", (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/promo/trigger/:id
+ * POST /api/infinity/promo/trigger/:id
  * Retry a failed job
  */
 router.post("/trigger/:id", async (req: Request, res: Response) => {

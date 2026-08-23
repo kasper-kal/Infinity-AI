@@ -1,12 +1,12 @@
 /**
  * Project Research API (Phase J — step 12).
  *
- *  GET  /api/jarvis/projects/:id/research           list project-scoped research runs
- *  POST /api/jarvis/projects/:id/research           associate an existing research job with this project
- *  GET  /api/jarvis/projects/:id/research/:jobId    detail view (reuses job report/notes/log)
- *  POST /api/jarvis/projects/:id/research/:jobId/findings   save a user excerpt (saved finding)
- *  DELETE /api/jarvis/projects/:id/research/findings/:findingId  remove a saved finding
- *  PATCH  /api/jarvis/projects/:id/research/findings/:findingId  pin/unpin a saved finding
+ *  GET  /api/infinity/projects/:id/research           list project-scoped research runs
+ *  POST /api/infinity/projects/:id/research           associate an existing research job with this project
+ *  GET  /api/infinity/projects/:id/research/:jobId    detail view (reuses job report/notes/log)
+ *  POST /api/infinity/projects/:id/research/:jobId/findings   save a user excerpt (saved finding)
+ *  DELETE /api/infinity/projects/:id/research/findings/:findingId  remove a saved finding
+ *  PATCH  /api/infinity/projects/:id/research/findings/:findingId  pin/unpin a saved finding
  *
  * The research engine itself (researchJobs, background loop, heartbeat/resume)
  * is NOT modified — we only add the project association layer and the

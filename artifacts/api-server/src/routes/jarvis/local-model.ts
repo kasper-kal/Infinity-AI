@@ -12,7 +12,7 @@ import { LLMAdapter, LLMMessage } from "../../lib/llm-adapter";
 const router = Router();
 
 /**
- * POST /api/jarvis/local-model/explain
+ * POST /api/infinity/local-model/explain
  * Explain a TypeScript/build error in plain English with fix suggestions
  */
 router.post("/explain", async (req: Request, res: Response) => {
@@ -98,7 +98,7 @@ Return JSON with: explanation, rootCause, fixes (array of {title, description, c
 });
 
 /**
- * POST /api/jarvis/local-model/fix
+ * POST /api/infinity/local-model/fix
  * Propose a fix for a build error with code changes
  */
 router.post("/fix", async (req: Request, res: Response) => {
@@ -197,7 +197,7 @@ Return JSON with fixes array: [{ file, oldCode, newCode, explanation, confidence
 });
 
 /**
- * GET /api/jarvis/local-model/status
+ * GET /api/infinity/local-model/status
  * Check local model health and availability
  */
 router.get("/status", async (_req: Request, res: Response) => {
@@ -223,7 +223,7 @@ router.get("/status", async (_req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/local-model/pull
+ * POST /api/infinity/local-model/pull
  * Trigger model pull (background)
  */
 router.post("/pull", async (req: Request, res: Response) => {

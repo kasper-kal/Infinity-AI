@@ -2,7 +2,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * In-app secret store — the Freebuff-Keys-tab-free alternative.
- * Keys are pasted inside Jarvis (Settings → API Keys), stored here in the
+ * Keys are pasted inside Infinity (Settings → API Keys), stored here in the
  * app's own database, and injected into process.env at server boot so every
  * existing `process.env.XXX` read site just works.
  */

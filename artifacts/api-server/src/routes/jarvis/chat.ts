@@ -305,7 +305,7 @@ function detectImageRequest(text: string): { isImageRequest: boolean; imagePromp
 /** Detect if the user is asking for maps/places (explicit @Maps or natural language). */
 async function detectMapsCommand(text: string): Promise<{ shouldTrigger: boolean; widget?: any; requestId?: string }> {
   try {
-    const res = await fetch("http://localhost:3000/api/jarvis/maps/detect", {
+    const res = await fetch("http://localhost:3000/api/infinity/maps/detect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
@@ -1416,7 +1416,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 
       // Start the promo job via API
       try {
-        const promoRes = await fetch("http://localhost:3000/api/jarvis/promo/create", {
+        const promoRes = await fetch("http://localhost:3000/api/infinity/promo/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1463,7 +1463,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 
       // Start the deep research job via API
       try {
-        const drRes = await fetch("http://localhost:3000/api/jarvis/deep-research-v2", {
+        const drRes = await fetch("http://localhost:3000/api/infinity/deep-research-v2", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic: deepResearchCheck.topic }),
@@ -1598,7 +1598,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 
       // Resolve the project tag via API
       try {
-        const resolveRes = await fetch("http://localhost:3000/api/jarvis/project-tags/resolve", {
+        const resolveRes = await fetch("http://localhost:3000/api/infinity/project-tags/resolve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ projectName: projectTagCheck.projectName }),

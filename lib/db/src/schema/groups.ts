@@ -8,7 +8,7 @@ export const groupChats = pgTable("group_chats", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   kind: text("kind", { enum: ["ai", "human"] }).notNull().default("ai"),
-  /** "always" = Jarvis replies to everything, "mention" = only when @Jarvis. */
+  /** "always" = Infinity replies to everything, "mention" = only when @Infinity. */
   aiToggle: text("ai_toggle", { enum: ["always", "mention"] }).notNull().default("always"),
   /** Hash of the anonymous owner's browser token, never exposed to clients. */
   ownerTokenHash: text("owner_token_hash"),

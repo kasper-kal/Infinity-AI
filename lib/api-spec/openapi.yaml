@@ -10,8 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
-  - name: jarvis
-    description: Jarvis voice assistant operations
+  - name: infinity
+    description: Infinity AI assistant operations
 paths:
   /healthz:
     get:
@@ -27,10 +27,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /jarvis/transcribe:
+  /infinity/transcribe:
     post:
       operationId: transcribeAudio
-      tags: [jarvis]
+      tags: [infinity]
       summary: Transcribe audio to text using Whisper
       requestBody:
         required: true
@@ -58,11 +58,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /jarvis/chat:
+  /infinity/chat:
     post:
       operationId: sendMessage
-      tags: [jarvis]
-      summary: Send a message to Jarvis LLM
+      tags: [infinity]
+      summary: Send a message to Infinity LLM
       requestBody:
         required: true
         content:
@@ -89,10 +89,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /jarvis/speak:
+  /infinity/speak:
     post:
       operationId: synthesizeSpeech
-      tags: [jarvis]
+      tags: [infinity]
       summary: Convert text to speech via ElevenLabs
       requestBody:
         required: true
@@ -188,7 +188,7 @@ components:
       properties:
         response:
           type: string
-          description: Jarvis's text response
+          description: Infinity's text response
       required:
         - response
 

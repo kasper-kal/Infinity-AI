@@ -5,7 +5,7 @@ export const conversations = pgTable("conversations", {
   title: text("title").notNull().default("New Conversation"),
   /** "chat" = normal conversation, "gem" = a finished deep-research gem */
   kind: text("kind", { enum: ["chat", "gem"] }).notNull().default("chat"),
-  /** Custom system prompt. When set, the chat route uses this instead of the default Jarvis prompt (used by gems). */
+  /** Custom system prompt. When set, the chat route uses this instead of the default Infinity prompt (used by gems). */
   systemPrompt: text("system_prompt"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

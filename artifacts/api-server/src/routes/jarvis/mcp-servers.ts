@@ -31,7 +31,7 @@ function getServerId(req: AuthenticatedRequest): string {
 }
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId
+ * GET /api/infinity/mcp-servers/:projectId
  * List all MCP servers for a project
  */
 router.get('/:projectId', async (req: AuthenticatedRequest, res: Response) => {
@@ -61,7 +61,7 @@ router.get('/:projectId', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId/builtin
+ * GET /api/infinity/mcp-servers/:projectId/builtin
  * List available built-in MCP server templates
  */
 router.get('/:projectId/builtin', async (req: AuthenticatedRequest, res: Response) => {
@@ -88,7 +88,7 @@ router.get('/:projectId/builtin', async (req: AuthenticatedRequest, res: Respons
 });
 
 /**
- * POST /api/jarvis/mcp-servers/:projectId
+ * POST /api/infinity/mcp-servers/:projectId
  * Add a new MCP server configuration
  */
 router.post('/:projectId', async (req: AuthenticatedRequest, res: Response) => {
@@ -157,7 +157,7 @@ router.post('/:projectId', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * PUT /api/jarvis/mcp-servers/:projectId/:serverId
+ * PUT /api/infinity/mcp-servers/:projectId/:serverId
  * Update an MCP server configuration
  */
 router.put('/:projectId/:serverId', async (req: AuthenticatedRequest, res: Response) => {
@@ -205,7 +205,7 @@ router.put('/:projectId/:serverId', async (req: AuthenticatedRequest, res: Respo
 });
 
 /**
- * DELETE /api/jarvis/mcp-servers/:projectId/:serverId
+ * DELETE /api/infinity/mcp-servers/:projectId/:serverId
  * Remove an MCP server
  */
 router.delete('/:projectId/:serverId', async (req: AuthenticatedRequest, res: Response) => {
@@ -228,7 +228,7 @@ router.delete('/:projectId/:serverId', async (req: AuthenticatedRequest, res: Re
 });
 
 /**
- * POST /api/jarvis/mcp-servers/:projectId/:serverId/connect
+ * POST /api/infinity/mcp-servers/:projectId/:serverId/connect
  * Connect to an MCP server
  */
 router.post('/:projectId/:serverId/connect', async (req: AuthenticatedRequest, res: Response) => {
@@ -252,7 +252,7 @@ router.post('/:projectId/:serverId/connect', async (req: AuthenticatedRequest, r
 });
 
 /**
- * POST /api/jarvis/mcp-servers/:projectId/:serverId/disconnect
+ * POST /api/infinity/mcp-servers/:projectId/:serverId/disconnect
  * Disconnect from an MCP server
  */
 router.post('/:projectId/:serverId/disconnect', async (req: AuthenticatedRequest, res: Response) => {
@@ -276,7 +276,7 @@ router.post('/:projectId/:serverId/disconnect', async (req: AuthenticatedRequest
 });
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId/:serverId/tools
+ * GET /api/infinity/mcp-servers/:projectId/:serverId/tools
  * List tools from a connected MCP server
  */
 router.get('/:projectId/:serverId/tools', async (req: AuthenticatedRequest, res: Response) => {
@@ -308,7 +308,7 @@ router.get('/:projectId/:serverId/tools', async (req: AuthenticatedRequest, res:
 });
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId/:serverId/resources
+ * GET /api/infinity/mcp-servers/:projectId/:serverId/resources
  * List resources from a connected MCP server
  */
 router.get('/:projectId/:serverId/resources', async (req: AuthenticatedRequest, res: Response) => {
@@ -340,7 +340,7 @@ router.get('/:projectId/:serverId/resources', async (req: AuthenticatedRequest, 
 });
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId/:serverId/prompts
+ * GET /api/infinity/mcp-servers/:projectId/:serverId/prompts
  * List prompts from a connected MCP server
  */
 router.get('/:projectId/:serverId/prompts', async (req: AuthenticatedRequest, res: Response) => {
@@ -372,7 +372,7 @@ router.get('/:projectId/:serverId/prompts', async (req: AuthenticatedRequest, re
 });
 
 /**
- * POST /api/jarvis/mcp-servers/:projectId/:serverId/test
+ * POST /api/infinity/mcp-servers/:projectId/:serverId/test
  * Test an MCP server connection
  */
 router.post('/:projectId/:serverId/test', async (req: AuthenticatedRequest, res: Response) => {
@@ -427,7 +427,7 @@ router.post('/:projectId/:serverId/test', async (req: AuthenticatedRequest, res:
 });
 
 /**
- * POST /api/jarvis/mcp-servers/:projectId/:serverId/call-tool
+ * POST /api/infinity/mcp-servers/:projectId/:serverId/call-tool
  * Call a tool on an MCP server (for testing)
  */
 router.post('/:projectId/:serverId/call-tool', async (req: AuthenticatedRequest, res: Response) => {
@@ -464,7 +464,7 @@ router.post('/:projectId/:serverId/call-tool', async (req: AuthenticatedRequest,
 });
 
 /**
- * GET /api/jarvis/mcp-servers/:projectId/status
+ * GET /api/infinity/mcp-servers/:projectId/status
  * Get overall MCP registry status for a project
  */
 router.get('/:projectId/status', async (req: AuthenticatedRequest, res: Response) => {

@@ -18,7 +18,7 @@ async function findProject(projectId: string) {
 }
 
 /**
- * GET /api/jarvis/conversations/search?q=...
+ * GET /api/infinity/conversations/search?q=...
  * Episodic memory search, matches conversation titles AND message content,
  * returning matching conversations with a snippet of the first hit.
  * Add projectId to keep the search strictly inside one project.

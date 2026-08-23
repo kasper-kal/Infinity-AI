@@ -344,7 +344,7 @@ function parseLocationQuery(query: string): { query: string; radius: number; cat
 }
 
 /**
- * GET /api/jarvis/maps/search
+ * GET /api/infinity/maps/search
  * Search for places near a location
  */
 router.get("/search", async (req: Request, res: Response) => {
@@ -414,7 +414,7 @@ router.get("/search", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/maps/geocode
+ * GET /api/infinity/maps/geocode
  * Geocode a location query
  */
 router.get("/geocode", async (req: Request, res: Response) => {
@@ -440,7 +440,7 @@ router.get("/geocode", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/maps/detect
+ * POST /api/infinity/maps/detect
  * Detect if a message should trigger the maps widget and return widget config
  * Used by chat.ts to determine if maps widget should be emitted
  */

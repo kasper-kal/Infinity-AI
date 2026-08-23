@@ -15,7 +15,7 @@ function getRedirectUri(): string {
   // Prefer an explicit override (stable across dev domain rotations and deploys)
   if (process.env["GOOGLE_REDIRECT_URI"]) return process.env["GOOGLE_REDIRECT_URI"];
   const domain = process.env["REPLIT_DEV_DOMAIN"] ?? process.env["REPLIT_DOMAINS"] ?? "localhost:8080";
-  return `https://${domain}/api/jarvis/gmail/callback`;
+  return `https://${domain}/api/infinity/gmail/callback`;
 }
 
 function getClientId(): string {
@@ -30,7 +30,7 @@ function getClientSecret(): string {
   return s;
 }
 
-/** GET /api/jarvis/gmail/auth, start OAuth flow */
+/** GET /api/infinity/gmail/auth, start OAuth flow */
 router.get("/gmail/auth", (_req, res) => {
   const clientId = getClientId();
   const redirectUri = getRedirectUri();
@@ -53,7 +53,7 @@ router.get("/gmail/auth", (_req, res) => {
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
-/** GET /api/jarvis/gmail/callback, Google redirects here with ?code= */
+/** GET /api/infinity/gmail/callback, Google redirects here with ?code= */
 router.get("/gmail/callback", async (req, res) => {
   const code = req.query["code"] as string | undefined;
   if (!code) {
@@ -133,7 +133,7 @@ router.get("/gmail/callback", async (req, res) => {
   }
 });
 
-/** GET /api/jarvis/gmail/status */
+/** GET /api/infinity/gmail/status */
 router.get("/gmail/status", async (_req, res) => {
   try {
     const [row] = await db.select().from(gmailTokens).where(eq(gmailTokens.id, "default"));
@@ -144,7 +144,7 @@ router.get("/gmail/status", async (_req, res) => {
   }
 });
 
-/** DELETE /api/jarvis/gmail/disconnect */
+/** DELETE /api/infinity/gmail/disconnect */
 router.delete("/gmail/disconnect", async (_req, res) => {
   try {
     await db.delete(gmailTokens).where(eq(gmailTokens.id, "default"));

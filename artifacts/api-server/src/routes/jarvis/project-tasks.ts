@@ -1,8 +1,8 @@
 /**
  * Project Tasks API (Phase K — step 13).
  *
- *  GET  /api/jarvis/projects/:id/tasks        list scoped tasks (newest first)
- *  POST /api/jarvis/projects/:id/tasks        create a task
+ *  GET  /api/infinity/projects/:id/tasks        list scoped tasks (newest first)
+ *  POST /api/infinity/projects/:id/tasks        create a task
  *  PATCH /api/jarvis/tasks/:id                update title/description/priority/due/status
  *  DELETE /api/jarvis/tasks/:id               delete a task
  *

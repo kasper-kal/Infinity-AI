@@ -8,7 +8,7 @@ import { invalidateKeyPool } from "../../lib/llm-client";
  * Helper: Get accountId from session cookie
  */
 async function getAccountIdFromSession(req: Request): Promise<string | null> {
-  const token = req.cookies?.jarvis_session;
+  const token = req.cookies?.infinity_session;
   if (!token) return null;
 
   const [session] = await db
@@ -30,7 +30,7 @@ async function getAccountIdFromSession(req: Request): Promise<string | null> {
 const router = Router();
 
 /**
- * POST /api/jarvis/api-keys
+ * POST /api/infinity/api-keys
  * Create a new user API key for headless/CLI access
  * Requires session auth (cookie)
  */
@@ -93,7 +93,7 @@ router.post("/api-keys", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/api-keys
+ * GET /api/infinity/api-keys
  * List user's API keys (never returns the actual key)
  */
 router.get("/api-keys", async (req: Request, res: Response) => {
@@ -130,7 +130,7 @@ router.get("/api-keys", async (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/jarvis/api-keys/:id
+ * PUT /api/infinity/api-keys/:id
  * Update an API key (name, scopes, enabled)
  */
 router.put("/api-keys/:id", async (req: Request, res: Response) => {
@@ -183,7 +183,7 @@ router.put("/api-keys/:id", async (req: Request, res: Response) => {
 });
 
 /**
- * DELETE /api/jarvis/api-keys/:id
+ * DELETE /api/infinity/api-keys/:id
  * Delete an API key
  */
 router.delete("/api-keys/:id", async (req: Request, res: Response) => {
@@ -209,7 +209,7 @@ router.delete("/api-keys/:id", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/api-keys/:id/regenerate
+ * POST /api/infinity/api-keys/:id/regenerate
  * Regenerate an API key (invalidates the old one)
  */
 router.post("/api-keys/:id/regenerate", async (req: Request, res: Response) => {

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
-/** GET /api/jarvis/memories, list all remembered facts */
+/** GET /api/infinity/memories, list all remembered facts */
 router.get("/memories", async (_req, res) => {
   try {
     const rows = await db.select().from(userMemories).orderBy(userMemories.updatedAt);
@@ -14,7 +14,7 @@ router.get("/memories", async (_req, res) => {
   }
 });
 
-/** PATCH /api/jarvis/memories/:topic, edit the value of a remembered fact */
+/** PATCH /api/infinity/memories/:topic, edit the value of a remembered fact */
 router.patch("/memories/:topic", async (req, res) => {
   const topic = req.params["topic"];
   const { value } = req.body as { value?: string };
@@ -33,7 +33,7 @@ router.patch("/memories/:topic", async (req, res) => {
   }
 });
 
-/** DELETE /api/jarvis/memories/:topic, forget a specific fact */
+/** DELETE /api/infinity/memories/:topic, forget a specific fact */
 router.delete("/memories/:topic", async (req, res) => {
   const topic = req.params["topic"];
   if (!topic) {

@@ -31,7 +31,7 @@ function getQuery(req: AuthenticatedRequest, key: string): string | undefined {
 }
 
 /**
- * GET /api/jarvis/project-map/:projectId
+ * GET /api/infinity/project-map/:projectId
  * Get the current project map for a project
  */
 router.get("/:projectId", async (req: AuthenticatedRequest, res: Response) => {
@@ -48,7 +48,7 @@ router.get("/:projectId", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/project-map/:projectId/refresh
+ * POST /api/infinity/project-map/:projectId/refresh
  * Force a full rebuild of the project map
  */
 router.post("/:projectId/refresh", async (req: AuthenticatedRequest, res: Response) => {
@@ -67,7 +67,7 @@ router.post("/:projectId/refresh", async (req: AuthenticatedRequest, res: Respon
 });
 
 /**
- * POST /api/jarvis/project-map/:projectId/update-file
+ * POST /api/infinity/project-map/:projectId/update-file
  * Update the project map for a specific file change
  */
 router.post("/:projectId/update-file", async (req: AuthenticatedRequest, res: Response) => {
@@ -91,7 +91,7 @@ router.post("/:projectId/update-file", async (req: AuthenticatedRequest, res: Re
 });
 
 /**
- * GET /api/jarvis/project-map/:projectId/impact/:filePath
+ * GET /api/infinity/project-map/:projectId/impact/:filePath
  * Analyze the impact of a file change
  */
 router.get("/:projectId/impact/:filePath(*)", async (req: AuthenticatedRequest, res: Response) => {
@@ -109,7 +109,7 @@ router.get("/:projectId/impact/:filePath(*)", async (req: AuthenticatedRequest, 
 });
 
 /**
- * POST /api/jarvis/project-map/:projectId/select-context
+ * POST /api/infinity/project-map/:projectId/select-context
  * Select relevant files for a goal (smart context selection)
  */
 router.post("/:projectId/select-context", async (req: AuthenticatedRequest, res: Response) => {
@@ -133,7 +133,7 @@ router.post("/:projectId/select-context", async (req: AuthenticatedRequest, res:
 });
 
 /**
- * POST /api/jarvis/project-map/:projectId/save
+ * POST /api/infinity/project-map/:projectId/save
  * Save the current project map to disk
  */
 router.post("/:projectId/save", async (req: AuthenticatedRequest, res: Response) => {
@@ -148,7 +148,7 @@ router.post("/:projectId/save", async (req: AuthenticatedRequest, res: Response)
 });
 
 /**
- * GET /api/jarvis/project-map/:projectId/load
+ * GET /api/infinity/project-map/:projectId/load
  * Load project map from disk (if exists)
  */
 router.get("/:projectId/load", async (req: AuthenticatedRequest, res: Response) => {
@@ -168,7 +168,7 @@ router.get("/:projectId/load", async (req: AuthenticatedRequest, res: Response) 
 });
 
 /**
- * GET /api/jarvis/project-map/:projectId/summary
+ * GET /api/infinity/project-map/:projectId/summary
  * Get a summary of the project map for quick overview
  */
 router.get("/:projectId/summary", async (req: AuthenticatedRequest, res: Response) => {

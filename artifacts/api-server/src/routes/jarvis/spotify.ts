@@ -23,7 +23,7 @@ function getSpotifyRedirectUri(): string {
     process.env["REPLIT_DEV_DOMAIN"] ??
     process.env["REPLIT_DOMAINS"] ??
     "localhost:8080";
-  return `https://${domain}/api/jarvis/spotify/callback`;
+  return `https://${domain}/api/infinity/spotify/callback`;
 }
 
 function getClientId() {
@@ -38,7 +38,7 @@ function getClientSecret() {
   return s;
 }
 
-/** GET /api/jarvis/spotify/auth */
+/** GET /api/infinity/spotify/auth */
 router.get("/spotify/auth", (_req, res) => {
   const params = new URLSearchParams({
     client_id: getClientId(),
@@ -50,7 +50,7 @@ router.get("/spotify/auth", (_req, res) => {
   res.redirect(`https://accounts.spotify.com/authorize?${params}`);
 });
 
-/** GET /api/jarvis/spotify/callback */
+/** GET /api/infinity/spotify/callback */
 router.get("/spotify/callback", async (req, res) => {
   const code = req.query["code"] as string | undefined;
   const error = req.query["error"] as string | undefined;
@@ -132,7 +132,7 @@ router.get("/spotify/callback", async (req, res) => {
   }
 });
 
-/** GET /api/jarvis/spotify/status */
+/** GET /api/infinity/spotify/status */
 router.get("/spotify/status", async (_req, res) => {
   try {
     const [row] = await db.select().from(spotifyTokens).where(eq(spotifyTokens.id, "default"));
@@ -143,7 +143,7 @@ router.get("/spotify/status", async (_req, res) => {
   }
 });
 
-/** DELETE /api/jarvis/spotify/disconnect */
+/** DELETE /api/infinity/spotify/disconnect */
 router.delete("/spotify/disconnect", async (_req, res) => {
   try {
     await db.delete(spotifyTokens).where(eq(spotifyTokens.id, "default"));
@@ -192,7 +192,7 @@ export async function getSpotifyToken(): Promise<string | null> {
   }
 }
 
-/** GET /api/jarvis/spotify/current, what's playing now */
+/** GET /api/infinity/spotify/current, what's playing now */
 router.get("/spotify/current", async (_req, res) => {
   try {
     const token = await getSpotifyToken();
@@ -234,7 +234,7 @@ router.get("/spotify/current", async (_req, res) => {
   }
 });
 
-/** POST /api/jarvis/spotify/control, playback control */
+/** POST /api/infinity/spotify/control, playback control */
 router.post("/spotify/control", async (req, res) => {
   const { action, query } = req.body as { action: string; query?: string };
 

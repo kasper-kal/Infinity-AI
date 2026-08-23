@@ -27,7 +27,7 @@ import {
 import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
 import { getStorage, persistFile } from "../../lib/storage";
 import { logBuildEvent } from "../../lib/build-telemetry";
-import { jarvisConfig } from "../../config/jarvis";
+import { jarvisConfig } from "../../config/infinity";
 import { pooledClient } from "../../lib/llm-client";
 import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt, validateInfinityPrompt } from "../../lib/infinity-prompt";
@@ -290,7 +290,7 @@ async function inspectPreviewPage(page: Page): Promise<PreviewAgentElement[]> {
     )).slice(0, 80) as any[];
     return elements.map((element, id) => {
       const item = element as any;
-      item.setAttribute("data-jarvis-agent-id", String(id));
+      item.setAttribute("data-infinity-agent-id", String(id));
       return {
         id,
         tag: item.tagName.toLowerCase(),
@@ -314,7 +314,7 @@ async function runPreviewAgentAction(page: Page, action: PreviewAgentAction): Pr
   if (!Number.isInteger(action.id) || (action.id ?? -1) < 0 || (action.id ?? -1) >= 80) {
     throw new Error("The agent selected an invalid element");
   }
-  const selector = `[data-jarvis-agent-id="${action.id}"]`;
+  const selector = `[data-infinity-agent-id="${action.id}"]`;
   if (action.action === "click") {
     await page.$eval(selector, (element: any) => element.click());
     await new Promise((resolve) => setTimeout(resolve, 350));
@@ -414,7 +414,7 @@ function withExtraBuildInstructions(basePrompt: string, extraPrompt: string): st
 
 async function readWorkspaceEnv(workspaceId = "default"): Promise<Record<string, string>> {
   try {
-    const content = await fs.readFile(path.join(getWorkspaceRoot(workspaceId), ".jarvis.env.json"), "utf8");
+    const content = await fs.readFile(path.join(getWorkspaceRoot(workspaceId), ".infinity.env.json"), "utf8");
     const parsed = JSON.parse(content) as unknown;
     if (!parsed || typeof parsed !== "object") return {};
     return Object.fromEntries(Object.entries(parsed as Record<string, unknown>)
@@ -428,7 +428,7 @@ async function readWorkspaceEnv(workspaceId = "default"): Promise<Record<string,
 
 async function writeWorkspaceEnv(env: Record<string, string>, workspaceId = "default"): Promise<void> {
   await ensureWorkspace(workspaceId);
-  await fs.writeFile(path.join(getWorkspaceRoot(workspaceId), ".jarvis.env.json"), JSON.stringify(env, null, 2), "utf8");
+  await fs.writeFile(path.join(getWorkspaceRoot(workspaceId), ".infinity.env.json"), JSON.stringify(env, null, 2), "utf8");
 }
 
 function serializeSavedApp(row: typeof buildApps.$inferSelect) {
@@ -437,7 +437,7 @@ function serializeSavedApp(row: typeof buildApps.$inferSelect) {
 
 /** Middleware: require either session auth or valid API key (local build routes) */
 function requireBuildAuth(req: Request, res: Response, next: NextFunction): void {
-  const hasSession = !!(req as any).accountId || req.cookies?.jarvis_session;
+  const hasSession = !!(req as any).accountId || req.cookies?.infinity_session;
   const hasApiKey = !!(req as any).apiKeyInfo;
   if (!hasSession && !hasApiKey) {
     res.status(401).json({ error: "Authentication required (session or API key)" });
@@ -473,7 +473,7 @@ router.post("/build/apps", requireAuth, async (req, res) => {
     const filesSnapshot = await listWorkspaceFiles(workspaceId);
     const contents: Record<string, string> = {};
     for (const entry of filesSnapshot) {
-      if (entry.type !== "file" || entry.path === ".jarvis.env.json") continue;
+      if (entry.type !== "file" || entry.path === ".infinity.env.json") continue;
       const result = await readWorkspaceFile(entry.path, 200_000, workspaceId);
       if (result.ok) contents[entry.path] = result.content;
     }
@@ -482,7 +482,7 @@ router.post("/build/apps", requireAuth, async (req, res) => {
     const stored = await persistFile({
       data: manifest,
       mimeType: "application/json",
-      name: `${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.jarvis-build.json`,
+      name: `${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.infinity-build.json`,
       kind: "build-app",
       owner: "user",
     });
@@ -1681,7 +1681,7 @@ router.post("/build/walkthrough", requireAuth, async (req, res) => {
     const elements: Array<{ index: number; tag: string; text: string; disabled: boolean; href: string }> = await page.evaluate(() => {
       const nodes = Array.from(document.querySelectorAll("button, a, input, textarea, select, [role=button]")) as Array<any>;
       return nodes.map((element, index) => {
-        element.setAttribute("data-jarvis-walkthrough-id", String(index));
+        element.setAttribute("data-infinity-walkthrough-id", String(index));
         return {
           index,
           tag: String(element.tagName).toLowerCase(),
@@ -1695,7 +1695,7 @@ router.post("/build/walkthrough", requireAuth, async (req, res) => {
     for (const element of elements) {
       if (element.disabled || element.href && !element.href.startsWith("#")) continue;
       try {
-        await page.$eval(`[data-jarvis-walkthrough-id="${element.index}"]`, (node) => {
+        await page.$eval(`[data-infinity-walkthrough-id="${element.index}"]`, (node) => {
           const tag = node.tagName.toLowerCase();
           if (tag === "input" || tag === "textarea" || tag === "select") return;
           (node as any).click();
@@ -2673,7 +2673,7 @@ router.post("/build/command/:projectId/budget/set", requireAuth, requireScope("b
 
 /**
  * Phase 5.3: Edge Cases — Pre-flight check before build operations
- * GET /api/jarvis/build/preflight/:projectId
+ * GET /api/infinity/build/preflight/:projectId
  */
 router.get("/build/preflight/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2693,7 +2693,7 @@ router.get("/build/preflight/:projectId", requireAuth, async (req: Request, res:
 
 /**
  * Phase 5.3: Edge Cases — Disk space status
- * GET /api/jarvis/build/disk-space/:projectId
+ * GET /api/infinity/build/disk-space/:projectId
  */
 router.get("/build/disk-space/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2712,7 +2712,7 @@ router.get("/build/disk-space/:projectId", requireAuth, async (req: Request, res
 
 /**
  * Phase 5.3: Edge Cases — Wait for disk space (pause build until space available)
- * POST /api/jarvis/build/wait-disk/:projectId
+ * POST /api/infinity/build/wait-disk/:projectId
  */
 router.post("/build/wait-disk/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
@@ -2733,7 +2733,7 @@ router.post("/build/wait-disk/:projectId", requireAuth, requireScope("build:writ
 
 /**
  * Phase 5.3: Edge Cases — Workspace corruption detection
- * GET /api/jarvis/build/corruption/:projectId
+ * GET /api/infinity/build/corruption/:projectId
  */
 router.get("/build/corruption/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2752,7 +2752,7 @@ router.get("/build/corruption/:projectId", requireAuth, async (req: Request, res
 
 /**
  * Phase 5.3: Edge Cases — Workspace auto-repair
- * POST /api/jarvis/build/repair/:projectId
+ * POST /api/infinity/build/repair/:projectId
  */
 router.post("/build/repair/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
@@ -2776,7 +2776,7 @@ router.post("/build/repair/:projectId", requireAuth, requireScope("build:write")
 
 /**
  * Phase 5.3: Edge Cases — Git conflict handling
- * POST /api/jarvis/build/git-conflict/:projectId
+ * POST /api/infinity/build/git-conflict/:projectId
  */
 router.post("/build/git-conflict/:projectId", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
@@ -2796,7 +2796,7 @@ router.post("/build/git-conflict/:projectId", requireAuth, requireScope("build:w
 
 /**
  * Phase 5.3: Edge Cases — Build queue status
- * GET /api/jarvis/build/queue/:projectId
+ * GET /api/infinity/build/queue/:projectId
  */
 router.get("/build/queue/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2815,7 +2815,7 @@ router.get("/build/queue/:projectId", requireAuth, async (req: Request, res: Res
 
 /**
  * Phase 5.3: Edge Cases — Edge cases list (unresolved)
- * GET /api/jarvis/build/edge-cases/:projectId
+ * GET /api/infinity/build/edge-cases/:projectId
  */
 router.get("/build/edge-cases/:projectId", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2834,7 +2834,7 @@ router.get("/build/edge-cases/:projectId", requireAuth, async (req: Request, res
 
 /**
  * Phase 5.3: Edge Cases — Resolve edge case
- * POST /api/jarvis/build/edge-cases/:projectId/:edgeCaseId/resolve
+ * POST /api/infinity/build/edge-cases/:projectId/:edgeCaseId/resolve
  */
 router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {
@@ -2855,7 +2855,7 @@ router.post("/build/edge-cases/:projectId/:edgeCaseId/resolve", requireAuth, req
 
 /**
  * Phase 5.3: Edge Cases — Rate limit check
- * GET /api/jarvis/build/rate-limit/:key
+ * GET /api/infinity/build/rate-limit/:key
  */
 router.get("/build/rate-limit/:key", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -2876,7 +2876,7 @@ router.get("/build/rate-limit/:key", requireAuth, async (req: Request, res: Resp
 
 /**
  * Phase 5.3: Edge Cases — Wait for rate limit
- * POST /api/jarvis/build/wait-rate-limit/:key
+ * POST /api/infinity/build/wait-rate-limit/:key
  */
 router.post("/build/wait-rate-limit/:key", requireAuth, requireScope("build:write"), async (req: Request, res: Response) => {
   try {

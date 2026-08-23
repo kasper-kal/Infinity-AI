@@ -164,7 +164,7 @@ router.post("/fetch", async (req, res) => {
 // ── Interactive browser actions (Puppeteer-powered, VISIBLE to user) ──
 
 /**
- * POST /api/jarvis/browse/action
+ * POST /api/infinity/browse/action
  * Execute an action in Jarvis's personal browser.
  * The user can see the browser in real-time via WebSocket screenshots.
  *
@@ -242,7 +242,7 @@ router.post("/action", async (req, res) => {
 });
 
 /**
- * GET /api/jarvis/browse/status
+ * GET /api/infinity/browse/status
  * Get the current browser state (URL, title, loading status).
  */
 router.get("/status", async (_req, res) => {
@@ -261,11 +261,11 @@ router.get("/status", async (_req, res) => {
 });
 
 /**
- * GET /api/jarvis/browse/ws-url
+ * GET /api/infinity/browse/ws-url
  * Get the WebSocket URL for receiving live screenshots.
  */
 /**
- * POST /api/jarvis/browse/pause
+ * POST /api/infinity/browse/pause
  * Pause the running agent loop so the human can take over the browser.
  */
 router.post("/pause", async (_req, res) => {
@@ -274,7 +274,7 @@ router.post("/pause", async (_req, res) => {
 });
 
 /**
- * POST /api/jarvis/browse/resume
+ * POST /api/infinity/browse/resume
  * Resume a paused agent loop (continues the same goal).
  */
 router.post("/resume", async (_req, res) => {
@@ -283,7 +283,7 @@ router.post("/resume", async (_req, res) => {
 });
 
 /**
- * GET /api/jarvis/browse/pause-state
+ * GET /api/infinity/browse/pause-state
  * Current pause state (for UI sync across clients).
  */
 router.get("/pause-state", async (_req, res) => {
@@ -435,14 +435,14 @@ async function executeAgentAction(
     }
     case "click_element": {
       if (decision.index === undefined) return { success: false, error: "click_element requires an index" };
-      return browser.executeAction({ action: "click", payload: { selector: `[data-jarvis-idx="${decision.index}"]` } });
+      return browser.executeAction({ action: "click", payload: { selector: `[data-infinity-idx="${decision.index}"]` } });
     }
     case "type": {
       // When an element index is given, click it first to focus, then type.
       if (decision.index !== undefined) {
         const focus = await browser.executeAction({
           action: "click",
-          payload: { selector: `[data-jarvis-idx="${decision.index}"]` },
+          payload: { selector: `[data-infinity-idx="${decision.index}"]` },
         });
         if (!focus.success) return focus;
       }
@@ -464,7 +464,7 @@ async function executeAgentAction(
 }
 
 /**
- * POST /api/jarvis/browse/agent-run
+ * POST /api/infinity/browse/agent-run
  * Run the autonomous agent loop: look (grid screenshot) → think (vision LLM)
  * → act (click/type/navigate/scroll) → repeat until done or step limit.
  *
@@ -741,7 +741,7 @@ router.post("/agent-run", async (req, res) => {
       let browseAction: BrowseAction;
       switch (decision.action) {
         case "click_element": {
-          browseAction = { action: "click", payload: { selector: `[data-jarvis-idx="${decision.index}"]` } };
+          browseAction = { action: "click", payload: { selector: `[data-infinity-idx="${decision.index}"]` } };
           break;
         }
         case "click": {

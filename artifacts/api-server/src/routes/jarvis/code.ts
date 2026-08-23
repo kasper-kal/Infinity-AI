@@ -8,8 +8,8 @@ import {
 const router = Router();
 
 /**
- * GET /api/jarvis/code            → list the repository tree (relative paths)
- * GET /api/jarvis/code?path=X     → read a single file (text, capped)
+ * GET /api/infinity/code            → list the repository tree (relative paths)
+ * GET /api/infinity/code?path=X     → read a single file (text, capped)
  *
  * Read-only. Jarvis uses this to inspect the code that built him; he can never
  * modify anything through this endpoint.

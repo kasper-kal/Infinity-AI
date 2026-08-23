@@ -53,7 +53,7 @@ async function initializeWatcher(
     "**/build/**",
     "**/.next/**",
     "**/.nuxt/**",
-    "**/*.jarvis.env.json",
+    "**/*.infinity.env.json",
     "**/.*",
     ...finalConfig.ignoredPatterns.map((p) => `**/${p}/**`),
   ];

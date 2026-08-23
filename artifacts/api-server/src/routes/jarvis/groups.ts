@@ -20,8 +20,8 @@ import {
 } from "@workspace/db";
 
 const router = Router();
-const SESSION_COOKIE = "jarvis_session";
-const OWNER_COOKIE = "jarvis_owner_token";
+const SESSION_COOKIE = "infinity_session";
+const OWNER_COOKIE = "infinity_owner_token";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24;
 
