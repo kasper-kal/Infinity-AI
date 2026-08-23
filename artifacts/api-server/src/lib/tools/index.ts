@@ -12,6 +12,7 @@ import { registerFilesTools } from "./files";
 import { registerMemoryTools } from "./memory";
 import { registerResearchTools } from "./research";
 import { registerEvolutionTools } from "./evolution";
+import { registerTimerTools } from "./timers";
 
 export { registerBuildTools } from "./build";
 export { registerWebTools } from "./web";
@@ -20,6 +21,7 @@ export { registerFilesTools } from "./files";
 export { registerMemoryTools } from "./memory";
 export { registerResearchTools } from "./research";
 export { registerEvolutionTools } from "./evolution";
+export { registerTimerTools } from "./timers";
 // TODO: Add other category registrations as phases progress
 // export { registerVisionTools } from "./vision";
 // export { registerDataTools } from "./data";
@@ -37,5 +39,6 @@ export function registerAllTools(): void {
   registerMemoryTools();
   registerResearchTools();
   registerEvolutionTools();
+  registerTimerTools();
   // Other categories will be added in future phases
 }

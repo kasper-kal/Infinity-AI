@@ -4,9 +4,21 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 12:50
+LAST_UPDATED: 2026-08-23 13:15
 
 ## Just did (last action)
+- **Task #14: Agent Timer System in BuildMode COMPLETE** — Implemented full timer system for agents in Build Mode:
+  - Created `artifacts/api-server/src/lib/tools/timers.ts` with 5 universal tools:
+    - `build.set_timer` — Set a timer with name and duration (minutes + seconds)
+    - `build.check_timer` — Check status of specific timer or all timers for agent
+    - `build.clear_timer` — Remove a specific timer
+    - `build.clear_all_timers` — Clear all timers for current agent
+    - `build.wait_for_timer` — Block/poll until a timer expires (ensures agent works for minimum duration)
+  - Timers are agent-scoped (using taskId/conversationId/workspaceId), not user-facing
+  - Timer notifications go to the AGENT only, not the user
+  - Agent won't stop working before timer is done (can use `wait_for_timer` to enforce)
+  - Registered in Universal Tool Registry via `tools/index.ts`
+  - Typecheck + build pass cleanly ✅
 - **Fixed TypeScript errors in BuildView.tsx for /terminal slash command feature** — Fixed duplicate Drawer import and incorrect Drawer props:
   - Removed duplicate `Drawer` import from `@/components/ui/Dialog` (already exported from barrel)
   - Fixed Drawer prop: `onOpenChange` → `onClose` (Drawer uses onClose callback)
@@ -486,6 +498,7 @@ LAST_UPDATED: 2026-08-23 12:50
 - **Phase 6: MCP Client + Ecosystem Integration** — **DATABASE PERSISTENCE COMPLETE** ✅: Browser-native MCP client to connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket. Registry integration with `mcp.` namespace. Built-in server configs for filesystem, GitHub, PostgreSQL, Slack, etc. Project-scoped connections with encrypted secrets (AES-256-GCM). UI in SettingsView. **loadConfigs()/persistConfigs() implemented with encryption.**
 - **Phase 6: MCP Client + Ecosystem Integration** — **IN PROGRESS** 🔲: Remaining: Test MCP client with actual MCP servers, verify Universal Tool Registry integration works end-to-end with agents.
 - **BuildView /terminal slash command** — **COMPLETE** ✅: Implemented `/terminal [command]` slash command in BuildView terminal tab. When user types `/terminal git push origin main`, it auto-sends to terminal API and returns response in a special Drawer view (bottom panel) separate from the agent working transcript. Fixed TypeScript errors (duplicate Drawer import, incorrect props: onClose instead of onOpenChange, position instead of direction, removed className). Typecheck + build pass ✅.
+- **Task #14: Agent Timer System in BuildMode** — **COMPLETE** ✅: Implemented 5 universal timer tools (`build.set_timer`, `build.check_timer`, `build.clear_timer`, `build.clear_all_timers`, `build.wait_for_timer`) in Universal Tool Registry. Timers are agent-scoped (using taskId/conversationId/workspaceId), notify the AGENT only (not the user). Agent can use `wait_for_timer` to block until timer expires, ensuring it works for the minimum duration. Typecheck + build pass ✅.
 - **Phase 1: Build Project Map Subsystem** — **COMPLETE** ✅: Built `build-project-map.ts` with full static analysis, incremental updates, impact analysis, smart context selection, persistence. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. REST API routes at `/api/jarvis/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
 - **Phase 2-5: Claude Code Parity Roadmap** — **ALL COMPLETE** ✅: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5)
 - **Phase 31-38: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)
@@ -602,7 +615,8 @@ LAST_UPDATED: 2026-08-23 12:50
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Task #14: Add agent timer system in BuildMode** — **IN PROGRESS**: Implement timer system where agent can set timers for itself in Build Mode. User says "work on X for an hour" → agent sets timer. Timer doesn't notify user — gives AGENT a notification. Agent won't stop before timer is done.
+1. **Task #14: Add agent timer system in BuildMode** — **COMPLETE** ✅: Implemented 5 universal timer tools (`build.set_timer`, `build.check_timer`, `build.clear_timer`, `build.clear_all_timers`, `build.wait_for_timer`) in Universal Tool Registry. Timers are agent-scoped, notify agent (not user), agent can wait for timer expiry before stopping.
+2. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
 2. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
 3. **Phase 3: Specialized Subagents with Schemas** — **PLANNED**: Define schemas for planner, coder, reviewer, fixer agents. Register as universal tools with structured I/O.
 4. **Phase 4: Virtual Worktrees + Parallel Agent Execution** — **PLANNED**: Git worktree isolation per agent, parallel execution with shared context, merge strategies.
