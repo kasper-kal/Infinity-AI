@@ -514,11 +514,15 @@ LAST_UPDATED: 2026-08-23 10:45
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 1: Build Project Map Subsystem** — **IN PROGRESS**: Pre-build analysis (framework detection, architecture mapping, change impact, smart context). Scaffold `build-project-map.ts`, integrate into build-orchestrator, persist to `.infinity/project-map.json` + DB
-2. **Phases 2–7: Claude Code Parity Roadmap** — **PLANNED**: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5), MCP Client (6), VS Code Extension (7)
-3. **Phases 8–15: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (8), Parallel Agent Execution (9), Mobile App Dev React Native/Expo (10), Security Scanner + Secrets (11), Multi-Artifact Support (12), External Connectors Linear/Slack/Notion/Sheets (13), Enterprise SSO/VPC/Single-Tenant (14), Agent Skills Marketplace (15)
-4. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
-5. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
+1. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
+2. **Phase 3: Specialized Subagents with Schemas** — **PLANNED**: Define schemas for planner, coder, reviewer, fixer agents. Register as universal tools with structured I/O.
+3. **Phase 4: Virtual Worktrees + Parallel Agent Execution** — **PLANNED**: Git worktree isolation per agent, parallel execution with shared context, merge strategies.
+4. **Phase 5: Local Terminal Bridge (node-pty WebSocket)** — **PLANNED**: WebSocket bridge for local terminal access, command streaming, output capture.
+5. **Phase 6: MCP Client + Ecosystem Integration** — **PLANNED**: MCP client to consume external MCP servers, tool discovery, capability negotiation.
+6. **Phase 7: VS Code Extension (Infinity Build Panel)** — **PLANNED**: VS Code extension with build panel, terminal integration, file sync.
+7. **Phases 8–15: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (8), Parallel Agent Execution (9), Mobile App Dev React Native/Expo (10), Security Scanner + Secrets (11), Multi-Artifact Support (12), External Connectors Linear/Slack/Notion/Sheets (13), Enterprise SSO/VPC/Single-Tenant (14), Agent Skills Marketplace (15)
+8. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
+9. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
