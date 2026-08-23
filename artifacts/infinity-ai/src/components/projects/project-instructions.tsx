@@ -52,7 +52,7 @@ export function ProjectInstructions({ projectId, onBack }: ProjectInstructionsPr
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/instructions`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/instructions`);
       if (!response.ok) throw new Error('Project instructions request failed');
       setInstructions(parseInstructions(await response.json()));
     } catch {
@@ -72,7 +72,7 @@ export function ProjectInstructions({ projectId, onBack }: ProjectInstructionsPr
     setSaving(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/instructions`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/instructions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -105,7 +105,7 @@ export function ProjectInstructions({ projectId, onBack }: ProjectInstructionsPr
     setError(false);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/instructions/${encodeURIComponent(instructionId)}`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/instructions/${encodeURIComponent(instructionId)}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -129,7 +129,7 @@ export function ProjectInstructions({ projectId, onBack }: ProjectInstructionsPr
     setError(false);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/instructions/${encodeURIComponent(instructionId)}`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/instructions/${encodeURIComponent(instructionId)}`,
         { method: 'DELETE' },
       );
       if (!response.ok) throw new Error('Could not delete project instruction');
@@ -154,7 +154,7 @@ export function ProjectInstructions({ projectId, onBack }: ProjectInstructionsPr
     setError(false);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/instructions/reorder`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/instructions/reorder`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

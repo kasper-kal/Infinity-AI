@@ -172,7 +172,7 @@ Infinity AI is organized as a **pnpm monorepo**.
 ```text
 Infinity-AI/
 ├── artifacts/
-│   ├── jarvis/            # React + Vite frontend
+│   ├── infinity-ai/            # React + Vite frontend
 │   └── api-server/        # Express backend
 ├── lib/
 │   ├── api-client-react/  # Generated React API hooks

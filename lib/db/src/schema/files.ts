@@ -21,7 +21,7 @@ export const files = pgTable(
     storageKey: text("storage_key").notNull(),
     /** Storage backend the blob lives in: "local" | "r2". */
     bucket: text("bucket").notNull().default("local"),
-    owner: text("owner", { enum: ["user", "jarvis", "account"] }).notNull().default("user"),
+    owner: text("owner", { enum: ["user", "infinity", "account"] }).notNull().default("user"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [

@@ -33,7 +33,7 @@ export const BLOCKED_PATTERNS: RegExp[] = [
   /\bdist\b/,
   /\bcoverage\b/,
   // His own operating prompt, the exact code he's "currently using to work".
-  /config\/jarvis\.ts$/,
+  /config\/infinity\.ts$/,
   // Internal working docs — continuity state, not source code.
   /(^|[/\\])(KNOWLEDGE|session-brief)\.md$/,
   /(^|[/\\])\.daytona([/\\]|$)/,

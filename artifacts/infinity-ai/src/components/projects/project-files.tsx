@@ -84,7 +84,7 @@ export function ProjectFiles({ projectId, onBack }: ProjectFilesProps) {
     setError(false);
     try {
       const query = searchQuery.trim() ? `?q=${encodeURIComponent(searchQuery.trim())}` : '';
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/files${query}`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/files${query}`, { signal });
       if (!response.ok) throw new Error('Project files request failed');
       setFiles(asFiles(await response.json()));
     } catch (requestError) {

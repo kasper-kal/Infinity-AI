@@ -157,7 +157,7 @@ function sanitizeStack(stack: string | undefined): string {
       // Keep lines that reference our project
       return (
         line.includes("/api-server/") ||
-        line.includes("/jarvis/") ||
+        line.includes("/infinity/") ||
         line.includes("node:") ||
         line.includes("at async") ||
         line === line.split("(")[0] // anonymous functions

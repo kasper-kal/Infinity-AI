@@ -28,7 +28,7 @@ export interface AuthResult {
  */
 export async function validateApiKey(config: AuthConfig): Promise<AuthResult> {
   try {
-    const response = await axios.get(`${config.apiBaseUrl}/api/jarvis/auth/me`, {
+    const response = await axios.get(`${config.apiBaseUrl}/api/infinity-ai/auth/me`, {
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "X-API-Key": config.apiKey,

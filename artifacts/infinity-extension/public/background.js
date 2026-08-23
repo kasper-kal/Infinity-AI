@@ -25,7 +25,7 @@ function connectToServer() {
   }
 
   try {
-    ws = new WebSocket('ws://127.0.0.1:8080/api/jarvis/extension/ws');
+    ws = new WebSocket('ws://127.0.0.1:8080/api/infinity-ai/extension/ws');
 
     ws.onopen = () => {
       console.log('[Infinity] Connected to API server');

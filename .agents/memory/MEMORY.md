@@ -5,5 +5,5 @@
 - [QA browser runtime](qa-browser-runtime.md) — imported Puppeteer runners may have machine-specific paths, ports, and missing browser libraries in Replit.
 - [Orb background treatment](orb-background-treatment.md) — preserve the page’s subtle dot texture; remove only orb-local particles and mask a small halo around the orb.
 - [UI icon system](ui-icon-system.md) — use Lucide consistently for interface icons, with one canonical Search icon preserved across all search controls.
-- [Jarvis UI visual baseline](jarvis-ui-baseline.md) — restore the approved orb, icon mapping, composer, suggestions, and responsive mobile layout after upstream pulls.
-- [Jarvis replacement readiness](jarvis-replacement-readiness.md) — prioritize one coherent, reliable assistant workflow over adding more disconnected feature modes.
+- [infinity-ai UI visual baseline](infinity-ai-ui-baseline.md) — restore the approved orb, icon mapping, composer, suggestions, and responsive mobile layout after upstream pulls.
+- [infinity-ai replacement readiness](infinity-ai-replacement-readiness.md) — prioritize one coherent, reliable assistant workflow over adding more disconnected feature modes.

@@ -2,8 +2,8 @@ import puppeteer from 'puppeteer';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-const url = process.env.JARVIS_QA_URL || 'http://localhost:21662/';
-const outDir = process.env.JARVIS_QA_OUT || './qa-report/full-button-pass';
+const url = process.env.infinity-ai_QA_URL || 'http://localhost:21662/';
+const outDir = process.env.infinity-ai_QA_OUT || './qa-report/full-button-pass';
 mkdirSync(outDir, { recursive: true });
 const chromiumPath = process.env.CHROMIUM_PATH || execFileSync('sh', ['-lc', 'command -v chromium'], { encoding: 'utf8' }).trim();
 const browser = await puppeteer.launch({

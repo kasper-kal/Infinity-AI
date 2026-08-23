@@ -31,7 +31,7 @@ const COOKIE_OPTIONS = {
 };
 
 /**
- * POST /api/jarvis/auth/register
+ * POST /api/infinity/auth/register
  * Register a new account
  */
 router.post("/auth/register", registerRateLimiter, async (req: Request, res: Response) => {
@@ -78,7 +78,7 @@ router.post("/auth/register", registerRateLimiter, async (req: Request, res: Res
     });
 
     // Set session cookie
-    res.cookie("jarvis_session", token, COOKIE_OPTIONS);
+    res.cookie("infinity_session", token, COOKIE_OPTIONS);
 
     return res.json({
       success: true,
@@ -96,7 +96,7 @@ router.post("/auth/register", registerRateLimiter, async (req: Request, res: Res
 });
 
 /**
- * POST /api/jarvis/auth/login
+ * POST /api/infinity/auth/login
  * Login with email and password
  */
 router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response) => {
@@ -128,7 +128,7 @@ router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response)
     });
 
     // Set session cookie
-    res.cookie("jarvis_session", token, COOKIE_OPTIONS);
+    res.cookie("infinity_session", token, COOKIE_OPTIONS);
 
     return res.json({
       success: true,
@@ -146,16 +146,16 @@ router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response)
 });
 
 /**
- * POST /api/jarvis/auth/logout
+ * POST /api/infinity/auth/logout
  * Logout current session
  */
 router.post("/auth/logout", async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (token) {
       await db.delete(sessions).where(eq(sessions.token, token));
     }
-    res.clearCookie("jarvis_session", COOKIE_OPTIONS);
+    res.clearCookie("infinity_session", COOKIE_OPTIONS);
     return res.json({ success: true });
   } catch (err) {
     console.error("[Auth] Logout error:", err);
@@ -164,12 +164,12 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/auth/me
+ * GET /api/infinity/auth/me
  * Get current authenticated account
  */
 router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (!token) {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
@@ -184,7 +184,7 @@ router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) =>
       if (session) {
         await db.delete(sessions).where(eq(sessions.token, token));
       }
-      res.clearCookie("jarvis_session", COOKIE_OPTIONS);
+      res.clearCookie("infinity_session", COOKIE_OPTIONS);
       return res.status(401).json({ success: false, error: "Session expired" });
     }
 
@@ -209,13 +209,13 @@ router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) =>
 });
 
 /**
- * PUT /api/jarvis/auth/profile
+ * PUT /api/infinity/auth/profile
  * Update account profile (display name, avatar, email)
  * Email change invalidates all other sessions for security
  */
 router.put("/auth/profile", async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (!token) {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
@@ -264,7 +264,7 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
         accountId: account.id,
         expiresAt: new Date(Date.now() + COOKIE_OPTIONS.maxAge),
       });
-      res.cookie("jarvis_session", newToken, COOKIE_OPTIONS);
+      res.cookie("infinity_session", newToken, COOKIE_OPTIONS);
     }
 
     return res.json({
@@ -283,12 +283,12 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/jarvis/auth/password
+ * PUT /api/infinity/auth/password
  * Change password
  */
 router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (!token) {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
@@ -337,7 +337,7 @@ router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Resp
       expiresAt: new Date(Date.now() + COOKIE_OPTIONS.maxAge),
     });
 
-    res.cookie("jarvis_session", newToken, COOKIE_OPTIONS);
+    res.cookie("infinity_session", newToken, COOKIE_OPTIONS);
 
     return res.json({ success: true });
   } catch (err) {
@@ -347,12 +347,12 @@ router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Resp
 });
 
 /**
- * POST /api/jarvis/auth/revoke-sessions
+ * POST /api/infinity/auth/revoke-sessions
  * Revoke all other sessions for the current account (keep current session)
  */
 router.post("/auth/revoke-sessions", async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (!token) {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
@@ -382,12 +382,12 @@ router.post("/auth/revoke-sessions", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/auth/revoke-session/:sessionId
+ * POST /api/infinity/auth/revoke-session/:sessionId
  * Revoke a specific session by its token
  */
 router.post("/auth/revoke-session/:sessionId", async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.jarvis_session;
+    const token = req.cookies?.infinity_session;
     if (!token) {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }

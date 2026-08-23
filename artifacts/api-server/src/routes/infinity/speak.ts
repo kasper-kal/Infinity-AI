@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { buildErrorDetail } from "../../lib/error-detail";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.post("/speak", async (req, res) => {
 
   try {
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${jarvisConfig.ttsVoiceId}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${infinityConfig.ttsVoiceId}`,
       {
         method: "POST",
         headers: {
@@ -33,7 +33,7 @@ router.post("/speak", async (req, res) => {
         },
         body: JSON.stringify({
           text,
-          model_id: jarvisConfig.ttsModel,
+          model_id: infinityConfig.ttsModel,
           voice_settings: { stability: 0.5, similarity_boost: 0.75 },
         }),
       }

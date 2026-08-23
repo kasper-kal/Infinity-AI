@@ -1,5 +1,5 @@
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║           JARVIS — FULL SYSTEMATIC WALKTHROUGH & TEST REPORT                ║
+║           infinity-ai — FULL SYSTEMATIC WALKTHROUGH & TEST REPORT                ║
 ║                     (full-walktrough-by-freebuff.txt)                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -27,11 +27,11 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
    composer (the @-autocomplete path opens the same menu). Because the Studios
    hub is only reachable through the + menu, Build Mode is effectively
    unreachable via the UI while this bug exists. (All studios/build testing in
-   this report therefore used the app's documented 'jarvis-plugin-action' event
+   this report therefore used the app's documented 'infinity-ai-plugin-action' event
    pathway after logging the crash.)
 
 2. [REQUIREMENT FAILED] "@Build [message]" auto-switch is NOT implemented.
-   Source audit: zero references to "@Build" anywhere in artifacts/jarvis/src.
+   Source audit: zero references to "@Build" anywhere in artifacts/infinity-ai/src.
    Live test: typing "@Build Make a 3D game" in chat mode crashes the app on the
    "@" keystroke (same PlusMenu bug); no message is submitted and no automatic
    switch to Build Mode occurs.
@@ -54,14 +54,14 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
 ── STEP LOG ────────────────────────────────────────────────────────────────────
 
 [Step 001]
-  Action: PHASE A START — clean session load of the Jarvis app
+  Action: PHASE A START — clean session load of the infinity-ai app
   Status: INFO
   Screenshot Analysis: see below
 [Step 002]
   Action: Load app (fresh localStorage) at desktop 1440x900
   Functional Test: Page must render the chat UI (header, sidebar, composer) without crashing
   Screenshot: walkthrough-screenshots/a01-initial-load.png
-  Screenshot Analysis: App rendered; body text sample: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: App rendered; body text sample: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes: chat composer mounted: true |
 [Step 003]
@@ -70,7 +70,7 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Screenshot: walkthrough-screenshots/a01-initial-load.png
   Screenshot Analysis: Count = 12
   Status: PASS
-  Notes: Labels: [button]Open history, [button]New Chat, [button]Good morning, give me the day's briefing, [button]Create image, [button]Write or edit, [button]Search the web, [button]Attach, camera, or search, [button]Thinking mode, [button]Agent mode, [textarea]Ask Jarvis anything…, [button]Dictate a message, [button]Voice mode
+  Notes: Labels: [button]Open history, [button]New Chat, [button]Good morning, give me the day's briefing, [button]Create image, [button]Write or edit, [button]Search the web, [button]Attach, camera, or search, [button]Thinking mode, [button]Agent mode, [textarea]Ask infinity-ai anything…, [button]Dictate a message, [button]Voice mode
 [Step 004]
   Action: Clicked hamburger (Open history)
   Functional Test: Sidebar/drawer should open showing history + mode navigation
@@ -101,7 +101,7 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 008]
   Action: Polled for assistant reply / Thinking block / error state (up to 45s)
-  Functional Test: With Thinking on, Jarvis should emit a reasoning pass then an answer
+  Functional Test: With Thinking on, infinity-ai should emit a reasoning pass then an answer
   Screenshot: walkthrough-screenshots/a06-reply-check.png
   Screenshot Analysis: Body text tail: hello, say hi in one sentence · Something went wrong · Chat request failed. Please try again. · DETAILS · RETRY
   Status: ERROR
@@ -160,18 +160,18 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Opened Studios hub via plugin-action pathway (workaround after logged + menu crash)
   Functional Test: Studios hub grid should open with 9 studios
   Screenshot: walkthrough-screenshots/b02-studios-hub.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Studios · One app instead of ten, every tool, organized. · Chat · Instant answers, deep conversations · replaces ChatGPT · Gemini · Grok · Claude · Voice · Talk
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Studios · One app instead of ten, every tool, organized. · Chat · Instant answers, deep conversations · replaces ChatGPT · Gemini · Grok · Claude · Voice · Talk
   Status: PASS
   Notes:
 [Step 017]
   Action: Selected studio "chat" (ChatInstant answers, deep conversationsreplaces Ch)
   Functional Test: Chat mode should be active
   Screenshot: walkthrough-screenshots/b03-studio-chat.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes:
 [Step 018]
-  Action: Selected studio "voice" (VoiceTalk to Jarvis hands-free, hear it replyrepla)
+  Action: Selected studio "voice" (VoiceTalk to infinity-ai hands-free, hear it replyrepla)
   Functional Test: Voice orb view should appear
   Screenshot: walkthrough-screenshots/b03-studio-voice.png
   Screenshot Analysis: Body text: Agent · Browser · Camera mode · Ready
@@ -188,51 +188,51 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Selected studio "research" (Deep ResearchMulti-hour investigations with source)
   Functional Test: Research panel should open
   Screenshot: walkthrough-screenshots/b03-studio-research.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Deep Research · DEPTH · Standard · ~5-12 hours · Deep · ~1-3 days · Quantum · ~1
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Deep Research · DEPTH · Standard · ~5-12 hours · Deep · ~1-3 days · Quantum · ~1
   Status: PASS
   Notes:
 [Step 021]
-  Action: Selected studio "build" (Build ModeA Linux workspace Jarvis codes inreplace)
+  Action: Selected studio "build" (Build ModeA Linux workspace infinity-ai codes inreplace)
   Functional Test: Build Studio should open
   Screenshot: walkthrough-screenshots/b03-studio-build.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 404 (Not Found) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 022]
   Action: Selected studio "design" (Design StudioEdit photos, add text, export PNGrepl)
   Functional Test: Design Studio should open
   Screenshot: walkthrough-screenshots/b03-studio-design.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
   Status: PASS
   Notes:
 [Step 023]
   Action: Selected studio "music" (Music StudioCompose + play original tracksreplaces)
   Functional Test: Music Studio should open
   Screenshot: walkthrough-screenshots/b03-studio-music.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
   Status: PASS
   Notes:
 [Step 024]
   Action: Selected studio "factcheck" (Fact-check a messageVerifies chat responses agains)
   Functional Test: Routes to chat mode (no dedicated view)
   Screenshot: walkthrough-screenshots/b03-studio-factcheck.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 025]
   Action: Selected studio "datalab" (Data LabAnalyze data, get insightsreplaces Excel A)
   Functional Test: Data Lab should open
   Screenshot: walkthrough-screenshots/b03-studio-datalab.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · proj
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 026]
   Action: Build Studio opened (after studio deep-dive)
   Functional Test: Build Studio overlay with tabs (Editor/Terminal/Preview/Packages/Env/Git/Search/Quality/History/Templates/Docker/Database/API) should render
   Screenshot: walkthrough-screenshots/b04-build-studio-open.png
-  Screenshot Analysis: Tab labels found: Save app, Editor, Terminal, Preview, Packages, Env, Git, Search, Quality, History, Templates, Docker, Database, API, Scaffold, ChatInstant answers, deep conversationsreplaces ChatGPT · Gemini · Grok · Claude, VoiceTalk to Jarvis hands-free, hear it replyreplaces Siri · Alexa · Google Assistant, CameraPoint at anything, identify it livereplaces Google Lens, Deep ResearchMulti-hour investigations with sourcesreplaces Perplexity · ResearchGPT, Build ModeA Linux workspace Jarvis codes inreplaces Replit · Claude Code · Cursor, Design StudioEdit photos, add text, export PNGreplaces Canva · Photo editors, Music StudioCompose + play original tracksreplaces Suno · Udio, Fact-check a messageVerifies chat responses against the webreplaces Snopes · Fact-check sites, Data LabAnalyze data, get insightsreplaces Excel AI · NotebookLM, Templates, History (0), Generate, Square, Landscape, Portrait, A photorealistic husky in the snow, golden hour, A minimal product poster for a coffee shop, A dreamy anime landscape at sunset, A sleek logo for a creative studio, Poster template, Social template, Card template, Story template, Upload image, History (0)
+  Screenshot Analysis: Tab labels found: Save app, Editor, Terminal, Preview, Packages, Env, Git, Search, Quality, History, Templates, Docker, Database, API, Scaffold, ChatInstant answers, deep conversationsreplaces ChatGPT · Gemini · Grok · Claude, VoiceTalk to infinity-ai hands-free, hear it replyreplaces Siri · Alexa · Google Assistant, CameraPoint at anything, identify it livereplaces Google Lens, Deep ResearchMulti-hour investigations with sourcesreplaces Perplexity · ResearchGPT, Build ModeA Linux workspace infinity-ai codes inreplaces Replit · Claude Code · Cursor, Design StudioEdit photos, add text, export PNGreplaces Canva · Photo editors, Music StudioCompose + play original tracksreplaces Suno · Udio, Fact-check a messageVerifies chat responses against the webreplaces Snopes · Fact-check sites, Data LabAnalyze data, get insightsreplaces Excel AI · NotebookLM, Templates, History (0), Generate, Square, Landscape, Portrait, A photorealistic husky in the snow, golden hour, A minimal product poster for a coffee shop, A dreamy anime landscape at sunset, A sleek logo for a creative studio, Poster template, Social template, Card template, Story template, Upload image, History (0)
   Status: PASS
-  Notes: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-ac5169e8-c |
+  Notes: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-ac5169e8-c |
 [Step 027]
   Action: Opened Build Studio Editor tab (Editor)
   Functional Test: CodeMirror editor (or scaffold empty-state) should render
@@ -248,10 +248,10 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Status: PASS
   Notes:
 [Step 029]
-  Action: Ran "echo hello-jarvis-walkthrough" in the terminal
+  Action: Ran "echo hello-infinity-ai-walkthrough" in the terminal
   Functional Test: Terminal output should echo the string (proves the shell executed)
   Screenshot: walkthrough-screenshots/b09-terminal-command.png
-  Screenshot Analysis: Body text: 8 · $ echo hello-jarvis-walkthrough · hello-jarvis-walkthrough · exit 0 · $ · Stream · Run · Studios · One app instead of ten, every tool, organized. · Chat · Instant answers, deep conversations · rep
+  Screenshot Analysis: Body text: 8 · $ echo hello-infinity-ai-walkthrough · hello-infinity-ai-walkthrough · exit 0 · $ · Stream · Run · Studios · One app instead of ten, every tool, organized. · Chat · Instant answers, deep conversations · rep
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 404 (Not Found) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 030]
@@ -265,7 +265,7 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Clicked Run Preview (python3 -m http.server 4173)
   Functional Test: Preview process should start; iframe or running state appears (needs python3 in sandbox)
   Screenshot: walkthrough-screenshots/b11-preview-run.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-ac5169e8-c105-4a1d-a47d-bdcca5
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-ac5169e8-c105-4a1d-a47d-bdcca5
   Status: PASS
   Notes:
 [Step 032]
@@ -276,91 +276,91 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Opened Build Studio "packages" tab (Packages)
   Functional Test: Packages tab renders (installed list or search UI)
   Screenshot: walkthrough-screenshots/c01-tab-packages.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 034]
   Action: Opened Build Studio "env" tab (Env)
   Functional Test: Env tab renders with editable KEY=VALUE textarea
   Screenshot: walkthrough-screenshots/c01-tab-env.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 035]
   Action: Opened Build Studio "git" tab (Git)
   Functional Test: Git tab renders (status or "Initialize one" empty state)
   Screenshot: walkthrough-screenshots/c01-tab-git.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 036]
   Action: Opened Build Studio "search" tab (Search)
   Functional Test: Search tab renders with query input + replace
   Screenshot: walkthrough-screenshots/c01-tab-search.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 037]
   Action: Opened Build Studio "quality" tab (Quality)
   Functional Test: Quality tab renders (tests + AI debug)
   Screenshot: walkthrough-screenshots/c01-tab-quality.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 038]
   Action: Opened Build Studio "history" tab (History)
   Functional Test: History tab renders (snapshots)
   Screenshot: walkthrough-screenshots/c01-tab-history.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 039]
   Action: Opened Build Studio "templates" tab (Templates)
   Functional Test: Templates tab renders (built-in + community)
   Screenshot: walkthrough-screenshots/c01-tab-templates.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 040]
   Action: Opened Build Studio "docker" tab (Docker)
   Functional Test: Docker tab renders (status or unavailable state)
   Screenshot: walkthrough-screenshots/c01-tab-docker.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 041]
   Action: Opened Build Studio "database" tab (Database)
   Functional Test: Database tab renders (SQLite browser or no-DB state)
   Screenshot: walkthrough-screenshots/c01-tab-database.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes:
 [Step 042]
   Action: Opened Build Studio "api" tab (API)
   Functional Test: API Explorer tab renders (endpoints + request sender)
   Screenshot: walkthrough-screenshots/c01-tab-api.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest pre
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 043]
   Action: Ran a workspace search for "body"
   Functional Test: Search should return matches (files contain <body>) or a no-results state
   Screenshot: walkthrough-screenshots/c02-search-functional.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 044]
   Action: Git tab — initialized repo (if needed) and refreshed status
   Functional Test: Git status should show a branch and file states
   Screenshot: walkthrough-screenshots/c03-git-functional.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 404 (Not Found)
 [Step 045]
   Action: History tab — attempted to create a snapshot
   Functional Test: Snapshot should appear in the timeline (prompt stubbed in headless)
   Screenshot: walkthrough-screenshots/c04-history-functional.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweight editor, honest preview controls · project build-4180caf0-f78b-4796-b425-ac72fe
   Status: PASS
   Notes: prompt() stubbed; backend may 500 if DB is down — Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 046]
@@ -371,7 +371,7 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Opened Settings panel (Settings)
   Functional Test: Settings panel with theme + options should render
   Screenshot: walkthrough-screenshots/d01-settings-open.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Se
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Se
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —  | Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —
 [Step 048]
@@ -385,14 +385,14 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Pressed Ctrl+K to open the command palette
   Functional Test: Palette with navigation commands should open
   Screenshot: walkthrough-screenshots/d03-palette.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your pr
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your pr
   Status: PASS
   Notes: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —
 [Step 050]
   Action: Plus menu → New gem (plugin:new-gem)
   Functional Test: Gem creation dialog should open
   Screenshot: walkthrough-screenshots/d04-gem-dialog.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me the day's briefing · Create image · Write or edit ·
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit ·
   Status: PASS
   Notes: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —
 [Step 051]
@@ -401,14 +401,14 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Screenshot: walkthrough-screenshots/d05-at-build-typing.png
   Screenshot Analysis: App crashed (blank) while typing the @ prefix
   Status: FAIL
-  Notes: Result: typing "@" triggers the same PlusMenu hooks bug via its @-autocomplete path, unmounting the app — the message is never submitted and no mode switch happens. Source audit also confirms NO @Build handling exists (zero references to "@Build" in artifacts/jarvis/src). The requirement is therefore NOT implemented and the app crashes in the attempt. Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —  | React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+  Notes: Result: typing "@" triggers the same PlusMenu hooks bug via its @-autocomplete path, unmounting the app — the message is never submitted and no mode switch happens. Source audit also confirms NO @Build handling exists (zero references to "@Build" in artifacts/infinity-ai/src). The requirement is therefore NOT implemented and the app crashes in the attempt. Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —  | React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
 
    | Error: Rendered more hooks than during the previous render.
 [Step 052]
   Action: Post-check after @Build attempt (app reloaded)
   Functional Test: Confirm no Build Studio opened and no "@Build" user bubble exists
   Screenshot: walkthrough-screenshots/d06-at-build-after-reload.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes: No Build Studio overlay and no "@Build" bubble present — the message was never sent because the app crashed on "@". Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 053]
@@ -419,14 +419,14 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Mobile viewport 390x844 initial load
   Functional Test: Layout should render mobile-sized without horizontal overflow or broken elements
   Screenshot: walkthrough-screenshots/e01-mobile-initial.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes:
 [Step 055]
   Action: Mobile hamburger (Open history)
   Functional Test: Sidebar drawer should slide in
   Screenshot: walkthrough-screenshots/e02-mobile-drawer.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me the day's briefing · Create image · Write or edit ·
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit ·
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 056]
@@ -463,7 +463,7 @@ theme, command palette, gem dialog, and the @Build auto-switch requirement.
   Action: Mobile — opened Settings (Settings)
   Functional Test: Settings renders without overflow
   Screenshot: walkthrough-screenshots/e07-mobile-settings.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me the day's b
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me the day's b
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —  | Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted —
 [Step 061]
@@ -517,7 +517,7 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked palette command "Data Lab"
   Functional Test: Opens Data Lab
   Screenshot: walkthrough-screenshots/f06-data-lab.png
-  Screenshot Analysis: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Detection un
+  Screenshot Analysis: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Detection un
   Status: PASS
   Notes:
 [Step 089]
@@ -601,14 +601,14 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Open history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-open-history.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
   Status: PASS
   Notes:
 [Step 103]
   Action: [Chat view header + composer] Clicked button "New Chat"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes:
 [Step 104]
@@ -622,21 +622,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Thinking mode"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/f05-chat-thinking-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes:
 [Step 106]
   Action: [Chat view header + composer] Clicked button "Agent mode"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-agent-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes:
 [Step 107]
   Action: [Chat view header + composer] Clicked button "Dictate a message"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-dictate-a-message.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes:
 [Step 108]
@@ -750,14 +750,14 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Open history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-open-history.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
   Status: PASS
   Notes:
 [Step 125]
   Action: [Chat view header + composer] Clicked button "New Chat"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes:
 [Step 126]
@@ -771,21 +771,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Thinking mode"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/f05-chat-thinking-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes:
 [Step 128]
   Action: [Chat view header + composer] Clicked button "Agent mode"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-agent-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes:
 [Step 129]
   Action: [Chat view header + composer] Clicked button "Dictate a message"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-dictate-a-message.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes:
 [Step 130]
@@ -953,14 +953,14 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Open history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-open-history.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
   Status: PASS
   Notes: 
 [Step 155]
   Action: [Chat view header + composer] Clicked button "New Chat"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes: 
 [Step 156]
@@ -974,21 +974,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Thinking mode"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/f05-chat-thinking-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes: 
 [Step 158]
   Action: [Chat view header + composer] Clicked button "Agent mode"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-agent-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 159]
   Action: [Chat view header + composer] Clicked button "Dictate a message"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-dictate-a-message.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 160]
@@ -1102,14 +1102,14 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Open history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-open-history.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · drill hello · ERROR DETAILS · 50
   Status: PASS
   Notes: 
 [Step 177]
   Action: [Chat view header + composer] Clicked button "New Chat"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes: 
 [Step 178]
@@ -1123,21 +1123,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Chat view header + composer] Clicked button "Thinking mode"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/f05-chat-thinking-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes: 
 [Step 180]
   Action: [Chat view header + composer] Clicked button "Agent mode"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-agent-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 181]
   Action: [Chat view header + composer] Clicked button "Dictate a message"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-chat-dictate-a-message.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 182]
@@ -1194,84 +1194,84 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Settings panel] Clicked button "Close history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-settings-close-history.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: PASS
   Notes: 
 [Step 191]
   Action: [Settings panel] Clicked button "New Chat"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/f05-settings-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: PASS
   Notes: 
 [Step 192]
   Action: [Settings panel] Clicked button "Search"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-search.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: ERROR
   Notes: 
 [Step 193]
   Action: [Settings panel] Clicked button "Chat"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-chat.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: ERROR
   Notes: 
 [Step 194]
   Action: [Settings panel] Clicked button "Browser"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-browser.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: ERROR
   Notes: 
 [Step 195]
   Action: [Settings panel] Clicked button "Projects"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-projects.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: ERROR
   Notes: 
 [Step 196]
   Action: [Settings panel] Clicked button "Open Gallery"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-open-gallery.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings · Y · Your profile · 
   Status: ERROR
   Notes: 
 [Step 197]
   Action: [Settings panel] Clicked button "Good morning, give me the day's briefing"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/f05-settings-good-morning-give-me-the-day-s-briefing.png
-  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How Jarvis talks and respon
+  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How infinity-ai talks and respon
   Status: PASS
   Notes: 
 [Step 198]
   Action: [Settings panel] Clicked button "Create image"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-create-image.png
-  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How Jarvis talks and respon
+  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How infinity-ai talks and respon
   Status: ERROR
   Notes: 
 [Step 199]
   Action: [Settings panel] Clicked button "Write or edit"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/f05-settings-write-or-edit.png
-  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How Jarvis talks and respon
+  Screenshot Analysis: Body text: Good morning, give me the day's briefing · Settings · Y · Your profile · Customize · Personalization · How infinity-ai talks and respon
   Status: ERROR
   Notes: 
 [Step 200]
   Action: Clicked palette command "Chat"
   Functional Test: Navigates to Chat mode
   Screenshot: walkthrough-screenshots/f06-chat.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings ·
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Settings ·
   Status: PASS
   Notes: 
 [Step 201]
   Action: Clicked palette command "Voice"
   Functional Test: Navigates to Voice mode
   Screenshot: walkthrough-screenshots/f06-voice.png
-  Screenshot Analysis: Agent · Browser · Camera mode · Ready · Settings · Y · Your profile · Customize · Personalization · How Jarvis
+  Screenshot Analysis: Agent · Browser · Camera mode · Ready · Settings · Y · Your profile · Customize · Personalization · How infinity-ai
   Status: PASS
   Notes: 
 [Step 202]
@@ -1313,7 +1313,7 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked palette command "Generate image"
   Functional Test: Triggers image generation (needs key)
   Screenshot: walkthrough-screenshots/f06-generate-image.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE
   Status: PASS
   Notes: 
 [Step 208]
@@ -1360,7 +1360,7 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Terminal — ran "echo drill-terminal-ok"
   Functional Test: Shell should execute and echo
   Screenshot: walkthrough-screenshots/g04-terminal-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
   Status: FAIL
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 216]
@@ -1388,14 +1388,14 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Auto-reload" toggle
   Functional Test: Toggles the file-watch hot reload
   Screenshot: walkthrough-screenshots/g08-hotreload.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: PASS
   Notes: 
 [Step 220]
   Action: Clicked "Analyze preview errors"
   Functional Test: Runs error analysis on preview output
   Screenshot: walkthrough-screenshots/g09-analyze-errors.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 221]
@@ -1409,28 +1409,28 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Detect" (packages)
   Functional Test: Detects the package manager
   Screenshot: walkthrough-screenshots/g11-pkg-detect.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 223]
   Action: Clicked "Refresh" (packages)
   Functional Test: Reloads installed packages
   Screenshot: walkthrough-screenshots/g12-pkg-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: PASS
   Notes: 
 [Step 224]
   Action: Clicked "Add" (package install)
   Functional Test: Installs the selected package
   Screenshot: walkthrough-screenshots/g14-pkg-add.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 225]
   Action: Clicked "Save" (env)
   Functional Test: Saves environment variables
   Screenshot: walkthrough-screenshots/g15-env-save.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 226]
@@ -1447,7 +1447,7 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Screenshot: walkthrough-screenshots/g01-editor-open.png
   Screenshot Analysis: Editor not mounted (empty state)
   Status: ERROR
-  Notes: Seeded file not found in tree: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Notes: Seeded file not found in tree: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
 [Step 229]
   Action: Clicked "Save" (editor)
   Functional Test: Saves the open file (dirty → saved)
@@ -1480,21 +1480,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Save app" (studio header)
   Functional Test: Saves the build app to the gallery
   Screenshot: walkthrough-screenshots/g02e-save-app.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: PASS
   Notes: 
 [Step 234]
   Action: Terminal — ran "echo drill-terminal-ok" via Run
   Functional Test: Shell should execute and echo
   Screenshot: walkthrough-screenshots/g04-terminal-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
   Status: FAIL
   Notes: Failed to load resource: the server responded with a status of 404 (Not Found) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 235]
   Action: Clicked "Stream" (terminal)
   Functional Test: Streams command output live
   Screenshot: walkthrough-screenshots/g05-terminal-stream.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: FAIL
   Notes: 
 [Step 236]
@@ -1522,7 +1522,7 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Auto-reload" toggle
   Functional Test: Toggles the file-watch hot reload
   Screenshot: walkthrough-screenshots/g08-hotreload.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: PASS
   Notes: 
 [Step 240]
@@ -1543,35 +1543,35 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Packages — searched "lodash"
   Functional Test: Registry search should return results
   Screenshot: walkthrough-screenshots/g11-pkg-search.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 243]
   Action: Clicked "Add" (package install)
   Functional Test: Installs the selected package
   Screenshot: walkthrough-screenshots/g12-pkg-add.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 244]
   Action: Clicked "Detect" (packages)
   Functional Test: Detects the package manager
   Screenshot: walkthrough-screenshots/g13-pkg-detect.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 245]
   Action: Clicked "Refresh" (packages)
   Functional Test: Reloads installed packages
   Screenshot: walkthrough-screenshots/g14-pkg-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: PASS
   Notes: 
 [Step 246]
   Action: Clicked "Save" (env)
   Functional Test: Saves environment variables
   Screenshot: walkthrough-screenshots/g16-env-save.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 247]
@@ -1593,49 +1593,49 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Stage all"
   Functional Test: Stages all modified/untracked files
   Screenshot: walkthrough-screenshots/h02-git-stageall.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 251]
   Action: Clicked "stage" (per-file)
   Functional Test: Stages an individual file
   Screenshot: walkthrough-screenshots/h03-git-stage-file.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 252]
   Action: Clicked "unstage" (per-file)
   Functional Test: Unstages an individual file
   Screenshot: walkthrough-screenshots/h04-git-unstage.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 253]
   Action: Clicked "diff" (per-file)
   Functional Test: Shows the file diff
   Screenshot: walkthrough-screenshots/h05-git-diff.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 254]
   Action: Clicked "Commit"
   Functional Test: Commits the staged changes
   Screenshot: walkthrough-screenshots/h06-git-commit.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 255]
   Action: Clicked "Refresh" (git)
   Functional Test: Reloads git status
   Screenshot: walkthrough-screenshots/h07-git-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 256]
   Action: Search — ran query "replaceme"
   Functional Test: Search returns matches
   Screenshot: walkthrough-screenshots/h08-search-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 404 (Not Found) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 257]
@@ -1670,42 +1670,42 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Replace all"
   Functional Test: Replaces all matches in workspace files
   Screenshot: walkthrough-screenshots/h10-replace-all.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 262]
   Action: Clicked "Detect" (tests)
   Functional Test: Detects test framework
   Screenshot: walkthrough-screenshots/h11-quality-detect.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 263]
   Action: Clicked "Run tests"
   Functional Test: Executes detected tests
   Screenshot: walkthrough-screenshots/h12-quality-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 264]
   Action: Clicked "Create snapshot" (history)
   Functional Test: Takes a workspace snapshot
   Screenshot: walkthrough-screenshots/h13-history-snap.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 265]
   Action: Clicked "Restore" (snapshot)
   Functional Test: Restores workspace from snapshot
   Screenshot: walkthrough-screenshots/h14-history-restore.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 266]
   Action: Clicked "Use template"
   Functional Test: Applies a starter template
   Screenshot: walkthrough-screenshots/h15-tpl-use-template.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 267]
@@ -1716,49 +1716,49 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Stage all"
   Functional Test: Stages all modified/untracked files
   Screenshot: walkthrough-screenshots/h02-git-stageall.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 269]
   Action: Clicked "stage" (per-file)
   Functional Test: Stages an individual file
   Screenshot: walkthrough-screenshots/h03-git-stage-file.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 270]
   Action: Clicked "unstage" (per-file)
   Functional Test: Unstages an individual file
   Screenshot: walkthrough-screenshots/h04-git-unstage.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 271]
   Action: Clicked "diff" (per-file)
   Functional Test: Shows the file diff
   Screenshot: walkthrough-screenshots/h05-git-diff.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 272]
   Action: Clicked "Commit"
   Functional Test: Commits the staged changes
   Screenshot: walkthrough-screenshots/h06-git-commit.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 273]
   Action: Clicked "Refresh" (git)
   Functional Test: Reloads git status
   Screenshot: walkthrough-screenshots/h07-git-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 274]
   Action: Search — ran query "replaceme"
   Functional Test: Search returns matches
   Screenshot: walkthrough-screenshots/h08-search-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, lightweigh
   Status: PASS
   Notes: Failed to load resource: the server responded with a status of 500 (Internal Server Error) | Failed to load resource: the server responded with a status of 404 (Not Found) | Failed to load resource: the server responded with a status of 500 (Internal Server Error)
 [Step 275]
@@ -1793,77 +1793,77 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: Clicked "Replace all"
   Functional Test: Replaces all matches in workspace files
   Screenshot: walkthrough-screenshots/h10-replace-all.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: FAIL
   Notes: 
 [Step 280]
   Action: Clicked "Detect" (tests)
   Functional Test: Detects test framework
   Screenshot: walkthrough-screenshots/h11-quality-detect.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 281]
   Action: Clicked "Run tests"
   Functional Test: Executes detected tests
   Screenshot: walkthrough-screenshots/h12-quality-run.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local w
   Status: ERROR
   Notes: Button not found. 
 [Step 282]
   Action: Clicked "Create snapshot" (history)
   Functional Test: Takes a workspace snapshot
   Screenshot: walkthrough-screenshots/h13-history-snap.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 283]
   Action: Clicked "Restore" (snapshot)
   Functional Test: Restores workspace from snapshot
   Screenshot: walkthrough-screenshots/h14-history-restore.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 284]
   Action: Clicked "Use template"
   Functional Test: Applies a starter template
   Screenshot: walkthrough-screenshots/h15-tpl-use-template.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 285]
   Action: Clicked "Browse" (community templates)
   Functional Test: Opens community template browser
   Screenshot: walkthrough-screenshots/h16-tpl-browse.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 286]
   Action: Clicked "Clone" (template repo)
   Functional Test: Clones a template repository
   Screenshot: walkthrough-screenshots/h17-tpl-clone.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: ERROR
   Notes: Button not found. 
 [Step 287]
   Action: Clicked "Refresh" (docker)
   Functional Test: Refreshes container list
   Screenshot: walkthrough-screenshots/h18-docker-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 288]
   Action: Clicked "Refresh" (database)
   Functional Test: Refreshes database browser
   Screenshot: walkthrough-screenshots/h19-db-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 289]
   Action: Clicked "Refresh" (API explorer)
   Functional Test: Refreshes detected endpoints
   Screenshot: walkthrough-screenshots/h20-api-refresh.png
-  Screenshot Analysis: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
+  Screenshot Analysis: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · Build Mode · Local workspace, 
   Status: PASS
   Notes: 
 [Step 290]
@@ -1878,42 +1878,42 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Mobile chat view] Clicked button "Open history"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i01-chat-open-history.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes: 
 [Step 293]
   Action: [Mobile chat view] Clicked button "New Chat"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/i01-chat-new-chat.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Jarvis · Good morning, give me t
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · infinity-ai · Good morning, give me t
   Status: PASS
   Notes: 
 [Step 294]
   Action: [Mobile chat view] Clicked button "Good morning, give me the day's briefing"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i01-chat-good-morning-give-me-the-day-s-briefing.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
   Status: PASS
   Notes: 
 [Step 295]
   Action: [Mobile chat view] Clicked button "Create image"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i01-chat-create-image.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
   Status: ERROR
   Notes: 
 [Step 296]
   Action: [Mobile chat view] Clicked button "Write or edit"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i01-chat-write-or-edit.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
   Status: ERROR
   Notes: 
 [Step 297]
   Action: [Mobile chat view] Clicked button "Search the web"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i01-chat-search-the-web.png
-  Screenshot Analysis: Body text: Jarvis · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
+  Screenshot Analysis: Body text: infinity-ai · Chat · Browser · Projects · Recent items · No conversations yet · Chat · Memory Active · Good morning, give me the day's 
   Status: ERROR
   Notes: 
 [Step 298]
@@ -1927,21 +1927,21 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Mobile chat view] Clicked button "Thinking mode"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/i01-chat-thinking-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web
   Status: PASS
   Notes: 
 [Step 300]
   Action: [Mobile chat view] Clicked button "Agent mode"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i01-chat-agent-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 301]
   Action: [Mobile chat view] Clicked button "Dictate a message"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i01-chat-dictate-a-message.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 302]
@@ -1955,70 +1955,70 @@ END OF WALKTHROUGH — 100% test coverage reached; no app code was fixed.
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Back to chat"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i03-studio-back-to-chat.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 304]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Agent On"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-agent-on.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 305]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Browser"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-browser.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 306]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Camera mode"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-camera-mode.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 307]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Save app"
   Functional Test: Clicked; no visible state change (may be disabled/no-op)
   Screenshot: walkthrough-screenshots/i03-studio-save-app.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 308]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Close Build Studio"
   Functional Test: State changed after click (DOM text delta observed)
   Screenshot: walkthrough-screenshots/i03-studio-close-build-studio.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: PASS
   Notes: 
 [Step 309]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "New file"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-new-file.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 310]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "New folder"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-new-folder.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 311]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "Refresh"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-refresh.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 312]
   Action: [Mobile Build Studio (all visible tabs/buttons)] Clicked button "(unlabeled)"
   Functional Test: Button not found in DOM at click time
   Screenshot: walkthrough-screenshots/i03-studio-unlabeled.png
-  Screenshot Analysis: Body text: Jarvis · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
+  Screenshot Analysis: Body text: infinity-ai · Good morning, give me the day's briefing · Create image · Write or edit · Search the web · AGENT MODE ON: your message wi
   Status: ERROR
   Notes: 
 [Step 313]

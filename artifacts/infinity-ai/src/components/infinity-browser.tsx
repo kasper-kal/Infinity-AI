@@ -98,7 +98,7 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
 
   // Get WebSocket URL from backend
   useEffect(() => {
-    fetch('/api/jarvis/browse/ws-url')
+    fetch('/api/infinity/browse/ws-url')
       .then((r) => r.json())
       .then((data) => {
         // If the server returned an internal/local URL (e.g. behind a proxy
@@ -201,7 +201,7 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
     addLog('start', `Goal: ${goal}`);
 
     try {
-      const res = await fetch('/api/jarvis/browse/agent-run', {
+      const res = await fetch('/api/infinity/browse/agent-run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal, maxSteps: 20, cellSize }),
@@ -287,13 +287,13 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
 
   const pauseAgentRun = useCallback(() => {
     setAgentPaused(true);
-    fetch('/api/jarvis/browse/pause', { method: 'POST' }).catch(() => {});
+    fetch('/api/infinity/browse/pause', { method: 'POST' }).catch(() => {});
     addLog('step', '[PAUSED] Take control of the browser');
   }, [addLog]);
 
   const resumeAgentRun = useCallback(() => {
     setAgentPaused(false);
-    fetch('/api/jarvis/browse/resume', { method: 'POST' }).catch(() => {});
+    fetch('/api/infinity/browse/resume', { method: 'POST' }).catch(() => {});
     addLog('step', '[RESUMING]');
   }, [addLog]);
 
@@ -324,7 +324,7 @@ export function InfinityBrowser({ className = '', onAction, autoRunGoal, onGoalH
       pauseAgentRun();
     }
     try {
-      const res = await fetch('/api/jarvis/browse/action', {
+      const res = await fetch('/api/infinity/browse/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, payload }),

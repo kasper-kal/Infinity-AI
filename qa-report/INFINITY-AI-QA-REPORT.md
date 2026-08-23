@@ -1,4 +1,4 @@
-# Jarvis Voice Assistant — QA Walkthrough Report
+# infinity-ai Voice Assistant — QA Walkthrough Report
 
 **Date:** 2026-08-04  
 **Scope:** Local Replit preview, frontend and API startup, responsive visual inspection, source-level control inventory, state-isolated interactive control activation, and non-destructive API checks.  
@@ -35,14 +35,14 @@ The first three are user-facing findings. The fourth is a QA/tooling finding, no
 - `GET /api/healthz` returned:
   - `status: "ok"`
   - `db: "connected"`
-- `GET /api/jarvis/settings` returned `200` with an empty settings object.
-- `GET /api/jarvis/research` returned `200` with an empty list.
-- `GET /api/jarvis/conversations` returned `200` with an empty list.
-- `GET /api/jarvis/memories` returned `200` with an empty list.
-- `GET /api/jarvis/gmail/status` returned `200` and `connected: false`.
-- `GET /api/jarvis/spotify/status` returned `200` and `connected: false`.
-- `GET /api/jarvis/llm-keys` returned `200` and showed one masked, healthy environment-backed LLM key.
-- `GET /api/jarvis/browse/status` returned `200` and `running: false`.
+- `GET /api/infinity-ai/settings` returned `200` with an empty settings object.
+- `GET /api/infinity-ai/research` returned `200` with an empty list.
+- `GET /api/infinity-ai/conversations` returned `200` with an empty list.
+- `GET /api/infinity-ai/memories` returned `200` with an empty list.
+- `GET /api/infinity-ai/gmail/status` returned `200` and `connected: false`.
+- `GET /api/infinity-ai/spotify/status` returned `200` and `connected: false`.
+- `GET /api/infinity-ai/llm-keys` returned `200` and showed one masked, healthy environment-backed LLM key.
+- `GET /api/infinity-ai/browse/status` returned `200` and `running: false`.
 - No browser console errors were reported by the app-preview capture.
 - The completed state-isolated browser sweep activated 344 enabled controls successfully across 17 fresh app states and captured 361 state screenshots.
 - No expected feature-entry control was missing from the final sweep.
@@ -67,7 +67,7 @@ The main status text, mode labels, microphone icon, and other controls are rende
 
 ### Steps to reproduce
 
-1. Open the Jarvis frontend in its default state.
+1. Open the infinity-ai frontend in its default state.
 2. Leave the theme at the default light appearance.
 3. Inspect the center status area and the mode controls below the orb.
 4. Repeat at approximately 390px, 1024px, and 1440px viewport widths.
@@ -78,10 +78,10 @@ The light theme defines `--muted-foreground: 0 0% 55%`, while many components fu
 
 Relevant files:
 
-- `artifacts/jarvis/src/index.css`
-- `artifacts/jarvis/src/pages/home.tsx`
-- `artifacts/jarvis/src/components/orb.tsx`
-- `artifacts/jarvis/src/components/chat-sidebar.tsx`
+- `artifacts/infinity-ai/src/index.css`
+- `artifacts/infinity-ai/src/pages/home.tsx`
+- `artifacts/infinity-ai/src/components/orb.tsx`
+- `artifacts/infinity-ai/src/components/chat-sidebar.tsx`
 
 ### Recommended fix
 
@@ -116,9 +116,9 @@ The wake-word hook reports the permission failure during initial setup and the h
 
 Relevant files:
 
-- `artifacts/jarvis/src/hooks/use-wake-word.ts`
-- `artifacts/jarvis/src/pages/home.tsx`
-- `artifacts/jarvis/src/hooks/use-toast.ts`
+- `artifacts/infinity-ai/src/hooks/use-wake-word.ts`
+- `artifacts/infinity-ai/src/pages/home.tsx`
+- `artifacts/infinity-ai/src/hooks/use-toast.ts`
 
 ### Recommended fix
 
@@ -145,7 +145,7 @@ An unconfigured profile should show a neutral placeholder such as “Your profil
 
 ### Actual
 
-The settings component falls back to the specific name **“Kasper Kal”** and initials **“KK”** when no `jarvis-profile` value exists.
+The settings component falls back to the specific name **“Kasper Kal”** and initials **“KK”** when no `infinity-ai-profile` value exists.
 
 ### Likely cause
 
@@ -153,7 +153,7 @@ The settings component falls back to the specific name **“Kasper Kal”** and 
 
 Relevant file:
 
-- `artifacts/jarvis/src/components/settings-panel.tsx`
+- `artifacts/infinity-ai/src/components/settings-panel.tsx`
 
 ### Recommended fix
 
@@ -174,7 +174,7 @@ Relevant file:
    - configured executable path `/usr/local/bin/google-chrome` does not exist.
 3. Run `node screenshot-test.mjs`.
 4. Observe the failure:
-   - hard-coded output path `/home/kasperkal1970/jarvis/screenshots` does not exist.
+   - hard-coded output path `/home/kasperkal1970/infinity-ai/screenshots` does not exist.
 5. Attempt to use Puppeteer’s bundled Chromium.
 6. Observe that Chromium cannot start until the container exposes `libgbm.so.1` and `libudev.so.1`.
 
@@ -183,7 +183,7 @@ Relevant file:
 The imported scripts contain machine-specific absolute paths:
 
 - `ui-walkthrough.mjs` hard-codes `/usr/local/bin/google-chrome`.
-- `screenshot-test.mjs` hard-codes `/home/kasperkal1970/jarvis/screenshots`.
+- `screenshot-test.mjs` hard-codes `/home/kasperkal1970/infinity-ai/screenshots`.
 - Both scripts target `http://localhost:5173`, while the configured artifact workflow serves the frontend on port 21662.
 
 ### Recommended fix

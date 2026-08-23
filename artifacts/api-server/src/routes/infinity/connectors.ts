@@ -12,7 +12,7 @@ const router = Router();
 router.use(apiKeyAuth);
 router.use(requireScope("build:write", "project:write"));
 
-/** GET /api/jarvis/connectors — List all connectors for a project */
+/** GET /api/infinity/connectors — List all connectors for a project */
 router.get("/", async (req: Request, res: Response) => {
   try {
     const projectId = req.query.projectId as string;
@@ -48,7 +48,7 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-/** POST /api/jarvis/connectors — Create a new connector */
+/** POST /api/infinity/connectors — Create a new connector */
 router.post("/", async (req: Request, res: Response) => {
   try {
     const { projectId, platform, name, config, notifyOn, enabled = true } = req.body;
@@ -100,7 +100,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/jarvis/connectors/:id — Get a connector with recent notifications */
+/** GET /api/infinity/connectors/:id — Get a connector with recent notifications */
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -129,7 +129,7 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-/** PUT /api/jarvis/connectors/:id — Update a connector */
+/** PUT /api/infinity/connectors/:id — Update a connector */
 router.put("/:id", async (req: Request, res: Response) => {
   try {
     const { name, config, enabled, notifyOn } = req.body;
@@ -180,7 +180,7 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
 });
 
-/** DELETE /api/jarvis/connectors/:id — Delete a connector */
+/** DELETE /api/infinity/connectors/:id — Delete a connector */
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -200,7 +200,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
-/** POST /api/jarvis/connectors/:id/test — Send a test notification */
+/** POST /api/infinity/connectors/:id/test — Send a test notification */
 router.post("/connectors/:id/test", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -448,7 +448,7 @@ router.get("/connectors/discord/oauth/callback", async (req: Request, res: Respo
         client_secret: clientSecret,
         grant_type: "authorization_code",
         code: code as string,
-        redirect_uri: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/jarvis/connectors/discord/oauth/callback`,
+        redirect_uri: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/infinity/connectors/discord/oauth/callback`,
       }),
     });
 

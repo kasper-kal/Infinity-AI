@@ -71,7 +71,7 @@ paths:
               $ref: "#/components/schemas/ChatInput"
       responses:
         "200":
-          description: Jarvis response
+          description: infinity-ai response
           content:
             application/json:
               schema:

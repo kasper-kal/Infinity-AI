@@ -35,7 +35,7 @@ export function ProjectHomeRouter({
   // Fetch the actual project type if not provided
   useEffect(() => {
     if (projectType === 'general') {
-      fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}`)
+      fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data?.type) setType(data.type);

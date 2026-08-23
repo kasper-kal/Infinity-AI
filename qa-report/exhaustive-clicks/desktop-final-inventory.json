@@ -694,8 +694,8 @@
   },
   {
     "index": 77,
-    "key": "BUTTON|Personalization How Jarvis talks and responds|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|268|550|64",
-    "text": "Personalization How Jarvis talks and responds",
+    "key": "BUTTON|Personalization How infinity-ai talks and responds|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|268|550|64",
+    "text": "Personalization How infinity-ai talks and responds",
     "title": "",
     "aria": "",
     "disabled": false,
@@ -703,8 +703,8 @@
   },
   {
     "index": 78,
-    "key": "BUTTON|Memory Facts Jarvis remembers about you|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|332|550|64",
-    "text": "Memory Facts Jarvis remembers about you",
+    "key": "BUTTON|Memory Facts infinity-ai remembers about you|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|332|550|64",
+    "text": "Memory Facts infinity-ai remembers about you",
     "title": "",
     "aria": "",
     "disabled": false,
@@ -784,8 +784,8 @@
   },
   {
     "index": 87,
-    "key": "BUTTON|LLM Keys Multiple AI providers & keys with automatic failover — if one runs out, Jarvis silently switches|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|975|550|63",
-    "text": "LLM Keys Multiple AI providers & keys with automatic failover — if one runs out, Jarvis silently switches",
+    "key": "BUTTON|LLM Keys Multiple AI providers & keys with automatic failover — if one runs out, infinity-ai silently switches|||w-full flex items-center gap-3.5 px-4 py-3 text-left transition-colors hover:bg-secondary/40 active:bg-secondary/60|445|975|550|63",
+    "text": "LLM Keys Multiple AI providers & keys with automatic failover — if one runs out, infinity-ai silently switches",
     "title": "",
     "aria": "",
     "disabled": false,

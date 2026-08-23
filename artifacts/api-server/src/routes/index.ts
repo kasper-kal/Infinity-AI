@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
-import infinityRouter from "./jarvis";
+import infinityRouter from "./infinity";
 import filesRouter from "./files";
 
 const router: IRouter = Router();

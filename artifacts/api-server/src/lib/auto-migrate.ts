@@ -30,7 +30,7 @@ const CREATE_TABLES = [
   )`,
 
   // ── Settings (key → value store) ────────────────────────────
-  `CREATE TABLE IF NOT EXISTS "jarvis_settings" (
+  `CREATE TABLE IF NOT EXISTS "infinity_settings" (
     "key" text PRIMARY KEY,
     "value" text NOT NULL,
     "updated_at" timestamp NOT NULL DEFAULT now()

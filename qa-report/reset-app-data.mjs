@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer";
 import { execFileSync } from "node:child_process";
 
-const url = process.env.JARVIS_QA_URL || "http://localhost:21662/";
+const url = process.env.infinity-ai_QA_URL || "http://localhost:21662/";
 const chromiumPath =
   process.env.CHROMIUM_PATH ||
   execFileSync("sh", ["-lc", "command -v chromium"], { encoding: "utf8" }).trim();

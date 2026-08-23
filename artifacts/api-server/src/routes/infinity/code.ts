@@ -11,7 +11,7 @@ const router = Router();
  * GET /api/infinity/code            → list the repository tree (relative paths)
  * GET /api/infinity/code?path=X     → read a single file (text, capped)
  *
- * Read-only. Jarvis uses this to inspect the code that built him; he can never
+ * Read-only. infinity uses this to inspect the code that built him; he can never
  * modify anything through this endpoint.
  */
 router.get("/code", async (req, res) => {

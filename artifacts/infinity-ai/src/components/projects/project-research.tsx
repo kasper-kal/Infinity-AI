@@ -105,7 +105,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research`, { signal });
       if (!response.ok) throw new Error("Could not load research");
       setResearch(asResearch(await response.json()));
     } catch (requestError) {
@@ -118,7 +118,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
 
   const loadFindings = useCallback(async (signal?: AbortSignal) => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research/findings`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research/findings`, { signal });
       if (!response.ok) throw new Error("Could not load findings");
       setFindings(asFindings(await response.json()));
     } catch (requestError) {
@@ -143,7 +143,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
     if (!jobId || associating) return;
     setAssociating(true);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ researchJobId: jobId }),
@@ -164,7 +164,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
     if (!excerpt || savingFinding) return;
     setSavingFinding(jobId);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research/${encodeURIComponent(jobId)}/findings`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research/${encodeURIComponent(jobId)}/findings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ excerpt }),
@@ -186,7 +186,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
     const previous = finding.pinned;
     setFindings((current) => current.map((f) => (f.id === finding.id ? { ...f, pinned: !previous } : f)));
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research/findings/${encodeURIComponent(finding.id)}`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research/findings/${encodeURIComponent(finding.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pinned: !previous }),
@@ -204,7 +204,7 @@ export function ProjectResearch({ projectId, onBack }: ProjectResearchProps) {
     if (busyFindingId || !window.confirm(t("projectResearch.deleteFindingConfirm"))) return;
     setBusyFindingId(finding.id);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/research/findings/${encodeURIComponent(finding.id)}`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/research/findings/${encodeURIComponent(finding.id)}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Could not delete finding");

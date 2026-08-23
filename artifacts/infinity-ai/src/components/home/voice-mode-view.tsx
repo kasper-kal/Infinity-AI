@@ -18,7 +18,7 @@ interface VoiceModeViewProps {
   agentModeActive: boolean;
   pipBrowserOpen: boolean;
   messages: { role: 'user' | 'assistant'; content: string }[];
-  subtitle: { user: string; jarvis: string } | null;
+  subtitle: { user: string; Infinity: string } | null;
   onBack: () => void;
   onToggleRecording: () => void;
   onStopSpeaking: () => void;
@@ -194,7 +194,7 @@ export function VoiceModeView(props: VoiceModeViewProps) {
                     : 'bg-card/60 border border-border/30 text-foreground/90 rounded-tl-sm'
                 }`}>
                   <p className="text-[10px] font-mono tracking-widest text-muted-foreground/50 mb-0.5">
-                    {msg.role === 'user' ? t('voice.you') : t('voice.jarvis')}
+                    {msg.role === 'user' ? t('voice.you') : t('voice.Infinity')}
                   </p>
                   <p className="text-[13px] leading-relaxed line-clamp-3">
                     {msg.content}
@@ -211,10 +211,10 @@ export function VoiceModeView(props: VoiceModeViewProps) {
                 {subtitle.user}
               </p>
             )}
-            {subtitle?.jarvis && (
+            {subtitle?.Infinity && (
               <p className="text-center text-sm text-primary/80 leading-snug">
-                <span className="text-[10px] tracking-widest text-primary/70 block mb-0.5">{t('voice.jarvis')}</span>
-                {subtitle.jarvis}
+                <span className="text-[10px] tracking-widest text-primary/70 block mb-0.5">{t('voice.Infinity')}</span>
+                {subtitle.Infinity}
               </p>
             )}
           </div>

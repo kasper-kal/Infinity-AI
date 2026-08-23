@@ -49,7 +49,7 @@ interface WizardQuestion { key: string; label: string; options?: string[]; }
 interface FeatureInventoryItem { key: string; label: string; selected: boolean; }
 interface ActivityBlock { id: string; icon: 'sparkles' | 'terminal' | 'camera' | 'check'; message: string; actionCount?: number; }
 type BuildProgressStatus = 'working' | 'waiting' | 'done' | 'error' | 'cancelled';
-interface BuildProgressItem { id: string; role: 'user' | 'jarvis'; message: string; status: BuildProgressStatus; createdAt: number; }
+interface BuildProgressItem { id: string; role: 'user' | 'Infinity'; message: string; status: BuildProgressStatus; createdAt: number; }
 interface IterateResponse { ok?: boolean; done?: boolean; summary?: string; fixRequest?: string | null; deferred?: string[]; filesChanged?: string[]; passNumber?: number; error?: string; }
 interface PreviewAgentEvent { type: 'inspect' | 'decision' | 'action' | 'error' | 'complete'; message: string; step?: number; }
 interface PreviewAgentResponse { completed?: boolean; summary?: string; events?: PreviewAgentEvent[]; consoleErrors?: string[]; error?: string; }
@@ -84,7 +84,7 @@ const downloadTextFile = (path: string, content: string) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = path.split('/').pop() || 'jarvis-file.txt';
+  anchor.download = path.split('/').pop() || 'Infinity-file.txt';
   anchor.click();
   URL.revokeObjectURL(url);
 };
@@ -390,7 +390,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
             try {
               const { response, data } = await apiJson<{
                 fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }>;
-              }>(`/api/jarvis/local-model/fix`, {
+              }>(`/api/infinity/local-model/fix`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ error, file, context }),
@@ -470,7 +470,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setCompletion(null);
   }, [showProgressPanel]);
   const addProgressMessage = useCallback((message: string, status: BuildProgressStatus = 'working') => {
-    const next = [...progressItemsRef.current, { id: crypto.randomUUID(), role: 'jarvis' as const, message, status, createdAt: Date.now() }].slice(-40);
+    const next = [...progressItemsRef.current, { id: crypto.randomUUID(), role: 'Infinity' as const, message, status, createdAt: Date.now() }].slice(-40);
     progressItemsRef.current = next;
     setProgressItems(next);
     showProgressPanel(next, status, progressStartedAtRef.current);
@@ -548,19 +548,19 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     }
 
     // Fallback to backend API
-    const { response, data } = await apiJson<{ files?: WorkspaceFile[] }>(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ files?: WorkspaceFile[] }>(`/api/infinity/workspace?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (!response.ok) return;
     setFiles(data.files ?? []);
     onRefreshFiles?.();
   }, [onRefreshFiles, workspaceId, fsHandle]);
 
   const loadSavedApps = useCallback(async () => {
-    const { response, data } = await apiJson<SavedApp[]>('/api/jarvis/build/apps');
+    const { response, data } = await apiJson<SavedApp[]>('/api/infinity/build/apps');
     if (response.ok) setSavedApps(data);
   }, []);
 
   const loadEnvironment = useCallback(async () => {
-    const { response, data } = await apiJson<{ env?: Record<string, string> }>(`/api/jarvis/build/env?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ env?: Record<string, string> }>(`/api/infinity/build/env?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) {
       const next = data.env ?? {};
       setEnv(next);
@@ -622,7 +622,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   }, [tab, open]);
 
   const loadPackages = useCallback(async () => {
-    const { response, data } = await apiJson<{ packages?: PackageItem[]; manager?: string | null }>(`/api/jarvis/packages?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ packages?: PackageItem[]; manager?: string | null }>(`/api/infinity/packages?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) { setInstalledPackages(data.packages ?? []); setPackageManager(data.manager ?? null); }
   }, [workspaceId]);
 
@@ -630,21 +630,21 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     if (!packageQuery.trim()) return;
     setPackageBusy(true);
     const manager = packageManager ?? 'npm';
-    const { response, data } = await apiJson<{ results?: PackageItem[]; error?: string }>(`/api/jarvis/packages/search?q=${encodeURIComponent(packageQuery.trim())}&manager=${encodeURIComponent(manager)}`);
+    const { response, data } = await apiJson<{ results?: PackageItem[]; error?: string }>(`/api/infinity/packages/search?q=${encodeURIComponent(packageQuery.trim())}&manager=${encodeURIComponent(manager)}`);
     setPackageBusy(false);
     if (response.ok) setPackageResults(data.results ?? []); else setNotice(data.error ?? 'Package search failed');
   };
 
   const installPackage = async (pkg: PackageItem) => {
     setPackageBusy(true);
-    const { response, data } = await apiJson<{ error?: string }>('/api/jarvis/packages/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, package: pkg.name, version: pkg.version || undefined, manager: packageManager ?? 'npm' }) });
+    const { response, data } = await apiJson<{ error?: string }>('/api/infinity/packages/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, package: pkg.name, version: pkg.version || undefined, manager: packageManager ?? 'npm' }) });
     setPackageBusy(false);
     setNotice(response.ok ? `${pkg.name} installed` : (data.error ?? 'Package installation failed'));
     if (response.ok) { await loadPackages(); setPackageResults((current) => current.filter((item) => item.name !== pkg.name)); }
   };
 
   const refreshGit = useCallback(async () => {
-    const { response, data } = await apiJson<GitStatus | { error?: string }>(`/api/jarvis/git/status?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<GitStatus | { error?: string }>(`/api/infinity/git/status?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok && 'branch' in data) setGitStatus(data);
   }, [workspaceId]);
 
@@ -657,36 +657,36 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   };
 
   const loadGitDiff = async (file: string) => {
-    const { response, data } = await apiJson<{ diff?: string; error?: string }>(`/api/jarvis/git/diff?workspaceId=${encodeURIComponent(workspaceId)}&file=${encodeURIComponent(file)}`);
+    const { response, data } = await apiJson<{ diff?: string; error?: string }>(`/api/infinity/git/diff?workspaceId=${encodeURIComponent(workspaceId)}&file=${encodeURIComponent(file)}`);
     setGitDiff(response.ok ? (data.diff ?? '') : (data.error ?? 'No diff available'));
   };
 
   const commitChanges = async () => {
     if (!commitMessage.trim()) return;
     setGitBusy(true);
-    const { response, data } = await apiJson<{ error?: string }>('/api/jarvis/git/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, message: commitMessage }) });
+    const { response, data } = await apiJson<{ error?: string }>('/api/infinity/git/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, message: commitMessage }) });
     setGitBusy(false);
     if (response.ok) { setCommitMessage(''); setNotice('Committed'); await refreshGit(); } else setNotice(data.error ?? 'Commit failed');
   };
 
   const loadGitBranches = async () => {
-    const { response, data } = await apiJson<{ branches?: string[]; current?: string | null }>(`/api/jarvis/git/branches?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ branches?: string[]; current?: string | null }>(`/api/infinity/git/branches?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) { setGitBranches(data.branches ?? []); setGitCurrentBranch(data.current ?? null); }
   };
 
   const createBranch = async () => {
     if (!newBranchName.trim()) return;
-    await gitAction('/api/jarvis/git/branch', { branch: newBranchName.trim(), action: 'create' });
+    await gitAction('/api/infinity/git/branch', { branch: newBranchName.trim(), action: 'create' });
     setNewBranchName(''); await loadGitBranches();
   };
 
-  const switchBranch = async (branch: string) => { await gitAction('/api/jarvis/git/branch', { branch, action: 'switch' }); await loadGitBranches(); };
+  const switchBranch = async (branch: string) => { await gitAction('/api/infinity/git/branch', { branch, action: 'switch' }); await loadGitBranches(); };
   const initGit = async () => { await runCommand('git init && git config user.email infinity@local && git config user.name Infinity'); await refreshGit(); await loadGitBranches(); };
 
   const runWorkspaceSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearchBusy(true);
-    const { response, data } = await apiJson<{ matches?: SearchMatch[]; error?: string }>(`/api/jarvis/search?workspaceId=${encodeURIComponent(workspaceId)}&q=${encodeURIComponent(searchQuery.trim())}&max=500&regex=${searchRegex}&case=${searchCase}&hidden=${searchHidden}`);
+    const { response, data } = await apiJson<{ matches?: SearchMatch[]; error?: string }>(`/api/infinity/search?workspaceId=${encodeURIComponent(workspaceId)}&q=${encodeURIComponent(searchQuery.trim())}&max=500&regex=${searchRegex}&case=${searchCase}&hidden=${searchHidden}`);
     setSearchBusy(false);
     if (response.ok) setSearchResults(data.matches ?? []); else setNotice(data.error ?? 'Search failed');
   };
@@ -694,28 +694,28 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const replaceWorkspaceText = async () => {
     if (!searchQuery.trim()) return;
     setSearchBusy(true);
-    const { response, data } = await apiJson<{ totalReplaced?: number; error?: string }>('/api/jarvis/search/replace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, query: searchQuery, replacement: replaceText, regex: searchRegex, case: searchCase, files: [...new Set(searchResults.map((match) => match.file))] }) });
+    const { response, data } = await apiJson<{ totalReplaced?: number; error?: string }>('/api/infinity/search/replace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, query: searchQuery, replacement: replaceText, regex: searchRegex, case: searchCase, files: [...new Set(searchResults.map((match) => match.file))] }) });
     setSearchBusy(false);
     setNotice(response.ok ? `Replaced ${data.totalReplaced ?? 0} matches` : (data.error ?? 'Replace failed'));
     if (response.ok) { await loadFiles(); await runWorkspaceSearch(); }
   };
 
   const loadQuality = useCallback(async () => {
-    const { response, data } = await apiJson<{ frameworks?: TestFramework[] }>(`/api/jarvis/test/frameworks?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ frameworks?: TestFramework[] }>(`/api/infinity/test/frameworks?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) { setFrameworks(data.frameworks ?? []); setSelectedFramework((current) => current || data.frameworks?.[0]?.key || ''); }
   }, [workspaceId]);
 
   const runTests = async () => {
     if (!selectedFramework) return;
     setQualityBusy(true);
-    const { response, data } = await apiJson<{ result?: TestResult; error?: string }>('/api/jarvis/test/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, framework: selectedFramework }) });
+    const { response, data } = await apiJson<{ result?: TestResult; error?: string }>('/api/infinity/test/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, framework: selectedFramework }) });
     setQualityBusy(false);
     if (response.ok) setTestResult(data.result ?? null); else setNotice(data.error ?? 'Tests failed to run');
   };
 
   const analyzePreviewErrors = async () => {
     if (!previewOutput.trim()) return;
-    const { response, data } = await apiJson<{ error?: ParsedDebugError | string }>('/api/jarvis/debug/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ output: previewOutput }) });
+    const { response, data } = await apiJson<{ error?: ParsedDebugError | string }>('/api/infinity/debug/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ output: previewOutput }) });
     setDebugFixes([]);
     if (response.ok && data.error && typeof data.error === 'object') {
       setDebugError(data.error);
@@ -732,21 +732,21 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const suggestFixes = async () => {
     if (!debugError || debugBusy) return;
     setDebugBusy(true);
-    const { response, data } = await apiJson<{ fixes?: ErrorFix[]; error?: string }>('/api/jarvis/debug/suggest-fixes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: debugError }) });
+    const { response, data } = await apiJson<{ fixes?: ErrorFix[]; error?: string }>('/api/infinity/debug/suggest-fixes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: debugError }) });
     setDebugBusy(false);
     if (response.ok) setDebugFixes(data.fixes ?? []);
     else setNotice(data.error ?? 'Could not generate fix suggestions');
   };
 
   const loadSnapshots = useCallback(async () => {
-    const { response, data } = await apiJson<{ snapshots?: HistorySnapshot[] }>(`/api/jarvis/history/snapshots?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ snapshots?: HistorySnapshot[] }>(`/api/infinity/history/snapshots?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) setSnapshots(data.snapshots ?? []);
   }, [workspaceId]);
 
   const createSnapshot = async () => {
     setHistoryBusy(true);
     const label = window.prompt('Snapshot label') ?? `Snapshot ${new Date().toLocaleTimeString()}`;
-    const { response } = await apiJson('/api/jarvis/history/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, label, description: 'Manual snapshot from Infinity Build' }) });
+    const { response } = await apiJson('/api/infinity/history/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, label, description: 'Manual snapshot from Infinity Build' }) });
     setHistoryBusy(false);
     if (response.ok) { await loadSnapshots(); setNotice('Snapshot created'); }
   };
@@ -755,80 +755,80 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setSelectedHistoryId(snapshot.id);
     setSelectedHistoryFile(null);
     setHistoryFileContent('');
-    const { response, data } = await apiJson<{ snapshot?: { files?: string[] }; error?: string }>(`/api/jarvis/history/snapshots/${encodeURIComponent(snapshot.id)}?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ snapshot?: { files?: string[] }; error?: string }>(`/api/infinity/history/snapshots/${encodeURIComponent(snapshot.id)}?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) setHistoryFiles(data.snapshot?.files ?? []);
     else setNotice(data.error ?? 'Could not load snapshot details');
   };
 
   const previewSnapshotFile = async (filePath: string) => {
     if (!selectedHistoryId) return;
-    const { response, data } = await apiJson<{ content?: string; error?: string }>(`/api/jarvis/history/snapshots/${encodeURIComponent(selectedHistoryId)}/file?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(filePath)}`);
+    const { response, data } = await apiJson<{ content?: string; error?: string }>(`/api/infinity/history/snapshots/${encodeURIComponent(selectedHistoryId)}/file?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(filePath)}`);
     if (response.ok) { setSelectedHistoryFile(filePath); setHistoryFileContent(data.content ?? ''); }
     else setNotice(data.error ?? 'Could not read snapshot file');
   };
 
   const restoreSnapshot = async (id: string) => {
     if (!window.confirm('Restore the workspace from this snapshot? The current state is kept as a backup snapshot first.')) return;
-    const { response, data } = await apiJson<{ message?: string; error?: string }>('/api/jarvis/history/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, snapshotId: id }) });
+    const { response, data } = await apiJson<{ message?: string; error?: string }>('/api/infinity/history/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, snapshotId: id }) });
     if (response.ok) { await loadFiles(); setNotice(data.message ?? 'Workspace restored'); } else setNotice(data.error ?? 'Restore failed');
   };
 
   const loadTemplates = useCallback(async () => {
-    const { response, data } = await apiJson<{ templates?: TemplateItem[] }>('/api/jarvis/templates/list');
+    const { response, data } = await apiJson<{ templates?: TemplateItem[] }>('/api/infinity/templates/list');
     if (response.ok) setTemplates(data.templates ?? []);
   }, []);
 
   const loadCommunityTemplates = useCallback(async () => {
-    const { response, data } = await apiJson<{ templates?: CommunityTemplate[] }>('/api/jarvis/community-templates/trending?limit=12');
+    const { response, data } = await apiJson<{ templates?: CommunityTemplate[] }>('/api/infinity/community-templates/trending?limit=12');
     if (response.ok) setCommunityTemplates(data.templates ?? []);
   }, []);
 
   const applyTemplate = async (id: string) => {
     setTemplateBusy(true);
-    const { response } = await apiJson('/api/jarvis/templates/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateId: id, workspaceId, projectName: 'app' }) });
+    const { response } = await apiJson('/api/infinity/templates/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateId: id, workspaceId, projectName: 'app' }) });
     setTemplateBusy(false);
     if (response.ok) { setNotice('Template applied — files written to the workspace'); await loadFiles(); }
   };
 
   const refreshDocker = useCallback(async () => {
-    const { response, data } = await apiJson<{ available?: boolean; version?: string }>('/api/jarvis/docker/status');
+    const { response, data } = await apiJson<{ available?: boolean; version?: string }>('/api/infinity/docker/status');
     if (response.ok) setDockerStatus({ available: Boolean(data.available), version: data.version });
     if (response.ok && data.available) {
-      const containersRes = await apiJson<{ containers?: DockerContainer[] }>('/api/jarvis/docker/containers');
+      const containersRes = await apiJson<{ containers?: DockerContainer[] }>('/api/infinity/docker/containers');
       if (containersRes.response.ok) setContainers(containersRes.data.containers ?? []);
-      const imagesRes = await apiJson<{ images?: DockerImage[] }>('/api/jarvis/docker/images');
+      const imagesRes = await apiJson<{ images?: DockerImage[] }>('/api/infinity/docker/images');
       if (imagesRes.response.ok) setDockerImages(imagesRes.data.images ?? []);
     }
   }, []);
 
-  const stopContainer = async (id: string) => { await fetch('/api/jarvis/docker/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ containerId: id }) }); await refreshDocker(); };
+  const stopContainer = async (id: string) => { await fetch('/api/infinity/docker/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ containerId: id }) }); await refreshDocker(); };
 
   const detectDatabases = useCallback(async () => {
-    const { response, data } = await apiJson<{ databases?: string[] }>(`/api/jarvis/database/detect?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ databases?: string[] }>(`/api/infinity/database/detect?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (!response.ok || !data.databases?.length) { setDbTables([]); setDbRows([]); setDbConnectionId(null); setNotice('No SQLite databases found in the workspace'); return; }
-    const conn = await apiJson<{ connectionId?: string; error?: string }>('/api/jarvis/database/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sqlite', path: data.databases[0] }) });
+    const conn = await apiJson<{ connectionId?: string; error?: string }>('/api/infinity/database/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'sqlite', path: data.databases[0] }) });
     if (!conn.response.ok || !conn.data.connectionId) { setNotice(conn.data.error ?? 'Could not connect to database'); return; }
     setDbConnectionId(conn.data.connectionId);
-    const schema = await apiJson<{ schema?: DbTable[] }>(`/api/jarvis/database/${conn.data.connectionId}/schema`);
+    const schema = await apiJson<{ schema?: DbTable[] }>(`/api/infinity/database/${conn.data.connectionId}/schema`);
     if (schema.response.ok) setDbTables(schema.data.schema ?? []);
   }, [workspaceId]);
 
   const browseTable = async (name: string) => {
     if (!dbConnectionId) return;
-    const { response, data } = await apiJson<{ rows?: Record<string, unknown>[] }>(`/api/jarvis/database/${dbConnectionId}/table/${encodeURIComponent(name)}`);
+    const { response, data } = await apiJson<{ rows?: Record<string, unknown>[] }>(`/api/infinity/database/${dbConnectionId}/table/${encodeURIComponent(name)}`);
     if (response.ok) setDbRows(data.rows ?? []);
   };
 
   const runDbQuery = async () => {
     if (!dbConnectionId || !dbQuery.trim()) return;
     setDbBusy(true);
-    const { response, data } = await apiJson<{ results?: Record<string, unknown>[]; error?: string }>(`/api/jarvis/database/${dbConnectionId}/query`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: dbQuery }) });
+    const { response, data } = await apiJson<{ results?: Record<string, unknown>[]; error?: string }>(`/api/infinity/database/${dbConnectionId}/query`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: dbQuery }) });
     setDbBusy(false);
     if (response.ok) setDbRows(data.results ?? []); else setNotice(data.error ?? 'Query failed');
   };
 
   const loadApiExplorer = useCallback(async () => {
-    const { response, data } = await apiJson<{ framework?: string | null; endpoints?: ApiEndpoint[] }>(`/api/jarvis/api-explorer/endpoints?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const { response, data } = await apiJson<{ framework?: string | null; endpoints?: ApiEndpoint[] }>(`/api/infinity/api-explorer/endpoints?workspaceId=${encodeURIComponent(workspaceId)}`);
     if (response.ok) { setApiFramework(data.framework ?? null); setApiEndpoints(data.endpoints ?? []); }
   }, [workspaceId]);
 
@@ -836,7 +836,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setApiBusy(true);
     let body: unknown;
     try { body = apiBody.trim() ? JSON.parse(apiBody) : undefined; } catch { setApiBusy(false); setApiResponse('Invalid JSON body'); return; }
-    const { response, data } = await apiJson<{ response?: unknown; error?: string }>('/api/jarvis/api-explorer/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ baseUrl: apiBaseUrl, method: apiMethod, endpoint: apiEndpointPath, headers: {}, body }) });
+    const { response, data } = await apiJson<{ response?: unknown; error?: string }>('/api/infinity/api-explorer/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ baseUrl: apiBaseUrl, method: apiMethod, endpoint: apiEndpointPath, headers: {}, body }) });
     setApiBusy(false);
     setApiResponse(response.ok ? JSON.stringify(data.response ?? '', null, 2) : (data.error ?? 'Request failed'));
   };
@@ -851,7 +851,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         return;
       }
     } else {
-      const { response, data } = await apiJson<{ content?: string }>(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`);
+      const { response, data } = await apiJson<{ content?: string }>(`/api/infinity/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`);
       if (!response.ok) return;
       content = data.content ?? '';
     }
@@ -878,7 +878,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied'));
       }
     } else {
-      const { response } = await apiJson('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: selectedPath, content }) });
+      const { response } = await apiJson('/api/infinity/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: selectedPath, content }) });
       ok = response.ok;
     }
     setBusy(false); setNotice(ok ? 'File saved' : 'Could not save file');
@@ -890,7 +890,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     if (!trimmed || terminalRunning) return;
     setTerminalInput(''); setTerminalRunning(true); setTab('terminal');
     try {
-      const { response, data } = await apiJson<TerminalResult & { stdout?: string; stderr?: string; timedOut?: boolean; error?: string }>('/api/jarvis/terminal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio', command: trimmed }) });
+      const { response, data } = await apiJson<TerminalResult & { stdout?: string; stderr?: string; timedOut?: boolean; error?: string }>('/api/infinity/terminal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio', command: trimmed }) });
       const output = data.output ?? ([data.stdout, data.stderr].filter(Boolean).join('\n') || data.error || (data.timedOut ? 'Command timed out' : !response.ok ? 'Command failed' : ''));
       setTerminalLines((current) => [...current, { command: trimmed, exitCode: data.exitCode ?? (response.ok ? 0 : 1), output }]);
       await loadFiles();
@@ -901,10 +901,10 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     const command = terminalInput.trim();
     if (!command || terminalRunning) return;
     setTerminalInput(''); setTerminalRunning(true); setTab('terminal');
-    const { response, data } = await apiJson<{ id?: string; error?: string }>('/api/jarvis/terminal/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-live', command }) });
+    const { response, data } = await apiJson<{ id?: string; error?: string }>('/api/infinity/terminal/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-live', command }) });
     if (!response.ok || !data.id) { setNotice(data.error ?? 'Could not start terminal'); setTerminalRunning(false); return; }
     setTerminalId(data.id);
-    const stream = new EventSource(`/api/jarvis/terminal/stream?id=${encodeURIComponent(data.id)}`);
+    const stream = new EventSource(`/api/infinity/terminal/stream?id=${encodeURIComponent(data.id)}`);
     streamRef.current = stream;
     let output = '';
     stream.onmessage = (event) => {
@@ -917,7 +917,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   const stopTerminal = async () => {
     if (!terminalId) return;
-    await fetch('/api/jarvis/terminal/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: terminalId }) });
+    await fetch('/api/infinity/terminal/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: terminalId }) });
     streamRef.current?.close(); streamRef.current = null; setTerminalRunning(false); setTerminalId(null);
   };
 
@@ -933,7 +933,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         ok = true;
       } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
     } else {
-      const { response } = await apiJson('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name, content: '' }) });
+      const { response } = await apiJson('/api/infinity/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name, content: '' }) });
       ok = response.ok;
     }
     if (ok) void loadFiles();
@@ -951,7 +951,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         ok = true;
       } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
     } else {
-      const { response } = await apiJson('/api/jarvis/workspace/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name }) });
+      const { response } = await apiJson('/api/infinity/workspace/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: name }) });
       ok = response.ok;
     }
     if (ok) void loadFiles();
@@ -970,7 +970,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         ok = true;
       } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
     } else {
-      const { response } = await apiJson('/api/jarvis/workspace', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, from: path, to: next }) });
+      const { response } = await apiJson('/api/infinity/workspace', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, from: path, to: next }) });
       ok = response.ok;
     }
     if (ok) void loadFiles();
@@ -988,7 +988,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         ok = true;
       } catch (err) { setNotice(err instanceof Error ? err.message : t('studio.build.folderPermissionDenied')); }
     } else {
-      const { response } = await apiJson(`/api/jarvis/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+      const { response } = await apiJson(`/api/infinity/workspace?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' });
       ok = response.ok;
     }
     if (ok) void loadFiles();
@@ -1040,7 +1040,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const writeScaffoldFiles = async (files: Record<string, string>): Promise<string[]> => {
     const createdFiles = Object.keys(files);
     for (const [relPath, content] of Object.entries(files)) {
-      await fetch('/api/jarvis/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: relPath, content }) });
+      await fetch('/api/infinity/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, path: relPath, content }) });
     }
     return createdFiles;
   };
@@ -1054,7 +1054,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     addProgressMessage(feedbackText ? t('studio.build.progressApplyingChanges') : t('studio.build.progressScaffolding'));
     try {
       // Phase 2.1: Generate in dry-run mode so we can preview the diff before writing.
-      const { response, data } = await apiJson<{ files?: Record<string, string>; previewCommand?: string; error?: string }>('/api/jarvis/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan, dryRun: true }), signal: controller.signal });
+      const { response, data } = await apiJson<{ files?: Record<string, string>; previewCommand?: string; error?: string }>('/api/infinity/build/scaffold', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, feedback: feedbackText, extraSystemPrompt, plan: approvedPlan, dryRun: true }), signal: controller.signal });
       if (!response.ok) {
         const message = data.error ?? t('studio.build.scaffoldFailed');
         addActivity(t('studio.build.activityScaffoldFailed'), 'check', 1);
@@ -1068,7 +1068,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       if (data.previewCommand) setPreviewCommand(data.previewCommand);
 
       // Fetch unified diff for the proposed files.
-      const diffRes = await apiJson<{ diffs?: Array<{ filePath: string; diff: string; oldContent: string; newContent: string }> }>('/api/jarvis/build/diff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, files: proposedFiles }), signal: controller.signal });
+      const diffRes = await apiJson<{ diffs?: Array<{ filePath: string; diff: string; oldContent: string; newContent: string }> }>('/api/infinity/build/diff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, files: proposedFiles }), signal: controller.signal });
       if (diffRes.response.ok && (diffRes.data.diffs ?? []).length > 0) {
         const fileDiffs: FileDiff[] = diffRes.data.diffs!.map((d) => ({
           filePath: d.filePath,
@@ -1160,7 +1160,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     signal?: AbortSignal,
   ): Promise<string[]> => {
     const { response, data } = await apiJson<{ ok?: boolean; results?: Array<{ stepId: string; ok: boolean; filesChanged: string[] }>; error?: string }>(
-      '/api/jarvis/build/execute-plan',
+      '/api/infinity/build/execute-plan',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1205,7 +1205,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setProgressStatus('working');
     addProgressMessage(t('studio.build.progressPlanning'));
     try {
-      const { response, data } = await apiJson<{ plan?: BuildPlan; error?: string }>('/api/jarvis/build/plan', {
+      const { response, data } = await apiJson<{ plan?: BuildPlan; error?: string }>('/api/infinity/build/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workspaceId, prompt, answers, extraSystemPrompt }),
@@ -1251,7 +1251,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setWizardBusy(true);
     addProgressMessage(t('studio.build.progressUnderstanding'));
     try {
-      const { response, data } = await apiJson<{ questions?: WizardQuestion[]; inventory?: FeatureInventoryItem[]; error?: string }>('/api/jarvis/build/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }), signal: controller.signal });
+      const { response, data } = await apiJson<{ questions?: WizardQuestion[]; inventory?: FeatureInventoryItem[]; error?: string }>('/api/infinity/build/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }), signal: controller.signal });
       if (!response.ok) {
         addProgressMessage(t('studio.build.progressQuestionsSkipped'));
         setWizardBusy(false);
@@ -1352,7 +1352,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     if (screenshotBusy) return Boolean(screenshot || mobileScreenshot);
     setScreenshotBusy(true);
     try {
-      const { response, data } = await apiJson<{ dataUrl?: string; error?: string; screenshots?: PreviewScreenshots }>('/api/jarvis/build/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort, viewports: ['desktop', 'mobile'] }), signal });
+      const { response, data } = await apiJson<{ dataUrl?: string; error?: string; screenshots?: PreviewScreenshots }>('/api/infinity/build/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort, viewports: ['desktop', 'mobile'] }), signal });
       if (response.ok && (data.screenshots?.desktop || data.screenshots?.mobile || data.dataUrl)) {
         setScreenshot(data.screenshots?.desktop?.dataUrl ?? data.dataUrl ?? null);
         setMobileScreenshot(data.screenshots?.mobile?.dataUrl ?? null);
@@ -1374,7 +1374,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
     setAgentBusy(true);
     setAgentEvents([{ type: 'inspect', message: 'Infinity is inspecting the running preview...' }]);
     setAgentConsoleErrors([]);
-    const { response, data } = await apiJson<PreviewAgentResponse>('/api/jarvis/build/preview/agent', {
+    const { response, data } = await apiJson<PreviewAgentResponse>('/api/infinity/build/preview/agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort, goal, maxSteps: 8, extraSystemPrompt }),
@@ -1387,21 +1387,21 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   const saveEnv = async () => {
     const next = Object.fromEntries(envDraft.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => { const index = line.indexOf('='); return index > 0 ? [line.slice(0, index).trim(), line.slice(index + 1)] : ['', '']; }).filter(([key]) => key));
-    const { response } = await apiJson('/api/jarvis/build/env', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, env: next }) });
+    const { response } = await apiJson('/api/infinity/build/env', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, env: next }) });
     if (response.ok) { setEnv(next); setNotice('Environment saved'); }
   };
 
   const launchPreview = async (signal?: AbortSignal): Promise<boolean> => {
-    const { response, data } = await apiJson<{ url?: string; error?: string }>('/api/jarvis/build/preview/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', command: previewCommand.replace('${PORT}', String(previewPort)), port: previewPort }), signal });
+    const { response, data } = await apiJson<{ url?: string; error?: string }>('/api/infinity/build/preview/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', command: previewCommand.replace('${PORT}', String(previewPort)), port: previewPort }), signal });
     if (response.ok) { setPreviewRunning(true); setPreviewUrl(data.url ?? `http://localhost:${previewPort}`); setPreviewOutput('Starting preview...'); return true; }
     if (!signal?.aborted) setNotice(data.error ?? 'Preview failed to start');
     return false;
   };
   const startPreview = async () => { setBusy(true); await launchPreview(); setBusy(false); };
-  const stopPreview = async () => { await fetch('/api/jarvis/build/preview/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview' }) }); setPreviewRunning(false); setPreviewOutput('Preview stopped'); };
+  const stopPreview = async () => { await fetch('/api/infinity/build/preview/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview' }) }); setPreviewRunning(false); setPreviewOutput('Preview stopped'); };
   useEffect(() => {
     if (!previewRunning) return;
-    const timer = window.setInterval(() => { void apiJson<{ running?: boolean; output?: string }>(`/api/jarvis/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`).then(({ data }) => { setPreviewRunning(Boolean(data.running)); setPreviewOutput(data.output ?? ''); }); }, 2000);
+    const timer = window.setInterval(() => { void apiJson<{ running?: boolean; output?: string }>(`/api/infinity/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`).then(({ data }) => { setPreviewRunning(Boolean(data.running)); setPreviewOutput(data.output ?? ''); }); }, 2000);
     return () => window.clearInterval(timer);
   }, [previewRunning, workspaceId]);
 
@@ -1441,10 +1441,10 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
         setAutoFixPass(pass);
         addActivity(t('studio.build.activityReviewPass', { n: pass }), 'sparkles', 2);
         addProgressMessage(t('studio.build.progressReviewPass', { n: pass }));
-        const status = await apiJson<{ output?: string }>(`/api/jarvis/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`, { signal: activeSignal });
+        const status = await apiJson<{ output?: string }>(`/api/infinity/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=studio-preview`, { signal: activeSignal });
         const output = status.data.output ?? previewOutput;
         setPreviewOutput(output);
-        const { response, data } = await apiJson<IterateResponse>('/api/jarvis/build/iterate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, previewOutput: output, passNumber: pass, extraSystemPrompt, plan: approvedPlan }), signal: activeSignal });
+        const { response, data } = await apiJson<IterateResponse>('/api/infinity/build/iterate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, prompt, answers, previewOutput: output, passNumber: pass, extraSystemPrompt, plan: approvedPlan }), signal: activeSignal });
         if (!response.ok) {
           summary = data.error ?? t('studio.build.reviewFailed');
           setCompletion({ summary, deferred, files: [...new Set(allFiles)] });
@@ -1503,14 +1503,14 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
 
 
-  const saveApp = async () => { setBusy(true); const { response } = await apiJson('/api/jarvis/build/apps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, name: saveName.trim() || 'Untitled build', runCommand: previewCommand, previewPort }) }); setBusy(false); if (response.ok) { setSaveName(''); setNotice('Build app saved to Gallery'); await loadSavedApps(); } };
-  const restoreApp = async (id: string) => { setBusy(true); const { response } = await apiJson(`/api/jarvis/build/apps/${id}/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) }); setBusy(false); if (response.ok) { setNotice('Build restored'); await loadFiles(); await loadEnvironment(); } };
+  const saveApp = async () => { setBusy(true); const { response } = await apiJson('/api/infinity/build/apps', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, name: saveName.trim() || 'Untitled build', runCommand: previewCommand, previewPort }) }); setBusy(false); if (response.ok) { setSaveName(''); setNotice('Build app saved to Gallery'); await loadSavedApps(); } };
+  const restoreApp = async (id: string) => { setBusy(true); const { response } = await apiJson(`/api/infinity/build/apps/${id}/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) }); setBusy(false); if (response.ok) { setNotice('Build restored'); await loadFiles(); await loadEnvironment(); } };
 
   const runWalkthrough = async () => {
     if (!previewRunning || walkthroughBusy) return;
     setWalkthroughBusy(true);
     setWalkthroughErrors([]);
-    const { response, data } = await apiJson<{ errors?: string[]; reportPath?: string; error?: string }>('/api/jarvis/build/walkthrough', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort }) });
+    const { response, data } = await apiJson<{ errors?: string[]; reportPath?: string; error?: string }>('/api/infinity/build/walkthrough', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, sessionId: 'studio-preview', port: previewPort }) });
     setWalkthroughBusy(false);
     if (response.ok) {
       setWalkthroughErrors(data.errors ?? []);
@@ -1521,7 +1521,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   const createCheckpoint = async () => {
     setHistoryBusy(true);
-    const { response } = await apiJson('/api/jarvis/history/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, label: 'AFK checkpoint', description: 'Safety checkpoint created before autonomous work' }) });
+    const { response } = await apiJson('/api/infinity/history/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId, label: 'AFK checkpoint', description: 'Safety checkpoint created before autonomous work' }) });
     setHistoryBusy(false);
     if (response.ok) { await loadSnapshots(); setNotice('Checkpoint created'); }
   };
@@ -1560,18 +1560,18 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
 
   const toggleHotReload = async () => {
     if (hotReload) {
-      await fetch('/api/jarvis/hot-reload/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) });
+      await fetch('/api/infinity/hot-reload/disable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) });
       hotReloadRef.current?.close();
       hotReloadRef.current = null;
       setHotReload(false);
       setNotice('Auto-reload disabled');
       return;
     }
-    const { response } = await apiJson('/api/jarvis/hot-reload/enable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) });
+    const { response } = await apiJson('/api/infinity/hot-reload/enable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId }) });
     if (!response.ok) { setNotice('Could not enable auto-reload'); return; }
     setHotReload(true);
     setNotice('Auto-reload enabled — the preview restarts when files change');
-    const stream = new EventSource(`/api/jarvis/hot-reload/events?workspaceId=${encodeURIComponent(workspaceId)}`);
+    const stream = new EventSource(`/api/infinity/hot-reload/events?workspaceId=${encodeURIComponent(workspaceId)}`);
     hotReloadRef.current = stream;
     stream.onmessage = (event) => {
       try {
@@ -1807,13 +1807,13 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
           {gitStatus ? <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-border bg-secondary p-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Branch · {gitStatus.branch || 'none'}{gitStatus.ahead > 0 || gitStatus.behind > 0 ? ' · ' + gitStatus.ahead + ' ahead ' + gitStatus.behind + ' behind' : ''}</p>
-              {gitStatus.staged.length > 0 && <div className="mt-2"><p className="text-[10px] text-emerald-400">Staged</p><ul className="mt-1 space-y-1">{gitStatus.staged.map((file) => <li key={file} className="flex items-center justify-between rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><button type="button" onClick={() => void gitAction('/api/jarvis/git/unstage', { files: [file] })} className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground">unstage</button></li>)}</ul></div>}
-              {gitStatus.modified.length > 0 && <div className="mt-2"><p className="text-[10px] text-amber-300">Modified</p><ul className="mt-1 space-y-1">{gitStatus.modified.map((file) => <li key={file} className="flex items-center justify-between gap-2 rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><div className="flex shrink-0 gap-1.5"><button type="button" onClick={() => void gitAction('/api/jarvis/git/stage', { files: [file] })} className="text-[10px] text-primary">stage</button><button type="button" onClick={() => void loadGitDiff(file)} className="text-[10px] text-muted-foreground hover:text-foreground">diff</button></div></li>)}</ul></div>}
-              {gitStatus.untracked.length > 0 && <div className="mt-2"><p className="text-[10px] text-sky-400">Untracked</p><ul className="mt-1 space-y-1">{gitStatus.untracked.map((file) => <li key={file} className="flex items-center justify-between rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><button type="button" onClick={() => void gitAction('/api/jarvis/git/stage', { files: [file] })} className="shrink-0 text-[10px] text-primary">stage</button></li>)}</ul></div>}
+              {gitStatus.staged.length > 0 && <div className="mt-2"><p className="text-[10px] text-emerald-400">Staged</p><ul className="mt-1 space-y-1">{gitStatus.staged.map((file) => <li key={file} className="flex items-center justify-between rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><button type="button" onClick={() => void gitAction('/api/infinity/git/unstage', { files: [file] })} className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground">unstage</button></li>)}</ul></div>}
+              {gitStatus.modified.length > 0 && <div className="mt-2"><p className="text-[10px] text-amber-300">Modified</p><ul className="mt-1 space-y-1">{gitStatus.modified.map((file) => <li key={file} className="flex items-center justify-between gap-2 rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><div className="flex shrink-0 gap-1.5"><button type="button" onClick={() => void gitAction('/api/infinity/git/stage', { files: [file] })} className="text-[10px] text-primary">stage</button><button type="button" onClick={() => void loadGitDiff(file)} className="text-[10px] text-muted-foreground hover:text-foreground">diff</button></div></li>)}</ul></div>}
+              {gitStatus.untracked.length > 0 && <div className="mt-2"><p className="text-[10px] text-sky-400">Untracked</p><ul className="mt-1 space-y-1">{gitStatus.untracked.map((file) => <li key={file} className="flex items-center justify-between rounded-lg bg-input/50 px-2.5 py-1 font-mono text-[11px] text-foreground"><span className="min-w-0 truncate">{file}</span><button type="button" onClick={() => void gitAction('/api/infinity/git/stage', { files: [file] })} className="shrink-0 text-[10px] text-primary">stage</button></li>)}</ul></div>}
               {gitStatus.modified.length + gitStatus.staged.length + gitStatus.untracked.length === 0 && <p className="mt-2 text-xs text-muted-foreground">Working tree clean.</p>}
               <div className="mt-3 flex gap-2">
-                <button type="button" disabled={gitBusy || (gitStatus.modified.length === 0 && gitStatus.untracked.length === 0)} onClick={() => void gitAction('/api/jarvis/git/stage', { all: true })} className="rounded-lg bg-primary/20 px-2.5 py-1.5 text-[11px] font-medium text-primary disabled:opacity-40">Stage all</button>
-                <button type="button" disabled={gitBusy || gitStatus.modified.length === 0} onClick={() => void gitAction('/api/jarvis/git/discard', { files: gitStatus.modified })} className="rounded-lg border px-2.5 py-1.5 text-[11px] disabled:opacity-40" style={{ borderColor: 'var(--build-error-border)', color: 'var(--build-error-text)' }}>Discard</button>
+                <button type="button" disabled={gitBusy || (gitStatus.modified.length === 0 && gitStatus.untracked.length === 0)} onClick={() => void gitAction('/api/infinity/git/stage', { all: true })} className="rounded-lg bg-primary/20 px-2.5 py-1.5 text-[11px] font-medium text-primary disabled:opacity-40">Stage all</button>
+                <button type="button" disabled={gitBusy || gitStatus.modified.length === 0} onClick={() => void gitAction('/api/infinity/git/discard', { files: gitStatus.modified })} className="rounded-lg border px-2.5 py-1.5 text-[11px] disabled:opacity-40" style={{ borderColor: 'var(--build-error-border)', color: 'var(--build-error-text)' }}>Discard</button>
               </div>
             </div>
             <div className="space-y-3">

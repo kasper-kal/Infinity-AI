@@ -6,14 +6,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * Timers now live on the API server (timers table + timer-scheduler), so they
  * survive a page reload and still fire via web-push when the tab is closed.
  * This hook is the frontend's bridge:
- *   - `activeTimers` is rehydrated from GET /api/jarvis/timers on mount (and
+ *   - `activeTimers` is rehydrated from GET /api/infinity/timers on mount (and
  *     polled while timers are live so fired ones drop out).
  *   - The in-feed chat timer widget calls `createTimer` / `extendTimer` /
  *     `cancelTimer` (tracked via `serverIdRef`) instead of only living in
  *     React state.
  */
 
-/** Row shape returned by GET /api/jarvis/timers (includes wall-clock remainingMs). */
+/** Row shape returned by GET /api/infinity/timers (includes wall-clock remainingMs). */
 export interface ServerTimer {
   id: string;
   durationSeconds: number;
@@ -28,7 +28,7 @@ export interface ServerTimer {
 
 async function fetchTimers(): Promise<ServerTimer[]> {
   try {
-    const res = await fetch('/api/jarvis/timers');
+    const res = await fetch('/api/infinity/timers');
     if (!res.ok) return [];
     return (await res.json()) as ServerTimer[];
   } catch {
@@ -75,7 +75,7 @@ export function useTimerOrchestration() {
 
   const createTimer = useCallback(
     async (opts: { durationSeconds: number; label?: string; conversationId?: string }) => {
-      const t = await post('/api/jarvis/timers', opts);
+      const t = await post('/api/infinity/timers', opts);
       if (t) serverIdRef.current = t.id;
       return t;
     },
@@ -85,7 +85,7 @@ export function useTimerOrchestration() {
   const extendTimer = useCallback(
     async (id: string, addSeconds: number) => {
       if (!id) return null;
-      return post(`/api/jarvis/timers/${id}/extend`, { addSeconds });
+      return post(`/api/infinity/timers/${id}/extend`, { addSeconds });
     },
     [post],
   );
@@ -94,13 +94,13 @@ export function useTimerOrchestration() {
     async (id: string) => {
       if (!id) return null;
       serverIdRef.current = null;
-      return post(`/api/jarvis/timers/${id}/cancel`);
+      return post(`/api/infinity/timers/${id}/cancel`);
     },
     [post],
   );
 
-  const pauseTimer = useCallback(async (id: string) => post(`/api/jarvis/timers/${id}/pause`), [post]);
-  const resumeTimer = useCallback(async (id: string) => post(`/api/jarvis/timers/${id}/resume`), [post]);
+  const pauseTimer = useCallback(async (id: string) => post(`/api/infinity/timers/${id}/pause`), [post]);
+  const resumeTimer = useCallback(async (id: string) => post(`/api/infinity/timers/${id}/resume`), [post]);
 
   return {
     activeTimers,

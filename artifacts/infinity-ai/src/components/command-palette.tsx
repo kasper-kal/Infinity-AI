@@ -105,7 +105,7 @@ export function CommandPalette({
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/jarvis/conversations/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/infinity/conversations/search?q=${encodeURIComponent(q)}`);
         if (res.ok) {
           const rows = (await res.json()) as SearchResult[];
           setResults(rows.slice(0, 6));

@@ -2,8 +2,8 @@ import puppeteer from "puppeteer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const url = process.env.JARVIS_QA_URL || "http://localhost:21662/";
-const outDir = process.env.JARVIS_QA_OUT || "./qa-report/exhaustive-clicks";
+const url = process.env.infinity-ai_QA_URL || "http://localhost:21662/";
+const outDir = process.env.infinity-ai_QA_OUT || "./qa-report/exhaustive-clicks";
 mkdirSync(outDir, { recursive: true });
 
 const chromiumPath =
@@ -45,8 +45,8 @@ function attachPage(page, name) {
       requestUrl.includes("/api/") &&
       ["POST", "PUT", "PATCH", "DELETE"].includes(method);
     const externalAuth =
-      requestUrl.includes("/api/jarvis/gmail/auth") ||
-      requestUrl.includes("/api/jarvis/spotify/auth");
+      requestUrl.includes("/api/infinity-ai/gmail/auth") ||
+      requestUrl.includes("/api/infinity-ai/spotify/auth");
     if (mutatingApi || externalAuth) {
       requestBlocks += 1;
       request.abort().catch(() => {});

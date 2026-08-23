@@ -12,7 +12,7 @@ import { logBuildEvent } from "../../lib/build-telemetry";
 const router = Router();
 
 /**
- * POST /api/jarvis/build/checkpoint
+ * POST /api/infinity/build/checkpoint
  * Save (upsert) a build checkpoint for a project.
  */
 router.post("/checkpoint", async (req: Request, res: Response) => {
@@ -44,7 +44,7 @@ router.post("/checkpoint", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/build/checkpoint/:projectId
+ * GET /api/infinity/build/checkpoint/:projectId
  * Fetch the latest checkpoint (for resume prompt on boot / reopen).
  */
 router.get("/checkpoint/:projectId", async (req: Request, res: Response) => {
@@ -63,7 +63,7 @@ router.get("/checkpoint/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/build/checkpoints/:projectId
+ * GET /api/infinity/build/checkpoints/:projectId
  * List all checkpoints for a project.
  */
 router.get("/checkpoints/:projectId", async (req: Request, res: Response) => {
@@ -79,7 +79,7 @@ router.get("/checkpoints/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/build/checkpoint/:id/complete
+ * POST /api/infinity/build/checkpoint/:id/complete
  * Mark a checkpoint as completed (build finished).
  */
 router.post("/checkpoint/:id/complete", async (req: Request, res: Response) => {
@@ -94,7 +94,7 @@ router.post("/checkpoint/:id/complete", async (req: Request, res: Response) => {
 });
 
 /**
- * DELETE /api/jarvis/build/checkpoint/:id
+ * DELETE /api/infinity/build/checkpoint/:id
  * Delete a checkpoint.
  */
 router.delete("/checkpoint/:id", async (req: Request, res: Response) => {

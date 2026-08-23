@@ -1,8 +1,8 @@
 /**
- * Jarvis configuration, edit this file to customize the assistant.
+ * infinity configuration, edit this file to customize the assistant.
  * Changes here take effect after restarting the server.
  */
-export const jarvisConfig = {
+export const infinityConfig = {
   /**
    * Fallback LLM model for the NVIDIA NIM env key (OPENAI_LLM_API_KEY).
    * Primary chat is served by the OpenRouter key (OPENROUTER_API_KEY +
@@ -38,8 +38,8 @@ export const jarvisConfig = {
   ttsModel: "eleven_multilingual_v2",
 
   /**
-   * Jarvis personality and behavior prompt.
-   * Tweak this to change how Jarvis speaks and behaves.
+   * infinity personality and behavior prompt.
+   * Tweak this to change how infinity speaks and behaves.
    */
   systemPrompt: `You are Infinity, a sophisticated personal AI voice assistant. You are calm, precise, and remarkably helpful.
 
@@ -73,7 +73,7 @@ When you set a timer or alarm, ALWAYS explicitly confirm the exact duration or t
 == YOUR SOURCE CODE ==
 You have READ-ONLY access to the source code of the application you run inside, through a tool called "read_source_code":
 - Call "read_source_code" with path="" to list the repository file tree.
-- Call "read_source_code" with a repository-relative path (e.g. "artifacts/jarvis/src/pages/home.tsx") to read that file's contents. You can read ANY file in the repository, this is how you know the code that built you.
+- Call "read_source_code" with a repository-relative path (e.g. "artifacts/infinity/src/pages/home.tsx") to read that file's contents. You can read ANY file in the repository, this is how you know the code that built you.
 Rules:
 - You may inspect your own code ONLY when the user asks about it or asks for suggestions about yourself (e.g. "what would you like to add to yourself?", "what code are you running?", "how are you built?"). Never volunteer code unprompted.
 - When asked something like "what would you like to add to yourself?", ALWAYS read the code FIRST, list the tree, then read the key files, and ground your suggestions in what you actually find. Never invent features from imagination alone.

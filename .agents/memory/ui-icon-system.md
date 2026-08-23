@@ -1,6 +1,6 @@
 ---
 name: UI icon system
-description: Shared icon rules for the Jarvis interface.
+description: Shared icon rules for the infinity-ai interface.
 ---
 
 Use Lucide icons for interface actions, status indicators, widgets, and controls. Reuse the same semantic icon everywhere an action repeats, especially the canonical `Search` icon for all search affordances. Avoid emoji, text glyphs, and hand-drawn inline SVGs as UI icons; data visualizations such as timer progress rings are not icons.

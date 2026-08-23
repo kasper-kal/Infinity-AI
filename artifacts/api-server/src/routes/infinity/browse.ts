@@ -1,8 +1,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
-import { JarvisBrowser, type InteractiveElement, type BrowseAction } from "../../lib/puppeteer-browser";
+import { InfinityBrowser, type InteractiveElement, type BrowseAction } from "../../lib/puppeteer-browser";
 import { getBrowserPool, type BrowserSlot } from "../../lib/browser-pool";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 import * as cheerio from "cheerio";
 import { buildErrorDetail } from "../../lib/error-detail";
 import { pooledClient, LLMAllKeysCoolingError } from "../../lib/llm-client";
@@ -59,7 +59,7 @@ async function acquireBrowserForAgent(): Promise<BrowserSlot> {
 /**
  * Get the browser instance for the active agent slot.
  */
-async function getAgentBrowser(): Promise<JarvisBrowser> {
+async function getAgentBrowser(): Promise<InfinityBrowser> {
   const slot = await acquireBrowserForAgent();
   return slot.browser;
 }
@@ -165,7 +165,7 @@ router.post("/fetch", async (req, res) => {
 
 /**
  * POST /api/infinity/browse/action
- * Execute an action in Jarvis's personal browser.
+ * Execute an action in infinity's personal browser.
  * The user can see the browser in real-time via WebSocket screenshots.
  *
  * Body: { action: string, payload?: any, skipPolicyCheck?: boolean }
@@ -423,7 +423,7 @@ function parseAgentAction(raw: string, cols: number, rows: number, maxElementInd
 
 /** Execute a decision against the real browser. Grid cell → pixel center. */
 async function executeAgentAction(
-  browser: JarvisBrowser,
+  browser: InfinityBrowser,
   decision: AgentDecision,
   grid: { cellSize: number; cols: number; rows: number },
 ): Promise<{ success: boolean; error?: string }> {
@@ -505,7 +505,7 @@ router.post("/agent-run", async (req, res) => {
     if (!res.writableEnded) res.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
 
-  let browser: JarvisBrowser;
+  let browser: InfinityBrowser;
   try {
     browser = await getAgentBrowser();
   } catch (err) {
@@ -596,9 +596,9 @@ router.post("/agent-run", async (req, res) => {
           batchLeft--;
           nextAllowedAt = now + REMIND_EVERY_MS;
           void notifyAll(
-            "⏸ Captcha blocking Jarvis",
+            "⏸ Captcha blocking infinity",
             goal.trim().slice(0, 60)
-              ? `Jarvis hit a captcha while browsing "${goal.trim().slice(0, 60)}". Solve it in the browser to continue.`
+              ? `infinity hit a captcha while browsing "${goal.trim().slice(0, 60)}". Solve it in the browser to continue.`
               : "Solve the captcha in the browser to continue.",
           );
         } else if (batchLeft === 0 && now >= nextAllowedAt) {
@@ -620,8 +620,8 @@ router.post("/agent-run", async (req, res) => {
       const policyCheck = await pool.checkActionPolicy(slot.id, { action: "navigate", payload: state.url });
       if (!policyCheck.allowed || policyCheck.requiresHumanConfirmation) {
         agentPaused = true;
-        send({ type: "paused", reason: `Jarvis reached a sensitive page blocked by browser safety policy: ${policyCheck.reason}` });
-        send({ type: "step", step, maxSteps: stepsLimit, action: "paused", reason: `This page requires human confirmation (${policyCheck.decision}). Take over manually, or press Resume to let Jarvis continue.` });
+        send({ type: "paused", reason: `infinity reached a sensitive page blocked by browser safety policy: ${policyCheck.reason}` });
+        send({ type: "step", step, maxSteps: stepsLimit, action: "paused", reason: `This page requires human confirmation (${policyCheck.decision}). Take over manually, or press Resume to let infinity continue.` });
         while (agentPaused && !aborted.value) {
           await sleep(500);
         }
@@ -677,7 +677,7 @@ router.post("/agent-run", async (req, res) => {
       } catch (err) {
         // All providers cooling down, pause, don't die mid-loop.
         if (err instanceof LLMAllKeysCoolingError) {
-          send({ type: "error", message: "Jarvis is recharging. All AI providers are cooling down. Try again in about 45 minutes." });
+          send({ type: "error", message: "infinity is recharging. All AI providers are cooling down. Try again in about 45 minutes." });
           send({ type: "done", summary: "I stopped: every AI provider is cooling down.", steps: step, url: state.url });
           res.write("data: [DONE]\n\n");
           res.end();
@@ -826,7 +826,7 @@ export async function ensureBrowserStarted(): Promise<void> {
     await getBrowserPoolInstance();
   } catch (err) {
     console.error(
-      "[Jarvis Browser Pool] Eager start failed, will retry on first action:",
+      "[infinity Browser Pool] Eager start failed, will retry on first action:",
       err,
     );
   }

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Install unpacked Chrome extensions for Jarvis's agent browser into
- * ~/.jarvis-browser-extensions (auto-loaded on the next server start —
+ * Install unpacked Chrome extensions for infinity-ai's agent browser into
+ * ~/.infinity-ai-browser-extensions (auto-loaded on the next server start —
  * no env vars needed).
  *
  * Currently installs: uBlock Origin (ad / tracker / cookie-banner blocker).
  *
  * Usage:
  *   node scripts/install-extensions.mjs
- *   # or set JARVIS_BROWSER_EXTENSION_DIR to pick a different location
+ *   # or set infinity-ai_BROWSER_EXTENSION_DIR to pick a different location
  *
  * Requires: curl-less Node ≥18 (built-in fetch), unzip, and network access to
  * GitHub. Run it on the machine that runs the API server.
@@ -21,7 +21,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { execSync } from "node:child_process";
 
-const EXT_DIR = process.env.JARVIS_BROWSER_EXTENSION_DIR || join(homedir(), ".jarvis-browser-extensions");
+const EXT_DIR = process.env.infinity-ai_BROWSER_EXTENSION_DIR || join(homedir(), ".infinity-ai-browser-extensions");
 
 async function download(url, dest) {
   const res = await fetch(url, { redirect: "follow" });
@@ -98,7 +98,7 @@ async function main() {
   console.log("  " + EXT_DIR);
   console.log("");
   console.log("The agent browser auto-loads every subfolder here on the next server");
-  console.log("restart (no env var needed). Override per-run with JARVIS_BROWSER_EXTENSIONS.");
+  console.log("restart (no env var needed). Override per-run with infinity-ai_BROWSER_EXTENSIONS.");
   console.log("");
   if (!existsSync(EXT_DIR)) {
     console.log("NOTE: nothing was installed (one of the downloads failed). Check network.");

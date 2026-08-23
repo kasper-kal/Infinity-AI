@@ -7,7 +7,7 @@ const downloadFile = (path: string, content: string) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = path.split('/').pop() || 'jarvis-file.txt';
+  anchor.download = path.split('/').pop() || 'Infinity-file.txt';
   anchor.click();
   URL.revokeObjectURL(url);
 };

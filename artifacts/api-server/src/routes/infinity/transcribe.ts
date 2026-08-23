@@ -30,8 +30,8 @@ async function convertToFlac(
     : mimeType.includes("ogg")
       ? "ogg"
       : "webm";
-  const inputPath = path.join(tmpdir(), `jarvis-in-${id}.${ext}`);
-  const outputPath = path.join(tmpdir(), `jarvis-out-${id}.flac`);
+  const inputPath = path.join(tmpdir(), `infinity-in-${id}.${ext}`);
+  const outputPath = path.join(tmpdir(), `infinity-out-${id}.flac`);
 
   await writeFile(inputPath, inputBuffer);
 

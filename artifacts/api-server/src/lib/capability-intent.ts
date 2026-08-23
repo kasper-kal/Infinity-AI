@@ -30,7 +30,7 @@ export function classifyCapabilityIntent(message: string): CapabilityClassificat
   if (/\b(draw|generate|create|make|paint)\b[\s\w]*(image|picture|photo|art|illustration|drawing|sketch)\b/.test(text)) {
     return { intent: 'image_generation', confidence: 'high' };
   }
-  if (/\b(start|begin|activate|enable)\s+(screen\s+)?(share|sharing)|\bshare\s+(my\s+)?screen\b|\blet\s+(me|jarvis)\s+see\s+(your\s+)?screen\b/.test(text)) {
+  if (/\b(start|begin|activate|enable)\s+(screen\s+)?(share|sharing)|\bshare\s+(my\s+)?screen\b|\blet\s+(me|infinity)\s+see\s+(your\s+)?screen\b/.test(text)) {
     return { intent: 'screen_share', confidence: 'high' };
   }
   if (/\b(use|open|launch|start|enter)\b[\s\w]*(agent|browser)\b|\b(browse|navigate)\b[\s\w]*\b(agent|browser)\b/.test(text)) {

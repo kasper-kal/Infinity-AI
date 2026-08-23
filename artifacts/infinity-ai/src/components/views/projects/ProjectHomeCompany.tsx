@@ -141,7 +141,7 @@ export function ProjectHomeCompany({
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/home`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/home`);
       if (!response.ok) throw new Error('Project home request failed');
       setPayload(await response.json() as ProjectHomePayload);
     } catch {
@@ -153,7 +153,7 @@ export function ProjectHomeCompany({
 
   const loadActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
       if (!response.ok) throw new Error('Project activity request failed');
       const data = await response.json();
       const activity = Array.isArray(data.activity) ? data.activity : [];
@@ -192,7 +192,7 @@ export function ProjectHomeCompany({
     if (busyAction || !payload) return;
     setBusyAction('generateLogo');
     try {
-      const response = await fetch('/api/jarvis/tools/company.logo', {
+      const response = await fetch('/api/infinity/tools/company.logo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,7 +216,7 @@ export function ProjectHomeCompany({
     if (busyAction || !payload) return;
     setBusyAction('generateSlogan');
     try {
-      const response = await fetch('/api/jarvis/tools/company.slogan', {
+      const response = await fetch('/api/infinity/tools/company.slogan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -240,7 +240,7 @@ export function ProjectHomeCompany({
     if (busyAction || !payload) return;
     setBusyAction('createPromo');
     try {
-      const response = await fetch('/api/jarvis/promo/create', {
+      const response = await fetch('/api/infinity/promo/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -268,7 +268,7 @@ export function ProjectHomeCompany({
     if (busyAction || !payload) return;
     setBusyAction('generatePalette');
     try {
-      const response = await fetch('/api/jarvis/tools/company.palette', {
+      const response = await fetch('/api/infinity/tools/company.palette', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -304,7 +304,7 @@ export function ProjectHomeCompany({
     if (busyAction || !payload) return;
     setBusyAction('findFonts');
     try {
-      const response = await fetch('/api/jarvis/tools/company.font', {
+      const response = await fetch('/api/infinity/tools/company.font', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

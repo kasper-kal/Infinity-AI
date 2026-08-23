@@ -7,7 +7,7 @@ export type BuildStatus = 'idle' | 'planning' | 'waiting' | 'working' | 'reviewi
 
 export interface BuildProgressItem {
   id: string;
-  role: 'user' | 'jarvis';
+  role: 'user' | 'Infinity';
   message: string;
   status: 'working' | 'waiting' | 'done' | 'error' | 'cancelled';
   createdAt: number;
@@ -120,8 +120,8 @@ export function useBuildStudio(options: UseBuildStudioOptions = {}) {
 
   const addProgress = useCallback((message: string, status: BuildProgressItem['status'] = 'working') => {
     const item: BuildProgressItem = {
-      id: `jarvis-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      role: 'jarvis',
+      id: `Infinity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      role: 'Infinity',
       message,
       status,
       createdAt: Date.now(),

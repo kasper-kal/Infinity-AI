@@ -10,16 +10,16 @@
  *     The browser's built-in push service (FCM/autopush/APNs) delivers it and
  *     wakes the service worker, which shows the system notification.
  *
- * The VAPID keypair is generated once and persisted in jarvis_settings, so
+ * The VAPID keypair is generated once and persisted in infinity_settings, so
  * subscriptions stay valid across server restarts.
  */
 
 import webPush from "web-push";
-import { db, pushSubscriptions, jarvisSettings } from "@workspace/db";
+import { db, pushSubscriptions, infinitySettings } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { logger } from "./logger";
 
-const VAPID_SUBJECT = "mailto:jarvis@localhost";
+const VAPID_SUBJECT = "mailto:infinity@localhost";
 const VAPID_PUBLIC_KEY = "vapid_public_key";
 const VAPID_PRIVATE_KEY = "vapid_private_key";
 
@@ -27,10 +27,10 @@ let cachedKeys: { publicKey: string; privateKey: string } | null = null;
 
 async function upsertSetting(key: string, value: string): Promise<void> {
   await db
-    .insert(jarvisSettings)
+    .insert(infinitySettings)
     .values({ key, value, updatedAt: new Date() })
     .onConflictDoUpdate({
-      target: jarvisSettings.key,
+      target: infinitySettings.key,
       set: { value, updatedAt: new Date() },
     });
 }
@@ -41,8 +41,8 @@ export async function ensureVapidKeys(): Promise<{ publicKey: string; privateKey
 
   const rows = await db
     .select()
-    .from(jarvisSettings)
-    .where(or(eq(jarvisSettings.key, VAPID_PUBLIC_KEY), eq(jarvisSettings.key, VAPID_PRIVATE_KEY)));
+    .from(infinitySettings)
+    .where(or(eq(infinitySettings.key, VAPID_PUBLIC_KEY), eq(infinitySettings.key, VAPID_PRIVATE_KEY)));
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
 

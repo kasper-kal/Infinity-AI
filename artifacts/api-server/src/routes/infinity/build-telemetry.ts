@@ -14,7 +14,7 @@ import {
 const router = Router();
 
 /**
- * GET /api/jarvis/build/telemetry/:projectId
+ * GET /api/infinity/build/telemetry/:projectId
  * Get recent telemetry events (from memory buffer, newest last).
  * Query: ?limit=500 (default 500, max 2000)
  */
@@ -30,7 +30,7 @@ router.get("/telemetry/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/build/telemetry/:projectId/all
+ * GET /api/infinity/build/telemetry/:projectId/all
  * Read all events from the on-disk log (for export/replay).
  */
 router.get("/telemetry/:projectId/all", async (req: Request, res: Response) => {
@@ -44,7 +44,7 @@ router.get("/telemetry/:projectId/all", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/build/telemetry/:projectId/summary
+ * GET /api/infinity/build/telemetry/:projectId/summary
  * Get a compact summary string for the Debug panel "replay" view or model feedback.
  */
 router.get("/telemetry/:projectId/summary", async (req: Request, res: Response) => {
@@ -58,7 +58,7 @@ router.get("/telemetry/:projectId/summary", async (req: Request, res: Response) 
 });
 
 /**
- * GET /api/jarvis/build/telemetry/:projectId/count
+ * GET /api/infinity/build/telemetry/:projectId/count
  * Get total event count (on disk) for the Debug panel header.
  */
 router.get("/telemetry/:projectId/count", async (req: Request, res: Response) => {
@@ -72,7 +72,7 @@ router.get("/telemetry/:projectId/count", async (req: Request, res: Response) =>
 });
 
 /**
- * DELETE /api/jarvis/build/telemetry/:projectId
+ * DELETE /api/infinity/build/telemetry/:projectId
  * Clear all telemetry for a project (Debug panel "clear logs").
  */
 router.delete("/telemetry/:projectId", async (req: Request, res: Response) => {
@@ -86,7 +86,7 @@ router.delete("/telemetry/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/build/telemetry/:projectId (internal use by build routes)
+ * POST /api/infinity/build/telemetry/:projectId (internal use by build routes)
  * Append a single event. Not for direct client use — exists so build routes can
  * record events without importing the library directly.
  * Body: { type, label, data?, durationMs?, step? }
@@ -113,7 +113,7 @@ router.post("/telemetry/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/build/telemetry/:projectId/batch (internal use)
+ * POST /api/infinity/build/telemetry/:projectId/batch (internal use)
  * Append multiple events at once (e.g., from a worker process).
  * Body: { events: BuildEvent[] }
  */

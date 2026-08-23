@@ -70,14 +70,14 @@ export function MusicStudio({ open, onClose }: MusicStudioProps) {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('jarvis-music-history');
+      const raw = localStorage.getItem('Infinity-music-history');
       if (raw) setHistory(JSON.parse(raw) as TrackHistory[]);
     } catch { /* history is optional */ }
   }, []);
   const persistHistory = useCallback((next: TrackHistory[]) => {
     const capped = next.slice(0, 8);
     setHistory(capped);
-    try { localStorage.setItem('jarvis-music-history', JSON.stringify(capped)); } catch { /* quota is non-fatal */ }
+    try { localStorage.setItem('Infinity-music-history', JSON.stringify(capped)); } catch { /* quota is non-fatal */ }
   }, []);
   const compose = useCallback((nextMood: MusicComposition['mood'], nextSeed: number, nextPrompt = prompt, remember = true) => {
     const next = generateComposition(nextMood, nextSeed, nextPrompt);
@@ -91,10 +91,10 @@ export function MusicStudio({ open, onClose }: MusicStudioProps) {
     compose(moodFromPrompt(nextPrompt), hashPrompt(nextPrompt), nextPrompt);
   };
   const downloadTrack = () => {
-    const payload = JSON.stringify({ format: 'jarvis-procedural-instrumental', composition, prompt, note: 'This is a composition recipe for the browser synth, not a rendered audio file.' }, null, 2);
+    const payload = JSON.stringify({ format: 'Infinity-procedural-instrumental', composition, prompt, note: 'This is a composition recipe for the browser synth, not a rendered audio file.' }, null, 2);
     const link = document.createElement('a');
     link.href = `data:application/json;charset=utf-8,${encodeURIComponent(payload)}`;
-    link.download = `${composition.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'jarvis-track'}.json`;
+    link.download = `${composition.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'Infinity-track'}.json`;
     link.click();
   };
   const restore = (item: TrackHistory) => { setPrompt(item.prompt); setMood(item.composition.mood); setSeed(hashPrompt(item.prompt || item.composition.title)); setComposition(item.composition); setHistoryOpen(false); };

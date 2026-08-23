@@ -24,7 +24,7 @@ export function ExpertDialog({ open, onClose, onCreated }: ExpertDialogProps) {
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch('/api/jarvis/conversations/expert', {
+      const res = await fetch('/api/infinity/conversations/expert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: name.trim(), systemPrompt: prompt.trim() }),

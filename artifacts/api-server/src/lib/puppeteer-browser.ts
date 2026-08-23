@@ -550,8 +550,8 @@ export class InfinityBrowser extends EventEmitter {
 
   /**
    * Extract a numbered list of interactive elements from the current page.
-   * Each element is tagged with `data-jarvis-idx` so the agent can click/type
-   * into it by stable selector (`[data-jarvis-idx="N"]`) on its next action —
+   * Each element is tagged with `data-infinity-idx` so the agent can click/type
+   * into it by stable selector (`[data-infinity-idx="N"]`) on its next action —
    * far more reliable than guessing pixel cells. Tags attach to the live DOM
    * and disappear automatically on navigation (new document).
    *
@@ -607,12 +607,12 @@ export class InfinityBrowser extends EventEmitter {
           if (out.length >= max || seen.has(el)) return;
           if (!isVisible(el)) return;
           if (!skipNested) {
-            const anc = el.closest && el.closest("[data-jarvis-idx]");
+            const anc = el.closest && el.closest("[data-infinity-idx]");
             if (anc && anc !== el) return;
           }
           const d = describe(el);
           if (!d) return;
-          el.setAttribute("data-jarvis-idx", String(out.length));
+          el.setAttribute("data-infinity-idx", String(out.length));
           seen.add(el);
           out.push({ index: out.length, tag: d.tag, text: d.text, hint: d.hint });
         };
@@ -639,7 +639,7 @@ export class InfinityBrowser extends EventEmitter {
             if (tag === "script" || tag === "style" || tag === "link" || tag === "meta" || tag === "head" || tag === "html") continue;
             // Cheap pre-filter before the expensive getComputedStyle: must have
             // some identifying content, and not already be covered.
-            if (el.closest && el.closest("[data-jarvis-idx]")) continue;
+            if (el.closest && el.closest("[data-infinity-idx]")) continue;
             if (!el.textContent && !(el.getAttribute && el.getAttribute("aria-label"))) continue;
             let cursor = "";
             try {

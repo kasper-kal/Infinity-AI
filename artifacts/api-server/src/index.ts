@@ -27,8 +27,8 @@ const [{ default: app }, { logger }, { ensureTables, ensureFilesTables }, { inje
     import("./app"),
     import("./lib/logger"),
     import("./lib/auto-migrate"),
-    import("./routes/jarvis/secrets"),
-    import("./routes/jarvis"),
+    import("./routes/infinity/secrets"),
+    import("./routes/infinity"),
   ]);
 
 const rawPort = process.env["PORT"];
@@ -77,7 +77,7 @@ server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
 
   // Check if this is an extension WebSocket connection
-  if (url.pathname === "/api/jarvis/extension/ws") {
+  if (url.pathname === "/api/infinity/extension/ws") {
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit("connection", ws, req);
     });
@@ -108,7 +108,7 @@ Promise.resolve().then(() => {
     logger.info({ port }, "Server listening");
     // NOTE: The Puppeteer browser is intentionally NOT launched at startup.
     // It is lazy-initialized on first browse/screenshot request (see getBrowser()
-    // in routes/jarvis/browse.ts). Eagerly launching a full Chrome instance at
+    // in routes/infinity/browse.ts). Eagerly launching a full Chrome instance at
     // boot was pushing the sandbox over its memory limit, causing OOM restarts
     // that killed the API server mid-conversation (voice mode errors).
   });

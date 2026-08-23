@@ -10,10 +10,10 @@ exactly. Do not skip steps. Do not claim work that was not done.
 
 ---
 
-## 1. THE REFERENCE PROMPT (adapted for Jarvis)
+## 1. THE REFERENCE PROMPT (adapted for infinity-ai)
 
-This is the reference prompt that Replit's agent was given, adapted for Jarvis:
-money-based and deployment-only features are removed because Jarvis is a free
+This is the reference prompt that Replit's agent was given, adapted for infinity-ai:
+money-based and deployment-only features are removed because infinity-ai is a free
 local product with no publishing, subscriptions, or paid services. It is the
 benchmark for scope, ambition, and completeness. Treat every user prompt with
 the same weight.
@@ -116,7 +116,7 @@ loop.
     - Database: the free local database layer, no paid hosting.
     - AI: the existing free LLM key pool, no paid provider selection.
     - Object storage: the existing free file-storage layer.
-    - Payments, billing, and subscriptions: skipped by design. Jarvis is free,
+    - Payments, billing, and subscriptions: skipped by design. infinity-ai is free,
       so any feature that requires paying for a service is out of scope.
     Rule: every integration category is decided before a single file is
     written, and anything that costs money is excluded up front.
@@ -124,7 +124,7 @@ loop.
     resolved, pick the best free default, isolate the seam so it can be
     swapped later without rework, and keep moving. Never stall the whole build
     on one decision.
-12. **No paid services, ever.** Jarvis is free. Nothing in a build may depend
+12. **No paid services, ever.** infinity-ai is free. Nothing in a build may depend
     on a paid provider, subscription, or purchase. If the prompt asks for one,
     build the free alternative and label it honestly.
 
@@ -237,7 +237,7 @@ loop.
 49. **Loaded skill ai-integrations-openai.** Brought in the AI integration
     skill for the AI surface of the product.
 50. **Found files.** Confirmed no deployment or delivery configuration is
-    needed: Jarvis has no publishing target by design.
+    needed: infinity-ai has no publishing target by design.
 
 ### Stage 10: Fix what verification found
 
@@ -398,7 +398,7 @@ them.
 ## 5. MAPPING TO BUILD MODE: WHAT WE IMPLEMENT
 
 The following is the concrete implementation surface that turns this master
-prompt into the behavior of Build Mode in Jarvis.
+prompt into the behavior of Build Mode in infinity-ai.
 
 1. **Prompt decomposition into a feature inventory.** The prompt is parsed into
    named features (auth, database, dashboard, board, calendar, notes, files,

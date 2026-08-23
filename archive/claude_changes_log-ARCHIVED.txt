@@ -20,17 +20,17 @@
 ## 2026-08-07 — Continuation verification
 - Repaired the interrupted Build Studio continuation's duplicate renderSleepControls declaration.
 - Repaired the optional terminalResults render in conversation-feed.tsx.
-- Jarvis and API-server typechecks pass.
+- infinity-ai and API-server typechecks pass.
 - Remaining Build Studio polish is present in the working tree from the preserved continuation: CodeMirror editor, screenshots, browser agent, plan mode, history handlers, walkthrough backend, particle preview component, AFK/sleep handlers, and file download affordances.
 - No credentials were read or modified, and no Git delivery commands were run.
 
 ## 2026-08-07 — @Build shortcut implementation + API key verification
-- Configured all API keys in /workspaces/Jarvis/.env (gitignored; never committed)
+- Configured all API keys in /workspaces/infinity-ai/.env (gitignored; never committed)
   - OpenRouter (first choice, model: openrouter_auto)
   - NVIDIA NIM llama-3.2-11b-vision-instruct (failover, priority 99)
   - Whisper, Flux, ElevenLabs, Tavily, Spotify, Google, Figma, Neon DB
-- Verified LLM key pool via /api/jarvis/llm-keys: OpenRouter first, NVIDIA failover
-- Updated jarvis config: llmModel changed from "openai/gpt-oss-120b" to "meta/llama-3.2-11b-vision-instruct"
+- Verified LLM key pool via /api/infinity-ai/llm-keys: OpenRouter first, NVIDIA failover
+- Updated infinity-ai config: llmModel changed from "openai/gpt-oss-120b" to "meta/llama-3.2-11b-vision-instruct"
 - Wired @Build <message> chat shortcut:
   - home.tsx: detect "^@build\b" → set buildInitialPrompt + buildRunKey, open build panel
   - app-overlays.tsx: pass initialPrompt/runKey props through to BuildStudio
@@ -44,7 +44,7 @@
 - build-studio.tsx: imported useTheme, derived isDark, added conditional `dark` class on outer container
 - Replaced 93+ hardcoded hex colors in build-studio.tsx with theme-aware Tailwind classes (bg-background, bg-card, bg-secondary, text-foreground, text-muted-foreground, border-border)
 - Container background: inline `style={{ background: isDark ? '#1e1e1e' : undefined }}` (dark) vs bg-card (light)
-- use-theme.ts: added custom event listener for `jarvis-theme-change` + storage event for cross-tab sync (Puppeteer can't change React state via localStorage alone)
+- use-theme.ts: added custom event listener for `infinity-ai-theme-change` + storage event for cross-tab sync (Puppeteer can't change React state via localStorage alone)
 - Puppeteer script build-mode-dual.mjs rewritten: dismisses Plan Mode modal via "Change plan" button + wizard backdrop (z-[70]), then toggles theme via CustomEvent, screenshots at 1440×900
 - Verified: dark mode shows #1e1e1e editor bg, light mode shows white — all UI areas (header, sidebar, tabs, editor, scaffold prompt) properly themed
 - Clean screenshots: /tmp/build-dark.png and /tmp/build-light.png — no wizard overlay, no modals
@@ -57,14 +57,14 @@
   (now shared by home.tsx and use-chat-stream.ts).
 - Added handleComposerPlusAction (reduced +-menu handler) + handleComposerDrop to home.tsx.
 - i18n: added 15 keys to both en + nl (sidebar.openHistory/closeHistory, input.attachTitle/
-  fileAttachedLabel/agentModeIndicator/attachmentAlt, keyRetry.* (5), voice.you/jarvis, camera.note).
+  fileAttachedLabel/agentModeIndicator/attachmentAlt, keyRetry.* (5), voice.you/infinity-ai, camera.note).
   Wired all previously-hardcoded strings in the new components through t().
 - tsc --noEmit passes clean (EXIT 0) for both tasks.
 
 ## 2026-08-11 - Repo clutter audit (recommendations only, nothing deleted)
 - Produced two-table cleanup report per user request (DO NOT delete — list only).
 - Table A (safe to delete): .wwebjs_auth/ (233 tracked files, 37MB orphaned WhatsApp session),
-  23 root QA/BUTTON reports superseded by qa-report/JARVIS-COMPLETE-AUDIT.txt, screenshots/ (6 jpg),
+  23 root QA/BUTTON reports superseded by qa-report/infinity-ai-COMPLETE-AUDIT.txt, screenshots/ (6 jpg),
   full_chat_with_thinking.txt (0B), .launch.log, whatsapp-bridge.js, 8 orphaned walkthrough/*.mjs + 3 root scripts,
   5 md5-verified duplicate files in attached_assets (kept 1 each).
 - Table B (move to archive): ui-walkthrough.mjs -> qa-report/; AI_DOES_THE_THINKING_PROMPT.md, PROJECT_MAP.md,
@@ -110,13 +110,13 @@
 - studios-hub.tsx: added 'book' to StudioId + a Book Studio card (BookOpen icon).
 - app-overlays.tsx: threaded bookStudioOpen/onCloseBook/bookJobs/onCancelBook props,
   renders <BookStudio>.
-- home.tsx: bookStudioOpen/bookJobs state, 12s background polling of /api/jarvis/book/jobs
+- home.tsx: bookStudioOpen/bookJobs state, 12s background polling of /api/infinity-ai/book/jobs
   mirroring deep research, toast + browser/push notification when a book completes,
   case 'book' in handleStudioSelect.
-- Jarvis app typechecks clean (0 errors) after the wiring.
+- infinity-ai app typechecks clean (0 errors) after the wiring.
 
 ## 2026-08-11 - Book Studio verification + session state
-- Verified: api-server book files type-clean, jarvis app 0 errors, server bundles (dist 9.2mb).
+- Verified: api-server book files type-clean, infinity-ai app 0 errors, server bundles (dist 9.2mb).
 - Runtime smoke tests: book-samples reader works against real Books/ (6 books — boy-7 NL,
   gone.en.nl, House-to-House EN, hunger-games, it, Martian; PDF extraction + language sniff ok);
   Puppeteer A5 PDF render ok on this machine (~27KB, @page A5 + footer page numbers).
@@ -125,10 +125,10 @@
 - Also committing user's newly added Books/gone.en.nl.pdf sample (Books/ approved for tracking).
 
 ## 2026-08-12 - Projects System: plan doc for steps 1-10 (no implementation)
-- User gave steps 1-10 of a 32-step "Jarvis Projects: Persistent Workspaces with Isolated Project Memory" brief.
+- User gave steps 1-10 of a 32-step "infinity-ai Projects: Persistent Workspaces with Isolated Project Memory" brief.
 - Request: summarize + plan build phases in a .md first (NOT plan mode, NOT build yet). Steps 11-20 and 21-32 to follow.
 - Inspected repo to ground the plan: existing projects.ts schema (ChatGPT-style folder: projects/projectChats/projectFiles/pins),
-  routes/jarvis/projects.ts CRUD, project-gallery.tsx in chat-sidebar, global userMemories schema + memories.ts routes,
+  routes/infinity-ai/projects.ts CRUD, project-gallery.tsx in chat-sidebar, global userMemories schema + memories.ts routes,
   LLM auto-extraction (~chat.ts L448) + memory block injection (~chat.ts L504), researchJobs schema, Book Studio as full-feature pattern,
   auto-migrate.ts idempotent pattern, en/nl i18n Records.
 - Wrote docs/projects-system-plan.md: repo grounding, full step 1-10 requirement capture, build phases A-H

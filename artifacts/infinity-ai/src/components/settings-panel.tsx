@@ -105,7 +105,7 @@ interface SettingsPanelProps {
 /** Read the display name from localStorage (defaults to the reference profile). */
 function getProfile(): { name: string; initials: string } {
   try {
-    const stored = localStorage.getItem('jarvis-profile');
+    const stored = localStorage.getItem('Infinity-profile');
     if (stored) {
       const parsed = JSON.parse(stored) as { name?: string };
       if (parsed.name?.trim()) {
@@ -213,7 +213,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
 
   // Accent color, persisted, applied as theme-aware CSS variables
   const [accent, setAccent] = useState<string>(() => {
-    try { return localStorage.getItem('jarvis-accent') || 'blue'; } catch { return 'blue'; }
+    try { return localStorage.getItem('Infinity-accent') || 'blue'; } catch { return 'blue'; }
   });
 
   const resolvedTheme: 'dark' | 'light' =
@@ -228,7 +228,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     setSecretLoading(true);
     setSecretError(null);
     try {
-      const res = await fetch('/api/jarvis/secrets');
+      const res = await fetch('/api/infinity/secrets');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
       setSecretItems(data.items ?? []);
@@ -247,7 +247,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     if (!value) return;
     setSecretSaving(env);
     try {
-      const res = await fetch(`/api/jarvis/secrets/${env}`, {
+      const res = await fetch(`/api/infinity/secrets/${env}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
@@ -267,26 +267,26 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
 
   const clearSecret = useCallback(async (env: string) => {
     try {
-      await fetch(`/api/jarvis/secrets/${env}`, { method: 'DELETE' });
+      await fetch(`/api/infinity/secrets/${env}`, { method: 'DELETE' });
       toast({ title: `${env} removed` });
       loadSecrets();
     } catch { /* ignore */ }
   }, [loadSecrets, toast]);
 
   useEffect(() => {
-    try { localStorage.setItem('jarvis-accent', accent); } catch { /* ignore */ }
+    try { localStorage.setItem('Infinity-accent', accent); } catch { /* ignore */ }
     applyAccent(accent, resolvedTheme);
   }, [accent, resolvedTheme]);
 
   const fetchGmailStatus = useCallback(() => {
-    fetch('/api/jarvis/gmail/status')
+    fetch('/api/infinity/gmail/status')
       .then(r => r.json())
       .then(setGmailStatus)
       .catch(() => setGmailStatus({ connected: false }));
   }, []);
 
   const fetchSpotifyStatus = useCallback(() => {
-    fetch('/api/jarvis/spotify/status')
+    fetch('/api/infinity/spotify/status')
       .then(r => r.json())
       .then(setSpotifyStatus)
       .catch(() => setSpotifyStatus({ connected: false }));
@@ -295,7 +295,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   const fetchMemories = useCallback(async () => {
     setLoadingMemories(true);
     try {
-      const res = await fetch('/api/jarvis/memories');
+      const res = await fetch('/api/infinity/memories');
       if (res.ok) setMemories(await res.json());
     } catch {
       setMemories([]);
@@ -307,7 +307,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   const handleDeleteMemory = async (topic: string) => {
     setDeletingMemory(topic);
     try {
-      const res = await fetch(`/api/jarvis/memories/${encodeURIComponent(topic)}`, { method: 'DELETE' });
+      const res = await fetch(`/api/infinity/memories/${encodeURIComponent(topic)}`, { method: 'DELETE' });
       if (res.ok) {
         setMemories(prev => prev.filter(m => m.topic !== topic));
         toast({ title: t('settings.memoryDeleted'), description: t('settings.forgot', { topic }) });
@@ -328,7 +328,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     const value = editDraft.trim();
     if (!value) return;
     try {
-      const res = await fetch(`/api/jarvis/memories/${encodeURIComponent(topic)}`, {
+      const res = await fetch(`/api/infinity/memories/${encodeURIComponent(topic)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
@@ -349,7 +349,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     setLlmLoading(true);
     setLlmError(null);
     try {
-      const res = await fetch('/api/jarvis/llm-keys');
+      const res = await fetch('/api/infinity/llm-keys');
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
       setLlmKeys(Array.isArray(data) ? data : []);
@@ -367,7 +367,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     }
     setLlmBusy(true);
     try {
-      const res = await fetch('/api/jarvis/llm-keys', {
+      const res = await fetch('/api/infinity/llm-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -396,7 +396,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
 
   const toggleLlmKey = async (item: LlmKeyItem) => {
     if (item.source !== 'db') return;
-    await fetch(`/api/jarvis/llm-keys/${item.id}`, {
+    await fetch(`/api/infinity/llm-keys/${item.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: !item.enabled }),
@@ -406,14 +406,14 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
 
   const deleteLlmKey = async (item: LlmKeyItem) => {
     if (item.source !== 'db') return;
-    await fetch(`/api/jarvis/llm-keys/${item.id}`, { method: 'DELETE' }).catch(() => {});
+    await fetch(`/api/infinity/llm-keys/${item.id}`, { method: 'DELETE' }).catch(() => {});
     fetchLlmKeys();
   };
 
   const testLlmKey = async (item: LlmKeyItem) => {
     setLlmTesting(item.id);
     try {
-      const res = await fetch(`/api/jarvis/llm-keys/${item.id}/test`, { method: 'POST' });
+      const res = await fetch(`/api/infinity/llm-keys/${item.id}/test`, { method: 'POST' });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) {
         haptics.light();
@@ -431,7 +431,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
 
   useEffect(() => {
     if (!open) return;
-    fetch('/api/jarvis/settings')
+    fetch('/api/infinity/settings')
       .then(r => r.json())
       .then(data => {
         const loaded: Settings = { ...EMPTY, ...data };
@@ -472,7 +472,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   }, [onClose]);
 
   const handleConnectGmail = () => {
-    const popup = window.open('/api/jarvis/gmail/auth', 'gmail_auth', 'width=500,height=650,left=200,top=100');
+    const popup = window.open('/api/infinity/gmail/auth', 'gmail_auth', 'width=500,height=650,left=200,top=100');
     const onMessage = (e: MessageEvent) => {
       if (e.data === 'gmail_connected') {
         fetchGmailStatus();
@@ -493,7 +493,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   };
 
   const handleConnectSpotify = () => {
-    const popup = window.open('/api/jarvis/spotify/auth', 'spotify_auth', 'width=500,height=700,left=200,top=100');
+    const popup = window.open('/api/infinity/spotify/auth', 'spotify_auth', 'width=500,height=700,left=200,top=100');
     const onMessage = (e: MessageEvent) => {
       if (e.data === 'spotify_connected') {
         fetchSpotifyStatus();
@@ -511,7 +511,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   const handleDisconnectGmail = async () => {
     setDisconnecting(true);
     try {
-      await fetch('/api/jarvis/gmail/disconnect', { method: 'DELETE' });
+      await fetch('/api/infinity/gmail/disconnect', { method: 'DELETE' });
       setGmailStatus({ connected: false });
     } finally {
       setDisconnecting(false);
@@ -521,7 +521,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   const handleDisconnectSpotify = async () => {
     setDisconnectingSpotify(true);
     try {
-      await fetch('/api/jarvis/spotify/disconnect', { method: 'DELETE' });
+      await fetch('/api/infinity/spotify/disconnect', { method: 'DELETE' });
       setSpotifyStatus({ connected: false });
     } finally {
       setDisconnectingSpotify(false);
@@ -538,7 +538,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
     autoSaveTimerRef.current = setTimeout(async () => {
       setSaving(true);
       try {
-        await fetch('/api/jarvis/settings', {
+        await fetch('/api/infinity/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
@@ -559,7 +559,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
   const handleManualSave = async () => {
     setSaving(true);
     try {
-      await fetch('/api/jarvis/settings', {
+      await fetch('/api/infinity/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -1575,7 +1575,7 @@ export function SettingsPanel({ open, onClose, theme = 'dark', onToggleTheme }: 
                         <button
                           onClick={async () => {
                             try {
-                              const res = await fetch('/api/jarvis/system-prompt');
+                              const res = await fetch('/api/infinity/system-prompt');
                               const data = await res.json();
                               toast({
                                 title: t('settings.promptPreview'),

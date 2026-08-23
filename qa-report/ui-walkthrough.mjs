@@ -1,5 +1,5 @@
 /**
- * UI walkthrough — verifies the Jarvis interface renders without errors and
+ * UI walkthrough — verifies the infinity-ai interface renders without errors and
  * that the new Deep Research feature is reachable.
  *
  * Usage:  node ui-walkthrough.mjs [--url http://localhost:5173] [--shots-dir ./shots]

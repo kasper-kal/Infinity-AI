@@ -45,9 +45,9 @@ const DEFAULT_CONFIG: EvolutionConfig = {
   allowedPaths: [
     "artifacts/api-server/src/lib/",
     "artifacts/api-server/src/routes/",
-    "artifacts/jarvis/src/components/",
-    "artifacts/jarvis/src/hooks/",
-    "artifacts/jarvis/src/utils/",
+    "artifacts/infinity/src/components/",
+    "artifacts/infinity/src/hooks/",
+    "artifacts/infinity/src/utils/",
   ],
   blockedPaths: [
     "artifacts/api-server/src/middlewares/auth.ts",

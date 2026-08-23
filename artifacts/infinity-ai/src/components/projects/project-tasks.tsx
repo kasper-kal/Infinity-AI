@@ -71,7 +71,7 @@ export function ProjectTasks({ projectId, onBack }: ProjectTasksProps) {
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/tasks`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/tasks`, { signal });
       if (!response.ok) throw new Error("Could not load tasks");
       setTasks(asTasks(await response.json()));
     } catch (requestError) {
@@ -96,7 +96,7 @@ export function ProjectTasks({ projectId, onBack }: ProjectTasksProps) {
     if (!title || busyId) return;
     setBusyId("__new__");
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/tasks`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, priority: newPriority }),
@@ -121,7 +121,7 @@ export function ProjectTasks({ projectId, onBack }: ProjectTasksProps) {
     const previous = task.status;
     setTasks((current) => current.map((t2) => (t2.id === task.id ? { ...t2, status: next } : t2)));
     try {
-      const response = await fetch(`/api/jarvis/tasks/${encodeURIComponent(task.id)}`, {
+      const response = await fetch(`/api/infinity/tasks/${encodeURIComponent(task.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: next }),
@@ -139,7 +139,7 @@ export function ProjectTasks({ projectId, onBack }: ProjectTasksProps) {
     if (busyId || !window.confirm(t("projectTasks.deleteConfirm"))) return;
     setBusyId(task.id);
     try {
-      const response = await fetch(`/api/jarvis/tasks/${encodeURIComponent(task.id)}`, { method: "DELETE" });
+      const response = await fetch(`/api/infinity/tasks/${encodeURIComponent(task.id)}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not delete task");
       setTasks((current) => current.filter((t2) => t2.id !== task.id));
     } catch {

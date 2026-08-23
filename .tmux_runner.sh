@@ -5,11 +5,11 @@
 # This script runs INSIDE the tmux pane.
 # It launches Claude Code in an endless loop.
 # When Claude crashes/exits, it just restarts.
-# The jarvis-launch.sh script handles sending "omniroute" and "go".
+# The infinity-ai-launch.sh script handles sending "omniroute" and "go".
 # ═════════════════════════════════════════════════════════════════
 
-LOG_FILE="/home/kasperkal1970/jarvis/.launch.log"
-PROJECT_DIR="/home/kasperkal1970/jarvis"
+LOG_FILE="/home/kasperkal1970/infinity-ai/.launch.log"
+PROJECT_DIR="/home/kasperkal1970/infinity-ai"
 
 echo "$(date) — 🚀 tmux runner started" >> "$LOG_FILE"
 cd "$PROJECT_DIR" || exit 1

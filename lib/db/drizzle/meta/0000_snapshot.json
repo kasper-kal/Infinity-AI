@@ -123,8 +123,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.jarvis_settings": {
-      "name": "jarvis_settings",
+    "public.infinity-ai_settings": {
+      "name": "infinity-ai_settings",
       "schema": "",
       "columns": {
         "key": {

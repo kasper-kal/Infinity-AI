@@ -3,8 +3,8 @@
  *
  *  GET  /api/infinity/projects/:id/tasks        list scoped tasks (newest first)
  *  POST /api/infinity/projects/:id/tasks        create a task
- *  PATCH /api/jarvis/tasks/:id                update title/description/priority/due/status
- *  DELETE /api/jarvis/tasks/:id               delete a task
+ *  PATCH /api/infinity/tasks/:id                update title/description/priority/due/status
+ *  DELETE /api/infinity/tasks/:id               delete a task
  *
  * Every handler resolves the owning project strictly by id; tasks are never
  * reachable outside their project.

@@ -46,7 +46,7 @@ interface ExportManifest {
 }
 
 /**
- * GET /api/jarvis/build/export/info/:projectId
+ * GET /api/infinity/build/export/info/:projectId
  * Get build export info (manifest with files, checkpoints, snapshots, telemetry count)
  */
 router.get("/build/export/info/:projectId", async (req: Request, res: Response) => {
@@ -119,7 +119,7 @@ router.get("/build/export/info/:projectId", async (req: Request, res: Response) 
 });
 
 /**
- * POST /api/jarvis/build/export/zip/:projectId
+ * POST /api/infinity/build/export/zip/:projectId
  * Export full build (source + checkpoints + snapshots + telemetry) as ZIP archive
  */
 router.post("/build/export/zip/:projectId", async (req: Request, res: Response) => {
@@ -225,7 +225,7 @@ router.post("/build/export/zip/:projectId", async (req: Request, res: Response) 
 });
 
 /**
- * POST /api/jarvis/build/export/tar-gz/:projectId
+ * POST /api/infinity/build/export/tar-gz/:projectId
  * Export full build as tar.gz archive
  */
 router.post("/build/export/tar-gz/:projectId", async (req: Request, res: Response) => {
@@ -332,7 +332,7 @@ router.post("/build/export/tar-gz/:projectId", async (req: Request, res: Respons
 });
 
 /**
- * POST /api/jarvis/build/share/:projectId
+ * POST /api/infinity/build/share/:projectId
  * Create a shareable read-only link (signed URL with 7-day expiry)
  */
 router.post("/build/share/:projectId", async (req: Request, res: Response) => {
@@ -371,7 +371,7 @@ router.post("/build/share/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/build/shared/:shareToken
+ * GET /api/infinity/build/shared/:shareToken
  * Access a shared build (read-only, no auth required if token valid and not expired)
  */
 router.get("/build/shared/:shareToken", async (req: Request, res: Response) => {
@@ -399,7 +399,7 @@ router.get("/build/shared/:shareToken", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/build/clone/:projectId
+ * POST /api/infinity/build/clone/:projectId
  * Clone a build into a new project from a checkpoint
  */
 router.post("/build/clone/:projectId", async (req: Request, res: Response) => {

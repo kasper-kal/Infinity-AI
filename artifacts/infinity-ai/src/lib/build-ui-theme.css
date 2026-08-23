@@ -24,7 +24,7 @@
   --build-sheet-expanded: 90%;  /* 90% of viewport */
   --build-sheet-handle-height: 6px;
 
-  /* ===== Color Tokens (semantic, mapped to Jarvis theme) ===== */
+  /* ===== Color Tokens (semantic, mapped to Infinity theme) ===== */
   --build-bg: var(--color-background);
   --build-bg-elevated: var(--color-card);
   --build-bg-hover: var(--color-secondary);
@@ -121,9 +121,9 @@
   --build-safe-right: env(safe-area-inset-right, 0);
 }
 
-/* ===== Dark Mode (Jarvis uses .dark class on html) ===== */
+/* ===== Dark Mode (Infinity uses .dark class on html) ===== */
 .dark {
-  /* Inherits from Jarvis's dark theme via existing CSS variables */
+  /* Inherits from Infinity's dark theme via existing CSS variables */
   /* These are already set in index.css via :root and .dark */
 }
 

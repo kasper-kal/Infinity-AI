@@ -4,12 +4,12 @@ import { fileTypeFromBuffer } from "file-type";
 import { extractRawText } from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { randomUUID } from "node:crypto";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 import {
   db,
   conversations,
   messages,
-  jarvisSettings,
+  infinitySettings,
   userMemories,
   projectMemories,
   spotifyTokens,
@@ -84,7 +84,7 @@ function detectAutoPersonality(userMessage: string): string {
   return "balanced";
 }
 
-/** AI Self-Action: Allow Jarvis to announce a personality change. */
+/** AI Self-Action: Allow infinity to announce a personality change. */
 const PERSONALITY_CHANGE_MESSAGES: Record<string, string> = {
   talkative: " (I'm switching to chatty mode, let's keep the conversation flowing!)",
   helpful: " (I'm switching to work mode, ready to help you build.)",
@@ -98,7 +98,7 @@ function detectScreenShareRequest(text: string): boolean {
   const t = text.toLowerCase().trim();
   return /(start|begin|activate|enable)\s+(screen\s+)?(share|sharing|screen\s+share)/i.test(t)
     || /share\s+(my\s+)?screen/i.test(t)
-    || /(let|have)\s+(me|jarvis)\s+see\s+(your\s+)?screen/i.test(t)
+    || /(let|have)\s+(me|infinity)\s+see\s+(your\s+)?screen/i.test(t)
     || /screen\s+(share|sharing)/i.test(t);
 }
 
@@ -278,7 +278,7 @@ function detectImageRequest(text: string): { isImageRequest: boolean; imagePromp
     /^(draw|generate|create|make|paint)\s+(me\s+)?(a\s+|an\s+|some\s+)?(picture|image|photo|art|drawing|illustration|sketch|meme|icon|logo|graphic|visual|artwork)/i,
     /(draw|generate|create|make|paint)\s+(an\s+|a\s+)?(image|picture|photo|art|illustration|drawing|sketch)/i,
     /^(draw|generate|create|make|paint)\s/,
-    /^how\s+(would|does)\s+(you|jarvis)\s+(draw|make|create|generate)\s/i,
+    /^how\s+(would|does)\s+(you|infinity)\s+(draw|make|create|generate)\s/i,
   ];
 
   for (const pattern of imagePatterns) {
@@ -318,7 +318,7 @@ async function detectMapsCommand(text: string): Promise<{ shouldTrigger: boolean
   }
 }
 
-/** Detect if the user is asking to enter Jarvis Build (set up / build / run a project). */
+/** Detect if the user is asking to enter infinity Build (set up / build / run a project). */
 function detectBuildModeRequest(text: string): boolean {
   const t = text.trim().toLowerCase();
   return (
@@ -399,7 +399,7 @@ function sanitizeInput(text: string): string {
 
 /**
  * ChatGPT-grade system prompt used in CHAT MODE. The voice prompt
- * (jarvisConfig.systemPrompt) is tuned for spoken 1-3 sentence replies —
+ * (infinityConfig.systemPrompt) is tuned for spoken 1-3 sentence replies —
  * using it for chat made every typed answer terse. Chat gets its own
  * thorough, markdown-capable prompt instead.
  */
@@ -591,7 +591,7 @@ function tryParseToolDispatch(text: string): { path: string } | { path: string; 
 }
 
 async function getSettings(): Promise<Record<string, string>> {
-  const rows = await db.select().from(jarvisSettings);
+  const rows = await db.select().from(infinitySettings);
   const map: Record<string, string> = {};
   for (const row of rows) map[row.key] = row.value;
   return map;
@@ -599,7 +599,7 @@ async function getSettings(): Promise<Record<string, string>> {
 
 /**
  * The REAL status of every external integration, checked against the DB and
- * env, injected into the system prompt so Jarvis never fakes data it can't
+ * env, injected into the system prompt so infinity never fakes data it can't
  * fetch (no more invented Spotify songs or made-up calendar events).
  */
 async function getConnectedCapabilities(settings: Record<string, string>): Promise<string> {
@@ -981,7 +981,7 @@ async function extractFileText(
 
 /** Middleware: require either session auth or valid API key */
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const hasSession = !!(req as any).accountId || req.cookies?.jarvis_session;
+  const hasSession = !!(req as any).accountId || req.cookies?.infinity_session;
   const hasApiKey = !!(req as any).apiKeyInfo;
   if (!hasSession && !hasApiKey) {
     res.status(401).json({ error: "Authentication required (session or API key)" });
@@ -1002,7 +1002,7 @@ router.post("/chat", requireAuth, async (req, res) => {
 
   // Extract userId from session cookie if available
   let userId: string | null = null;
-  const sessionToken = req.cookies?.jarvis_session;
+  const sessionToken = req.cookies?.infinity_session;
   if (sessionToken) {
     const [session] = await db
       .select({ accountId: sessions.accountId, expiresAt: sessions.expiresAt })
@@ -1035,7 +1035,7 @@ router.post("/chat", requireAuth, async (req, res) => {
     webSearchEnabled?: string;
     responseStyle?: 'chat' | 'voice';
     allowSourceCode?: string;
-    /** Jarvis Build, Jarvis may run commands in the sandboxed Linux workspace shell ("true"). */
+    /** infinity Build, infinity may run commands in the sandboxed Linux workspace shell ("true"). */
     allowBuildMode?: string;
     /** Voice-mode emotion label from the client's prosody analysis (e.g. "frustrated") */
     emotion?: string;
@@ -1160,9 +1160,9 @@ router.post("/chat", requireAuth, async (req, res) => {
       if (detected !== lastAuto) {
         // Persist the change so it persists across messages (best-effort)
         // Use direct DB update instead of a fetch call (we're already in the server)
-        db.insert(jarvisSettings)
+        db.insert(infinitySettings)
           .values({ key: "auto_personality", value: detected, updatedAt: new Date() })
-          .onConflictDoUpdate({ target: jarvisSettings.key, set: { value: detected, updatedAt: new Date() } })
+          .onConflictDoUpdate({ target: infinitySettings.key, set: { value: detected, updatedAt: new Date() } })
           .catch(() => {});
       }
     }
@@ -1187,9 +1187,9 @@ router.post("/chat", requireAuth, async (req, res) => {
       : "You are in VOICE MODE. Keep responses short, natural, and conversational, ideally 1-3 sentences. No markdown formatting since this will be spoken aloud. Be concise and direct.";
 
     // When personality is "custom", the user's prompt IS the entire system
-    // prompt, it fully replaces the Jarvis base instructions.
+    // prompt, it fully replaces the infinity base instructions.
     // Expert conversations (created via /conversations/expert or spawned by deep research)
-    // also carry their own expert system prompt, which replaces the default Jarvis instructions.
+    // also carry their own expert system prompt, which replaces the default infinity instructions.
     const basePrompt =
       personalitySetting === "custom" && customPrompt
         ? customPrompt
@@ -1197,7 +1197,7 @@ router.post("/chat", requireAuth, async (req, res) => {
           ? convRow.systemPrompt
           : style === "chat"
             ? CHAT_SYSTEM_PROMPT
-            : jarvisConfig.systemPrompt;
+            : infinityConfig.systemPrompt;
     const useBuildMode = allowBuildMode === 'true';
     const systemParts = [basePrompt];
     // Only append a personality modifier for non-custom modes
@@ -1573,7 +1573,7 @@ router.post("/chat", requireAuth, async (req, res) => {
         res.write(`data: ${JSON.stringify({
           type: "screen_share_detected",
           action: "share",
-          confirmationMessage: "Do you want to share your screen with Jarvis?",
+          confirmationMessage: "Do you want to share your screen with infinity?",
         })}\n\n`);
       } else {
         res.write(`data: ${JSON.stringify({
@@ -1630,7 +1630,7 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── Agent browser auto-detect ─────────────────────────────────
-    // Voice mode: "Jarvis, search for X" opens the PiP browser agent loop.
+    // Voice mode: "infinity, search for X" opens the PiP browser agent loop.
     // Chat mode: the request flows through the normal LLM path (agent mode
     // is handled via the agentMode flag), no browser theater, real answers.
     const agentCheck = detectAgentBrowserRequest(sanitizedMessage);
@@ -1659,7 +1659,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       });
       res.write(`data: ${JSON.stringify({
         type: "screen_share_detected",
-        confirmationMessage: "Do you want to share your screen with Jarvis?",
+        confirmationMessage: "Do you want to share your screen with infinity?",
       })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
@@ -1684,7 +1684,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       return;
     }
 
-    // ── Jarvis Build auto-detect ─────────────────────────────────────
+    // ── infinity Build auto-detect ─────────────────────────────────────
     // "build me an app" / "enter build mode" → confirm first (unless already
     // confirmed this request via allowBuildMode=true), then open the terminal.
     const buildCheck = detectBuildModeRequest(sanitizedMessage);
@@ -1696,7 +1696,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       });
       res.write(`data: ${JSON.stringify({
         type: "build_mode_detected",
-        confirmationMessage: "Open Jarvis Build? Jarvis will get a Linux terminal and workspace to set up the project for you.",
+        confirmationMessage: "Open infinity Build? infinity will get a Linux terminal and workspace to set up the project for you.",
       })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
@@ -1826,7 +1826,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       return;
     }
 
-    // ── Tool calling: Jarvis can read his own source code (read-only) ──
+    // ── Tool calling: infinity can read his own source code (read-only) ──
     // Stream the first pass WITH the read_source_code tool. If the model
     // decides to inspect code it emits tool_calls instead of text, we then
     // execute the calls and stream a final answer. If the provider rejects
@@ -1968,7 +1968,7 @@ router.post("/chat", requireAuth, async (req, res) => {
           fullResponse = final.text;
           totalTokens += final.totalTokens;
         } else if (dispatch && "commands" in dispatch) {
-          // Jarvis Build, the model asked to run terminal commands. Execute
+          // infinity Build, the model asked to run terminal commands. Execute
           // them in the sandboxed workspace and stream the real answer with
           // the command output available as context. Each command is also
           // streamed to the UI as a clean minimal card (command + output).
@@ -2040,7 +2040,7 @@ router.post("/chat", requireAuth, async (req, res) => {
     const response = fullResponse;
 
     // Signal end of stream, include an auto-follow-up task when the
-    // response contains "NEXT: <task>" (Jarvis Build multi-step workflow).
+    // response contains "NEXT: <task>" (infinity Build multi-step workflow).
     const followUpMatch = response.match(/NEXT:\s*(.+?)(?:\n|$)/i);
     const followUp = followUpMatch ? followUpMatch[1].trim().slice(0, 200) : null;
     res.write(`data: ${JSON.stringify({
@@ -2053,7 +2053,7 @@ router.post("/chat", requireAuth, async (req, res) => {
     // Persist assistant reply + generate suggestions in parallel (fire-and-forget after stream ends)
     Promise.all([
       generateSuggestions(response),
-      // Generate an auto-follow-up task when Jarvis indicates one (contains "NEXT:")
+      // Generate an auto-follow-up task when infinity indicates one (contains "NEXT:")
       (() => {
         const m = response.match(/NEXT:\s*(.+?)(?:\n|$)/i);
         return Promise.resolve(m ? m[1].trim().slice(0, 200) : null);
@@ -2120,7 +2120,7 @@ router.post("/chat", requireAuth, async (req, res) => {
           try {
             res.write(`data: ${JSON.stringify({
               type: "local_model_available",
-              message: "Jarvis is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.",
+              message: "infinity is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.",
               model: "qwen2.5:1.5b-instruct",
               capabilities: {
                 streaming: true,
@@ -2135,9 +2135,9 @@ router.post("/chat", requireAuth, async (req, res) => {
             // Socket already closed
           }
         }
-        msg = "Jarvis is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.";
+        msg = "infinity is recharging. All AI providers are cooling down. Local model (Qwen2.5-1.5B) is available as fallback.";
       } else {
-        msg = "Jarvis is recharging. All AI providers are cooling down. Try again in about 45 minutes.";
+        msg = "infinity is recharging. All AI providers are cooling down. Try again in about 45 minutes.";
       }
     } else if (err instanceof Error) {
       const em = err.message;

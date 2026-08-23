@@ -12,7 +12,7 @@ export interface FigmaTokenCard {
   colors: { hex: string; rgba: string; count: number }[];
 }
 
-const EMBED_BASE = 'https://www.figma.com/embed?embed_host=jarvis&url=';
+const EMBED_BASE = 'https://www.figma.com/embed?embed_host=Infinity&url=';
 
 export function FigmaWidget({ data }: { data: FigmaTokenCard }) {
   const [expanded, setExpanded] = useState(false);

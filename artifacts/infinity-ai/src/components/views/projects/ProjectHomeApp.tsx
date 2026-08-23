@@ -131,7 +131,7 @@ export function ProjectHomeApp({
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/home`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/home`);
       if (!response.ok) throw new Error('Project home request failed');
       setPayload(await response.json() as ProjectHomePayload);
     } catch {
@@ -143,7 +143,7 @@ export function ProjectHomeApp({
 
   const loadActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
       if (!response.ok) throw new Error('Project activity request failed');
       const data = await response.json();
       const activity = Array.isArray(data.activity) ? data.activity : [];

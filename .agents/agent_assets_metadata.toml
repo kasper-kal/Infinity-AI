@@ -3,34 +3,34 @@ generated = []
 
 [[outputs]]
 id = "lVzjCZSiLrhZQ9uj_M6Jb"
-uri = "file://screenshots/jarvis-home-mobile-402.jpg"
+uri = "file://screenshots/infinity-ai-home-mobile-402.jpg"
 type = "image"
-title = "Jarvis mobile home (after layout fixes)"
+title = "infinity-ai mobile home (after layout fixes)"
 
 [[outputs]]
 id = "KzoLzhW0o9bwHzvRghLQl"
-uri = "file://screenshots/jarvis-home-desktop-1280.jpg"
+uri = "file://screenshots/infinity-ai-home-desktop-1280.jpg"
 type = "image"
-title = "Jarvis desktop home (after layout fixes)"
+title = "infinity-ai desktop home (after layout fixes)"
 
 [[outputs]]
 id = "kAomwkktcEeD-kfpoVK38"
-uri = "file://screenshots/jarvis-home-desktop-after-title.jpg"
+uri = "file://screenshots/infinity-ai-home-desktop-after-title.jpg"
 type = "image"
-title = "Jarvis conversation sidebar (clean titles)"
+title = "infinity-ai conversation sidebar (clean titles)"
 
 [[outputs]]
 id = "m9ywpCUCCU87bzndWwjRw"
-uri = "file://qa-report/JARVIS-QA-REPORT.md"
+uri = "file://qa-report/infinity-ai-QA-REPORT.md"
 type = "text"
-title = "Jarvis QA Walkthrough Report"
+title = "infinity-ai QA Walkthrough Report"
 description = "Comprehensive non-destructive walkthrough report with confirmed issues, reproduction steps, likely causes, recommended files, severity, coverage limits, and screenshot evidence."
 
 [[outputs]]
 id = "eWUhbpcUCXFR8iIaCqSJV"
-uri = "file://qa-report/JARVIS-COMPLETE-AUDIT.txt"
+uri = "file://qa-report/infinity-ai-COMPLETE-AUDIT.txt"
 type = "text"
-title = "Jarvis Complete Website Audit"
+title = "infinity-ai Complete Website Audit"
 description = "Full QA audit covering verified control clicks, screenshots, confirmed defects, unverified provider-dependent flows, recommendations, likes, dislikes, and final verdict."
 
 [[outputs]]

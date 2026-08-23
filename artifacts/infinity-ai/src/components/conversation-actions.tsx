@@ -22,7 +22,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
 
   useEffect(() => {
     if (!conversationId) return;
-    fetch(`/api/jarvis/conversations/${conversationId}/pin`).then((res) => res.ok ? res.json() : null).then((data) => data && setPinned(Boolean(data.pinned))).catch(() => {});
+    fetch(`/api/infinity/conversations/${conversationId}/pin`).then((res) => res.ok ? res.json() : null).then((data) => data && setPinned(Boolean(data.pinned))).catch(() => {});
   }, [conversationId]);
 
   if (!conversationId) return null;
@@ -30,7 +30,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
   const toggleMenu = () => { setOpen((value) => !value); if (open) setPanel(null); };
 
   const exportChat = async () => {
-    const response = await fetch(`/api/jarvis/conversations/${conversationId}`);
+    const response = await fetch(`/api/infinity/conversations/${conversationId}`);
     if (!response.ok) return;
     const data = await response.json();
     const text = [`# ${data.title}`, '', ...(data.messages ?? []).map((message: ChatMessage) => `${message.role.toUpperCase()}\n${message.content}`)].join('\n\n');
@@ -43,7 +43,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
   };
 
   const shareChat = async () => {
-    const response = await fetch(`/api/jarvis/conversations/${conversationId}/share`, { method: 'POST' });
+    const response = await fetch(`/api/infinity/conversations/${conversationId}/share`, { method: 'POST' });
     if (!response.ok) return;
     const data = await response.json();
     const url = `${window.location.origin}${data.url}`;
@@ -53,7 +53,7 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
   };
 
   const togglePin = async () => {
-    const response = await fetch(`/api/jarvis/conversations/${conversationId}/pin`, { method: 'POST' });
+    const response = await fetch(`/api/infinity/conversations/${conversationId}/pin`, { method: 'POST' });
     if (response.ok) setPinned(Boolean((await response.json()).pinned));
     setOpen(false);
   };
@@ -65,19 +65,19 @@ export function ConversationActions({ conversationId }: ConversationActionsProps
   };
 
   const showSearch = async () => {
-    const response = await fetch(`/api/jarvis/conversations/${conversationId}`);
+    const response = await fetch(`/api/infinity/conversations/${conversationId}`);
     if (response.ok) setMessages((await response.json()).messages ?? []);
     setPanel('search');
   };
 
   const showProjects = async () => {
-    const response = await fetch('/api/jarvis/projects');
+    const response = await fetch('/api/infinity/projects');
     if (response.ok) setProjects(await response.json());
     setPanel('project');
   };
 
   const addToProject = async (projectId: string) => {
-    await fetch(`/api/jarvis/projects/${projectId}/chats`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId }) });
+    await fetch(`/api/infinity/projects/${projectId}/chats`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId }) });
     setOpen(false);
     setPanel(null);
   };

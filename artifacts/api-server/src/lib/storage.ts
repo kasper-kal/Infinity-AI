@@ -22,7 +22,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { filesDb, files } from "@workspace/db";
 
 export type FileKind = "image" | "document" | "audio" | "build-app" | "code";
-export type FileOwner = "user" | "jarvis" | "account";
+export type FileOwner = "user" | "infinity" | "account";
 
 export interface FileBlob {
   key: string;

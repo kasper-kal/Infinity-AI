@@ -175,7 +175,7 @@ async function runHeadlessBuild(options: HeadlessBuildOptions): Promise<unknown>
     if (spinner) spinner.text = "Sending build request...";
 
     // Use the scaffold endpoint for new builds, iterate for existing
-    const endpoint = options.plan ? "/api/jarvis/build/scaffold" : "/api/jarvis/build/iterate";
+    const endpoint = options.plan ? "/api/infinity-ai/build/scaffold" : "/api/infinity-ai/build/iterate";
 
     const response = await apiClient.post(endpoint, payload);
 
@@ -250,7 +250,7 @@ async function runPlan(options: BuildOptions): Promise<unknown> {
       payload.plan = options.plan;
     }
 
-    const response = await apiClient.post("/api/jarvis/build/plan", payload);
+    const response = await apiClient.post("/api/infinity-ai/build/plan", payload);
 
     if (spinner) spinner.succeed("Plan created");
 
@@ -279,7 +279,7 @@ async function runAsk(options: BuildOptions): Promise<unknown> {
       throw new Error("Build prompt is required (--prompt or -p)");
     }
 
-    const response = await apiClient.post("/api/jarvis/build/ask", { prompt });
+    const response = await apiClient.post("/api/infinity-ai/build/ask", { prompt });
 
     if (spinner) spinner.succeed("Analysis complete");
 
@@ -302,7 +302,7 @@ async function runStatus(options: GlobalOptions): Promise<unknown> {
   try {
     const projectId = options.projectId || "default";
 
-    const response = await apiClient.get(`/api/jarvis/build/apps`, {
+    const response = await apiClient.get(`/api/infinity-ai/build/apps`, {
       params: { projectId },
     });
 
@@ -326,26 +326,26 @@ async function runCheckpoint(options: GlobalOptions & { action: "list" | "create
 
     switch (options.action) {
       case "list": {
-        const response = await apiClient.get(`/api/jarvis/build/checkpoints`, {
+        const response = await apiClient.get(`/api/infinity-ai/build/checkpoints`, {
           params: { projectId },
         });
         outputJson(response.data);
         return response.data;
       }
       case "create": {
-        const response = await apiClient.post(`/api/jarvis/build/checkpoints`, { projectId });
+        const response = await apiClient.post(`/api/infinity-ai/build/checkpoints`, { projectId });
         outputJson(response.data);
         return response.data;
       }
       case "restore": {
         if (!options.id) throw new Error("Checkpoint ID required for restore");
-        const response = await apiClient.post(`/api/jarvis/build/checkpoints/${options.id}/restore`, { projectId });
+        const response = await apiClient.post(`/api/infinity-ai/build/checkpoints/${options.id}/restore`, { projectId });
         outputJson(response.data);
         return response.data;
       }
       case "delete": {
         if (!options.id) throw new Error("Checkpoint ID required for delete");
-        const response = await apiClient.delete(`/api/jarvis/build/checkpoints/${options.id}`, {
+        const response = await apiClient.delete(`/api/infinity-ai/build/checkpoints/${options.id}`, {
           params: { projectId },
         });
         outputJson(response.data);
@@ -363,7 +363,7 @@ async function runBudget(options: GlobalOptions & { action: "status" | "set"; li
 
     switch (options.action) {
       case "status": {
-        const response = await apiClient.get(`/api/jarvis/build/budget/status`, {
+        const response = await apiClient.get(`/api/infinity-ai/build/budget/status`, {
           params: { projectId },
         });
         outputJson(response.data);
@@ -372,7 +372,7 @@ async function runBudget(options: GlobalOptions & { action: "status" | "set"; li
       case "set": {
         if (!options.limits) throw new Error("Budget limits required (JSON string)");
         const limits = JSON.parse(options.limits);
-        const response = await apiClient.post(`/api/jarvis/build/budget/set`, { projectId, ...limits });
+        const response = await apiClient.post(`/api/infinity-ai/build/budget/set`, { projectId, ...limits });
         outputJson(response.data);
         return response.data;
       }
@@ -388,26 +388,26 @@ async function runSnapshot(options: GlobalOptions & { action: "list" | "create" 
 
     switch (options.action) {
       case "list": {
-        const response = await apiClient.get(`/api/jarvis/build/snapshots`, {
+        const response = await apiClient.get(`/api/infinity-ai/build/snapshots`, {
           params: { projectId },
         });
         outputJson(response.data);
         return response.data;
       }
       case "create": {
-        const response = await apiClient.post(`/api/jarvis/build/snapshots`, { projectId });
+        const response = await apiClient.post(`/api/infinity-ai/build/snapshots`, { projectId });
         outputJson(response.data);
         return response.data;
       }
       case "restore": {
         if (!options.id) throw new Error("Snapshot ID required for restore");
-        const response = await apiClient.post(`/api/jarvis/build/snapshots/${options.id}/restore`, { projectId });
+        const response = await apiClient.post(`/api/infinity-ai/build/snapshots/${options.id}/restore`, { projectId });
         outputJson(response.data);
         return response.data;
       }
       case "delete": {
         if (!options.id) throw new Error("Snapshot ID required for delete");
-        const response = await apiClient.delete(`/api/jarvis/build/snapshots/${options.id}`, {
+        const response = await apiClient.delete(`/api/infinity-ai/build/snapshots/${options.id}`, {
           params: { projectId },
         });
         outputJson(response.data);

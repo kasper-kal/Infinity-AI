@@ -107,7 +107,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
 
         try {
           // Execute via terminal API
-          const response = await fetch('/api/jarvis/terminal', {
+          const response = await fetch('/api/infinity/terminal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

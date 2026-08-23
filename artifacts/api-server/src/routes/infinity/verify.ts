@@ -75,7 +75,7 @@ function keywordOverlap(claim: string, snippets: string[]): number {
 }
 
 /**
- * POST /api/jarvis/verify { text }
+ * POST /api/infinity/verify { text }
  * Fact-check an assistant message against the live web (Tavily).
  */
 router.post("/verify", async (req, res) => {

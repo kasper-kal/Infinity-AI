@@ -41,7 +41,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
     setMembers([]);
     setCode(null);
     if (!conversationId) return;
-    fetch(`/api/jarvis/groups/by-conversation/${conversationId}`)
+    fetch(`/api/infinity/groups/by-conversation/${conversationId}`)
       .then(async (response) => response.ok ? response.json() : null)
       .then((data) => {
         if (!data?.group) return;
@@ -57,7 +57,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
   if (!conversationId) return null;
 
   const loadGroup = async () => {
-    const response = await fetch(`/api/jarvis/groups/by-conversation/${conversationId}`);
+    const response = await fetch(`/api/infinity/groups/by-conversation/${conversationId}`);
     if (!response.ok) return;
     const data = await response.json();
     setGroup(data.group);
@@ -71,7 +71,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/jarvis/groups', {
+      const response = await fetch('/api/infinity/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversationId, name: name.trim() || 'New group', kind }),
@@ -91,7 +91,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/jarvis/groups/${group.id}`, {
+      const response = await fetch(`/api/infinity/groups/${group.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), aiToggle }),
@@ -110,7 +110,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/jarvis/groups/join', {
+      const response = await fetch('/api/infinity/groups/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: joinCode, email: joinEmail, password: joinPassword, displayName: joinName }),
@@ -132,7 +132,7 @@ export function GroupSettings({ conversationId }: GroupSettingsProps) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/jarvis/groups/${group.id}/invite`, { method: 'POST' });
+      const response = await fetch(`/api/infinity/groups/${group.id}/invite`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'Could not create invite');
       setCode(data.code);

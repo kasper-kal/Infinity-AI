@@ -1,7 +1,7 @@
-# Complete Page Inventory — Infinity AI / Jarvis
+# Complete Page Inventory — Infinity AI / Infinity
 
 **Generated:** 2026-08-20  
-**Source:** `/workspaces/Infinity-AI/artifacts/jarvis/src/**`
+**Source:** `/workspaces/Infinity-AI/artifacts/Infinity/src/**`
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 1. Main Entry Point: `home.tsx`
 
-**File:** `artifacts/jarvis/src/pages/home.tsx` (1,681 lines)
+**File:** `artifacts/Infinity/src/pages/home.tsx` (1,681 lines)
 
 The root component that orchestrates the entire application. It manages all global state and renders the appropriate view based on `mode`.
 
@@ -61,9 +61,9 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 2. Chat Mode — Primary Chat Interface
 
-**Component:** `ChatModeView` (in `artifacts/jarvis/src/components/home/chat-mode-view.tsx`)
-**Composer:** `ChatComposer` (in `artifacts/jarvis/src/components/home/chat-composer.tsx`)
-**Feed:** `ConversationFeed` (in `artifacts/jarvis/src/components/conversation-feed.tsx`)
+**Component:** `ChatModeView` (in `artifacts/Infinity/src/components/home/chat-mode-view.tsx`)
+**Composer:** `ChatComposer` (in `artifacts/Infinity/src/components/home/chat-composer.tsx`)
+**Feed:** `ConversationFeed` (in `artifacts/Infinity/src/components/conversation-feed.tsx`)
 
 ### 2A. New Chat (Empty State)
 **Trigger:** Fresh load, or "New Chat" button clicked
@@ -113,7 +113,7 @@ The root component that orchestrates the entire application. It manages all glob
 - **Behavior differences from regular + menu:**
   - Only **Tools** section visible by default (filtered by query)
   - Other sections hidden unless query matches their labels
-  - Enter key selects first match (dispatches `jarvis-plugin-action` event)
+  - Enter key selects first match (dispatches `Infinity-plugin-action` event)
   - Updates live as user types after `@`
   - Coordinates tracked from textarea caret position
 - **Actions available via @:** thinking, agent-mode, web-search, screen-share, build-mode, research, data-lab
@@ -122,7 +122,7 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 3. Voice Mode — Full-Screen Voice Assistant
 
-**Component:** `VoiceModeView` (`artifacts/jarvis/src/components/home/voice-mode-view.tsx`)
+**Component:** `VoiceModeView` (`artifacts/Infinity/src/components/home/voice-mode-view.tsx`)
 
 ### Visual Layout
 - **Full-screen**, no header, no sidebar
@@ -131,7 +131,7 @@ The root component that orchestrates the entire application. It manages all glob
   - Pulse/ripple when recording
   - Waveform bars when speaking
   - Color shifts by `voiceEmotion` (neutral, happy, sad, angry, calm, excited)
-- **Status text** below orb: "Listening...", "Thinking...", "Speaking...", "Say 'Hey Jarvis'"
+- **Status text** below orb: "Listening...", "Thinking...", "Speaking...", "Say 'Hey Infinity'"
 - **Active timers** displayed as pills with pause/cancel
 - **Active widget** card (if any) — e.g., weather, timer, music
 - **Bottom toolbar:** 
@@ -145,7 +145,7 @@ The root component that orchestrates the entire application. It manages all glob
 ### States
 | Status | Orb Visual | Text |
 |--------|-----------|------|
-| `idle` / `wake` | Breathing, subtle glow | "Say 'Hey Jarvis'" |
+| `idle` / `wake` | Breathing, subtle glow | "Say 'Hey Infinity'" |
 | `recording` | Pulse rings, amplitude bars | "Listening..." |
 | `thinking` | Rotating, processing animation | "Thinking..." |
 | `speaking` | Waveform bars synced to audio | "Speaking..." + stop button |
@@ -155,7 +155,7 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 4. Camera Mode — Object Detection
 
-**Component:** `CameraModeView` (`artifacts/jarvis/src/components/home/camera-mode-view.tsx`)
+**Component:** `CameraModeView` (`artifacts/Infinity/src/components/home/camera-mode-view.tsx`)
 
 ### Visual Layout
 - **Full-screen** camera feed (`<video>` element)
@@ -168,7 +168,7 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 5. Settings View
 
-**Component:** `SettingsView` (`artifacts/jarvis/src/components/views/SettingsView.tsx`)
+**Component:** `SettingsView` (`artifacts/Infinity/src/components/views/SettingsView.tsx`)
 
 ### Desktop Layout
 - **AppShell** with collapsible sidebar (240px)
@@ -197,7 +197,7 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 6. Build Studio / Build View
 
-**Component:** `BuildView` (`artifacts/jarvis/src/components/views/BuildView.tsx`)
+**Component:** `BuildView` (`artifacts/Infinity/src/components/views/BuildView.tsx`)
 
 ### Desktop Layout
 - **AppShell** with left sidebar (280px) + right sidebar (320px, collapsible)
@@ -224,7 +224,7 @@ The root component that orchestrates the entire application. It manages all glob
 ## 7. Projects View & Project Home Variants
 
 ### 7A. Projects View (Gallery)
-**Component:** `ProjectsView` (`artifacts/jarvis/src/components/views/ProjectsView.tsx`)
+**Component:** `ProjectsView` (`artifacts/Infinity/src/components/views/ProjectsView.tsx`)
 
 #### Desktop
 - **AppShell** with sidebar (project list with status badges)
@@ -239,8 +239,8 @@ The root component that orchestrates the entire application. It manages all glob
 - **Bottom nav:** Gallery / List (opens filter sheet) / Create
 
 ### 7B. Project Home Router
-**Component:** `ProjectHomeRouter` (`artifacts/jarvis/src/components/projects/project-home-router.tsx`)
-- Fetches project type from API (`/api/jarvis/projects/:id`)
+**Component:** `ProjectHomeRouter` (`artifacts/Infinity/src/components/projects/project-home-router.tsx`)
+- Fetches project type from API (`/api/Infinity/projects/:id`)
 - Routes to appropriate variant based on `project.type`
 
 ### 7C. Project Home Variants (6 Types)
@@ -277,7 +277,7 @@ The root component that orchestrates the entire application. It manages all glob
 
 ## 8. Terminal View
 
-**Component:** `TerminalView` (`artifacts/jarvis/src/components/views/TerminalView.tsx`)
+**Component:** `TerminalView` (`artifacts/Infinity/src/components/views/TerminalView.tsx`)
 
 ### Desktop
 - **AppShell** with sidebar (280px)
@@ -325,7 +325,7 @@ All rendered via `AppOverlays` component in `home.tsx`:
 
 ## 10. Plus Menu States
 
-**Component:** `PlusMenu` (`artifacts/jarvis/src/components/plus-menu.tsx`)
+**Component:** `PlusMenu` (`artifacts/Infinity/src/components/plus-menu.tsx`)
 
 ### Two Distinct Modes
 
@@ -361,7 +361,7 @@ All rendered via `AppOverlays` component in `home.tsx`:
 └─────────────────────────┘
 ```
 - **Other sections hidden** unless query matches (e.g., type `@stud` → Studios shows)
-- **Enter** selects first match, dispatches `jarvis-plugin-action` event
+- **Enter** selects first match, dispatches `Infinity-plugin-action` event
 - **Escape** closes
 
 ### Positioning Logic
@@ -374,7 +374,7 @@ All rendered via `AppOverlays` component in `home.tsx`:
 
 ## 11. Command Palette (Cmd+K)
 
-**Component:** `CommandPalette` (`artifacts/jarvis/src/components/command-palette.tsx`)
+**Component:** `CommandPalette` (`artifacts/Infinity/src/components/command-palette.tsx`)
 
 ### Trigger
 - `Ctrl+K` / `Cmd+K` anywhere
@@ -383,7 +383,7 @@ All rendered via `AppOverlays` component in `home.tsx`:
 - **Centered modal** with backdrop blur
 - **Search input** at top (auto-focused)
 - **Results sections:**
-  1. **Memory** — Conversation search (debounced API call to `/api/jarvis/conversations/search`)
+  1. **Memory** — Conversation search (debounced API call to `/api/Infinity/conversations/search`)
   2. **Actions** — Filtered by query (fuzzy substring match)
 - **Keyboard:** ↑/↓ navigate, Enter select, Escape close
 - **Footer quick actions:** New Chat, Toggle Web Search, Toggle Theme, Settings
@@ -508,4 +508,4 @@ Design │ Music │ Book │ Palette │ PiP Browser │ Error Details
 
 ---
 
-*This inventory reflects the codebase state as of 2026-08-20. All paths relative to `/workspaces/Infinity-AI/artifacts/jarvis/src/`.*
+*This inventory reflects the codebase state as of 2026-08-20. All paths relative to `/workspaces/Infinity-AI/artifacts/Infinity/src/`.*

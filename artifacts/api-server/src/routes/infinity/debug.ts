@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { pooledClient } from "../../lib/llm-client";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 import { cleanText, parseJsonObject } from "../../lib/text-utils";
 import { createBestAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt } from "../../lib/infinity-prompt";

@@ -2,8 +2,8 @@ import puppeteer from "puppeteer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const url = process.env.JARVIS_QA_URL || "http://localhost:21662/";
-const outDir = process.env.JARVIS_QA_OUT || "./qa-report/crucial-flows";
+const url = process.env.infinity-ai_QA_URL || "http://localhost:21662/";
+const outDir = process.env.infinity-ai_QA_OUT || "./qa-report/crucial-flows";
 mkdirSync(outDir, { recursive: true });
 const chromiumPath =
   process.env.CHROMIUM_PATH ||
@@ -34,15 +34,15 @@ function hook(page, flow) {
     const requestUrl = request.url();
     const method = request.method();
     const blocked =
-      requestUrl.includes("/api/jarvis/chat") ||
-      requestUrl.includes("/api/jarvis/transcribe") ||
-      requestUrl.includes("/api/jarvis/speak") ||
-      requestUrl.includes("/api/jarvis/generate-image") ||
-      requestUrl.includes("/api/jarvis/verify") ||
-      requestUrl.includes("/api/jarvis/research") ||
-      requestUrl.includes("/api/jarvis/browse") ||
-      requestUrl.includes("/api/jarvis/gmail/auth") ||
-      requestUrl.includes("/api/jarvis/spotify/auth") ||
+      requestUrl.includes("/api/infinity-ai/chat") ||
+      requestUrl.includes("/api/infinity-ai/transcribe") ||
+      requestUrl.includes("/api/infinity-ai/speak") ||
+      requestUrl.includes("/api/infinity-ai/generate-image") ||
+      requestUrl.includes("/api/infinity-ai/verify") ||
+      requestUrl.includes("/api/infinity-ai/research") ||
+      requestUrl.includes("/api/infinity-ai/browse") ||
+      requestUrl.includes("/api/infinity-ai/gmail/auth") ||
+      requestUrl.includes("/api/infinity-ai/spotify/auth") ||
       (requestUrl.includes("/api/") && ["POST", "PUT", "PATCH", "DELETE"].includes(method));
     if (blocked) {
       blockedRequests += 1;

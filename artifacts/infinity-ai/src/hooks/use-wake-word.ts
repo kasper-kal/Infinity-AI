@@ -19,15 +19,8 @@ export function isWakeWordSupported(): boolean {
 function soundsLikeWakeWord(text: string): boolean {
   const lower = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
   const wakePatterns = [
-    /\bhey\s+jarvis\b/,
-    /\bhey\s+j[ua]rv[ei]s\b/,
-    /\bhey\s+j[ua]h+s?\b/,
-    /\bhey\s+j[ua]v[ie]s\b/,
-    /\bhey\s+j[ua]rr\b/,
-    /\bhey\s+j[ua]r\b/,
-    /\bjarvis\b/,
-    /\bj[ua]rv[ei]s\b/,
-    /\bj[ua]v[ie]s\b/,
+    /\bhey\s+Infinity\b/,
+    /\bInfinity\b/,
   ];
   return wakePatterns.some((p) => p.test(lower));
 }
@@ -35,7 +28,7 @@ function soundsLikeWakeWord(text: string): boolean {
 /** Strip the wake phrase from the front of a transcript so only the command remains. */
 function extractCommand(text: string): string {
   return text
-    .replace(/^(hey\s+)?j[ua]r?v?[ie]?s?\s*/i, '')
+    .replace(/^(hey\s+)?Infinity\s*/i, '')
     .replace(/^hey\s+/i, '')
     .trim();
 }
@@ -164,7 +157,7 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
             onWakeRef.current();
 
             // If the wake word result is already final, check for an inline command
-            // (user said "hey jarvis what's the weather" in one breath).
+            // (user said "hey Infinity what's the weather" in one breath).
             if (isFinal) {
               const cmd = extractCommand(transcript);
               if (cmd.length > 1) {
@@ -209,7 +202,7 @@ export function useWakeWord({ onWake, onCommand, onError, onCommandTimeout, lang
 
       if (commandModeRef.current) {
         // Session ended while waiting for a command (e.g. long silence).
-        // Reset and restart in wake mode, user will need to say "hey jarvis" again.
+        // Reset and restart in wake mode, user will need to say "hey Infinity" again.
         commandModeRef.current = false;
         wakeResultIndexRef.current = -1;
         onCommandTimeoutRef.current?.();

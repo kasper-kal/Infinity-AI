@@ -117,7 +117,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
       setFeedbackOpen(false);
       setError('');
       setStep('setup');
-      fetch('/api/jarvis/book/samples')
+      fetch('/api/infinity/book/samples')
         .then((r) => (r.ok ? r.json() : null))
         .then((s: BookSampleMeta[] | null) => { if (s) setSamples(s); })
         .catch(() => setSamples([]));
@@ -142,7 +142,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
     setPlanning(true);
     setError('');
     try {
-      const res = await fetch('/api/jarvis/book/plan', {
+      const res = await fetch('/api/infinity/book/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,7 +173,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
     setRevising(true);
     setError('');
     try {
-      const res = await fetch('/api/jarvis/book/plan/review', {
+      const res = await fetch('/api/infinity/book/plan/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idea: idea.trim(), language, pageCount, plan, feedback: feedback.trim(), byo }),
@@ -201,7 +201,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
     setError('');
     await ensurePushSubscription();
     try {
-      const res = await fetch('/api/jarvis/book/jobs', {
+      const res = await fetch('/api/infinity/book/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -541,7 +541,7 @@ export function BookStudio({ open, onClose, jobs, onStarted, onCancel }: BookStu
                           )}
                           {job.status === 'completed' && job.pdfFile && (
                             <a
-                              href={`/api/jarvis/book/jobs/${job.id}/pdf`}
+                              href={`/api/infinity/book/jobs/${job.id}/pdf`}
                               download
                               className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary border border-primary/30 text-[10px] font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1"
                             >

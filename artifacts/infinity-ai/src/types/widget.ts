@@ -79,7 +79,7 @@ export interface AttachedFile {
   preview?: string; // object URL for images
 }
 
-/** Fact-check result for an assistant message (from /api/jarvis/verify). */
+/** Fact-check result for an assistant message (from /api/infinity/verify). */
 export interface VerifyClaim {
   claim: string;
   verdict: 'supported' | 'contradicted' | 'unverifiable';

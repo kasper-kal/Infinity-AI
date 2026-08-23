@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs the system libraries Chrome needs to run headless (Puppeteer).
 # Idempotent — exits fast when the libraries are already installed.
-# Used by the preview command so Jarvis's personal browser works in
+# Used by the preview command so infinity-ai's personal browser works in
 # minimal containers that lack Chrome's shared library dependencies.
 
 set -e

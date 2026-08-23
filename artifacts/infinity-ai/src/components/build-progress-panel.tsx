@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n';
 type BuildProgressStatus = 'working' | 'waiting' | 'done' | 'error' | 'cancelled';
 interface BuildProgressItem {
   id: string;
-  role: 'user' | 'jarvis';
+  role: 'user' | 'Infinity';
   message: string;
   status: BuildProgressStatus;
   createdAt: number;

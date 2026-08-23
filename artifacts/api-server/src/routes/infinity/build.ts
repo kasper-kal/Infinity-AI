@@ -27,7 +27,7 @@ import {
 import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
 import { getStorage, persistFile } from "../../lib/storage";
 import { logBuildEvent } from "../../lib/build-telemetry";
-import { jarvisConfig } from "../../config/infinity";
+import { infinityConfig } from "../../config/infinity";
 import { pooledClient } from "../../lib/llm-client";
 import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt, validateInfinityPrompt } from "../../lib/infinity-prompt";

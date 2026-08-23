@@ -25,14 +25,14 @@ interface BrowserContext {
   timeout?: number;
 }
 
-// E2E test workflows for common Jarvis workflows
+// E2E test workflows for common infinity workflows
 const E2E_WORKFLOWS = {
   "basic-setup": {
     name: "Basic Setup & Navigation",
     steps: [
       { action: "navigate", target: "/" },
       { action: "wait-for", target: ".build-studio" },
-      { action: "verify", target: "title", value: "Jarvis Build" },
+      { action: "verify", target: "title", value: "infinity Build" },
     ],
   },
   "create-workspace": {

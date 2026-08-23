@@ -52,7 +52,7 @@ export function BrowserWidget({ goal, onClose, autoStart = true }: BrowserWidget
 
   // Get WebSocket URL
   useEffect(() => {
-    fetch('/api/jarvis/browse/ws-url')
+    fetch('/api/infinity/browse/ws-url')
       .then((r) => r.json())
       .then((data) => {
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -125,7 +125,7 @@ export function BrowserWidget({ goal, onClose, autoStart = true }: BrowserWidget
     stepIdRef.current = 0;
 
     try {
-      const res = await fetch('/api/jarvis/browse/agent-run', {
+      const res = await fetch('/api/infinity/browse/agent-run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal: goal.trim(), maxSteps: 20, cellSize: 24 }),
@@ -228,7 +228,7 @@ export function BrowserWidget({ goal, onClose, autoStart = true }: BrowserWidget
         // Pause the AI and take over
         setAgentPaused(true);
         setManualControl(true);
-        fetch('/api/jarvis/browse/pause', { method: 'POST' }).catch(() => {});
+        fetch('/api/infinity/browse/pause', { method: 'POST' }).catch(() => {});
         setCurrentStep('You have control — AI paused. Press "Let AI Resume" when done.');
       }
     }
@@ -239,7 +239,7 @@ export function BrowserWidget({ goal, onClose, autoStart = true }: BrowserWidget
   const resumeAgent = useCallback(() => {
     setAgentPaused(false);
     setManualControl(false);
-    fetch('/api/jarvis/browse/resume', { method: 'POST' }).catch(() => {});
+    fetch('/api/infinity/browse/resume', { method: 'POST' }).catch(() => {});
     setCurrentStep('Resuming AI...');
   }, []);
 
@@ -368,21 +368,21 @@ export function BrowserWidget({ goal, onClose, autoStart = true }: BrowserWidget
       <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-t border-border/30">
         <div className="flex items-center gap-1">
           <button
-            onClick={() => fetch('/api/jarvis/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'back' }) })}
+            onClick={() => fetch('/api/infinity/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'back' }) })}
             className="p-1 rounded hover:bg-muted/50 text-muted-foreground transition-colors"
             title="Back"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => fetch('/api/jarvis/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'forward' }) })}
+            onClick={() => fetch('/api/infinity/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'forward' }) })}
             className="p-1 rounded hover:bg-muted/50 text-muted-foreground transition-colors"
             title="Forward"
           >
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => fetch('/api/jarvis/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reload' }) })}
+            onClick={() => fetch('/api/infinity/browse/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reload' }) })}
             className="p-1 rounded hover:bg-muted/50 text-muted-foreground transition-colors"
             title="Reload"
           >

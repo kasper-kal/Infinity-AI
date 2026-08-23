@@ -20,7 +20,7 @@ interface StoredHandleMeta {
   // We store metadata so we can show "Last connected: Folder Name" and guide re-selection
 }
 
-const DB_NAME = 'jarvis-fs';
+const DB_NAME = 'Infinity-fs';
 const DB_VERSION = 1;
 const STORE_NAME = 'handles';
 

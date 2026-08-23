@@ -146,7 +146,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setLoading(true);
     try {
       const { response, data } = await apiJson<{ events?: BuildEvent[] }>(
-        `/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}?limit=500`
+        `/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}?limit=500`
       );
       if (response.ok) setEvents(data.events ?? []);
     } catch (err) {
@@ -163,7 +163,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setLoading(true);
     try {
       const { response, data } = await apiJson<{ events?: BuildEvent[] }>(
-        `/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}/all`
+        `/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}/all`
       );
       if (response.ok) setEvents(data.events ?? []);
     } catch (err) {
@@ -177,7 +177,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const fetchSummary = useCallback(async () => {
     try {
       const { response, data } = await apiJson<TelemetrySummary>(
-        `/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}/summary`
+        `/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}/summary`
       );
       if (response.ok) setSummary(data.summary ?? '');
     } catch (err) {
@@ -188,7 +188,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const fetchCount = useCallback(async () => {
     try {
       const { response, data } = await apiJson<TelemetryCount>(
-        `/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}/count`
+        `/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}/count`
       );
       if (response.ok) setCount(data.total ?? 0);
     } catch (err) {
@@ -205,7 +205,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
 
   const handleExport = async () => {
     try {
-      const { response } = await apiJson(`/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}/all`);
+      const { response } = await apiJson(`/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}/all`);
       if (!response.ok) return;
       const blob = new Blob([JSON.stringify({ events: response.json() })], { type: 'application/jsonl' });
       const url = URL.createObjectURL(blob);
@@ -229,7 +229,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const handleClear = async () => {
     if (!window.confirm(t('studio.build.debugClearConfirm'))) return;
     try {
-      const { response } = await apiJson(`/api/jarvis/build/telemetry/${encodeURIComponent(workspaceId)}`, {
+      const { response } = await apiJson(`/api/infinity/build/telemetry/${encodeURIComponent(workspaceId)}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -247,7 +247,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setExportBusy('zip');
     try {
       const { response, data } = await apiJson<Blob>(
-        `/api/jarvis/build/export/zip/${encodeURIComponent(workspaceId)}`,
+        `/api/infinity/build/export/zip/${encodeURIComponent(workspaceId)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ includeNodeModules: false, includeGit: false }) }
       );
       if (response.ok && data) {
@@ -267,7 +267,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setExportBusy('tar-gz');
     try {
       const { response, data } = await apiJson<Blob>(
-        `/api/jarvis/build/export/tar-gz/${encodeURIComponent(workspaceId)}`,
+        `/api/infinity/build/export/tar-gz/${encodeURIComponent(workspaceId)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ includeNodeModules: false, includeGit: false }) }
       );
       if (response.ok && data) {
@@ -287,7 +287,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setShareBusy(true);
     try {
       const { response, data } = await apiJson<ShareResponse>(
-        `/api/jarvis/build/share/${encodeURIComponent(workspaceId)}`,
+        `/api/infinity/build/share/${encodeURIComponent(workspaceId)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }
       );
       if (response.ok && data.shareUrl) {
@@ -309,7 +309,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setCloneBusy(true);
     try {
       const { response, data } = await apiJson<CloneResponse>(
-        `/api/jarvis/build/clone/${encodeURIComponent(workspaceId)}`,
+        `/api/infinity/build/clone/${encodeURIComponent(workspaceId)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetProjectId: targetProjectId || undefined }) }
       );
       if (response.ok && data.targetProjectId) {
@@ -330,7 +330,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
         ok: boolean;
         checks: Record<string, boolean>;
         issues: string[];
-      }>(`/api/jarvis/build/preflight/${encodeURIComponent(workspaceId)}`);
+      }>(`/api/infinity/build/preflight/${encodeURIComponent(workspaceId)}`);
       if (response.ok) {
         setPreflightResult(data);
         alert(data.ok ? t('studio.build.edgePreflightOk') : t('studio.build.edgePreflightIssues', { issues: data.issues.join(', ') }));
@@ -351,7 +351,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
         usedPercent: number;
         critical: boolean;
         warning: boolean;
-      }>(`/api/jarvis/build/disk-space/${encodeURIComponent(workspaceId)}`);
+      }>(`/api/infinity/build/disk-space/${encodeURIComponent(workspaceId)}`);
       if (response.ok) {
         setDiskSpaceInfo(data);
       }
@@ -366,7 +366,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setEdgeCasesBusy('queue');
     try {
       const { response, data } = await apiJson<{ waiting: number; processing: boolean }>(
-        `/api/jarvis/build/queue/${encodeURIComponent(workspaceId)}`
+        `/api/infinity/build/queue/${encodeURIComponent(workspaceId)}`
       );
       if (response.ok) {
         setQueueStatus(data);
@@ -391,7 +391,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
         resolved: boolean;
         resolvedAt?: string;
         resolution?: string;
-      }> }>(`/api/jarvis/build/edge-cases/${encodeURIComponent(workspaceId)}`);
+      }> }>(`/api/infinity/build/edge-cases/${encodeURIComponent(workspaceId)}`);
       if (response.ok) {
         setEdgeCasesList(data.edgeCases);
       }
@@ -406,7 +406,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     setEdgeCasesBusy('rate-limit');
     try {
       const { response, data } = await apiJson<{ allowed: boolean; retryAfterMs?: number }>(
-        `/api/jarvis/build/rate-limit/${encodeURIComponent(workspaceId)}?maxRequests=10&windowMs=60000`
+        `/api/infinity/build/rate-limit/${encodeURIComponent(workspaceId)}?maxRequests=10&windowMs=60000`
       );
       if (response.ok) {
         setRateLimitInfo(data);
@@ -432,7 +432,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
         explanation: string;
         rootCause: string;
         fixes: Array<{ title: string; description: string; code?: string }>;
-      }>(`/api/jarvis/local-model/explain`, {
+      }>(`/api/infinity/local-model/explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -462,7 +462,7 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     try {
       const { response, data } = await apiJson<{
         fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }>;
-      }>(`/api/jarvis/local-model/fix`, {
+      }>(`/api/infinity/local-model/fix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

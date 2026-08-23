@@ -1,4 +1,4 @@
-# Jarvis Projects System — Build Plan (Steps 1–20 of 32)
+# infinity-ai Projects System — Build Plan (Steps 1–20 of 32)
 
 > **Status:** Doing Phase 0 of BUILD_MODE_COMPLETION_PLAN.md
 
@@ -15,25 +15,25 @@ The brief says: inspect the repository, reuse working architecture, don't replac
   - `projectChats` (projectId ↔ conversationId) — conversation↔project association **already exists**
   - `projectFiles` (projectId ↔ fileId, cross-db, no FK) — shared context files exist
   - `pins` (conversation-level pinning only)
-- **Backend routes** `artifacts/api-server/src/routes/jarvis/projects.ts` — CRUD: `GET/POST /projects`, `PATCH /projects/:id`, plus project-chat listing. Registered in `routes/jarvis/index.ts` as `projectsRouter`.
-- **Frontend** `artifacts/jarvis/src/components/project-gallery.tsx` — sidebar component (Projects + Files gallery) rendered inside `chat-sidebar.tsx` (~line 147). Create project, expand → load its chats.
-- `routes/jarvis/project-tags.ts` — tag helper route also exists.
+- **Backend routes** `artifacts/api-server/src/routes/infinity-ai/projects.ts` — CRUD: `GET/POST /projects`, `PATCH /projects/:id`, plus project-chat listing. Registered in `routes/infinity-ai/index.ts` as `projectsRouter`.
+- **Frontend** `artifacts/infinity-ai/src/components/project-gallery.tsx` — sidebar component (Projects + Files gallery) rendered inside `chat-sidebar.tsx` (~line 147). Create project, expand → load its chats.
+- `routes/infinity-ai/project-tags.ts` — tag helper route also exists.
 
 **Implication:** extend/upgrade this, don't rebuild. The `projects`/`projectChats`/`projectFiles` tables are the natural base for a full workspace. `pins` needs a project-level variant (currently conversation-only).
 
 ### Existing global Memory system (the pattern to clone, project-scoped)
 - **DB schema** `lib/db/src/schema/memories.ts` — `userMemories` (topic [PK, upsert key], value, updatedAt). Simple, no source/pin/category.
 - **Routes** `memories.ts` — `GET /memories`, `PATCH /memories/:topic`, `DELETE /memories/:topic`.
-- **LLM auto-extraction already exists** in `artifacts/api-server/src/routes/jarvis/chat.ts` (~L448–495): a routine that asks the model "extract memorable facts → upsert into userMemories" (topic as target, so updates-not-duplicates), with explicit do-not-remember rules.
+- **LLM auto-extraction already exists** in `artifacts/api-server/src/routes/infinity-ai/chat.ts` (~L448–495): a routine that asks the model "extract memorable facts → upsert into userMemories" (topic as target, so updates-not-duplicates), with explicit do-not-remember rules.
 - **Context injection already exists** in chat.ts (~L504+): a `memory + profile` block assembled from `userMemories` and injected into the system prompt.
 
 **Implication:** Project Memory reuses this exact machinery: same extraction-prompt shape, same upsert-by-key, same injected-block approach — but **scoped per `project_id`**, with `source` + `category` + `pin` added, and a relevance filter so we never dump all memories into every request.
 
 ### Other reusable pieces
-- **Research:** `researchJobs` table (`lib/db/src/schema/research.ts`) + `routes/jarvis/research.ts`. Background jobs table with progress/log/notes/heartbeat — the pattern both for research-to-project association and for project *activity*.
+- **Research:** `researchJobs` table (`lib/db/src/schema/research.ts`) + `routes/infinity-ai/research.ts`. Background jobs table with progress/log/notes/heartbeat — the pattern both for research-to-project association and for project *activity*.
 - **Book Studio** (`books.ts` schema, `book.ts` routes, `book-studio.tsx`, ~45 `book.*` i18n keys) — the most recent full feature end-to-end; copy its conventions: Drizzle schema + idempotent auto-migrate entries, router registration, frontend wizard, `en`/`nl` i18n Records, background polling + push notification.
 - **Auto-migrate:** `lib/db/src/auto-migrate.ts` (books.ts added ~20 `ALTER ADD COLUMN IF NOT EXISTS` entries) — reuse for every new table/column below.
-- **Stack/conventions:** Drizzle ORM + Postgres (Neon), Express routers under `/api/jarvis/*`, React + Vite + Tailwind + framer-motion + lucide-react, i18n via `src/lib/i18n.tsx` (`nl: Record<keyof typeof en, string>` type-enforced). **0-euro budget — no paid services, no free trials.**
+- **Stack/conventions:** Drizzle ORM + Postgres (Neon), Express routers under `/api/infinity-ai/*`, React + Vite + Tailwind + framer-motion + lucide-react, i18n via `src/lib/i18n.tsx` (`nl: Record<keyof typeof en, string>` type-enforced). **0-euro budget — no paid services, no free trials.**
 
 ### 1B. Repo grounding — steps 11–20 (what already exists to reuse)
 
@@ -41,14 +41,14 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 
 #### File storage already exists (step 11) — extend, don't rebuild
 - **`/api/files`** (`artifacts/api-server/src/routes/files.ts`) is the existing file API: `POST` (multipart upload, 50 MB limit, mime-sniffed), `GET` (list, `?conversation_id=` filter, 200-cap), `GET /:key` (serve blob, mime sniff, inline `Content-Disposition`).
-- **Schema** `lib/db/src/schema/files.ts` lives in the SEPARATE files DB (`DATABASE_URL_FILES`, falls back to main): id, conversationId (nullable), kind (`image|document|audio|build-app|code`), name, mime, size, storageKey, bucket, owner (`user|jarvis|account`), createdAt.
+- **Schema** `lib/db/src/schema/files.ts` lives in the SEPARATE files DB (`DATABASE_URL_FILES`, falls back to main): id, conversationId (nullable), kind (`image|document|audio|build-app|code`), name, mime, size, storageKey, bucket, owner (`user|infinity-ai|account`), createdAt.
 - **Storage lib** `lib/storage.ts` already exposes `getStorage().remove(key)` on all backends (local disk, R2, B2) — delete is a thin addition, not new infrastructure.
 - **Gaps vs step 11:** no delete, no rename (`PATCH`), no forced download (`?download=1`), no name search, no project association on upload, no project-scoped listing. The `projectFiles` join table (projectId ↔ fileId, cross-db, **no FK possible**) exists in schema but is **not wired into any backend route yet** — the frontend gallery lists *all* `/api/files` (global), not project files.
 - **Plan:** add the missing operations to the SAME `/api/files` router; accept `projectId` on upload and maintain the `project_files` join; add `GET /projects/:id/files`.
 
 #### Research engine already exists (step 12) — integrate, don't rebuild
 - **`researchJobs`** (`lib/db/src/schema/research.ts`): run-level entity already holding title, prompt, mode, depth, status, progress, phase, **log** (append-only step log), **notes** (distilled corpus), **report** (final synthesized report), gemSystemPrompt, gemConversationId, heartbeat, timestamps.
-- **`/api/jarvis/research`** (`routes/jarvis/research.ts`): start (POST, background engine), list, get, cancel, estimate. The engine (`lib/research-engine.ts`) already has heartbeat + restart-resume.
+- **`/api/infinity-ai/research`** (`routes/infinity-ai/research.ts`): start (POST, background engine), list, get, cancel, estimate. The engine (`lib/research-engine.ts`) already has heartbeat + restart-resume.
 - **Gaps vs step 12:** no project association (join planned in Phase A, not yet active), no project-scoped list, no first-class **Sources** surface, no **Saved findings** store. "Runs / reports" already exist — we associate + surface, we do NOT re-model the engine.
 
 #### Ownership model (step 16)
@@ -56,7 +56,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - **Plan:** add nullable `owner_account_id` to `projects` (null = primary user). Full `project_members` table deferred until multi-user projects are real.
 
 #### Agent-ready building blocks (step 14)
-- The autonomous loop doesn't exist yet, but Jarvis already has the pieces agent activity would produce: **research engine** (long background jobs w/ heartbeat+resume), **browser** (`routes/jarvis/browse.ts`), **terminal**, **code editor**, **Build Studio** (files changed), **tests route**, **git routes**.
+- The autonomous loop doesn't exist yet, but infinity-ai already has the pieces agent activity would produce: **research engine** (long background jobs w/ heartbeat+resume), **browser** (`routes/infinity-ai/browse.ts`), **terminal**, **code editor**, **Build Studio** (files changed), **tests route**, **git routes**.
 - **Plan:** add the agent-run/action schema now (so Projects are agent-ready), defer the autonomous agent itself.
 
 #### Critical honest finding for step 18 (AI context pipeline)
@@ -71,12 +71,12 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - Example project: "My Restaurant Website" containing:
   - Conversations · Project Memory · Files · Research · Tasks · Code/workspace · Generated assets · Project instructions · Activity/history
 - Everything belonging to a project has a **relationship to the project**.
-- The user can leave Jarvis and return later and continue the same project **without re-explaining** it.
+- The user can leave infinity-ai and return later and continue the same project **without re-explaining** it.
 
 ### Step 2 — PROJECTS ARE FIRST-CLASS
-- Add a **Projects section to the main Jarvis navigation/sidebar**.
+- Add a **Projects section to the main infinity-ai navigation/sidebar**.
 - User can: Create · Rename · Delete/archive · Open · **Search** projects · **Sort** projects · See **recently used** projects · **Pin/favorite** projects · **Create a project from an existing conversation** · **Move/copy a conversation into a project**.
-- Must feel native to Jarvis — not a separate application.
+- Must feel native to infinity-ai — not a separate application.
 
 ### Step 3 — PROJECT HOME (dashboard)
 - Each project needs a dedicated home/dashboard.
@@ -85,17 +85,17 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
   - `[Continue working]` `[New chat]`
   - Recent activity
   - Conversations · Files · Research · Tasks · Memory
-- The home must immediately communicate: **what the project is**, **what has recently happened**, **what Jarvis knows**, **what the user can continue doing**.
-- UI must stay consistent with existing Jarvis design — **no new visual language**.
+- The home must immediately communicate: **what the project is**, **what has recently happened**, **what infinity-ai knows**, **what the user can continue doing**.
+- UI must stay consistent with existing infinity-ai design — **no new visual language**.
 
 ### Step 4 — PROJECT-SCOPED CONVERSATIONS
 - A conversation belongs to **exactly one project or none** (outside projects).
-- Starting a conversation **from inside a project** auto-associates it AND auto-injects the project context — Jarvis knows it's the restaurant website without the user repeating it.
+- Starting a conversation **from inside a project** auto-associates it AND auto-injects the project context — infinity-ai knows it's the restaurant website without the user repeating it.
 - User can: create a new conversation inside a project · **move** an existing conversation into a project · **remove** a conversation from a project **without deleting it** · see project conversations · **search** project conversations.
 - **No duplication of conversation data — use relationships/references** (the existing `projectChats` join table does this).
 
 ### Step 5 — PROJECT MEMORY — *VERY IMPORTANT*
-- Every project gets a **completely separate memory system** — NOT the same as Jarvis's global/user memory.
+- Every project gets a **completely separate memory system** — NOT the same as infinity-ai's global/user memory.
   - Global: "User prefers dark interfaces."
   - Project: "This project uses dark green." · "Do not use red." · "Backend uses PostgreSQL." · "Client wants online reservations."
 - Project memory must **NEVER leak into unrelated projects**; unrelated global/project memories must **never contaminate another project**.
@@ -109,7 +109,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
   - "Client wants online reservations." → Source: Research/Conversation
 
 ### Step 7 — MEMORY UI
-- Dedicated **Project → Memory** tab/page showing what Jarvis currently remembers.
+- Dedicated **Project → Memory** tab/page showing what infinity-ai currently remembers.
 - Example grouped view:
   - **About this project** — Restaurant website · Dutch customers · Premium/minimal design
   - **Technical** — Next.js · Tailwind · PostgreSQL
@@ -121,12 +121,12 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 
 ### Step 8 — MEMORY IS NOT JUST A NOTES LIST
 - NOT a static textarea. It must be **usable by the AI**.
-- When Jarvis receives a message inside a project, the **backend retrieves relevant Project Memory and includes it in the AI's context**.
+- When infinity-ai receives a message inside a project, the **backend retrieves relevant Project Memory and includes it in the AI's context**.
 - **Relevant retrieval preferred over dumping everything** (if architecture supports it).
 - Example: 100 memories; user asks "Change the database schema" → retrieve technical/database-related memories, not every fact.
 
 ### Step 9 — AUTOMATIC MEMORY EXTRACTION
-- Build architecture for Jarvis to extract useful project facts from project activity.
+- Build architecture for infinity-ai to extract useful project facts from project activity.
 - **Only** genuinely useful info: requirements · constraints · decisions · project-specific preferences · architecture decisions · important facts · recurring instructions · project goals.
 - Avoid temporary conversational noise. Avoid duplicates.
 - **If the same fact changes, update the existing memory** rather than creating conflicting copies:
@@ -135,8 +135,8 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 ### Step 10 — PROJECT INSTRUCTIONS
 - Dedicated **Project Instructions** area — permanent user-written rules, e.g.:
   - "Always use TypeScript." · "Never use Bootstrap." · "Use a minimalist design." · "Do not modify the authentication system without asking."
-- Included **whenever Jarvis operates inside the project**.
-- Clearly distinguish **PROJECT INSTRUCTIONS** (explicit rules from the user) from **PROJECT MEMORY** (information Jarvis has learned/retained).
+- Included **whenever infinity-ai operates inside the project**.
+- Clearly distinguish **PROJECT INSTRUCTIONS** (explicit rules from the user) from **PROJECT MEMORY** (information infinity-ai has learned/retained).
 
 ---
 
@@ -144,12 +144,12 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 
 ### Step 11 — PROJECT FILES
 - Projects need a Files section. Users should be able to: **Upload · Browse · Preview (where supported) · Delete · Rename · Download · Search** files.
-- **Reuse Jarvis's existing file-storage infrastructure** — do NOT create a second unrelated file-storage system (one exists: `/api/files` + R2/local blobs, see section 1B).
+- **Reuse infinity-ai's existing file-storage infrastructure** — do NOT create a second unrelated file-storage system (one exists: `/api/files` + R2/local blobs, see section 1B).
 - Every project file should have a **project association**.
-- Files should be **available as context to Jarvis when relevant** (feeds step 18).
+- Files should be **available as context to infinity-ai when relevant** (feeds step 18).
 
 ### Step 12 — PROJECT RESEARCH
-- Research results should be **attachable to Projects**. If Jarvis performs research while inside a project, **associate the run/result with that project**.
+- Research results should be **attachable to Projects**. If infinity-ai performs research while inside a project, **associate the run/result with that project**.
 - The project should eventually have: **Research runs · Reports · Sources · Saved findings**.
 - Do **not rebuild the existing research system** (it exists: `researchJobs` + background engine). **Integrate** it with Projects.
 
@@ -160,7 +160,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - **Keep it lightweight** — do NOT turn it into a giant project-management application.
 
 ### Step 14 — AGENT-READY ARCHITECTURE
-- This Projects system will eventually power an **autonomous Jarvis agent** — design the data model so future agent activity can belong to a Project: `Project → Agent Run → Actions → Files changed → Tests → Browser activity → Result`.
+- This Projects system will eventually power an **autonomous infinity-ai agent** — design the data model so future agent activity can belong to a Project: `Project → Agent Run → Actions → Files changed → Tests → Browser activity → Result`.
 - Do **not necessarily implement the complete autonomous agent now** unless the existing architecture makes it easy.
 - But make Projects **capable of becoming the agent's persistent workspace**.
 
@@ -174,7 +174,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - Use the repository's **existing ORM/database conventions**; do **NOT blindly duplicate tables** if equivalents already exist. Add **migrations properly**. **Preserve existing data**.
 
 ### Step 17 — API
-- Create **clean backend APIs** following the existing Jarvis API conventions — the **frontend should never directly manipulate the database**.
+- Create **clean backend APIs** following the existing infinity-ai API conventions — the **frontend should never directly manipulate the database**.
 - Support: Create / Get / List / Update / Delete-archive project, plus project **conversations · files · memories · instructions · tasks · activity**.
 - Keep **authorization / project-ownership checks server-side**.
 
@@ -191,7 +191,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 - Do **NOT include project context in unrelated global conversations**.
 
 ### Step 19 — UI/UX
-- Follow the **existing Jarvis visual system**. Do NOT make Projects look like Notion, or a generic SaaS dashboard. It should feel like **Jarvis + persistent workspace**.
+- Follow the **existing infinity-ai visual system**. Do NOT make Projects look like Notion, or a generic SaaS dashboard. It should feel like **infinity-ai + persistent workspace**.
 - The **project sidebar** should make it extremely easy to: **switch projects · start a chat · open memory · open files · open research · open tasks · open settings/instructions**.
 - **Avoid excessive navigation layers.**
 
@@ -221,7 +221,7 @@ Steps 11–20 are mostly system-level (files, research, tasks, agent-readiness, 
 ### Phase B — Backend: first-class Projects CRUD + management (step 2)
 **Status: IMPLEMENTED** — backend routes and the required project management columns are now in place; frontend wiring is deferred to the later navigation/home phases.
 
-Implemented in `routes/jarvis/projects.ts` (all inputs use the existing `cleanText` guard; project-scoped queries enforce the project id):
+Implemented in `routes/infinity-ai/projects.ts` (all inputs use the existing `cleanText` guard; project-scoped queries enforce the project id):
 - `GET /projects?q=&sort=&archived=` — search (name/description ILIKE) + sort (`updated|created|name|recently used`) + pin-first ordering.
 - `POST /projects` (exists — add `description`), `PATCH /projects/:id` (exists — add rename/description/color/archive), `DELETE /projects/:id` (new — hard delete + cascade; archive already available via PATCH).
 - `POST /projects/:id/open` — touch `lastOpenedAt` for recently-used.
@@ -235,7 +235,7 @@ Implemented in `routes/jarvis/projects.ts` (all inputs use the existing `cleanTe
 
 Implemented:
 - `GET /projects/:id/home` — scoped aggregate with project identity, recent activity derived from existing project/conversation/file relationships, counts, and latest entries. Research/tasks/memory are explicit empty sections until their tables and routes land.
-- Frontend `src/components/projects/project-home.tsx` — Jarvis-native dashboard with name + description, `[Continue working]` (reopen last conversation), `[New chat]` (create and move a conversation into the project), recent activity, and tiles for Conversations · Files · Research · Tasks · Memory.
+- Frontend `src/components/projects/project-home.tsx` — infinity-ai-native dashboard with name + description, `[Continue working]` (reopen last conversation), `[New chat]` (create and move a conversation into the project), recent activity, and tiles for Conversations · Files · Research · Tasks · Memory.
 - The Home shell now switches into the dashboard when a project is selected from the existing sidebar, supports back/continue/new-chat callbacks, an honest empty-project state, and English/Dutch `projectHome.*` translations.
 
 ### Phase D — Project-scoped conversations (step 4)
@@ -250,7 +250,7 @@ Implemented:
 
 ### Phase E — Project Memory system (steps 5, 6, 8, 9 — the heart)
 **Status: IMPLEMENTED** — project memory now has isolated relational storage, CRUD/pin APIs, zero-cost keyword retrieval, and project-scoped automatic extraction. The bilingual Phase F memory UI is implemented below.
-- **Routes** `routes/jarvis/project-memories.ts`:
+- **Routes** `routes/infinity-ai/project-memories.ts`:
   - `GET /projects/:id/memories` — grouped by category for the UI (step 7 shape).
   - `POST /projects/:id/memories` — manual add (sourceType `manual`, explicit source field).
   - `PATCH /memories/:memoryId` — edit content/category/pin.
@@ -261,7 +261,7 @@ Implemented:
 - **Isolation (step 5):** every read/write is project-scoped; global memory and other projects' memory are never included in a project's context, and project memory is never injected into non-project or other-project chats. Compatibility mutation endpoints require an explicit `projectId` when the memory id is not nested.
 
 ### Phase F — Memory UI (step 7)
-**Status: IMPLEMENTED** — Project Memory is now a dedicated Jarvis-native view opened from the Project Home Memory tile; global chat navigation remains unchanged.
+**Status: IMPLEMENTED** — Project Memory is now a dedicated infinity-ai-native view opened from the Project Home Memory tile; global chat navigation remains unchanged.
 
 Implemented in `src/components/projects/project-memory.tsx`:
 - Grouped view by memory category with pinned-first visual treatment.
@@ -275,17 +275,17 @@ Implemented in `src/components/projects/project-memory.tsx`:
 
 Implemented:
 - Schema and idempotent migration for `project_instructions` with strict project FK isolation, stable ordering, and timestamps; the legacy `projects.instructions` column remains for compatibility.
-- API router `routes/jarvis/project-instructions.ts`: `GET/POST /projects/:id/instructions`, scoped `PATCH/DELETE /projects/:projectId/instructions/:instructionId`, and strict reorder via `POST /projects/:id/instructions/reorder`. Mutations keep the legacy column synchronized, and old single-column instructions are materialized on read.
-- Frontend `src/components/projects/project-instructions.tsx`: Jarvis-native bilingual rule editor with add/edit/delete, move up/down ordering, explicit-rule framing, and useful loading/error/empty states.
+- API router `routes/infinity-ai/project-instructions.ts`: `GET/POST /projects/:id/instructions`, scoped `PATCH/DELETE /projects/:projectId/instructions/:instructionId`, and strict reorder via `POST /projects/:id/instructions/reorder`. Mutations keep the legacy column synchronized, and old single-column instructions are materialized on read.
+- Frontend `src/components/projects/project-instructions.tsx`: infinity-ai-native bilingual rule editor with add/edit/delete, move up/down ordering, explicit-rule framing, and useful loading/error/empty states.
 - Project Home's Instructions tile opens the dedicated view; chat injects every dedicated rule in order, with a safe fallback to legacy instructions if migration is not yet available.
 
 ### Phase H — Navigation: Projects are first-class (step 2)
-**Status: IMPLEMENTED** — the existing Jarvis sidebar now exposes Projects as a first-class, scoped workspace navigator without replacing global chat navigation.
+**Status: IMPLEMENTED** — the existing infinity-ai sidebar now exposes Projects as a first-class, scoped workspace navigator without replacing global chat navigation.
 
 Implemented in `project-gallery.tsx`, `chat-sidebar.tsx`, and `pages/home.tsx`:
 - Project search against name and description, with updated/created/name/recently-used sorting and archived-project visibility.
 - Create, create-from-current-conversation, open, inline rename, archive/restore, pin/unpin, hard delete, and move-current-chat actions; the one-project-per-conversation invariant remains enforced by the backend.
-- A compact project quick-access rail for home, new chat, memory, files, research, tasks, and instructions. Implemented views open directly; future views report honestly through the existing Jarvis toast instead of pretending to exist.
+- A compact project quick-access rail for home, new chat, memory, files, research, tasks, and instructions. Implemented views open directly; future views report honestly through the existing infinity-ai toast instead of pretending to exist.
 - Project Home remains the landing view when opening a project, while the regular global chat list and navigation stay available outside the project scope.
 - All new navigation copy is routed through the existing English/Dutch i18n contract.
 
@@ -317,7 +317,7 @@ Extend the EXISTING `/api/files` router (do NOT create a second file system):
 ### Phase J — Project Research (step 12)
 
 Activate the `project_research` join planned in Phase A; the research engine stays untouched:
-- `POST /api/jarvis/research` accepts optional `projectId` → inserts the join row on start; `GET /projects/:id/research` lists runs (title, status, progress, phase, dates).
+- `POST /api/infinity-ai/research` accepts optional `projectId` → inserts the join row on start; `GET /projects/:id/research` lists runs (title, status, progress, phase, dates).
 - Run detail reuses the existing job view (report / notes / log) — do not re-model.
 - **Sources:** surfaced read-only from the run's existing `log`/`notes` (the engine already writes its sources there).
 - **Saved findings:** small `project_research_findings` table (id, projectId, researchJobId, excerpt, createdAt) + pin/unpin endpoints — user-saved excerpts.
@@ -326,7 +326,7 @@ Activate the `project_research` join planned in Phase A; the research engine sta
 ### Phase K — Project Tasks (step 13)
 
 - Extend `project_tasks` (from the Phase A baseline) to the full step-13 shape: `description` text · `status` enum `todo|in_progress|done` (TODO / IN PROGRESS / DONE) · `priority` enum `low|medium|high` · `dueAt` timestamp (optional) · `conversationId` uuid nullable (FK→conversations, SET NULL) · `fileId` uuid nullable (→ files, cross-db, no FK) · `memoryId` uuid nullable (→ project_memories) · created/updated times (existing). **Kept deliberately light** — no boards, assignees, or dependencies.
-- Routes `routes/jarvis/project-tasks.ts`: `GET /projects/:id/tasks`, `POST /projects/:id/tasks`, `PATCH /tasks/:id` (title/description/priority/due/status cycle), `DELETE /tasks/:id`.
+- Routes `routes/infinity-ai/project-tasks.ts`: `GET /projects/:id/tasks`, `POST /projects/:id/tasks`, `PATCH /tasks/:id` (title/description/priority/due/status cycle), `DELETE /tasks/:id`.
 - Frontend `src/components/projects/project-tasks.tsx`: inline add, status cycle (TODO → IN PROGRESS → DONE), priority chip, optional due date, delete. Log `task_added` / `task_completed`.
 
 ### Phase L — AI Context Pipeline (step 18) — *critical, supersedes Phase D's injection bullet*
@@ -348,19 +348,19 @@ At the system-prompt assembly point in `chat.ts` where the global memory block i
 
 ### Phase N — API + ownership consolidation (step 17)
 
-- Complete endpoint inventory (below) under the existing routers + the new routers (I–M), all following existing `/api/jarvis/*` conventions and the `cleanText` guard.
-- **Ownership/authorization server-side:** every project-scoped handler resolves the project (`WHERE id = :id`), 404s on missing; single-owner model (`owner_account_id` null = primary user) enforced in handlers; the frontend only ever calls `/api/jarvis/*` — it never touches the DB (existing rule, kept).
+- Complete endpoint inventory (below) under the existing routers + the new routers (I–M), all following existing `/api/infinity-ai/*` conventions and the `cleanText` guard.
+- **Ownership/authorization server-side:** every project-scoped handler resolves the project (`WHERE id = :id`), 404s on missing; single-owner model (`owner_account_id` null = primary user) enforced in handlers; the frontend only ever calls `/api/infinity-ai/*` — it never touches the DB (existing rule, kept).
 - **Inventory:** `GET/POST /projects` · `GET/PATCH/DELETE /projects/:id` · `POST /projects/:id/open` · `POST/DELETE /projects/:id/pin` · `POST /projects` `fromConversationId` · `POST/DELETE /conversations/:id/project` · `GET /projects/:id/home` · `GET /projects/:id/conversations` · `GET/POST /projects/:id/files` + `PATCH/DELETE /api/files/:id` · `GET/POST /projects/:id/research` + findings endpoints · `GET/POST /projects/:id/memories` + `PATCH/DELETE/pin /memories/:id` · project instructions CRUD · `GET/POST /projects/:id/tasks` + `PATCH/DELETE /tasks/:id` · `GET /projects/:id/activity`.
 
 ### Phase O — Navigation + empty states (steps 19, 20)
 
-- **Project sidebar (step 19):** when a project is open, a compact rail — **switch project · chat · memory · files · research · tasks · instructions/settings** — one click each, no nested layers. Reuses existing Tailwind/framer-motion/lucide tokens; keeps the Jarvis look (dark glass cards + the existing accent/border language), explicitly NOT Notion/Linear/SaaS chrome. Global Jarvis nav untouched; project chrome only inside a project.
+- **Project sidebar (step 19):** when a project is open, a compact rail — **switch project · chat · memory · files · research · tasks · instructions/settings** — one click each, no nested layers. Reuses existing Tailwind/framer-motion/lucide tokens; keeps the infinity-ai look (dark glass cards + the existing accent/border language), explicitly NOT Notion/Linear/SaaS chrome. Global infinity-ai nav untouched; project chrome only inside a project.
 - **Empty state (step 20):** Phase C's project home gets an empty branch for brand-new projects — **"Your project is ready."** + one-click **[Start a conversation] [Upload files] [Add instructions] [Add first task]** (wired to New chat / upload / instructions / first task). The activity feed seeds with the `project_created` event. No giant empty dashboard.
 
 ---
 
 ## 4. Verification (per phase, matching project norms)
-- `tsc --noEmit` clean for **both** `artifacts/jarvis` and `artifacts/api-server` (+ `lib/db` built).
+- `tsc --noEmit` clean for **both** `artifacts/infinity-ai` and `artifacts/api-server` (+ `lib/db` built).
 - Server bundles (`build.mjs`).
 - Auto-migrate runs idempotently (fresh + existing DB).
 - Where possible, Puppeteer smoke like Book Studio (create project → home → memory add → conversation inherits context).

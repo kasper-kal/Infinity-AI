@@ -1,4 +1,4 @@
-# Jarvis Complete UX Audit
+# Infinity Complete UX Audit
 
 ## CRITICAL — These destroy the feel
 
@@ -10,7 +10,7 @@
 
 ### 2. Voice mode is a walkie-talkie, not a conversation
 **`home.tsx`**: The voice flow is: speak → transcribe → LLM → TTS → play → wait idle → speak again. There's no:
-- **Interruption**: You can't speak over Jarvis. The `handleStopSpeaking` kills TTS but the state machine goes back to idle/wake, not recording.
+- **Interruption**: You can't speak over Infinity. The `handleStopSpeaking` kills TTS but the state machine goes back to idle/wake, not recording.
 - **Backchannel**: No "uh-huh", "got it", or partial responses during processing.
 - **Pipelining**: TTS can't start until the full LLM response is complete.
 **Effect**: Every voice interaction feels like a fragile transaction. One wrong transcription means restarting the whole thing.
@@ -21,7 +21,7 @@
 - Regenerating an assistant response
 - Deleting individual messages (only full conversation delete exists)
 - Forking/continuing from a specific message
-**Effect**: ChatGPT muscle memory is to swipe to edit or tap "regenerate". Without this, every mistake costs the entire conversation context. Makes Jarvis feel like a toy.
+**Effect**: ChatGPT muscle memory is to swipe to edit or tap "regenerate". Without this, every mistake costs the entire conversation context. Makes Infinity feel like a toy.
 
 ### 4. Empty state is dead — no onboarding
 **`conversation-feed.tsx`** (line 95-101): The first-time experience is:
@@ -29,7 +29,7 @@
 [dot]
 AWAITING INPUT...
 ```
-No suggested first actions, no tour, no "try saying X" cards, no showcase of capabilities. Users don't know what Jarvis CAN do.
+No suggested first actions, no tour, no "try saying X" cards, no showcase of capabilities. Users don't know what Infinity CAN do.
 **Effect**: Most people will say "hello", get "Hi, how can I help?", and stop. They never discover the browser, screen share, widgets, web search, or any of the 20+ features.
 
 ### 5. Backend has no streaming infrastructure
@@ -45,7 +45,7 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **Effect**: On mobile, typing in chat mode can have the keyboard cover the send button.
 
 ### 7. No visual feedback for sent messages in voice mode
-**`home.tsx`** (line 446-469): When speaking to Jarvis, the transcript text is set optimistically. But the conversation feed is hidden in voice mode — only the orb subtitle shows the latest exchange.
+**`home.tsx`** (line 446-469): When speaking to Infinity, the transcript text is set optimistically. But the conversation feed is hidden in voice mode — only the orb subtitle shows the latest exchange.
 **Effect**: No scrollable history visible while in voice mode. You can't see what was said earlier unless you switch to chat mode.
 
 ### 8. No message copy button
@@ -53,7 +53,7 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **Effect**: Users must manually select text and copy — hard on mobile, annoying on desktop.
 
 ### 9. No response timestamps
-**`conversation-feed.tsx`**: Messages show "YOU" / "JARVIS" labels but no timestamps. In long conversations, context is lost.
+**`conversation-feed.tsx`**: Messages show "YOU" / "Infinity" labels but no timestamps. In long conversations, context is lost.
 **Effect**: Can't tell when a response was generated. Conversations feel timeless and disconnected from reality.
 
 ### 10. Speech recognition error messages are one-size-fits-all
@@ -101,11 +101,11 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **Effect**: Users pick "Custom" expecting it to work, get no change, and don't know why.
 
 ### 20. WebSocket on browser component has hardcoded port
-**`jarvis-browser.tsx`** (line 42): The WS URL is `ws://localhost:3002`. This breaks in production or with different configs.
+**`Infinity-browser.tsx`** (line 42): The WS URL is `ws://localhost:3002`. This breaks in production or with different configs.
 **Effect**: Browser component won't connect outside the dev environment.
 
 ### 21. Browser viewport has no full-screen mode
-**`jarvis-browser.tsx`** (line 236-237): The browser viewport is capped at `maxHeight: 500`. For reading content, this is cramped.
+**`Infinity-browser.tsx`** (line 236-237): The browser viewport is capped at `maxHeight: 500`. For reading content, this is cramped.
 **Effect**: Actually browsing the web feels constrained.
 
 ### 22. No offline/connection quality indicator
@@ -113,8 +113,8 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **Effect**: Voice recognition fails mysteriously on poor connections.
 
 ### 23. Wake word cooldown is silent
-**`use-wake-word.ts`** (line 283): After unsuppressing, there's an 800ms cooldown. During this window, "hey jarvis" is silently ignored.
-**Effect**: User says "hey Jarvis" and nothing happens. They have to say it again. Feels broken.
+**`use-wake-word.ts`** (line 283): After unsuppressing, there's an 800ms cooldown. During this window, "hey Infinity" is silently ignored.
+**Effect**: User says "hey Infinity" and nothing happens. They have to say it again. Feels broken.
 
 ### 24. Clap detection stays active after activation
 **`use-clap-detection.ts`** (line 63-130): After a double clap triggers activation, the microphone keeps monitoring. The cooldown is 2s.
@@ -125,8 +125,8 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **Effect**: Power users can't navigate efficiently.
 
 ### 26. Web search is conditional on ChatGPT-compatible models only
-**`chat.ts`** (line 425): `jarvisConfig.llmModel.includes("gpt")`. Web search is disabled for all other models.
-**Effect**: Users setting up Jarvis with Llama or Mistral models silently don't get web search with no explanation.
+**`chat.ts`** (line 425): `InfinityConfig.llmModel.includes("gpt")`. Web search is disabled for all other models.
+**Effect**: Users setting up Infinity with Llama or Mistral models silently don't get web search with no explanation.
 
 ### 27. Suggestions don't regenerate on error
 **`home.tsx`** (line 486-494): If the chat request fails, suggestions aren't cleared or replaced with retry options.
@@ -152,7 +152,7 @@ No suggested first actions, no tour, no "try saying X" cards, no showcase of cap
 **`home.tsx`** (line 317-321): The error handler shows a toast and resets to idle. It doesn't suggest what to do next (retry, check settings, switch models).
 
 ### 33. No system prompt preview in settings
-**`settings-panel.tsx`**: The system prompt is defined in `jarvis.ts` but not visible to the user. Power users have no way to see or customize the full prompt.
+**`settings-panel.tsx`**: The system prompt is defined in `Infinity.ts` but not visible to the user. Power users have no way to see or customize the full prompt.
 
 ### 34. No conversation export / share
 No way to share a conversation transcript. ChatGPT has share links.
@@ -167,10 +167,10 @@ No way to share a conversation transcript. ChatGPT has share links.
 
 ## Summary — The Three Things That Matter Most
 
-If you want Jarvis to *feel* like a real product, fix these in order:
+If you want Infinity to *feel* like a real product, fix these in order:
 
 1. **STREAMING** (critical) — SSE for chat responses. Nothing else changes the feel more.
 2. **MESSAGE EDITING/REGENERATION** (critical) — let users edit their messages and regenerate responses. This is core ChatGPT muscle memory.
 3. **VOICE AS CONVERSATION** (high) — interruption, pipelined TTS, partial responses. Make voice feel bidirectional instead of request/response.
 
-Everything else (#6-#36) is polish. Fix these three and Jarvis transforms from "interesting prototype" to "I could actually use this every day."
+Everything else (#6-#36) is polish. Fix these three and Infinity transforms from "interesting prototype" to "I could actually use this every day."

@@ -83,7 +83,7 @@ export function ProjectActivity({ projectId, onBack }: ProjectActivityProps) {
       const params = new URLSearchParams();
       params.set("limit", "50");
       if (cursor) params.set("cursor", cursor);
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?${params.toString()}`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/activity?${params.toString()}`, { signal });
       if (!response.ok) throw new Error("Could not load activity");
       const data = await response.json();
       const items = asActivity(data.activity);

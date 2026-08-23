@@ -1,6 +1,6 @@
 /**
  * DeepResearchWidget — Live progress + final report for Deep Research v2 jobs.
- * Polls /api/jarvis/deep-research-v2/:id/stream (SSE) for real-time updates.
+ * Polls /api/infinity/deep-research-v2/:id/stream (SSE) for real-time updates.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -49,7 +49,7 @@ interface DeepResearchWidgetProps {
 async function createExpertFromResearch(jobId: string): Promise<{ expertName: string; conversationId: string } | null> {
   try {
     // Step 1: Get the expert prompt from the deep research API
-    const expertRes = await fetch(`/api/jarvis/deep-research-v2/${jobId}/expert`, {
+    const expertRes = await fetch(`/api/infinity/deep-research-v2/${jobId}/expert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -60,7 +60,7 @@ async function createExpertFromResearch(jobId: string): Promise<{ expertName: st
     const { expertName, systemPrompt } = await expertRes.json();
 
     // Step 2: Create the expert conversation
-    const createRes = await fetch("/api/jarvis/conversations/expert", {
+    const createRes = await fetch("/api/infinity/conversations/expert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: expertName, systemPrompt }),
@@ -107,7 +107,7 @@ export function DeepResearchWidget({ widget, onClose, onCreateExpert }: DeepRese
 
   useEffect(() => {
     // Connect to SSE stream
-    const es = new EventSource(`/api/jarvis/deep-research-v2/${widget.jobId}/stream`);
+    const es = new EventSource(`/api/infinity/deep-research-v2/${widget.jobId}/stream`);
     eventSourceRef.current = es;
 
     es.onopen = () => setIsConnected(true);

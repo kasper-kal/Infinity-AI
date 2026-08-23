@@ -161,7 +161,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
       if (buildAllowance === true) body.allowBuildMode = 'true';
       if (keyId) body.keyId = keyId;
 
-      const res = await fetch('/api/jarvis/chat', {
+      const res = await fetch('/api/Infinity/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -223,8 +223,8 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
 
       const decoder = new TextDecoder();
       let streamBuffer = '';
-      let jarvisText = '';
-      let jarvisReasoning = '';
+      let InfinityText = '';
+      let InfinityReasoning = '';
       let convId = activeConvIdRef.current ?? '';
       let newSuggestions: string[] = [];
       let widget: Widget | null = null;
@@ -250,11 +250,11 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
             const parsed = JSON.parse(data);
             switch (parsed.type) {
               case 'token':
-                jarvisText += parsed.content;
+                InfinityText += parsed.content;
                 // Update the last message (assistant) with accumulated text
                 setMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: jarvisText };
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: InfinityText };
                   return updated;
                 });
                 break;
@@ -262,20 +262,20 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
                 // @Browse / @Agent live streaming text (Tavily search progress,
                 // browser agent steps). Appended to the assistant message as plain
                 // live text in chat (NOT a widget).
-                jarvisText += parsed.content;
+                InfinityText += parsed.content;
                 setMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: jarvisText };
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], content: InfinityText };
                   return updated;
                 });
                 break;
               case 'reasoning':
                 // Thinking mode, accumulate the private reasoning chain onto
                 // the same assistant message (shown in a collapsible block).
-                jarvisReasoning += parsed.content;
+                InfinityReasoning += parsed.content;
                 setMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { ...updated[updated.length - 1], reasoning: jarvisReasoning };
+                  updated[updated.length - 1] = { ...updated[updated.length - 1], reasoning: InfinityReasoning };
                   return updated;
                 });
                 break;
@@ -543,7 +543,7 @@ export function useChatStream(deps: ChatStreamDeps): ChatStreamResult {
 
       // In chat mode, only speak if the request came from the mic (speak=true).
       if (speak) {
-        playTTS(jarvisText, () => { vibrate([20, 30, 20]); setStatus('speaking'); }, () => {
+        playTTS(InfinityText, () => { vibrate([20, 30, 20]); setStatus('speaking'); }, () => {
           if (isChatModeRef.current) {
             setStatus('idle');
             setTimeout(() => inputRef.current?.focus(), 50);

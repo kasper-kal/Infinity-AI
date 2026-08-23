@@ -1,8 +1,8 @@
 kind = "web"
 previewPath = "/"
-title = "Jarvis Voice Assistant"
+title = "infinity-ai Voice Assistant"
 version = "1.0.0"
-id = "artifacts/jarvis"
+id = "artifacts/infinity-ai"
 router = "path"
 
 [[services]]
@@ -11,12 +11,12 @@ paths = [ "/" ]
 localPort = 21662
 
 [services.development]
-run = "pnpm --filter @workspace/jarvis run dev"
+run = "pnpm --filter @workspace/infinity-ai run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/jarvis", "run", "build" ]
+build = [ "pnpm", "--filter", "@workspace/infinity-ai", "run", "build" ]
 serve = "static"
-publicDir = "artifacts/jarvis/dist/public"
+publicDir = "artifacts/infinity-ai/dist/public"
 
 [[services.production.rewrites]]
 from = "/*"

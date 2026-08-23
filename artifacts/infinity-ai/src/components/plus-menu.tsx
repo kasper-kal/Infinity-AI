@@ -123,7 +123,7 @@ export function PlusMenu({ open, onClose, onAction, coords, labels, query = '' }
   ];
   const invoke = (action: PlusAction) => {
     if (isPluginAutocomplete) {
-      window.dispatchEvent(new CustomEvent<PlusAction>('jarvis-plugin-action', { detail: action }));
+      window.dispatchEvent(new CustomEvent<PlusAction>('Infinity-plugin-action', { detail: action }));
       setAutoQuery(null);
       setAutoCoords(null);
       return;

@@ -56,7 +56,7 @@ const DEPTH_INFO: Record<ResearchJob['depth'], { label: string; hint: string }> 
   omni: { label: 'Omni', hint: '~weeks, never truly ends' },
 };
 
-/** Shape returned by GET /api/jarvis/research/estimate. */
+/** Shape returned by GET /api/infinity/research/estimate. */
 interface ResearchEstimate {
   depth: ResearchJob['depth'];
   phases: { min: number; max: number };
@@ -86,7 +86,7 @@ export function ResearchPanel({ jobs, onClose, onOpenExpert, onStarted, onCancel
   // confirmation card can tell the user how long the job will really run.
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/jarvis/research/estimate?depth=${depth}`)
+    fetch(`/api/infinity/research/estimate?depth=${depth}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((e: ResearchEstimate | null) => { if (!cancelled) setEstimate(e); })
       .catch(() => { if (!cancelled) setEstimate(null); });
@@ -112,7 +112,7 @@ export function ResearchPanel({ jobs, onClose, onOpenExpert, onStarted, onCancel
     // Enable real push notifications (system notification even with the tab closed).
     await ensurePushSubscription();
     try {
-      const res = await fetch('/api/jarvis/research', {
+      const res = await fetch('/api/infinity/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: goal.trim(), title: goal.trim().slice(0, 60), mode, depth }),

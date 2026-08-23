@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, Minimize2, Maximize2, X } from 'lucide-react';
-import { InfinityBrowser } from '@/components/jarvis-browser';
+import { InfinityBrowser } from '@/components/Infinity-browser';
 import { useI18n } from '@/lib/i18n';
 
 interface PipBrowserWindowProps {

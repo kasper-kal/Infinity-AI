@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, llmKeys } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { listKeys, testKey, invalidateKeyPool, NVIDIA_BASE_URL, LlmKeyTestError, type LlmKeyEntry } from "../../lib/llm-client";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 
 const router = Router();
 
@@ -56,7 +56,7 @@ router.post("/llm-keys", async (req, res) => {
         name: name.trim().slice(0, 100),
         baseUrl: baseUrl.trim().replace(/\/+$/, ""),
         apiKey: apiKey.trim(),
-        model: (model?.trim() || jarvisConfig.llmModel).slice(0, 200),
+        model: (model?.trim() || infinityConfig.llmModel).slice(0, 200),
         priority: Number.isFinite(priority) ? Math.max(0, Math.floor(priority as number)) : 0,
       })
       .returning();

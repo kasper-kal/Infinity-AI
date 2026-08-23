@@ -1,14 +1,14 @@
-# Jarvis — API Keys (no Freebuff Keys tab needed)
+# infinity-ai — API Keys (no Freebuff Keys tab needed)
 
-You have **two ways** to give Jarvis its keys. Neither uses the Freebuff Keys tab.
+You have **two ways** to give infinity-ai its keys. Neither uses the Freebuff Keys tab.
 
 ---
 
 ## Option 1 — In-app (recommended, zero restart)
 
-1. Open Jarvis → **Settings → API Keys**
+1. Open infinity-ai → **Settings → API Keys**
 2. Paste each key in its row (OpenRouter, ElevenLabs, Tavily, Figma, …)
-3. Keys are stored in Jarvis's **own database** and applied **immediately** — no restart, no file editing.
+3. Keys are stored in infinity-ai's **own database** and applied **immediately** — no restart, no file editing.
 
 The panel shows a green/red status dot for every integration so you can see at a glance what's configured.
 
@@ -53,7 +53,7 @@ B2_ENDPOINT=https://s3.eu-central-003.backblazeb2.com
 B2_REGION=eu-central-003
 B2_KEY_ID=YOUR_BACKBLAZE_KEY_ID
 B2_APPLICATION_KEY=YOUR_BACKBLAZE_APPLICATION_KEY
-B2_BUCKET_NAME=Jarvis-Gallery
+B2_BUCKET_NAME=infinity-ai-Gallery
 # Cloudflare R2 fallback (10 GB free, zero egress). Leave both cloud stores unset for local disk.
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY=
@@ -89,7 +89,7 @@ SPOTIFY_CLIENT_SECRET=
 
 ## How the in-app store works
 
-- Keys live in the `app_secrets` table in Jarvis's Postgres.
+- Keys live in the `app_secrets` table in infinity-ai's Postgres.
 - At boot, the server injects them into `process.env` (DB values win over file values).
 - Saving a key in-app applies it **immediately** — no restart needed.
 - Secrets never leave the server: the UI only ever sees a masked preview (`sk-or-••••••••WXYZ`).

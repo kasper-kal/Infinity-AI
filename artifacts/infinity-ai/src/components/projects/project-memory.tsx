@@ -94,7 +94,7 @@ export function ProjectMemory({ projectId, onBack }: ProjectMemoryProps) {
     setError(false);
     try {
       const query = searchQuery.trim() ? `?q=${encodeURIComponent(searchQuery.trim())}` : '';
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/memories${query}`, { signal });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/memories${query}`, { signal });
       if (!response.ok) throw new Error('Project memory request failed');
       setMemories(asMemories(await response.json()));
     } catch (requestError) {
@@ -139,7 +139,7 @@ export function ProjectMemory({ projectId, onBack }: ProjectMemoryProps) {
     if (!content || saving) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/memories`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/memories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -176,7 +176,7 @@ export function ProjectMemory({ projectId, onBack }: ProjectMemoryProps) {
     setBusyId(memoryId);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -199,7 +199,7 @@ export function ProjectMemory({ projectId, onBack }: ProjectMemoryProps) {
     setBusyId(memoryId);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memoryId)}`,
         { method: 'DELETE' },
       );
       if (!response.ok) throw new Error('Could not forget project memory');
@@ -217,7 +217,7 @@ export function ProjectMemory({ projectId, onBack }: ProjectMemoryProps) {
     setBusyId(memory.id);
     try {
       const response = await fetch(
-        `/api/jarvis/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memory.id)}/pin`,
+        `/api/infinity/projects/${encodeURIComponent(projectId)}/memories/${encodeURIComponent(memory.id)}/pin`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

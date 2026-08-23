@@ -1,5 +1,5 @@
 #!/bin/sh
-# Freebuff preview command for the Jarvis workspace.
+# Freebuff preview command for the infinity-ai workspace.
 # 1. Ensures Chrome's system libraries are present (idempotent, fast when done)
 # 2. Copies env vars into the API server working directory (its dotenv reads
 #    artifacts/api-server/.env)
@@ -16,7 +16,7 @@ set -e
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT" || exit 1
 
-# 1. Chrome system deps for Jarvis's personal browser (Puppeteer).
+# 1. Chrome system deps for infinity-ai's personal browser (Puppeteer).
 sh ./scripts/chrome-deps.sh
 
 # Puppeteer may run under a different user (root) than the one that
@@ -31,6 +31,6 @@ cat .env.local .env 2>/dev/null | awk -F= '!seen[$1]++' > artifacts/api-server/.
 
 # 3. Start servers. API server in the background (output to a log file so the
 #    preview's port detection only sees Vite), frontend in the foreground.
-PORT=8080 pnpm --filter @workspace/api-server run dev > /tmp/jarvis-api-server.log 2>&1 &
+PORT=8080 pnpm --filter @workspace/api-server run dev > /tmp/infinity-ai-api-server.log 2>&1 &
 sleep 4
-PORT=5173 pnpm --filter @workspace/jarvis run dev
+PORT=5173 pnpm --filter @workspace/infinity-ai run dev

@@ -196,7 +196,7 @@ let customPluginsLoaded = false;
  */
 export async function loadCustomPluginsFromAPI(): Promise<CustomProjectTypePlugin[]> {
   try {
-    const response = await fetch("/api/jarvis/project-types/plugins");
+    const response = await fetch("/api/infinity/project-types/plugins");
     if (!response.ok) throw new Error("Failed to fetch plugins");
     const data = await response.json();
     customPluginsCache = data.plugins || [];
@@ -266,7 +266,7 @@ export async function reloadCustomPlugins(): Promise<CustomProjectTypePlugin[]> 
  */
 export async function createPluginTemplate(id: string, name: string): Promise<{ success: boolean; filePath?: string; message?: string; error?: string }> {
   try {
-    const response = await fetch("/api/jarvis/project-types/plugins/create", {
+    const response = await fetch("/api/infinity/project-types/plugins/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, name }),
@@ -282,7 +282,7 @@ export async function createPluginTemplate(id: string, name: string): Promise<{ 
  */
 export async function deleteCustomPlugin(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(`/api/jarvis/project-types/plugins/${id}`, {
+    const response = await fetch(`/api/infinity/project-types/plugins/${id}`, {
       method: "DELETE",
     });
     if (!response.ok) {

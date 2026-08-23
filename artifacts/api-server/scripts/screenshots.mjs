@@ -9,7 +9,7 @@ async function main() {
   // 1. Empty chat welcome screen
   await page.goto(URL, { waitUntil: 'networkidle0' });
   await page.waitForTimeout(2000);
-  await page.screenshot({ path: '/tmp/jarvis-1-empty-welcome.png' });
+  await page.screenshot({ path: '/tmp/Infinity-1-empty-welcome.png' });
   console.log('1/6 Welcome screen');
 
   // 2. Chat mode welcome screen
@@ -18,7 +18,7 @@ async function main() {
     await toggleChat.click();
     await page.waitForTimeout(500);
   }
-  await page.screenshot({ path: '/tmp/jarvis-2-chat-welcome.png' });
+  await page.screenshot({ path: '/tmp/Infinity-2-chat-welcome.png' });
   console.log('2/6 Chat welcome screen');
 
   // 3. Send a message
@@ -26,7 +26,7 @@ async function main() {
   await textarea.fill('Hello!');
   await textarea.press('Enter');
   await page.waitForTimeout(8000);
-  await page.screenshot({ path: '/tmp/jarvis-3-chat-with-response.png' });
+  await page.screenshot({ path: '/tmp/Infinity-3-chat-with-response.png' });
   console.log('3/6 Chat with response');
 
   // 4. Open + menu
@@ -35,7 +35,7 @@ async function main() {
     await plusBtn.click();
     await page.waitForTimeout(500);
   }
-  await page.screenshot({ path: '/tmp/jarvis-4-plus-menu.png' });
+  await page.screenshot({ path: '/tmp/Infinity-4-plus-menu.png' });
   console.log('4/6 Plus menu open');
 
   // Close plus menu
@@ -46,7 +46,7 @@ async function main() {
   await textarea.fill('Draw me a cat');
   await textarea.press('Enter');
   await page.waitForTimeout(4000);
-  await page.screenshot({ path: '/tmp/jarvis-5-image-confirm.png' });
+  await page.screenshot({ path: '/tmp/Infinity-5-image-confirm.png' });
   console.log('5/6 Image confirmation card');
 
   // 6. Send screen share request
@@ -56,11 +56,11 @@ async function main() {
   await textarea2.fill('Start screen sharing');
   await textarea2.press('Enter');
   await page.waitForTimeout(4000);
-  await page.screenshot({ path: '/tmp/jarvis-6-screen-share-card.png' });
+  await page.screenshot({ path: '/tmp/Infinity-6-screen-share-card.png' });
   console.log('6/6 Screen share confirmation card');
 
   await browser.close();
-  console.log('\nAll screenshots in /tmp/jarvis-*.png');
+  console.log('\nAll screenshots in /tmp/Infinity-*.png');
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

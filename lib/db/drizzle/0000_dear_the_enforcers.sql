@@ -16,7 +16,7 @@ CREATE TABLE "messages" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "jarvis_settings" (
+CREATE TABLE "infinity-ai_settings" (
 	"key" text PRIMARY KEY NOT NULL,
 	"value" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL

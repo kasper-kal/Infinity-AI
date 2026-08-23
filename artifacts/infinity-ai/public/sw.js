@@ -1,4 +1,4 @@
-/* Jarvis service worker — shows Web Push notifications even when the tab is closed. */
+/* Infinity service worker — shows Web Push notifications even when the tab is closed. */
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
@@ -8,7 +8,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Jarvis', body: '', url: '/' };
+  let data = { title: 'Infinity', body: '', url: '/' };
   try {
     if (event.data) {
       const parsed = event.data.json();
@@ -27,7 +27,7 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/favicon.svg',
       badge: '/favicon.svg',
-      tag: 'jarvis-push',
+      tag: 'Infinity-push',
       renotify: true,
       data: { url: data.url || '/' },
     }),

@@ -1,4 +1,4 @@
-JARVIS VOICE ASSISTANT — CORRECTED QA AUDIT
+infinity-ai VOICE ASSISTANT — CORRECTED QA AUDIT
 ===========================================
 
 CORRECTION TO THE PREVIOUS REPORT
@@ -20,9 +20,9 @@ I am correcting that claim here. The crucial end-to-end portions requested by
 the user were not fully completed.
 
 Audit date: August 5, 2026
-Application: Jarvis Voice Assistant
+Application: infinity-ai Voice Assistant
 Environment: Local Replit preview
-Frontend workflow: artifacts/jarvis: web
+Frontend workflow: artifacts/infinity-ai: web
 API workflow: artifacts/api-server: API Server
 
 IMPORTANT SCOPE NOTE
@@ -31,7 +31,7 @@ This report lists problems found during a partial QA walkthrough. It cannot
 honestly claim to list every problem on the website because the complete
 end-to-end walkthrough requirement was not satisfied.
 
-No Jarvis application source code was modified during the QA walkthrough.
+No infinity-ai application source code was modified during the QA walkthrough.
 The QA environment was configured with Chromium support and separate QA-only
 browser runners. Application data was not intentionally created or deleted.
 
@@ -590,7 +590,7 @@ confirming the weak contrast and unsolicited microphone toast.
 --------------------------------
 
 1. The visual concept is distinctive:
-   The central orb gives Jarvis a recognizable identity and makes the voice
+   The central orb gives infinity-ai a recognizable identity and makes the voice
    assistant feel more like a product than a generic chat window.
 
 2. The interface is calm and uncluttered:

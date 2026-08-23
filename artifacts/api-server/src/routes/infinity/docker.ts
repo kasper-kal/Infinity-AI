@@ -127,7 +127,7 @@ router.get("/docker/images", (req, res) => {
 // Build Docker image from workspace
 router.post("/docker/build", async (req, res) => {
   const workspaceId = String(req.body?.workspaceId || "default").slice(0, 64);
-  const imageName = String(req.body?.imageName || "jarvis-app").slice(0, 128);
+  const imageName = String(req.body?.imageName || "infinity-app").slice(0, 128);
   const dockerfilePath = String(req.body?.dockerfilePath || "Dockerfile").slice(0, 256);
 
   try {

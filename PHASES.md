@@ -83,7 +83,7 @@ Add pre-build analysis that constructs persistent project understanding — fram
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/build-project-map.ts` (new)
 - `artifacts/api-server/src/lib/build-orchestrator.ts` (extend — pre-build hook)
-- `artifacts/api-server/src/routes/jarvis/build.ts` (extend — project map routes)
+- `artifacts/api-server/src/routes/Infinity/build.ts` (extend — project map routes)
 
 ---
 
@@ -178,7 +178,7 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 - `artifacts/api-server/src/lib/virtual-worktree.ts` (new)
 - `artifacts/api-server/src/lib/parallel-agents.ts` (new)
 - `artifacts/api-server/src/lib/build-orchestrator.ts` (integrate worktrees for parallel coders)
-- `artifacts/jarvis/src/components/debug/` (worktree visualization panel)
+- `artifacts/Infinity/src/components/debug/` (worktree visualization panel)
 
 ---
 
@@ -215,8 +215,8 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 
 ### Files to Create/Modify
 - `artifacts/terminal-bridge/` (new directory — package.json, src/index.ts, bin/bridge.ts)
-- `artifacts/jarvis/src/hooks/useTerminalBridge.ts` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (integrate bridge terminal)
+- `artifacts/Infinity/src/hooks/useTerminalBridge.ts` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (integrate bridge terminal)
 - `artifacts/api-server/src/lib/tool-registry.ts` (MCP-over-bridge tools)
 
 ---
@@ -258,8 +258,8 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/mcp-client.ts` (new) ✅
 - `artifacts/api-server/src/lib/mcp-registry.ts` (new — auto-register discovered tools) ✅
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (MCP servers tab) ✅
-- `artifacts/api-server/src/routes/jarvis/mcp-servers.ts` (new — CRUD for project MCP configs) ✅
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (MCP servers tab) ✅
+- `artifacts/api-server/src/routes/Infinity/mcp-servers.ts` (new — CRUD for project MCP configs) ✅
 
 ---
 
@@ -294,7 +294,7 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 ### Files to Create/Modify
 - `artifacts/vscode-extension/` (new — full extension)
 - `artifacts/api-server/src/lib/mcp-tools/diagnostics.ts` (MCP tool for diagnostics)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (extension messaging API)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (extension messaging API)
 
 ---
 
@@ -350,10 +350,10 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/ambient-intelligence.ts` (new)
 - `artifacts/api-server/src/lib/mobbin-integration.ts` (new)
 - `artifacts/api-server/src/lib/figma-import.ts` (new)
-- `artifacts/jarvis/src/components/design/DesignCanvas.tsx` (new)
-- `artifacts/jarvis/src/components/design/DesignSystemPanel.tsx` (new)
-- `artifacts/jarvis/src/components/design/MobbinSidebar.tsx` (new)
-- `artifacts/jarvis/src/components/design/TemplatePicker.tsx` (new)
+- `artifacts/Infinity/src/components/design/DesignCanvas.tsx` (new)
+- `artifacts/Infinity/src/components/design/DesignSystemPanel.tsx` (new)
+- `artifacts/Infinity/src/components/design/MobbinSidebar.tsx` (new)
+- `artifacts/Infinity/src/components/design/TemplatePicker.tsx` (new)
 
 ---
 
@@ -383,7 +383,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/parallel-orchestrator.ts` (new)
 - `artifacts/api-server/src/lib/agent-pool.ts` (new)
 - `artifacts/api-server/src/lib/merge-engine.ts` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (AgentPanel component)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (AgentPanel component)
 
 ---
 
@@ -414,9 +414,9 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/mobile-app-generator.ts` (new)
 - `artifacts/api-server/src/lib/expo-preview.ts` (new)
 - `artifacts/api-server/src/lib/store-submission.ts` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Mobile tab)
-- `artifacts/jarvis/src/components/mobile/QRCodePreview.tsx` (new)
-- `artifacts/jarvis/src/components/mobile/DeviceFeaturesPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Mobile tab)
+- `artifacts/Infinity/src/components/mobile/QRCodePreview.tsx` (new)
+- `artifacts/Infinity/src/components/mobile/DeviceFeaturesPanel.tsx` (new)
 
 ---
 
@@ -452,8 +452,8 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/security-scanner.ts` (new)
 - `artifacts/api-server/src/lib/secrets-manager.ts` (new)
 - `artifacts/api-server/src/lib/secret-detection.ts` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Security tab)
-- `artifacts/jarvis/src/components/security/SecurityDashboard.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Security tab)
+- `artifacts/Infinity/src/components/security/SecurityDashboard.tsx` (new)
 
 ---
 
@@ -481,7 +481,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/artifact-types.ts` (new)
 - `artifacts/api-server/src/lib/artifact-generators/` (new directory — one per type)
 - `artifacts/api-server/src/lib/shared-foundation.ts` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Artifact selector + parallel build UI)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Artifact selector + parallel build UI)
 
 ---
 
@@ -515,8 +515,8 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/connectors/linear.ts` (new)
 - `artifacts/api-server/src/lib/connectors/notion.ts` (new)
 - `artifacts/api-server/src/lib/connectors/google-sheets.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/connectors.ts` (extend)
-- `artifacts/jarvis/src/components/layout/ConnectorMenu.tsx` (extend with OAuth)
+- `artifacts/api-server/src/routes/Infinity/connectors.ts` (extend)
+- `artifacts/Infinity/src/components/layout/ConnectorMenu.tsx` (extend with OAuth)
 
 ---
 
@@ -548,8 +548,8 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - `artifacts/api-server/src/lib/enterprise/vpc.ts` (new)
 - `artifacts/api-server/src/lib/enterprise/audit-logs.ts` (new)
 - `artifacts/api-server/src/lib/enterprise/sso.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/enterprise.ts` (new)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (Enterprise tab)
+- `artifacts/api-server/src/routes/Infinity/enterprise.ts` (new)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Enterprise tab)
 
 ---
 
@@ -575,10 +575,10 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/skills/` (extend existing skills system)
-- `artifacts/api-server/src/routes/jarvis/skills.ts` (extend)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (Skills tab)
-- `artifacts/jarvis/src/components/skills/SkillEditor.tsx` (new)
-- `artifacts/jarvis/src/components/skills/SkillMarketplace.tsx` (new)
+- `artifacts/api-server/src/routes/Infinity/skills.ts` (extend)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab)
+- `artifacts/Infinity/src/components/skills/SkillEditor.tsx` (new)
+- `artifacts/Infinity/src/components/skills/SkillMarketplace.tsx` (new)
 
 ---
 
@@ -594,7 +594,7 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
   - Context-aware: uses project's existing design system, components, types
   - Iterative refinement: "make the button larger", "change to dark mode", "add loading state"
   - Multi-file generation: page + components + styles + types in one turn
-- [ ] **Live Preview Engine** — `artifacts/jarvis/src/components/ui-builder/LivePreview.tsx`:
+- [ ] **Live Preview Engine** — `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx`:
   - Sandbox iframe with React 18 + Tailwind + shadcn/ui preloaded
   - Hot module replacement (HMR) for instant updates
   - Console/error overlay in preview
@@ -630,12 +630,12 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/ui-codegen.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/ui-builder.ts` (new — codegen + deploy endpoints)
-- `artifacts/jarvis/src/components/ui-builder/LivePreview.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/ComponentRegistry.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/DeployPanel.tsx` (new)
-- `artifacts/jarvis/src/components/views/ChatView.tsx` (add UI Builder mode)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (UI Builder tab)
+- `artifacts/api-server/src/routes/Infinity/ui-builder.ts` (new — codegen + deploy endpoints)
+- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/ComponentRegistry.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/DeployPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/ChatView.tsx` (add UI Builder mode)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (UI Builder tab)
 
 ---
 
@@ -671,10 +671,10 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/ast-editor.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/PropEditor.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/VisualInspector.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/ComponentExtractor.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/LivePreview.tsx` (extend — selection bridge)
+- `artifacts/Infinity/src/components/ui-builder/PropEditor.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/VisualInspector.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/ComponentExtractor.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` (extend — selection bridge)
 
 ---
 
@@ -709,11 +709,11 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/preview-sharing.ts` (new)
 - `artifacts/api-server/src/lib/ui-comments.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/ui-collab.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/CommentOverlay.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/CommentSidebar.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/ReviewPanel.tsx` (new)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (collaboration tab)
+- `artifacts/api-server/src/routes/Infinity/ui-collab.ts` (new)
+- `artifacts/Infinity/src/components/ui-builder/CommentOverlay.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/CommentSidebar.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/ReviewPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (collaboration tab)
 
 ---
 
@@ -754,10 +754,10 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 - `artifacts/api-server/src/lib/db-integration.ts` (new)
 - `artifacts/api-server/src/lib/auth-integration.ts` (new)
 - `artifacts/api-server/src/lib/function-generator.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/APIWizard.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/DatabasePanel.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/AuthPanel.tsx` (new)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (integrations tab)
+- `artifacts/Infinity/src/components/ui-builder/APIWizard.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/DatabasePanel.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/AuthPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (integrations tab)
 
 ---
 
@@ -792,7 +792,7 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 - `artifacts/api-server/src/lib/framework-generators/` (new dir — one per framework)
 - `artifacts/api-server/src/lib/component-ir.ts` (new — intermediate representation)
 - `artifacts/api-server/src/lib/design-token-pipeline.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/FrameworkSelector.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/FrameworkSelector.tsx` (new)
 
 ---
 
@@ -832,10 +832,10 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 - `artifacts/api-server/src/lib/design-variations.ts` (new)
 - `artifacts/api-server/src/lib/design-analytics.ts` (new)
 - `artifacts/api-server/src/lib/suggestion-engine.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/VariationsPanel.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/ABPreview.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/AnalyticsDashboard.tsx` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (analytics tab)
+- `artifacts/Infinity/src/components/ui-builder/VariationsPanel.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/ABPreview.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/AnalyticsDashboard.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (analytics tab)
 
 ---
 
@@ -876,10 +876,10 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/component-registry.ts` (new)
 - `artifacts/api-server/src/lib/template-engine.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/marketplace.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/ComponentMarketplace.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/TemplateLibrary.tsx` (new)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (marketplace tab)
+- `artifacts/api-server/src/routes/Infinity/marketplace.ts` (new)
+- `artifacts/Infinity/src/components/ui-builder/ComponentMarketplace.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/TemplateLibrary.tsx` (new)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (marketplace tab)
 
 ---
 
@@ -924,10 +924,10 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/sandbox-pool.ts` (new)
 - `artifacts/api-server/src/lib/wasm-bundler.ts` (new)
-- `artifacts/jarvis/src/components/ui-builder/ErrorOverlay.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/CommandPalette.tsx` (new)
-- `artifacts/jarvis/public/sw.js` (new — service worker)
-- `artifacts/jarvis/src/hooks/useOffline.ts` (new)
+- `artifacts/Infinity/src/components/ui-builder/ErrorOverlay.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/CommandPalette.tsx` (new)
+- `artifacts/Infinity/public/sw.js` (new — service worker)
+- `artifacts/Infinity/src/hooks/useOffline.ts` (new)
 
 ---
 
@@ -976,13 +976,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/codebase-indexer.ts` (new)
 - `artifacts/api-server/src/lib/cursor-agent.ts` (new)
 - `artifacts/api-server/src/lib/cursor-composer.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/cursor.ts` (new — chat, composer, agent endpoints)
-- `artifacts/jarvis/src/components/cursor/ChatSidebar.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/Composer.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/TabAutocomplete.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/CmdKEdit.tsx` (new)
-- `artifacts/jarvis/src/components/views/ChatView.tsx` (integrate Cursor Chat mode)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Composer/Agent tabs)
+- `artifacts/api-server/src/routes/Infinity/cursor.ts` (new — chat, composer, agent endpoints)
+- `artifacts/Infinity/src/components/cursor/ChatSidebar.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/Composer.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/TabAutocomplete.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/CmdKEdit.tsx` (new)
+- `artifacts/Infinity/src/components/views/ChatView.tsx` (integrate Cursor Chat mode)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Composer/Agent tabs)
 
 ---
 
@@ -1023,9 +1023,9 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/codebase-indexer.ts` (new)
 - `artifacts/api-server/src/lib/tree-sitter-parsers.ts` (new)
 - `artifacts/api-server/src/lib/embeddings.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/codebase-index.ts` (new)
-- `artifacts/jarvis/src/components/cursor/CodebaseIndexPanel.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/ChatSidebar.tsx` (extend — @codebase)
+- `artifacts/api-server/src/routes/Infinity/codebase-index.ts` (new)
+- `artifacts/Infinity/src/components/cursor/CodebaseIndexPanel.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/ChatSidebar.tsx` (extend — @codebase)
 
 ---
 
@@ -1066,11 +1066,11 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/rules.ts` (new)
 - `artifacts/api-server/src/lib/notepads.ts` (new)
 - `artifacts/api-server/src/lib/model-router.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/customization.ts` (new)
-- `artifacts/jarvis/src/components/cursor/RulesEditor.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/NotepadManager.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/ModelPreferences.tsx` (new)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (AI Customization tab)
+- `artifacts/api-server/src/routes/Infinity/customization.ts` (new)
+- `artifacts/Infinity/src/components/cursor/RulesEditor.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/NotepadManager.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/ModelPreferences.tsx` (new)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (AI Customization tab)
 
 ---
 
@@ -1114,10 +1114,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/shadow-workspace.ts` (new)
 - `artifacts/api-server/src/lib/agent-review.ts` (new)
 - `artifacts/api-server/src/lib/multi-agent-orchestrator.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/agent-review.ts` (new)
-- `artifacts/jarvis/src/components/cursor/ShadowWorkspacePanel.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/AgentReviewPanel.tsx` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Agent Review tab)
+- `artifacts/api-server/src/routes/Infinity/agent-review.ts` (new)
+- `artifacts/Infinity/src/components/cursor/ShadowWorkspacePanel.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/AgentReviewPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Agent Review tab)
 
 ---
 
@@ -1154,10 +1154,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/design-mode.ts` (new)
-- `artifacts/jarvis/src/components/design/DesignMode.tsx` (new)
-- `artifacts/jarvis/src/components/design/VisualPropertyEditor.tsx` (new)
-- `artifacts/jarvis/src/components/design/ComponentPlayground.tsx` (new)
-- `artifacts/jarvis/src/components/ui-builder/LivePreview.tsx` (extend — design mode)
+- `artifacts/Infinity/src/components/design/DesignMode.tsx` (new)
+- `artifacts/Infinity/src/components/design/VisualPropertyEditor.tsx` (new)
+- `artifacts/Infinity/src/components/design/ComponentPlayground.tsx` (new)
+- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` (extend — design mode)
 
 ---
 
@@ -1251,10 +1251,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/git-tools.ts` (new)
 - `artifacts/api-server/src/lib/subagents.ts` (extend Phase 3)
 - `artifacts/api-server/src/lib/hooks-engine.ts` (new)
-- `artifacts/api-server/src/routes/jarvis/advanced-agent.ts` (new)
-- `artifacts/jarvis/src/components/cursor/PlanningPanel.tsx` (new)
-- `artifacts/jarvis/src/components/cursor/DebugPanel.tsx` (new)
-- `artifacts/jarvis/src/components/views/BuildView.tsx` (Advanced Agent tab)
+- `artifacts/api-server/src/routes/Infinity/advanced-agent.ts` (new)
+- `artifacts/Infinity/src/components/cursor/PlanningPanel.tsx` (new)
+- `artifacts/Infinity/src/components/cursor/DebugPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Advanced Agent tab)
 
 ---
 
@@ -1302,11 +1302,11 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/performance.ts` (new — benchmarks, profiling)
-- `artifacts/jarvis/src/components/cursor/TabAutocomplete.tsx` (optimize — WASM model)
-- `artifacts/jarvis/src/components/cursor/ChatSidebar.tsx` (optimize — streaming, pre-fetch)
-- `artifacts/jarvis/public/sw.js` (extend — offline support)
-- `artifacts/jarvis/src/hooks/useOffline.ts` (new)
-- `artifacts/jarvis/src/components/cursor/Accessibility.tsx` (new — a11y helpers)
+- `artifacts/Infinity/src/components/cursor/TabAutocomplete.tsx` (optimize — WASM model)
+- `artifacts/Infinity/src/components/cursor/ChatSidebar.tsx` (optimize — streaming, pre-fetch)
+- `artifacts/Infinity/public/sw.js` (extend — offline support)
+- `artifacts/Infinity/src/hooks/useOffline.ts` (new)
+- `artifacts/Infinity/src/components/cursor/Accessibility.tsx` (new — a11y helpers)
 
 ---
 

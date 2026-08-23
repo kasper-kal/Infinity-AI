@@ -1,4 +1,4 @@
-# What's Keeping Jarvis Build Mode from Being a Direct Replit/v0/Claude Code Competitor
+# What's Keeping infinity-ai Build Mode from Being a Direct Replit/v0/Claude Code Competitor
 
 **Date:** 2026-08-08
 **Method:** Hands-on Puppeteer interaction + full codebase audit of all Build Mode related files
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Jarvis Build Mode is an **impressive technical prototype** that demonstrates a genuine modal IDE with 13 tabs, scaffold/plan/iterate pipeline, Puppeteer-based preview screenshots, browser agent, and Replit-style activity feed. However, it falls short of being a **direct competitor** to Replit, v0, or Claude Code due to fundamental gaps in **reliability, polish, developer workflow integration, and production readiness**.
+infinity-ai Build Mode is an **impressive technical prototype** that demonstrates a genuine modal IDE with 13 tabs, scaffold/plan/iterate pipeline, Puppeteer-based preview screenshots, browser agent, and Replit-style activity feed. However, it falls short of being a **direct competitor** to Replit, v0, or Claude Code due to fundamental gaps in **reliability, polish, developer workflow integration, and production readiness**.
 
 The core issue: **Build Mode feels like a feature demo, not a daily driver.** It works for "build a landing page" demos but breaks down on real-world iterative development.
 
@@ -16,7 +16,7 @@ The core issue: **Build Mode feels like a feature demo, not a daily driver.** It
 
 ## 1. Architecture Comparison
 
-### Jarvis Build Mode (Current)
+### infinity-ai Build Mode (Current)
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    BuildStudio Modal (z-[60])               │
@@ -33,7 +33,7 @@ The core issue: **Build Mode feels like a feature demo, not a daily driver.** It
 - **API routes:** `build.ts` = 1,066 lines with all endpoints inline
 - **Workspace isolation:** Per-session `workspaceId` with file CRUD, terminal, git, packages
 - **Pipeline:** `ask` → wizard (4 questions) → `plan` (optional) → `scaffold` → auto-pipeline (preview → screenshot → `iterate` × N → complete)
-- **Theme-aware:** Tailwind + `useTheme` hook + custom `jarvis-theme-change` event for Puppeteer
+- **Theme-aware:** Tailwind + `useTheme` hook + custom `infinity-ai-theme-change` event for Puppeteer
 
 ### Replit (Production)
 - **Full IDE:** Multi-pane, persistent workspaces, real collaboration, deployed URLs
@@ -54,7 +54,7 @@ The core issue: **Build Mode feels like a feature demo, not a daily driver.** It
 - **Context-aware:** Understands your entire codebase
 
 ### Architectural Gaps
-| Aspect | Jarvis | Replit | v0 | Claude Code |
+| Aspect | infinity-ai | Replit | v0 | Claude Code |
 |--------|--------|--------|-----|-------------|
 | **Persistence** | Per-session workspaceId | Persistent repls | Project-based | Your repo |
 | **Collaboration** | None | Real-time multiplayer | Comments/share | Git-based |
@@ -69,7 +69,7 @@ The core issue: **Build Mode feels like a feature demo, not a daily driver.** It
 
 ### Test Performed
 Built a "beautiful bakery landing page with hero section, menu, and contact form" via:
-1. Open Jarvis at `http://localhost:5173`
+1. Open infinity-ai at `http://localhost:5173`
 2. Click "+" button → Plus Menu opens
 3. Type `@build Create a beautiful bakery landing page...` in chat input
 4. Build Studio modal opens → 4-question wizard appears
@@ -185,7 +185,7 @@ Built a "beautiful bakery landing page with hero section, menu, and contact form
 - **Magic strings everywhere** - `'editor' | 'terminal' | 'preview'...` repeated.
 - **Business logic in render** - `visibleFiles` computation, `languageFor()` in render path.
 - **No error boundaries** - One crash kills entire modal.
-- **Custom event for theme** - `jarvis-theme-change` dispatched but not documented.
+- **Custom event for theme** - `infinity-ai-theme-change` dispatched but not documented.
 
 **Positive:**
 - Comprehensive feature set
@@ -220,7 +220,7 @@ Built a "beautiful bakery landing page with hero section, menu, and contact form
 
 ## 4. Feature Parity Matrix
 
-| Feature | Jarvis | Replit | v0 | Claude Code |
+| Feature | infinity-ai | Replit | v0 | Claude Code |
 |---------|--------|--------|-----|-------------|
 | **Code generation** | ✅ LLM scaffold | ✅ Agent | ✅ Chat → code | ✅ Agentic |
 | **Multi-file projects** | ⚠️ Single HTML fallback | ✅ Full | ✅ React components | ✅ Your repo |
@@ -253,9 +253,9 @@ Built a "beautiful bakery landing page with hero section, menu, and contact form
 
 ### Daily Workflow
 ```
-Replit/v0/Claude Code:     Jarvis Build Mode:
+Replit/v0/Claude Code:     infinity-ai Build Mode:
 ─────────────────          ─────────────────
-1. Open project            1. Open Jarvis chat
+1. Open project            1. Open infinity-ai chat
 2. Start coding            2. Type @build "make a todo app"
 3. See changes live        3. Answer 4 generic questions
 4. Commit & push           4. Click "Build it"
@@ -272,7 +272,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 - **Replit:** Agent shows reasoning → shows file diffs → you approve → runs tests → deploys
 - **v0:** Streaming generation → live preview updates → chat refines → one-click deploy
 - **Claude Code:** Reads your code → proposes changes → shows diff → you accept → runs commands
-- **Jarvis:** Black box scaffold → black box iterate → activity feed says "3 files fixed" → no diff
+- **infinity-ai:** Black box scaffold → black box iterate → activity feed says "3 files fixed" → no diff
 
 ### Debugging
 - **No console integration** - Preview console errors captured but buried in Preview tab
@@ -288,7 +288,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 - Replit: `repl.co` URL, persistent filesystem, environment, secrets
 - v0: Project linked to Vercel, git repo, deployments
 - Claude Code: Your git repo on disk
-- Jarvis: `workspaceId` = random UUID per session. Close modal = lose everything unless manually saved to "Gallery" (local API only).
+- infinity-ai: `workspaceId` = random UUID per session. Close modal = lose everything unless manually saved to "Gallery" (local API only).
 
 ### Blocker 2: **No Real Terminal**
 - SSE + xterm.js cannot run: `vim`, `npm run dev` (background), `docker exec`, `psql`, any interactive CLI
@@ -311,7 +311,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 
 ### Blocker 6: **No GitHub/GitLab Integration**
 - Git tab is local-only. No: clone, push, pull, PR, issues, CI status
-- "Save app" writes to local `/api/jarvis/build/apps` - not a git repo
+- "Save app" writes to local `/api/infinity-ai/build/apps` - not a git repo
 
 ### Blocker 7: **Mobile/Responsive UX Broken**
 - Modal `h-[94vh]` on mobile → tabs overflow horizontally
@@ -334,7 +334,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 
 ---
 
-## 7. What Jarvis Does Well (Competitive Advantages)
+## 7. What infinity-ai Does Well (Competitive Advantages)
 
 1. **All-in-one modal** - Editor + Terminal + Preview + 10 tools in one modal
 2. **Activity feed** - Replit-style progress visualization is genuinely good
@@ -383,7 +383,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 
 ## 9. Conclusion
 
-**Jarvis Build Mode is a remarkable prototype** that proves the concept: a modal, local-first, AI-assisted IDE with Replit-style activity feed, browser agent, and 13 integrated tools. The themed fallback, Puppeteer screenshots, and auto-pipeline are genuinely innovative.
+**infinity-ai Build Mode is a remarkable prototype** that proves the concept: a modal, local-first, AI-assisted IDE with Replit-style activity feed, browser agent, and 13 integrated tools. The themed fallback, Puppeteer screenshots, and auto-pipeline are genuinely innovative.
 
 **But it is not a direct competitor to Replit, v0, or Claude Code** because:
 
@@ -395,7 +395,7 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 6. **Discoverability is broken** - Hidden behind `@build` shortcut only
 7. **Mobile/accessibility ignored** - Unusable on phone, no ARIA beyond basics
 
-**To become a direct competitor:** Jarvis needs persistent project workspaces, real terminal, code intelligence (LSP), transparent iterate with diffs, GitHub integration, and a modular architecture that a team can maintain. That's a 6-12 month investment minimum.
+**To become a direct competitor:** infinity-ai needs persistent project workspaces, real terminal, code intelligence (LSP), transparent iterate with diffs, GitHub integration, and a modular architecture that a team can maintain. That's a 6-12 month investment minimum.
 
 **Current positioning:** "Impressive local-first AI coding sandbox for prototyping" — not "Replit/v0/Claude Code alternative."
 
@@ -405,14 +405,14 @@ Replit/v0/Claude Code:     Jarvis Build Mode:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `artifacts/jarvis/src/components/build-studio.tsx` | 961 | Main Build Studio modal component |
-| `artifacts/api-server/src/routes/jarvis/build.ts` | 1,066 | All Build Mode API endpoints |
-| `artifacts/jarvis/src/components/plus-menu.tsx` | 245 | Build Mode entry point (@build shortcut) |
-| `artifacts/jarvis/src/pages/home.tsx` | ~500 | Chat composer, @build trigger, modal rendering |
-| `artifacts/jarvis/src/lib/i18n.tsx` | ~1,000 | Translations (studio.build.* keys) |
-| `artifacts/jarvis/src/lib/use-theme.ts` | ~50 | Theme hook + custom event for Puppeteer |
-| `artifacts/jarvis/src/components/code-editor.tsx` | ~200 | Monaco wrapper |
-| `artifacts/jarvis/src/components/app-overlays.tsx` | ~50 | BuildStudio render wrapper |
+| `artifacts/infinity-ai/src/components/build-studio.tsx` | 961 | Main Build Studio modal component |
+| `artifacts/api-server/src/routes/infinity-ai/build.ts` | 1,066 | All Build Mode API endpoints |
+| `artifacts/infinity-ai/src/components/plus-menu.tsx` | 245 | Build Mode entry point (@build shortcut) |
+| `artifacts/infinity-ai/src/pages/home.tsx` | ~500 | Chat composer, @build trigger, modal rendering |
+| `artifacts/infinity-ai/src/lib/i18n.tsx` | ~1,000 | Translations (studio.build.* keys) |
+| `artifacts/infinity-ai/src/lib/use-theme.ts` | ~50 | Theme hook + custom event for Puppeteer |
+| `artifacts/infinity-ai/src/components/code-editor.tsx` | ~200 | Monaco wrapper |
+| `artifacts/infinity-ai/src/components/app-overlays.tsx` | ~50 | BuildStudio render wrapper |
 | `test-build-mode.js` | 290 | Puppeteer interaction test script |
 
 **Screenshots captured:** 17 (initial, plus-menu, @build, studio-open, post-scaffold, 13 tabs)

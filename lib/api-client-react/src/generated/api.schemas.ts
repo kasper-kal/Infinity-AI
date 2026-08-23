@@ -44,7 +44,7 @@ export interface ChatInput {
 }
 
 export interface ChatOutput {
-  /** Jarvis's text response */
+  /** infinity-ai's text response */
   response: string;
 }
 

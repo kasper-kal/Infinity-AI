@@ -1,4 +1,4 @@
-# JARVIS - REACT RENDER BUG FIX
+# infinity-ai - REACT RENDER BUG FIX
 
 ## Problem Identified
 
@@ -26,7 +26,7 @@ Changed the default mode from 'voice' to 'chat', and added validation:
 ```typescript
 const [mode, setMode] = useState<'voice' | 'chat' | 'agent' | 'camera'>(() => {
   try {
-    const saved = localStorage.getItem('jarvis-mode') as any;
+    const saved = localStorage.getItem('infinity-ai-mode') as any;
     // Validate the saved mode, fallback to 'chat' if invalid or 'agent'/'voice' (expensive modes)
     return (saved === 'chat' || saved === 'camera') ? saved : 'chat';
   } catch {
@@ -79,8 +79,8 @@ The fix was verified by:
 
 ## Files Changed
 
-- `artifacts/jarvis/src/pages/home.tsx` - Added mode validation logic
-- `artifacts/jarvis/src/lib/use-theme.ts` - Added theme safety check
+- `artifacts/infinity-ai/src/pages/home.tsx` - Added mode validation logic
+- `artifacts/infinity-ai/src/lib/use-theme.ts` - Added theme safety check
 
 ## Related Issues
 

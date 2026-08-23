@@ -168,7 +168,7 @@ export function PromoWidget({
   // Fetch script steps if not provided
   useEffect(() => {
     if (scriptSteps.length === 0 && jobId) {
-      fetch(`/api/jarvis/promo/status/${jobId}`)
+      fetch(`/api/infinity/promo/status/${jobId}`)
         .then(res => res.json())
         .then(data => {
           if (data.script?.steps) {
@@ -186,7 +186,7 @@ export function PromoWidget({
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/jarvis/promo/status/${jobId}`);
+        const res = await fetch(`/api/infinity/promo/status/${jobId}`);
         if (res.ok) {
           const data = await res.json();
           setLatestStatus(data.status);
@@ -423,7 +423,7 @@ export function PromoWidget({
     if (!latestVideoUrl) return;
     haptics.light();
     try {
-      const res = await fetch(`/api/jarvis/promo/download/${jobId}`);
+      const res = await fetch(`/api/infinity/promo/download/${jobId}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);

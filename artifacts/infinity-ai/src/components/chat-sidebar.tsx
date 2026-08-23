@@ -315,10 +315,10 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
       if (activeProjectId) params.set('projectId', activeProjectId);
       const query = params.toString();
       const url = searchQuery
-        ? `/api/jarvis/conversations/search?${query}`
+        ? `/api/infinity/conversations/search?${query}`
         : query
-          ? `/api/jarvis/conversations?${query}`
-          : '/api/jarvis/conversations';
+          ? `/api/infinity/conversations?${query}`
+          : '/api/infinity/conversations';
       const res = await fetch(url);
       if (res.ok) setConversations(await res.json());
     } catch { /* silent */ }
@@ -330,7 +330,7 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
     e.stopPropagation();
     setDeleting(id);
     try {
-      await fetch(`/api/jarvis/conversations/${id}`, { method: 'DELETE' });
+      await fetch(`/api/infinity/conversations/${id}`, { method: 'DELETE' });
       setConversations(prev => prev.filter(c => c.id !== id));
       if (activeId === id) onNew();
     } finally {
@@ -340,7 +340,7 @@ export function ChatSidebar({ activeId, onSelect, onNew, refreshTick, mobileOpen
 
   const handleClearAll = async () => {
     try {
-      await fetch('/api/jarvis/conversations', { method: 'DELETE' });
+      await fetch('/api/infinity/conversations', { method: 'DELETE' });
       setConversations([]);
       onNew();
     } finally {

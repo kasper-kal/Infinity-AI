@@ -1,6 +1,6 @@
 {
-  "name": "Jarvis — Personal AI Assistant",
-  "short_name": "Jarvis",
+  "name": "infinity-ai — Personal AI Assistant",
+  "short_name": "infinity-ai",
   "description": "Your personal AI assistant — chat, voice, and deep research.",
   "start_url": "/",
   "display": "standalone",

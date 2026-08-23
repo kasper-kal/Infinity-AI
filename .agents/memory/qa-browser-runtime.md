@@ -38,7 +38,7 @@ major surface and mutually exclusive action needs an isolated fresh state,
 post-action assertion, and a status of PASS, FAIL, BLOCKED, NOT TESTED, or
 SOURCE REVIEW ONLY.
 
-**Why:** A broad Jarvis sweep reported hundreds of successful activations even
+**Why:** A broad infinity-ai sweep reported hundreds of successful activations even
 though Settings persistence, provider flows, media workflows, and resulting
 feature states were not conclusively completed.
 

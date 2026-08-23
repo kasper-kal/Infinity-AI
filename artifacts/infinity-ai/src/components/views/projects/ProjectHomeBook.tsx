@@ -140,7 +140,7 @@ export function ProjectHomeBook({
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/home`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/home`);
       if (!response.ok) throw new Error('Project home request failed');
       setPayload(await response.json() as ProjectHomePayload);
     } catch {
@@ -152,7 +152,7 @@ export function ProjectHomeBook({
 
   const loadActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
       if (!response.ok) throw new Error('Project activity request failed');
       const data = await response.json();
       const activity = Array.isArray(data.activity) ? data.activity : [];
@@ -164,7 +164,7 @@ export function ProjectHomeBook({
 
   const loadBookJobs = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/book/jobs`);
+      const response = await fetch(`/api/infinity/book/jobs`);
       if (!response.ok) throw new Error('Book jobs request failed');
       const data = await response.json();
       setBookJobs(data.jobs || []);
@@ -386,7 +386,7 @@ export function ProjectHomeBook({
                       {job.status === 'completed' && job.pdfFile && (
                         <button
                           type="button"
-                          onClick={() => window.open(`/api/jarvis/book/download/${job.id}`, '_blank')}
+                          onClick={() => window.open(`/api/infinity/book/download/${job.id}`, '_blank')}
                           className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
                         >
                           <Download className="h-3.5 w-3.5" />

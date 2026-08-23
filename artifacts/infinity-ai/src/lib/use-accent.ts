@@ -10,7 +10,7 @@ const ACCENTS: Record<AccentName, { light: string; dark: string }> = {
 
 export function applyAccent(accent: string | null = null, resolvedTheme?: 'dark' | 'light') {
   const stored = accent ?? (() => {
-    try { return localStorage.getItem('jarvis-accent'); } catch { return null; }
+    try { return localStorage.getItem('Infinity-accent'); } catch { return null; }
   })();
   const name = (stored && stored in ACCENTS ? stored : 'blue') as AccentName;
   const dark = resolvedTheme

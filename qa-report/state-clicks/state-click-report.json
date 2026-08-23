@@ -2143,7 +2143,7 @@
     {
       "state": "chat-palette",
       "kind": "button",
-      "text": "Jarvis's Browser",
+      "text": "infinity-ai's Browser",
       "title": "",
       "aria": "",
       "ok": true
@@ -2543,7 +2543,7 @@
     {
       "state": "agent-mode",
       "kind": "button",
-      "text": "Jarvis's Browser",
+      "text": "infinity-ai's Browser",
       "title": "",
       "aria": "",
       "ok": true

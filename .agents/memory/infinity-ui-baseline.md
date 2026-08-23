@@ -1,11 +1,11 @@
 ---
-name: Jarvis UI visual baseline
-description: The approved Jarvis mobile visual language and layout baseline to restore after upstream GitHub pulls.
+name: infinity-ai UI visual baseline
+description: The approved infinity-ai mobile visual language and layout baseline to restore after upstream GitHub pulls.
 ---
 
-The approved Jarvis UI is a light, Apple-like glass interface with a very subtle page-wide dotted texture. Preserve the original luminous neural-network orb identity; do not add orb-local particles or replace it with a generated concept. The orb should remain quiet and minimal when idle.
+The approved infinity-ai UI is a light, Apple-like glass interface with a very subtle page-wide dotted texture. Preserve the original luminous neural-network orb identity; do not add orb-local particles or replace it with a generated concept. The orb should remain quiet and minimal when idle.
 
-**Why:** The user evaluates this interface visually from phone screenshots and has explicitly preferred the original Jarvis identity over experimental replacements.
+**Why:** The user evaluates this interface visually from phone screenshots and has explicitly preferred the original infinity-ai identity over experimental replacements.
 
 **How to apply:** After any upstream merge or pull, compare the mobile empty chat screen against the saved reference screenshots and restore this baseline before making new visual changes.
 
@@ -28,7 +28,7 @@ Use Lucide icons consistently for interface controls, with the canonical Lucide 
 
 The mobile empty state contains all four suggestions: briefing, create image, write/edit, and web search. They must remain visible on mobile and desktop; never hide the secondary suggestions as a shortcut for avoiding overlap with the plus menu.
 
-The header is a compact top zone, the composer is a stable bottom zone, and the Jarvis orb plus all suggestions form one flexible middle-zone cluster. The cluster should be positioned relative to the available space between header and composer, not by a single fixed pixel offset. Taller phones may place the cluster slightly lower; short phones must keep the entire stack inside the usable chat area.
+The header is a compact top zone, the composer is a stable bottom zone, and the infinity-ai orb plus all suggestions form one flexible middle-zone cluster. The cluster should be positioned relative to the available space between header and composer, not by a single fixed pixel offset. Taller phones may place the cluster slightly lower; short phones must keep the entire stack inside the usable chat area.
 
 The composer is a rounded pill anchored at the bottom with safe-area support. On very narrow, short phones it stays a stable single-line height rather than expanding into a multi-line block. The plus menu remains reachable above the composer; on short screens it can scroll internally so every action remains accessible.
 

@@ -168,7 +168,7 @@ export function ProjectHomeWebsite({
     setLoading(true);
     setError(false);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/home`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/home`);
       if (!response.ok) throw new Error('Project home request failed');
       setPayload(await response.json() as ProjectHomePayload);
     } catch {
@@ -180,7 +180,7 @@ export function ProjectHomeWebsite({
 
   const loadActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/activity?limit=6`);
       if (!response.ok) throw new Error('Project activity request failed');
       const data = await response.json();
       const activity = Array.isArray(data.activity) ? data.activity : [];
@@ -192,7 +192,7 @@ export function ProjectHomeWebsite({
 
   const loadGitHubStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/website/github/status?projectId=${encodeURIComponent(projectId)}`);
+      const response = await fetch(`/api/infinity/website/github/status?projectId=${encodeURIComponent(projectId)}`);
       if (response.ok) {
         const data = await response.json();
         setGithubConnected(data.connected);
@@ -206,7 +206,7 @@ export function ProjectHomeWebsite({
 
   const loadDeployStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/jarvis/website/deploy/status?projectId=${encodeURIComponent(projectId)}`);
+      const response = await fetch(`/api/infinity/website/deploy/status?projectId=${encodeURIComponent(projectId)}`);
       if (response.ok) {
         const data = await response.json();
         setDeployStatus(data);
@@ -248,7 +248,7 @@ export function ProjectHomeWebsite({
     setBusyAction('githubConnect');
     try {
       // In real implementation, this would redirect to GitHub OAuth
-      window.open(`/api/jarvis/website/github/connect?projectId=${encodeURIComponent(projectId)}`, '_blank');
+      window.open(`/api/infinity/website/github/connect?projectId=${encodeURIComponent(projectId)}`, '_blank');
     } finally {
       setBusyAction(null);
     }
@@ -259,7 +259,7 @@ export function ProjectHomeWebsite({
     setBusyAction('build');
     setBuildOutput('');
     try {
-      const response = await fetch(`/api/jarvis/website/build`, {
+      const response = await fetch(`/api/infinity/website/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
@@ -286,7 +286,7 @@ export function ProjectHomeWebsite({
     if (busyAction) return;
     setBusyAction('deploy');
     try {
-      const response = await fetch(`/api/jarvis/website/deploy`, {
+      const response = await fetch(`/api/infinity/website/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, repoId: selectedRepo?.id }),

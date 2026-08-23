@@ -5,7 +5,7 @@ type Theme = 'dark' | 'light' | 'auto';
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    try { return (localStorage.getItem('jarvis-theme') as Theme) || 'light'; }
+    try { return (localStorage.getItem('Infinity-theme') as Theme) || 'light'; }
     catch { return 'light'; }
   });
   const [systemDark, setSystemDark] = useState(() =>
@@ -22,7 +22,7 @@ export function useTheme() {
   // Listen for external theme changes (cross-tab via storage, same-tab via custom event)
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'jarvis-theme' && e.newValue) {
+      if (e.key === 'Infinity-theme' && e.newValue) {
         setTheme(e.newValue as Theme);
       }
     };
@@ -33,10 +33,10 @@ export function useTheme() {
       }
     };
     window.addEventListener('storage', onStorage);
-    window.addEventListener('jarvis-theme-change', onCustom);
+    window.addEventListener('Infinity-theme-change', onCustom);
     return () => {
       window.removeEventListener('storage', onStorage);
-      window.removeEventListener('jarvis-theme-change', onCustom);
+      window.removeEventListener('Infinity-theme-change', onCustom);
     };
   }, []);
 
@@ -46,7 +46,7 @@ export function useTheme() {
     const root = document.documentElement;
     root.classList.remove('dark', 'light');
     root.classList.add(resolved);
-    try { localStorage.setItem('jarvis-theme', theme); } catch { /* noop */ }
+    try { localStorage.setItem('Infinity-theme', theme); } catch { /* noop */ }
     applyAccent(null, resolved);
   }, [theme, resolved]);
 

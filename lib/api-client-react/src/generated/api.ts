@@ -140,7 +140,7 @@ export const getTranscribeAudioUrl = () => {
 
 
 
-  return `/api/jarvis/transcribe`
+  return `/api/infinity-ai/transcribe`
 }
 
 /**
@@ -213,11 +213,11 @@ export const getSendMessageUrl = () => {
 
 
 
-  return `/api/jarvis/chat`
+  return `/api/infinity-ai/chat`
 }
 
 /**
- * @summary Send a message to Jarvis LLM
+ * @summary Send a message to infinity-ai LLM
  */
 export const sendMessage = async (chatInput: ChatInput, options?: RequestInit): Promise<ChatOutput> => {
 
@@ -266,7 +266,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SendMessageMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Send a message to Jarvis LLM
+ * @summary Send a message to infinity-ai LLM
  */
 export const useSendMessage = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMessage>>, TError,{data: BodyType<ChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -284,7 +284,7 @@ export const getSynthesizeSpeechUrl = () => {
 
 
 
-  return `/api/jarvis/speak`
+  return `/api/infinity-ai/speak`
 }
 
 /**

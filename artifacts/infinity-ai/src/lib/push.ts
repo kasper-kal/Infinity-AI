@@ -46,7 +46,7 @@ export async function ensurePushSubscription(): Promise<boolean> {
 
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
-      const res = await fetch('/api/jarvis/push/vapid-key');
+      const res = await fetch('/api/infinity/push/vapid-key');
       if (!res.ok) return false;
       const { publicKey } = (await res.json()) as { publicKey?: string };
       if (!publicKey) return false;
@@ -60,7 +60,7 @@ export async function ensurePushSubscription(): Promise<boolean> {
     const auth = subscription.getKey('auth');
     if (!p256dh || !auth) return false;
 
-    const res = await fetch('/api/jarvis/push/subscribe', {
+    const res = await fetch('/api/infinity/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

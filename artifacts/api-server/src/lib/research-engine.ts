@@ -28,7 +28,7 @@ import OpenAI from "openai";
 import { db, researchJobs, conversations, messages } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { load as cheerioLoad } from "cheerio";
-import { jarvisConfig } from "../config/jarvis";
+import { infinityConfig } from "../config/infinity";
 import { logger } from "./logger";
 import { notifyAll } from "./web-push";
 import { runWithLLM, LLMAllKeysCoolingError } from "./llm-client";

@@ -95,7 +95,7 @@
     "0090-gem-7-Browser.png",
     "0091-gem-8-Settings.png",
     "0092-gem-9-Close.png",
-    "0093-gem-10-Personalization-How-Jarvis-talks-and-responds.png",
+    "0093-gem-10-Personalization-How-infinity-ai-talks-and-responds.png",
     "0094-gem-11-Auto-AI-decides-.png",
     "0095-gem-12-Balanced.png",
     "0096-gem-13-Talkative.png",
@@ -172,7 +172,7 @@
     "0167-agent-13-Show-click-grid-tiny-cubes-.png",
     "0168-agent-14-Hide-click-grid.png",
     "0169-agent-15-Minimize.png",
-    "0170-agent-16-Jarvis-s-Browser.png",
+    "0170-agent-16-infinity-ai-s-Browser.png",
     "0171-agent-17-Fullscreen.png",
     "0172-agent-18-Collapse.png",
     "0173-agent-19-Run.png",
@@ -1980,18 +1980,18 @@
       "control": {
         "tag": "BUTTON",
         "id": "",
-        "text": "Personalization How Jarvis talks and responds",
+        "text": "Personalization How infinity-ai talks and responds",
         "aria": "",
         "title": "",
         "disabled": false,
         "visible": true,
-        "signature": "BUTTON||Personalization How Jarvis talks and responds||"
+        "signature": "BUTTON||Personalization How infinity-ai talks and responds||"
       },
       "category": "normal",
       "outcome": {
         "ok": true
       },
-      "after": "0093-gem-10-Personalization-How-Jarvis-talks-and-responds.png"
+      "after": "0093-gem-10-Personalization-How-infinity-ai-talks-and-responds.png"
     },
     {
       "flow": "gem",
@@ -3371,18 +3371,18 @@
       "control": {
         "tag": "BUTTON",
         "id": "",
-        "text": "Jarvis's Browser",
+        "text": "infinity-ai's Browser",
         "aria": "",
         "title": "",
         "disabled": false,
         "visible": true,
-        "signature": "BUTTON||Jarvis's Browser||"
+        "signature": "BUTTON||infinity-ai's Browser||"
       },
       "category": "normal",
       "outcome": {
         "ok": true
       },
-      "after": "0170-agent-16-Jarvis-s-Browser.png"
+      "after": "0170-agent-16-infinity-ai-s-Browser.png"
     },
     {
       "flow": "agent",
@@ -5369,7 +5369,7 @@
     {
       "flow": "oauth-spotify",
       "kind": "oauth-popup",
-      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Fjarvis%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
+      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Finfinity-ai%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
       "screenshot": "0280-oauth-spotify-oauth-login.png",
       "outcome": "opened-without-login"
     },

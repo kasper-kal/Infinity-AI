@@ -93,7 +93,7 @@ function projectQueryUrl(query: string, sort: ProjectSort, includeArchived: bool
   if (query.trim()) params.set('q', query.trim());
   params.set('sort', sort);
   params.set('archived', includeArchived ? 'all' : 'false');
-  return `/api/jarvis/projects?${params.toString()}`;
+  return `/api/infinity/projects?${params.toString()}`;
 }
 
 export function ProjectGallery({
@@ -146,7 +146,7 @@ export function ProjectGallery({
 
   const loadProjectChats = useCallback(async (projectId: string) => {
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}/conversations`);
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}/conversations`);
       if (response.ok) {
         const chats = await response.json() as ProjectChat[];
         setProjectChats((current) => ({ ...current, [projectId]: chats }));
@@ -182,7 +182,7 @@ export function ProjectGallery({
     onOpenProject?.(nextProjectId);
     if (!nextProjectId) return;
 
-    void fetch(`/api/jarvis/projects/${encodeURIComponent(nextProjectId)}/open`, { method: 'POST' });
+    void fetch(`/api/infinity/projects/${encodeURIComponent(nextProjectId)}/open`, { method: 'POST' });
     await loadProjectChats(nextProjectId);
   };
 
@@ -191,7 +191,7 @@ export function ProjectGallery({
     if (!projectName && !fromConversationId) return;
     setBusy(true);
     try {
-      const response = await fetch('/api/jarvis/projects', {
+      const response = await fetch('/api/infinity/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,7 +218,7 @@ export function ProjectGallery({
     if (!name || busyProjectId) return;
     setBusyProjectId(projectId);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(projectId)}`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(projectId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -236,7 +236,7 @@ export function ProjectGallery({
     if (busyProjectId) return;
     setBusyProjectId(project.id);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(project.id)}`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(project.id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: !project.archived }),
@@ -261,7 +261,7 @@ export function ProjectGallery({
     if (busyProjectId) return;
     setBusyProjectId(project.id);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(project.id)}/pin`, {
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(project.id)}/pin`, {
         method: project.pinned ? 'DELETE' : 'POST',
       });
       if (!response.ok) return;
@@ -275,7 +275,7 @@ export function ProjectGallery({
     if (busyProjectId || !window.confirm(t('projectGallery.deleteConfirm'))) return;
     setBusyProjectId(project.id);
     try {
-      const response = await fetch(`/api/jarvis/projects/${encodeURIComponent(project.id)}`, { method: 'DELETE' });
+      const response = await fetch(`/api/infinity/projects/${encodeURIComponent(project.id)}`, { method: 'DELETE' });
       if (!response.ok) return;
       setProjects((current) => current.filter((item) => item.id !== project.id));
       setProjectMenuId(null);
@@ -292,7 +292,7 @@ export function ProjectGallery({
     if (!activeConversationId || busyProjectId) return;
     setBusyProjectId(projectId);
     try {
-      const response = await fetch(`/api/jarvis/conversations/${encodeURIComponent(activeConversationId)}/project`, {
+      const response = await fetch(`/api/infinity/conversations/${encodeURIComponent(activeConversationId)}/project`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),

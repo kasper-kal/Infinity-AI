@@ -51,7 +51,7 @@ Response guidelines:
 ```
 
 **Alternative base prompts** (selected at lines 1193-1200):
-- Voice mode: `jarvisConfig.systemPrompt` (from config)
+- Voice mode: `infinityConfig.systemPrompt` (from config)
 - Custom personality: `customPrompt` from settings
 - Expert conversation: `convRow.systemPrompt` from DB
 

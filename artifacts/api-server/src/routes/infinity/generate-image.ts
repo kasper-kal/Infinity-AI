@@ -105,7 +105,7 @@ router.post("/generate-image", async (req, res) => {
         mimeType,
         name: "generated-image",
         kind: "image",
-        owner: "jarvis",
+        owner: "infinity",
       });
       if (persisted) fileKey = persisted.key;
     } catch {

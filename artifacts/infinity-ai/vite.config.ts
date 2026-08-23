@@ -71,7 +71,7 @@ export default defineConfig({
         // req.headers.host — e.g. the public preview domain.
         changeOrigin: false,
       },
-      // Jarvis's personal browser — live screenshots over WebSocket.
+      // Infinity's personal browser — live screenshots over WebSocket.
       // Forwards to the Puppeteer WS server so the client connects to the
       // same origin (works behind the preview proxy without opening ports).
       '/browser-ws': {

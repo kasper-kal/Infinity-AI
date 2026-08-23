@@ -1,6 +1,6 @@
 ---
 name: Orb background treatment
-description: The visual boundary between the Jarvis orb and the page background texture.
+description: The visual boundary between the infinity-ai orb and the page background texture.
 ---
 
 Keep the page’s subtle global dot texture intact. When removing dots from the voice orb, remove the orb-local particle layer and use only a small background-colored halo behind the orb to hide the global texture in that local area.

@@ -92,7 +92,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <button
             onClick={async () => {
               try {
-                const response = await fetch("/api/jarvis/local-model/fix", {
+                const response = await fetch("/api/infinity/local-model/fix", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -149,7 +149,7 @@ export function useErrorHandler() {
         label: "Fix with Local AI",
         onClick: async () => {
           try {
-            const response = await fetch("/api/jarvis/local-model/fix", {
+            const response = await fetch("/api/infinity/local-model/fix", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ error: error.message, context }),

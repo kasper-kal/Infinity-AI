@@ -101,7 +101,7 @@ function parseLLMJson<T>(text: string, fallback: T): T {
 }
 
 /**
- * POST /api/jarvis/tools/company.logo
+ * POST /api/infinity/tools/company.logo
  * Generate a logo for a company project
  */
 router.post("/company.logo", async (req: Request, res: Response) => {
@@ -133,7 +133,7 @@ router.post("/company.logo", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/tools/company.slogan
+ * POST /api/infinity/tools/company.slogan
  * Generate a slogan/tagline for a company project
  */
 router.post("/company.slogan", async (req: Request, res: Response) => {
@@ -172,7 +172,7 @@ router.post("/company.slogan", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/tools/company.promo
+ * POST /api/infinity/tools/company.promo
  * Create a promo video for a company project
  */
 router.post("/company.promo", async (req: Request, res: Response) => {
@@ -198,7 +198,7 @@ router.post("/company.promo", async (req: Request, res: Response) => {
       estimatedDuration: duration,
       style,
       message: "Promo video generation queued",
-      // The frontend can poll /api/jarvis/tools/promo/status/:jobId for progress
+      // The frontend can poll /api/infinity/tools/promo/status/:jobId for progress
     });
   } catch (error) {
     console.error("[company.promo] Error:", error);
@@ -207,7 +207,7 @@ router.post("/company.promo", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/tools/promo/status/:jobId
+ * GET /api/infinity/tools/promo/status/:jobId
  * Check the status of a promo video generation job
  */
 router.get("/promo/status/:jobId", (req: Request, res: Response) => {
@@ -225,7 +225,7 @@ router.get("/promo/status/:jobId", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/jarvis/tools/brand-kit/:projectId
+ * GET /api/infinity/tools/brand-kit/:projectId
  * Get the brand kit for a company project
  */
 router.get("/brand-kit/:projectId", (req: Request, res: Response) => {
@@ -255,7 +255,7 @@ router.get("/brand-kit/:projectId", (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/jarvis/tools/brand-kit/:projectId
+ * PUT /api/infinity/tools/brand-kit/:projectId
  * Update the brand kit for a company project
  */
 router.put("/brand-kit/:projectId", async (req: Request, res: Response) => {
@@ -274,7 +274,7 @@ router.put("/brand-kit/:projectId", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/jarvis/tools/company.palette
+ * POST /api/infinity/tools/company.palette
  * Generate a brand color palette for a company project
  * Uses Tavily to search for color palette inspiration, then AI to create a cohesive palette
  */
@@ -352,7 +352,7 @@ Return ONLY valid JSON in this format:
 });
 
 /**
- * POST /api/jarvis/tools/company.font
+ * POST /api/infinity/tools/company.font
  * Find brand fonts for a company project
  * Uses Tavily to search for fonts matching style preferences, then AI to recommend font pairs
  */

@@ -106,7 +106,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('jarvis-design-history');
+      const raw = localStorage.getItem('Infinity-design-history');
       if (raw) setHistory(JSON.parse(raw) as DesignSnapshot[]);
     } catch { /* local history is optional */ }
   }, []);
@@ -114,7 +114,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
   const pushHistory = useCallback((next: DesignSnapshot[]) => {
     const capped = next.slice(0, 6);
     setHistory(capped);
-    try { localStorage.setItem('jarvis-design-history', JSON.stringify(capped)); } catch { /* quota is non-fatal */ }
+    try { localStorage.setItem('Infinity-design-history', JSON.stringify(capped)); } catch { /* quota is non-fatal */ }
   }, []);
 
   const loadImage = useCallback((src: string, name: string, nextLayers?: DesignLayer[]) => {
@@ -220,7 +220,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
     setGenerating(true);
     setAiError('');
     try {
-      const response = await fetch('/api/jarvis/generate-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: finalPrompt, width: aiAspect.w, height: aiAspect.h }) });
+      const response = await fetch('/api/infinity/generate-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: finalPrompt, width: aiAspect.w, height: aiAspect.h }) });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         setAiError(body?.error || `Generation failed (${response.status})`);
@@ -321,7 +321,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
     if (!canvas) return;
     const link = document.createElement('a');
     link.href = canvas.toDataURL(`image/${format}`, 0.92);
-    link.download = `jarvis-design-${Date.now()}.${format === 'jpeg' ? 'jpg' : 'png'}`;
+    link.download = `Infinity-design-${Date.now()}.${format === 'jpeg' ? 'jpg' : 'png'}`;
     link.click();
   };
   const exportSvg = () => {
@@ -331,7 +331,7 @@ export function DesignStudio({ open, onClose, initialImage }: DesignStudioProps)
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}"><image href="${image}" width="100%" height="100%"/></svg>`;
     const link = document.createElement('a');
     link.href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    link.download = `jarvis-design-${Date.now()}.svg`;
+    link.download = `Infinity-design-${Date.now()}.svg`;
     link.click();
   };
   const printPdf = () => {

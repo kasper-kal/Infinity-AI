@@ -64,9 +64,9 @@ const publicRouter = express.Router();
 
 // Mount public endpoints BEFORE auth middleware
 // These must be explicitly listed as public
-publicRouter.use("/auth", urlencoded1mb, (await import("./routes/jarvis/auth")).default);
+publicRouter.use("/auth", urlencoded1mb, (await import("./routes/infinity/auth")).default);
 publicRouter.use("/health", (await import("./routes/health")).default);
-publicRouter.use("/extension", (await import("./routes/jarvis/extension")).default);
+publicRouter.use("/extension", (await import("./routes/infinity/extension")).default);
 
 // Apply public routes
 app.use("/api", publicRouter);
@@ -80,28 +80,28 @@ app.use("/api", requireAuth);
 // /build/* → 10mb
 // /files/*, /import/upload → multer
 // /data/import → 50mb
-app.use("/api/jarvis/chat", json1mb, urlencoded1mb);
-app.use("/api/jarvis/memories", json1mb, urlencoded1mb);
-app.use("/api/jarvis/project-memories", json1mb, urlencoded1mb);
-app.use("/api/jarvis/research", json1mb, urlencoded1mb);
-app.use("/api/jarvis/build", json10mb, urlencoded10mb);
-app.use("/api/jarvis/build-checkpoints", json10mb, urlencoded10mb);
-app.use("/api/jarvis/build-telemetry", json10mb, urlencoded10mb);
-app.use("/api/jarvis/build-export", json10mb, urlencoded10mb);
-app.use("/api/jarvis/build-schedules", json10mb, urlencoded10mb);
+app.use("/api/infinity/chat", json1mb, urlencoded1mb);
+app.use("/api/infinity/memories", json1mb, urlencoded1mb);
+app.use("/api/infinity/project-memories", json1mb, urlencoded1mb);
+app.use("/api/infinity/research", json1mb, urlencoded1mb);
+app.use("/api/infinity/build", json10mb, urlencoded10mb);
+app.use("/api/infinity/build-checkpoints", json10mb, urlencoded10mb);
+app.use("/api/infinity/build-telemetry", json10mb, urlencoded10mb);
+app.use("/api/infinity/build-export", json10mb, urlencoded10mb);
+app.use("/api/infinity/build-schedules", json10mb, urlencoded10mb);
 app.use("/api/files", upload.any()); // multipart for file uploads
 app.use("/api/import", upload.any()); // multipart for archive imports
 // For data import endpoints if they exist
-app.use("/api/jarvis/data", json50mb, urlencoded10mb);
-// Default for all other jarvis routes: 1mb
-app.use("/api/jarvis", json1mb, urlencoded1mb);
+app.use("/api/infinity/data", json50mb, urlencoded10mb);
+// Default for all other infinity routes: 1mb
+app.use("/api/infinity", json1mb, urlencoded1mb);
 app.use("/api", router);
 
 // ── Serve built frontend static files (production only) ──
 // In development the Vite dev server handles the frontend; attempting to serve
 // the unbuilt dist folder here would throw ENOENT and produce spurious 500s.
 if (process.env["NODE_ENV"] !== "development") {
-  const staticDir = path.resolve(__dirname, "..", "..", "..", "artifacts", "jarvis", "dist", "public");
+  const staticDir = path.resolve(__dirname, "..", "..", "..", "artifacts", "infinity", "dist", "public");
   app.use(express.static(staticDir));
 
   // ── SPA fallback, any non-API, non-static request serves index.html ──

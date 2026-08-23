@@ -369,7 +369,7 @@ const en = {
   "input.listeningStatus":
     "LISTENING, tap the square to stop",
   "input.thinkingStatus": "THINKING…",
-  "input.speakingStatus": "JARVIS IS SPEAKING, ",
+  "input.speakingStatus": "Infinity IS SPEAKING, ",
   "input.stop": "STOP",
   "input.attachTitle": "Attach, camera, or search",
   "input.fileAttachedLabel": "FILE ATTACHED",
@@ -405,7 +405,7 @@ const en = {
   "voice.camOn": "Cam On",
   "voice.cam": "Cam",
   "voice.you": "YOU",
-  "voice.jarvis": "INFINITY",
+  "voice.Infinity": "INFINITY",
 
   /* Camera mode */
   "camera.note": "Camera — object detection runs 100% in your browser",
@@ -1905,7 +1905,7 @@ const nl: Record<keyof typeof en, string> = {
   "input.listeningStatus":
     "LUISTEREN, tik op het vierkant om te stoppen",
   "input.thinkingStatus": "BEZIG MET DENKEN…",
-  "input.speakingStatus": "JARVIS SPREEKT, ",
+  "input.speakingStatus": "Infinity SPREEKT, ",
   "input.stop": "STOP",
   "input.attachTitle": "Toevoegen, camera of zoeken",
   "input.fileAttachedLabel": "BESTAND TOEGEVOEGD",
@@ -1941,7 +1941,7 @@ const nl: Record<keyof typeof en, string> = {
   "voice.camOn": "Cam aan",
   "voice.cam": "Cam",
   "voice.you": "JIJ",
-  "voice.jarvis": "INFINITY",
+  "voice.Infinity": "INFINITY",
 
   /* Camera mode */
   "camera.note": "Camera — objectdetectie draait 100% in je browser",

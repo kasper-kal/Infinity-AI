@@ -15,7 +15,7 @@ async function main() {
   await page.waitForTimeout(2000);
 
   // 1. Empty chat mode
-  await page.screenshot({ path: '/tmp/jarvis-1-empty.png' });
+  await page.screenshot({ path: '/tmp/Infinity-1-empty.png' });
   console.log('1/4 Empty chat screenshot saved');
 
   // 2. Type and send a message
@@ -31,7 +31,7 @@ async function main() {
       }
     }
     await page.waitForTimeout(8000);
-    await page.screenshot({ path: '/tmp/jarvis-2-chat-message.png' });
+    await page.screenshot({ path: '/tmp/Infinity-2-chat-message.png' });
     console.log('2/4 Chat with message screenshot saved');
   }
 
@@ -45,7 +45,7 @@ async function main() {
       break;
     }
   }
-  await page.screenshot({ path: '/tmp/jarvis-3-voice-mode.png' });
+  await page.screenshot({ path: '/tmp/Infinity-3-voice-mode.png' });
   console.log('3/4 Voice mode screenshot saved');
 
   // 4. Open sidebar
@@ -54,7 +54,7 @@ async function main() {
     await menuBtn.click();
     await page.waitForTimeout(500);
   }
-  await page.screenshot({ path: '/tmp/jarvis-4-sidebar.png' });
+  await page.screenshot({ path: '/tmp/Infinity-4-sidebar.png' });
   console.log('4/4 Sidebar screenshot saved');
 
   await browser.close();

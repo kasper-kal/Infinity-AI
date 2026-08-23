@@ -261,7 +261,7 @@
     {
       "flow": "settings-spotify",
       "kind": "popup",
-      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Fjarvis%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
+      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Finfinity-ai%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
       "activated": true,
       "completion": "blocked-external"
     },
@@ -931,7 +931,7 @@
     {
       "flow": "settings-spotify",
       "kind": "popup",
-      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Fjarvis%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
+      "url": "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Faccounts.spotify.com%2Fauthorize%3Fscope%3Duser-read-playback-state%2Buser-modify-playback-state%2Buser-read-currently-playing%2Bstreaming%2Buser-read-email%2Buser-read-private%2Bplaylist-read-private%2Buser-library-read%26response_type%3Dcode%26redirect_uri%3Dhttps%253A%252F%252F9d2b9df0-748a-4afe-82f8-7c1d27c82b34-00-33wvqt2nsicbd.kirk.replit.dev%252Fapi%252Finfinity-ai%252Fspotify%252Fcallback%26client_id%3D7bc72a7bf6bd465a8dfcde4e9d5e9355%26show_dialog%3Dtrue&client_id=7bc72a7bf6bd465a8dfcde4e9d5e9355",
       "activated": true,
       "completion": "blocked-external"
     }

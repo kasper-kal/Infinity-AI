@@ -40,7 +40,7 @@ async function ensureGitRepo(workspaceId: string): Promise<boolean> {
   } catch {
     // Initialize if not present
     try {
-      const result = await runTerminalCommand("default", "git init && git config user.email 'jarvis@local' && git config user.name 'Jarvis'", {
+      const result = await runTerminalCommand("default", "git init && git config user.email 'infinity@local' && git config user.name 'infinity'", {
         workspaceId,
         timeoutMs: 10000,
       });

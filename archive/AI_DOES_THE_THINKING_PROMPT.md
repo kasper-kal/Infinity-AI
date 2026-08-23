@@ -1,4 +1,4 @@
-# JARVIS: FINAL IMPLEMENTATION PROMPT (definitive, buildable)
+# infinity-ai: FINAL IMPLEMENTATION PROMPT (definitive, buildable)
 
 This is the LAST prompt. Execute it in phases, in order. Every phase must leave the app
 building and the locked list (section 13) intact. Commit after each phase. When all phases
@@ -28,12 +28,12 @@ exactly:
   verified; treat it as a gate to preserve, not a task to redo.
 - IF A PHASE IS IMPOSSIBLE OR A REQUIREMENT CONFLICTS WITH REALITY, STOP and report it with
   evidence. Do not quietly rewrite the spec.
-- COMMIT AND PUSH TO GITHUB AFTER EVERY COMMIT. The repo is https://github.com/kasper-kal/Jarvis
+- COMMIT AND PUSH TO GITHUB AFTER EVERY COMMIT. The repo is https://github.com/kasper-kal/infinity-ai
   and the branch is main. After every commit, push immediately so the work is always on
   GitHub. Authenticate with a GitHub personal access token supplied via the environment
   variable GITHUB_TOKEN (NEVER hardcode or commit a token; GitHub blocks commits that contain
   secrets, so tokens must stay out of the repo). Concretely:
-  `git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/kasper-kal/Jarvis.git"`
+  `git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/kasper-kal/infinity-ai.git"`
   then `git push origin main`, then restore the remote URL to plain https so the token is
   never stored in the repo config. If GITHUB_TOKEN is not set, read it from a local,
   UNCOMMITTED file (for example ~/.git-credentials or a .env that is gitignored), or ask the
@@ -82,7 +82,7 @@ exactly:
 
 ## 1. THE PRODUCT (north star)
 
-One input. The user types or speaks ONE thing. Jarvis decides everything else: mode, tool,
+One input. The user types or speaks ONE thing. infinity-ai decides everything else: mode, tool,
 search, depth, image, music, design, build, research. No mode picker, no studio chooser, no
 toggles in the default flow. Tool selection is replaced by automatic intent routing; panels
 become hidden overrides.
@@ -97,7 +97,7 @@ honestly in the UI rather than stubbing it.
 
 ### 2.1 ZERO EM DASHES, everywhere a human can read it
 The codebase currently has 543 em dashes ; 116 in api-server string literals (AI prompts,
-errors, SSE) and 64 in jarvis string literals (labels, placeholders, toasts, aria). The AI
+errors, SSE) and 64 in infinity-ai string literals (labels, placeholders, toasts, aria). The AI
 mimics its own prompts, so prompts matter most.
 - Remove EVERY em dash from any string that reaches a user: UI text, i18n, placeholders,
   titles, tooltips, toasts, errors, notifications, SSE, AI system prompts, persona text.
@@ -106,7 +106,7 @@ mimics its own prompts, so prompts matter most.
   em dashes or en dashes in your responses. Use commas, periods, or colons instead."
 - Fix first: `chat.ts` personality prompts, voice-mode modifier, BUILD MODE block, capability
   rule, suggestion prompt, rate-limit error; `widget-detector.ts`; `research-engine.ts`;
-  `browse.ts` SSE/notification strings; `home.tsx`; `jarvis-browser.tsx`; `app-overlays.tsx`;
+  `browse.ts` SSE/notification strings; `home.tsx`; `infinity-ai-browser.tsx`; `app-overlays.tsx`;
   `settings-panel.tsx`; `research-panel.tsx`; the whole `i18n.tsx` label set.
 - Gate: `grep -rn "—" src --include=*.ts --include=*.tsx` must show zero hits in string
   literals. Do this pass in Phase A so later text stays clean.
@@ -180,7 +180,7 @@ A groupchat is a conversation with multiple participants. Creating one opens Gro
 (a dedicated button that appears NEXT TO the 3-dot menu while a group chat is open).
 
 Two ways to start a groupchat:
-- **AI persona roundtable.** Pick 2+ Jarvis personas (Researcher, Designer, Skeptic, Builder,
+- **AI persona roundtable.** Pick 2+ infinity-ai personas (Researcher, Designer, Skeptic, Builder,
   Journalist, or custom). They ACTUALLY TALK TO EACH OTHER without the user driving: an
   orchestrator decides whose turn it is next, each persona responds in its own voice, and the
   loop runs until the task is done, the user interjects, or a stop condition hits. The Builder
@@ -188,10 +188,10 @@ Two ways to start a groupchat:
   snake game and have Researcher review it" happens without the user typing anything.
 - **Human group.** Other real people join via a **4-digit invite code** shown in Group
   Settings (regenerate anytime). People with accounts join by entering the code. Everyone in
-  the group can message; Jarvis participates per the AI toggle.
+  the group can message; infinity-ai participates per the AI toggle.
 
-Group Settings contains: participants list, AI participation toggle (**"Jarvis always
-responds"** vs **"Jarvis responds only when @Jarvis"**), invite code (human groups),
+Group Settings contains: participants list, AI participation toggle (**"infinity-ai always
+responds"** vs **"infinity-ai responds only when @infinity-ai"**), invite code (human groups),
 persona list (AI groups), rename, leave.
 
 ### 5c. ACCOUNTS + INVITE CODES (Phase C)
@@ -220,7 +220,7 @@ project inherit its context.
 
 ## 7. GALLERY (sidebar)
 
-Every image, file, and build-app uploaded or created by any of us (the user, Jarvis, or
+Every image, file, and build-app uploaded or created by any of us (the user, infinity-ai, or
 invited participants), across ALL conversations, newest first. Include: generated images,
 uploads, received files, edited/annotated images, screenshots, artifacts, and apps made in
 Build Mode (each build saved with name + preview/launch).
@@ -242,7 +242,7 @@ The accent picker applies `--primary` and `--ring` ONLY from inside the settings
 useEffect, so the colour does not appear until the panel is opened and does not persist across
 loads.
 - Move accent application to app-load scope (global hook or app root): read
-  `localStorage['jarvis-accent']` on startup, apply `--primary` and `--ring` on every load,
+  `localStorage['infinity-ai-accent']` on startup, apply `--primary` and `--ring` on every load,
   update live on picker change.
 - Verify the WHOLE UI responds (buttons, links, orb tint, focus rings, active states). Route
   any hardcoded accent through the CSS variable.
@@ -282,7 +282,7 @@ capabilities; never pretend to have done something.
 Two free providers, env-configurable, with a clean abstraction and a local-disk fallback:
 - Metadata: a SEPARATE Neon database (the user's explicit choice), Drizzle `files` table: id,
   conversation_id, kind (image / document / audio / build-app / code), name, mime, size,
-  storage_key, bucket, created_at, owner (user / jarvis / account). Provide the schema
+  storage_key, bucket, created_at, owner (user / infinity-ai / account). Provide the schema
   snippet and `DATABASE_URL_FILES` env wiring as part of the deliverable.
 - Blobs: Cloudflare R2 (10GB free, zero egress, S3-compatible). Serve via `/api/files/:key`.
   Env: R2_ACCOUNT_ID, R2_ACCESS_KEY, R2_SECRET_KEY, R2_BUCKET.
@@ -337,7 +337,7 @@ feed of commands/results. Everything below that is missing must be built.
 - **Packages & env**: run package installs (npm, pip, etc.); per-project environment
   variables.
 - **Git**: init, clone, commit, push from the UI.
-- **AI pair**: Jarvis writes, edits, and debugs via the terminal and file tools; can
+- **AI pair**: infinity-ai writes, edits, and debugs via the terminal and file tools; can
   scaffold an entire project from a one-line ask.
 - **Persistence**: each project is a saved build-app (stored via 12.1) that reopens with its
   files, terminal state, and dependencies; listed in the Gallery with name + preview +
@@ -408,7 +408,7 @@ C7. Settings: every view has real content, nothing duplicated, Quantum/Omni behi
 D1. AI persona roundtable: 3 personas converse with each other autonomously; a build task
     completes without the user typing.
 D2. Human group: a second account joins via a 4-digit invite code and messages land live;
-    the AI toggle (always vs @Jarvis) changes behavior.
+    the AI toggle (always vs @infinity-ai) changes behavior.
 D3. Group Settings button appears next to the 3-dot menu for group chats.
 
 ### Phase E (Build Studio, Replit-grade):

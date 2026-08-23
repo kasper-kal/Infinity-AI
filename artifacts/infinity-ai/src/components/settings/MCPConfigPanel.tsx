@@ -164,7 +164,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const fetchServers = async () => {
     try {
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -182,7 +182,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const fetchBuiltinTemplates = async () => {
     try {
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/builtin`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/builtin`, {
         credentials: 'include',
       });
       if (response.ok) {
@@ -198,7 +198,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
     try {
       setAddingServer(true);
       const transport = buildTransportConfig();
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -233,7 +233,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
   const handleUpdateServer = async (serverId: string) => {
     try {
       const transport = buildTransportConfig();
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/${serverId}`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/${serverId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -264,7 +264,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const handleDeleteServer = async (serverId: string) => {
     try {
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/${serverId}`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/${serverId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -288,7 +288,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
   const handleConnect = async (serverId: string) => {
     try {
       setConnectingServerId(serverId);
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/${serverId}/connect`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/${serverId}/connect`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -310,7 +310,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const handleDisconnect = async (serverId: string) => {
     try {
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/${serverId}/disconnect`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/${serverId}/disconnect`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -335,7 +335,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
       setServerToTest(server || null);
       setTestDialogOpen(true);
 
-      const response = await fetch(`/api/jarvis/mcp-servers/${projectId}/${serverId}/test`, {
+      const response = await fetch(`/api/infinity/mcp-servers/${projectId}/${serverId}/test`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -357,7 +357,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const handleEditClick = (server: MCPServerStatus) => {
     // Fetch full config for editing
-    fetch(`/api/jarvis/mcp-servers/${projectId}/${server.id}`, { credentials: 'include' })
+    fetch(`/api/infinity/mcp-servers/${projectId}/${server.id}`, { credentials: 'include' })
       .then(r => r.json())
       .then(config => {
         setFormData({

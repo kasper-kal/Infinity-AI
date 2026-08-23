@@ -607,7 +607,7 @@ export function MapsWidget({
         categories: selectedCategories.length > 0 ? selectedCategories.join(",") : initialCategories.join(","),
       });
 
-      const res = await fetch(`/api/jarvis/maps/search?${params}`);
+      const res = await fetch(`/api/infinity/maps/search?${params}`);
       if (!res.ok) throw new Error("Failed to fetch places");
       const data = await res.json();
       setPlaces(data.places ?? []);

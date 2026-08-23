@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { db, jarvisSettings } from "@workspace/db";
+import { db, infinitySettings } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { buildErrorDetail } from "../../lib/error-detail";
-import { jarvisConfig } from "../../config/jarvis";
+import { infinityConfig } from "../../config/infinity";
 
 const router = Router();
 
@@ -27,11 +27,11 @@ const ALLOWED_KEYS = [
 ] as const;
 type SettingKey = (typeof ALLOWED_KEYS)[number];
 
-/** GET /api/jarvis/settings, returns all settings as a key→value map */
+/** GET /api/infinity/settings, returns all settings as a key→value map */
 router.get("/settings", async (req, res) => {
   const startMs = Date.now();
   try {
-    const rows = await db.select().from(jarvisSettings);
+    const rows = await db.select().from(infinitySettings);
     const map: Record<string, string> = {};
     for (const row of rows) map[row.key] = row.value;
     res.json(map);
@@ -42,7 +42,7 @@ router.get("/settings", async (req, res) => {
   }
 });
 
-/** PUT /api/jarvis/settings, upsert one or more settings */
+/** PUT /api/infinity/settings, upsert one or more settings */
 router.put("/settings", async (req, res) => {
   const startMs = Date.now();
   const body = req.body as Partial<Record<SettingKey, string>>;
@@ -59,13 +59,13 @@ router.put("/settings", async (req, res) => {
   try {
     for (const [key, value] of entries) {
       if (value === "" || value === null) {
-        await db.delete(jarvisSettings).where(eq(jarvisSettings.key, key));
+        await db.delete(infinitySettings).where(eq(infinitySettings.key, key));
       } else {
         await db
-          .insert(jarvisSettings)
+          .insert(infinitySettings)
           .values({ key, value, updatedAt: new Date() })
           .onConflictDoUpdate({
-            target: jarvisSettings.key,
+            target: infinitySettings.key,
             set: { value, updatedAt: new Date() },
           });
       }
@@ -78,13 +78,13 @@ router.put("/settings", async (req, res) => {
   }
 });
 
-/** GET /api/jarvis/system-prompt, returns the system prompt (power user visibility) */
+/** GET /api/infinity/system-prompt, returns the system prompt (power user visibility) */
 router.get("/system-prompt", (_req, res) => {
   res.json({
-    prompt: jarvisConfig.systemPrompt,
-    model: jarvisConfig.llmModel,
-    voice: jarvisConfig.ttsVoiceId,
-    ttsModel: jarvisConfig.ttsModel,
+    prompt: infinityConfig.systemPrompt,
+    model: infinityConfig.llmModel,
+    voice: infinityConfig.ttsVoiceId,
+    ttsModel: infinityConfig.ttsModel,
   });
 });
 

@@ -66,7 +66,7 @@ const listFilesTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiGet(ctx, `/api/jarvis/workspace/list?projectId=${ctx.projectId}&pattern=${encodeURIComponent(a.pattern || "**/*")}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/workspace/list?projectId=${ctx.projectId}&pattern=${encodeURIComponent(a.pattern || "**/*")}`);
     return json(data);
   },
 };
@@ -81,7 +81,7 @@ const readFileTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiGet(ctx, `/api/jarvis/workspace/read?projectId=${ctx.projectId}&path=${encodeURIComponent(a.path)}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/workspace/read?projectId=${ctx.projectId}&path=${encodeURIComponent(a.path)}`);
     return ok(data.content || "");
   },
 };
@@ -97,7 +97,7 @@ const editFileTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/workspace/write`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/workspace/write`, {
       projectId: ctx.projectId,
       path: a.path,
       content: a.content || "",
@@ -118,7 +118,7 @@ const runCommandTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/workspace/command`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/workspace/command`, {
       projectId: ctx.projectId,
       command: a.command,
       timeoutMs: a.timeoutMs,
@@ -145,7 +145,7 @@ const gitDiffTool: McpTool = {
     const qs = new URLSearchParams({ projectId: ctx.projectId });
     if (a.staged) qs.set("staged", "true");
     if (a.path) qs.set("path", a.path);
-    const data = await apiGet(ctx, `/api/jarvis/build/git-diff?${qs.toString()}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/build/git-diff?${qs.toString()}`);
     return ok(data.diff || "(no changes)");
   },
 };
@@ -156,7 +156,7 @@ const gitStatusTool: McpTool = {
   scopes: ["build:read"],
   inputSchema: z.object({}),
   handler: async (args, ctx) => {
-    const data = await apiGet(ctx, `/api/jarvis/build/git-status?projectId=${ctx.projectId}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/build/git-status?projectId=${ctx.projectId}`);
     return ok(data.status || "");
   },
 };
@@ -170,7 +170,7 @@ const gitCommitTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/git-commit`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/git-commit`, {
       projectId: ctx.projectId,
       message: a.message,
     });
@@ -193,7 +193,7 @@ const buildAgentRunTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/agent/run`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/agent/run`, {
       projectId: ctx.projectId,
       goal: a.goal,
       maxIterations: a.maxIterations,
@@ -213,7 +213,7 @@ const buildAgentStepTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/agent/step`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/agent/step`, {
       projectId: ctx.projectId,
       stepId: a.stepId,
       goal: a.goal,
@@ -237,7 +237,7 @@ const projectMemoryReadTool: McpTool = {
     const a = args as any;
     const qs = new URLSearchParams({ projectId: ctx.projectId });
     if (a.query) qs.set("query", a.query);
-    const data = await apiGet(ctx, `/api/jarvis/projects/${ctx.projectId}/memory?${qs.toString()}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/projects/${ctx.projectId}/memory?${qs.toString()}`);
     return json(data);
   },
 };
@@ -253,7 +253,7 @@ const projectMemoryWriteTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/projects/${ctx.projectId}/memory`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/projects/${ctx.projectId}/memory`, {
       key: a.key,
       value: a.value,
       pinned: a.pinned,
@@ -278,7 +278,7 @@ const researchRunTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/research`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/research`, {
       projectId: ctx.projectId,
       prompt: a.prompt,
       title: a.title,
@@ -298,7 +298,7 @@ const researchExtractTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiGet(ctx, `/api/jarvis/research/${a.jobId}`);
+    const data = await apiGet(ctx, `/api/infinity-ai/research/${a.jobId}`);
     return json(data);
   },
 };
@@ -316,7 +316,7 @@ const browserNavigateTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/browser/navigate`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/browser/navigate`, {
       projectId: ctx.projectId,
       url: a.url,
     });
@@ -333,7 +333,7 @@ const browserScreenshotTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/browser/screenshot`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/browser/screenshot`, {
       projectId: ctx.projectId,
       viewport: a.viewport || "desktop",
     });
@@ -352,7 +352,7 @@ const browserActionTool: McpTool = {
   }),
   handler: async (args, ctx) => {
     const a = args as any;
-    const data = await apiPost(ctx, `/api/jarvis/build/browser/action`, {
+    const data = await apiPost(ctx, `/api/infinity-ai/build/browser/action`, {
       projectId: ctx.projectId,
       action: a.action,
       selector: a.selector,
