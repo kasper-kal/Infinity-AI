@@ -243,8 +243,9 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 - [x] **Project-Scoped Connections** — each project has its own MCP server configs (encrypted secrets)
 - [x] **UI** — MCP Servers tab in Project Settings: add/remove/test/configure
 - [x] **Database Persistence** — `mcp_servers` table with AES-256-GCM encryption for sensitive fields (API keys, tokens, connection strings)
-- [ ] **Test MCP client with actual MCP servers** (filesystem, GitHub, PostgreSQL, etc.)
-- [ ] **Verify Universal Tool Registry integration works end-to-end with agents**
+- [x] **Test MCP client with actual MCP servers** (filesystem, GitHub, PostgreSQL, etc.) — COMPLETE
+- [x] **Verify Universal Tool Registry integration works end-to-end with agents** — COMPLETE
+- [x] **BuildView /terminal slash command** — Implemented `/terminal [command]` in BuildView terminal tab. Auto-sends to terminal API, returns response in special Drawer view (bottom panel) separate from agent transcript. TypeScript errors fixed (duplicate Drawer import, incorrect props: onClose/position).
 
 ### Implementation Plan
 1. **MCP Client Library** — TypeScript implementation of MCP spec (modelcontextprotocol/sdk types) ✅

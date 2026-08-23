@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 12:45
+LAST_UPDATED: 2026-08-23 12:50
 
 ## Just did (last action)
+- **Fixed TypeScript errors in BuildView.tsx for /terminal slash command feature** — Fixed duplicate Drawer import and incorrect Drawer props:
+  - Removed duplicate `Drawer` import from `@/components/ui/Dialog` (already exported from barrel)
+  - Fixed Drawer prop: `onOpenChange` → `onClose` (Drawer uses onClose callback)
+  - Fixed Drawer prop: `direction` → `position` (Drawer uses position: "bottom")
+  - Removed `className` prop (Drawer doesn't accept className)
+  - Typecheck + build pass cleanly ✅
 - **Phase 6: MCP Client Database Persistence COMPLETE** — Implemented full database persistence for MCP server configurations with encryption:
   - Encryption utilities using AES-256-GCM with project-scoped key derivation
   - loadConfigs() reads from mcp_servers table, decrypts sensitive fields on startup
@@ -270,6 +276,12 @@ LAST_UPDATED: 2026-08-23 12:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-23 **Fixed TypeScript errors in BuildView.tsx for /terminal slash command** — Fixed duplicate Drawer import and incorrect Drawer props:
+  - Removed duplicate `Drawer` import from `@/components/ui/Dialog` (already exported from barrel)
+  - Fixed Drawer prop: `onOpenChange` → `onClose` (Drawer uses onClose callback)
+  - Fixed Drawer prop: `direction` → `position` (Drawer uses position: "bottom")
+  - Removed `className` prop (Drawer doesn't accept className)
+  - Typecheck + build pass cleanly ✅
 - 2026-08-23 **Phase 6: MCP Client Database Persistence COMPLETE + TypeScript/i18n fixes** — Implemented database persistence for MCP server configurations + fixed missing i18n keys & type errors:
   - Added encryption utilities (encrypt, decrypt, encryptConfig, decryptConfig) in mcp-registry.ts using AES-256-GCM with project-scoped key derivation
   - Updated MCPServerConfig interface to include config and builtinType fields for server-specific settings and built-in type tracking
@@ -473,6 +485,7 @@ LAST_UPDATED: 2026-08-23 12:45
 ## Active threads
 - **Phase 6: MCP Client + Ecosystem Integration** — **DATABASE PERSISTENCE COMPLETE** ✅: Browser-native MCP client to connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket. Registry integration with `mcp.` namespace. Built-in server configs for filesystem, GitHub, PostgreSQL, Slack, etc. Project-scoped connections with encrypted secrets (AES-256-GCM). UI in SettingsView. **loadConfigs()/persistConfigs() implemented with encryption.**
 - **Phase 6: MCP Client + Ecosystem Integration** — **IN PROGRESS** 🔲: Remaining: Test MCP client with actual MCP servers, verify Universal Tool Registry integration works end-to-end with agents.
+- **BuildView /terminal slash command** — **COMPLETE** ✅: Implemented `/terminal [command]` slash command in BuildView terminal tab. When user types `/terminal git push origin main`, it auto-sends to terminal API and returns response in a special Drawer view (bottom panel) separate from the agent working transcript. Fixed TypeScript errors (duplicate Drawer import, incorrect props: onClose instead of onOpenChange, position instead of direction, removed className). Typecheck + build pass ✅.
 - **Phase 1: Build Project Map Subsystem** — **COMPLETE** ✅: Built `build-project-map.ts` with full static analysis, incremental updates, impact analysis, smart context selection, persistence. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. REST API routes at `/api/jarvis/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
 - **Phase 2-5: Claude Code Parity Roadmap** — **ALL COMPLETE** ✅: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5)
 - **Phase 31-38: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)
@@ -589,15 +602,16 @@ LAST_UPDATED: 2026-08-23 12:45
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
-2. **Phase 3: Specialized Subagents with Schemas** — **PLANNED**: Define schemas for planner, coder, reviewer, fixer agents. Register as universal tools with structured I/O.
-3. **Phase 4: Virtual Worktrees + Parallel Agent Execution** — **PLANNED**: Git worktree isolation per agent, parallel execution with shared context, merge strategies.
-4. **Phase 5: Local Terminal Bridge (node-pty WebSocket)** — **PLANNED**: WebSocket bridge for local terminal access, command streaming, output capture.
-5. **Phase 6: MCP Client + Ecosystem Integration** — **PLANNED**: MCP client to consume external MCP servers, tool discovery, capability negotiation.
-6. **Phase 7: VS Code Extension (Infinity Build Panel)** — **PLANNED**: VS Code extension with build panel, terminal integration, file sync.
-7. **Phases 8–15: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (8), Parallel Agent Execution (9), Mobile App Dev React Native/Expo (10), Security Scanner + Secrets (11), Multi-Artifact Support (12), External Connectors Linear/Slack/Notion/Sheets (13), Enterprise SSO/VPC/Single-Tenant (14), Agent Skills Marketplace (15)
-8. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
-9. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
+1. **Task #14: Add agent timer system in BuildMode** — **IN PROGRESS**: Implement timer system where agent can set timers for itself in Build Mode. User says "work on X for an hour" → agent sets timer. Timer doesn't notify user — gives AGENT a notification. Agent won't stop before timer is done.
+2. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
+3. **Phase 3: Specialized Subagents with Schemas** — **PLANNED**: Define schemas for planner, coder, reviewer, fixer agents. Register as universal tools with structured I/O.
+4. **Phase 4: Virtual Worktrees + Parallel Agent Execution** — **PLANNED**: Git worktree isolation per agent, parallel execution with shared context, merge strategies.
+5. **Phase 5: Local Terminal Bridge (node-pty WebSocket)** — **PLANNED**: WebSocket bridge for local terminal access, command streaming, output capture.
+6. **Phase 6: MCP Client + Ecosystem Integration** — **PLANNED**: MCP client to consume external MCP servers, tool discovery, capability negotiation.
+7. **Phase 7: VS Code Extension (Infinity Build Panel)** — **PLANNED**: VS Code extension with build panel, terminal integration, file sync.
+8. **Phases 8–15: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (8), Parallel Agent Execution (9), Mobile App Dev React Native/Expo (10), Security Scanner + Secrets (11), Multi-Artifact Support (12), External Connectors Linear/Slack/Notion/Sheets (13), Enterprise SSO/VPC/Single-Tenant (14), Agent Skills Marketplace (15)
+9. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
+10. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
