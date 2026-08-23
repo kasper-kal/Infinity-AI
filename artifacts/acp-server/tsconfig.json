@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "noEmit": false
   },
-  "include": ["src/**/*", "../api-server/src/lib/**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "dist",
@@ -28,6 +28,8 @@
     "../api-server/src/lib/build-project-map.ts",
     "../api-server/src/lib/build-skills.ts",
     "../api-server/src/lib/deep-research-v2.ts",
-    "../api-server/src/lib/promo-maker.ts"
+    "../api-server/src/lib/promo-maker.ts",
+    "../api-server/src/lib/virtual-worktree.ts",
+    "../api-server/src/lib/parallel-agents.ts"
   ]
 }

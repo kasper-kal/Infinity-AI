@@ -41,6 +41,7 @@ export default defineConfig({
     cssCodeSplit: true,
     chunkSizeWarningLimit: 500,
     rollupOptions: {
+      external: ['puppeteer', 'puppeteer-core'],
       output: {
         manualChunks: {
           tensorflow: ['@tensorflow/tfjs', '@mediapipe/tasks-vision'],
@@ -49,7 +50,6 @@ export default defineConfig({
           radix: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tooltip', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast', '@radix-ui/react-popover', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-radio-group', '@radix-ui/react-slider', '@radix-ui/react-switch', '@radix-ui/react-separator', '@radix-ui/react-label'],
           charts: ['recharts', 'd3-scale', 'd3-array', 'd3-shape'],
           leaflet: ['leaflet', 'react-leaflet', 'react-leaflet-markercluster'],
-          puppeteer: ['puppeteer-core'],
           'react-heavy': ['react-markdown', 'remark-gfm', 'rehype-highlight', 'rehype-raw'],
         },
       },
