@@ -916,3 +916,279 @@ function registerOrchestrationTools(): void {
 
 // Auto-register orchestration tools on module load
 registerOrchestrationTools();
+
+/**
+ * Register terminal bridge tools for local terminal access via node-pty WebSocket bridge.
+ */
+function registerTerminalBridgeTools(): void {
+  // terminal.createSession — create a new terminal session
+  registerTool({
+    name: "terminal.createSession",
+    description: "Create a new terminal session on the local terminal bridge (node-pty). Returns session ID and connection details.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        shell: { type: "string", description: "Shell to use (bash, zsh, fish, powershell)", default: "bash" },
+        cwd: { type: "string", description: "Working directory", default: process.cwd() },
+        cols: { type: "number", description: "Terminal columns", default: 120 },
+        rows: { type: "number", description: "Terminal rows", default: 30 },
+        env: { type: "object", description: "Additional environment variables", additionalProperties: { type: "string" } },
+      },
+    },
+    execute: async (args, ctx) => {
+      // This will be handled by the frontend via useTerminalBridge hook
+      // The tool returns the configuration needed to create a session
+      const { shell = "bash", cwd = process.cwd(), cols = 120, rows = 30, env = {} } = args as {
+        shell?: string;
+        cwd?: string;
+        cols?: number;
+        rows?: number;
+        env?: Record<string, string>;
+      };
+
+      return {
+        success: true,
+        data: {
+          action: "create_session",
+          config: { shell, cwd, cols, rows, env },
+          bridgeUrl: `ws://127.0.0.1:3001`,
+          message: "Use the terminal bridge WebSocket to create the session. Frontend handles the actual connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.sendInput — send input to a terminal session
+  registerTool({
+    name: "terminal.sendInput",
+    description: "Send input data to an existing terminal session.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Terminal session ID" },
+        data: { type: "string", description: "Input data to send" },
+      },
+      required: ["sessionId", "data"],
+    },
+    execute: async (args, ctx) => {
+      const { sessionId, data } = args as { sessionId: string; data: string };
+
+      return {
+        success: true,
+        data: {
+          action: "send_input",
+          sessionId,
+          data,
+          message: "Frontend should send this via the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.resizeSession — resize a terminal session
+  registerTool({
+    name: "terminal.resizeSession",
+    description: "Resize an existing terminal session.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Terminal session ID" },
+        cols: { type: "number", description: "Terminal columns" },
+        rows: { type: "number", description: "Terminal rows" },
+      },
+      required: ["sessionId", "cols", "rows"],
+    },
+    execute: async (args, ctx) => {
+      const { sessionId, cols, rows } = args as { sessionId: string; cols: number; rows: number };
+
+      return {
+        success: true,
+        data: {
+          action: "resize_session",
+          sessionId,
+          cols,
+          rows,
+          message: "Frontend should send this via the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.closeSession — close a terminal session
+  registerTool({
+    name: "terminal.closeSession",
+    description: "Close an existing terminal session.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Terminal session ID" },
+      },
+      required: ["sessionId"],
+    },
+    execute: async (args, ctx) => {
+      const { sessionId } = args as { sessionId: string };
+
+      return {
+        success: true,
+        data: {
+          action: "close_session",
+          sessionId,
+          message: "Frontend should send this via the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.sendSignal — send a signal to a terminal session
+  registerTool({
+    name: "terminal.sendSignal",
+    description: "Send a signal (SIGTERM, SIGKILL, SIGINT, etc.) to a terminal session.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Terminal session ID" },
+        signal: { type: "string", description: "Signal to send (SIGTERM, SIGKILL, SIGINT, etc.)" },
+      },
+      required: ["sessionId", "signal"],
+    },
+    execute: async (args, ctx) => {
+      const { sessionId, signal } = args as { sessionId: string; signal: string };
+
+      return {
+        success: true,
+        data: {
+          action: "send_signal",
+          sessionId,
+          signal,
+          message: "Frontend should send this via the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.connectMCP — connect to an MCP server via stdio bridge
+  registerTool({
+    name: "terminal.connectMCP",
+    description: "Connect to an MCP (Model Context Protocol) server via stdio through the terminal bridge. Returns MCP connection ID.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        command: { type: "string", description: "MCP server command (e.g., 'npx', 'python', 'node')" },
+        args: { type: "array", items: { type: "string" }, description: "Command arguments", default: [] },
+        env: { type: "object", description: "Additional environment variables", additionalProperties: { type: "string" } },
+      },
+      required: ["command"],
+    },
+    execute: async (args, ctx) => {
+      const { command, args: mcpArgs = [], env = {} } = args as { command: string; args?: string[]; env?: Record<string, string> };
+
+      return {
+        success: true,
+        data: {
+          action: "mcp_connect",
+          command,
+          args: mcpArgs,
+          env,
+          bridgeUrl: `ws://127.0.0.1:3001`,
+          message: "Use the terminal bridge WebSocket to connect to the MCP server. Frontend handles the actual connection.",
+        },
+      };
+    },
+    timeoutMs: 10000,
+  });
+
+  // terminal.mcpRequest — send a request to a connected MCP server
+  registerTool({
+    name: "terminal.mcpRequest",
+    description: "Send a JSON-RPC request to a connected MCP server.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        mcpId: { type: "string", description: "MCP connection ID from terminal.connectMCP" },
+        request: { type: "object", description: "JSON-RPC request object" },
+      },
+      required: ["mcpId", "request"],
+    },
+    execute: async (args, ctx) => {
+      const { mcpId, request } = args as { mcpId: string; request: unknown };
+
+      return {
+        success: true,
+        data: {
+          action: "mcp_request",
+          mcpId,
+          request,
+          message: "Frontend should send this via the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 10000,
+  });
+
+  // terminal.listSessions — list active terminal sessions
+  registerTool({
+    name: "terminal.listSessions",
+    description: "List all active terminal sessions on the bridge.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    execute: async (args, ctx) => {
+      return {
+        success: true,
+        data: {
+          action: "list_sessions",
+          message: "Frontend can get this via the WebSocket connection state or by querying the bridge status endpoint.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+
+  // terminal.getBridgeStatus — get bridge server status
+  registerTool({
+    name: "terminal.getBridgeStatus",
+    description: "Get the terminal bridge server status (sessions, MCP connections, config).",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    execute: async (args, ctx) => {
+      return {
+        success: true,
+        data: {
+          action: "get_status",
+          bridgeUrl: `ws://127.0.0.1:3001`,
+          message: "Frontend can query the bridge directly or use the WebSocket connection.",
+        },
+      };
+    },
+    timeoutMs: 5000,
+  });
+}
+
+// Auto-register terminal bridge tools on module load
+registerTerminalBridgeTools();
