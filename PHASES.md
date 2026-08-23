@@ -153,19 +153,19 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 **Isolated filesystem per agent** — enables true parallel execution without conflicts. Browser-native using IndexedDB + OPFS (Origin Private File System).
 
 ### Requirements
-- [ ] **Virtual Worktree Manager** — `artifacts/api-server/src/lib/virtual-worktree.ts`:
+- [x] **Virtual Worktree Manager** — `artifacts/api-server/src/lib/virtual-worktree.ts`:
   - `createWorktree(baseCommit)` → isolated FS snapshot (IndexedDB + OPFS)
   - `applyPatch(worktreeId, diff)` → apply changes, return new state
   - `getDiff(worktreeId, baseCommit)` → unified diff
   - `mergeWorktrees(target, sources[])` — three-way merge, conflict detection
   - `listWorktrees()` / `deleteWorktree(id)`
-- [ ] **Parallel Agent Runner** — `artifacts/api-server/src/lib/parallel-agents.ts`:
+- [x] **Parallel Agent Runner** — `artifacts/api-server/src/lib/parallel-agents.ts`:
   - Spawn N agents each with own worktree
   - Shared context via `BroadcastChannel` (read-only file map, decisions)
   - Results collected via `Promise.allSettled`
   - Auto-cleanup on completion/error
-- [ ] **Integration** — Build Mode: each coder agent gets own worktree; reviewer sees merged diff
-- [ ] **Fallback** — if OPFS unavailable, use IndexedDB-only virtual FS
+- [x] **Integration** — Build Mode: each coder agent gets own worktree; reviewer sees merged diff
+- [x] **Fallback** — if OPFS unavailable, use IndexedDB-only virtual FS
 
 ### Implementation Plan
 1. **Virtual FS Layer** — wrapper over `navigator.storage.getDirectory()` (OPFS) + IndexedDB fallback

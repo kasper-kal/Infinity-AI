@@ -4,9 +4,24 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 11:30
+LAST_UPDATED: 2026-08-23 11:45
 
 ## Just did (last action)
+- **Phase 4: Virtual Worktrees + Parallel Agent Execution — COMPLETE** — Built true parallel execution with isolated filesystems per agent:
+  - **Virtual Worktree Manager** (`artifacts/api-server/src/lib/virtual-worktree.ts`) — 960+ lines, 4 storage backends:
+    - **OPFS** (Origin Private File System) — browser-native persistent filesystem via `navigator.storage.getDirectory()`
+    - **IndexedDB** — fallback for browsers without OPFS support
+    - **NodeFS** — server-side filesystem storage at `.infinity/worktrees/`
+    - **Memory** — in-memory storage for testing/ephemeral use
+    - Core operations: `createWorktree()`, `createWorktreeFromSnapshot()`, `applyPatch()`, `getDiff()`, `getDiffBetween()`, `mergeWorktrees()` (three-way merge with conflict detection), `listWorktrees()`, `getWorktree()`, `deleteWorktree()`, `getSnapshot()`, LRU eviction
+  - **Parallel Agent Runner** (`artifacts/api-server/src/lib/parallel-agents.ts`) — 460+ lines:
+    - `spawnParallelAgents()` — spawns N agents each with isolated worktree, `Promise.allSettled` with timeout, auto-cleanup
+    - `runAgentGroup()` — convenience for different prompts same base (judge panel, adversarial verify)
+    - `runAdversarialAgents()` — N skeptic agents defaulting to REFUTE, returns verdict JSON
+    - `runJudgePanelAgents()` — N approach agents for judge panel pattern
+    - Shared context via `BroadcastChannel` (browser) for cross-agent file map/decision sharing
+    - ToolExecutionContext extended with `worktreeId`, `worktreeManager`, `sharedContext`, `agentIndex` (Phase 4 types in `tool-types.ts`)
+  - Typecheck + build pass ✅
 - **Phase 3: Specialized Subagents with Schemas — COMPLETE** — Created `artifacts/api-server/src/lib/subagents.ts` with 5 structured-output subagents:
   - **code-reviewer**: Adversarial review — defaults to "broken unless proven correct", finds bugs/security/perf/maintainability/style issues with severity, confidence, file/line
   - **planner**: Task decomposition into minimal verifiable steps with dependencies, risk analysis, tool hints, verification criteria
@@ -221,8 +236,9 @@ LAST_UPDATED: 2026-08-23 11:30
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 1 — Build Project Map Subsystem** ✅ **COMPLETE** — pre-build analysis for framework detection, architecture mapping, change impact analysis, smart context selection. Built `build-project-map.ts` with full static analysis (framework, PM, entry points, architecture, DB, routes, components, tests, config), incremental updates, impact analysis, smart context selection, persistence to `.infinity/project-map.json`. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. Added REST API routes at `/api/jarvis/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
-- **Next Phases:** Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Terminal Bridge), Phase 6 (MCP Client), Phase 7 (VS Code Extension), then Replit/v0/Cursor parity phases.
+- **Current Phase:** **Phase 4 — Virtual Worktrees + Parallel Agent Execution** ✅ **COMPLETE** — isolated filesystem per agent enables true parallel execution without conflicts. Virtual Worktree Manager with 4 storage backends (OPFS, IndexedDB, NodeFS, Memory), three-way merge with conflict detection. Parallel Agent Runner with Promise.allSettled, BroadcastChannel shared context, auto-cleanup. Typecheck + build pass ✅
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees)
+- **Next Phases:** Phase 5 (Terminal Bridge), Phase 6 (MCP Client), Phase 7 (VS Code Extension), then Replit/v0/Cursor parity phases.
 - **UI Overhaul (Jarvis → Infinity):** COMPLETE — All "Jarvis" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
 - **Build Studio progress work:** complete. Transcript portaled out of notice content, screenshot requests settle safely, accepted plans leave plan mode immediately, plan requests preserve earlier updates, pipeline terminal states remain visible, progress messages avoid nested state updates, dismissed questions cannot strand the run.

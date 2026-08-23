@@ -12,6 +12,15 @@
  */
 
 import type { ToolExecutionContext as BuildToolExecutionContext } from "./build-tools";
+import type { VirtualWorktreeManager } from "./virtual-worktree";
+
+/** Shared context channel for cross-agent communication */
+export interface SharedContextChannel {
+  broadcast(type: string, payload: unknown): void;
+  on(type: string, listener: (data: unknown) => void): () => void;
+  connect(channelName: string): void;
+  disconnect(): void;
+}
 
 /**
  * Risk classification for a tool. Drives permission enforcement in the registry.
@@ -102,6 +111,14 @@ export interface ToolExecutionContext extends BuildToolExecutionContext {
   workspacePath?: string;
   /** Environment variables */
   env?: Record<string, string | undefined>;
+  /** Virtual worktree ID for isolated filesystem (Phase 4) */
+  worktreeId?: string;
+  /** Virtual worktree manager for filesystem operations */
+  worktreeManager?: VirtualWorktreeManager;
+  /** Shared context channel for cross-agent communication */
+  sharedContext?: SharedContextChannel;
+  /** Agent index in parallel execution */
+  agentIndex?: number;
 }
 
 /**
