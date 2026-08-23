@@ -23,6 +23,18 @@ import { buildReviewerPrompt } from "./agent-prompts/reviewer";
 import { buildFixerPrompt } from "./agent-prompts/fixer";
 import { getWorkingContext, serializeContext, setProjectGoal, refreshFileMap, recordStep } from "./build-context";
 import { buildProjectContextForBuild } from "./build-project-context";
+import {
+  buildProjectMap,
+  getProjectMap,
+  updateProjectMapForFile,
+  analyzeImpact,
+  selectContextForGoal,
+  saveProjectMap,
+  loadProjectMap,
+  type ProjectMap,
+  type ImpactAnalysis,
+  type SmartContextSelection,
+} from "./build-project-map";
 import { logBuildEvent } from "./build-telemetry";
 import { withRetry } from "./build-edge-cases";
 
@@ -249,6 +261,28 @@ export class BuildOrchestrator {
     setProjectGoal(this.projectId, goal);
     await refreshFileMap(this.projectId, this.workspaceId);
 
+    // 1. Build/load the project map (pre-build analysis)
+    this.emitProgress("orchestrator", "project-map", "Building project map...");
+    let projectMap: ProjectMap;
+    try {
+      // Try to load existing map first
+      const loadedMap = await loadProjectMap(this.projectId);
+      if (!loadedMap) {
+        projectMap = await buildProjectMap(this.projectId, this.workspaceId);
+      } else {
+        projectMap = loadedMap;
+      }
+      // Save updated map
+      await saveProjectMap(this.projectId);
+    } catch (err) {
+      this.emitProgress("orchestrator", "project-map", `Project map build failed: ${err}`);
+      projectMap = await buildProjectMap(this.projectId, this.workspaceId);
+    }
+
+    // 2. Use smart context selection for the goal
+    const smartContext = await selectContextForGoal(this.projectId, goal, this.workspaceId, 50000);
+    this.emitProgress("orchestrator", "project-map", `Selected ${smartContext.relevantFiles.length} relevant files for goal`);
+
     this.context.fileMap = serializeContext(this.projectId);
     try {
       const projectCtx = await buildProjectContextForBuild(this.projectId, goal, {
@@ -257,12 +291,15 @@ export class BuildOrchestrator {
         activityLimit: 20,
         fileLimit: 50,
       });
-      // projectCtx is a combined string; store as instructions context
       this.context.projectInstructions = projectCtx || "";
     } catch {
       // Project context is optional; continue with fileMap only
     }
     this.context.gitStatus = await this.callTool("git_diff", {}) as string;
+
+    // Store project map reference for use in steps
+    (this.context as any).projectMap = projectMap;
+    (this.context as any).smartContext = smartContext;
   }
 
   // ---------------------------------------------------------------------------
@@ -569,11 +606,27 @@ export class BuildOrchestrator {
     };
   }
 
-  private applyCoderChanges(handoff: z.infer<typeof CoderHandoffSchema>): void {
+  private async applyCoderChanges(handoff: z.infer<typeof CoderHandoffSchema>): Promise<void> {
     for (const change of handoff.changes) {
       // Track that the file was modified. Real content is read from workspace.
       this.context.modifiedFiles.set(change.file, `[Modified by ${handoff.stepId}: ${change.summary}]`);
+
+      // Update project map for changed file (incremental update)
+      try {
+        await updateProjectMapForFile(this.projectId, change.file, this.workspaceId);
+
+        // Analyze impact of this change
+        const impact = await analyzeImpact(this.projectId, change.file, this.workspaceId);
+        if (impact.riskLevel === "high") {
+          this.emitProgress("orchestrator", handoff.stepId, `HIGH IMPACT change to ${change.file}: affects ${impact.directDependents.length} files, ${impact.affectedRoutes.length} routes`);
+        }
+      } catch (err) {
+        // Non-critical, continue
+      }
     }
+
+    // Save updated project map
+    await saveProjectMap(this.projectId);
   }
 
   private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {

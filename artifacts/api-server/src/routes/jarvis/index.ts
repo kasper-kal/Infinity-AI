@@ -66,6 +66,7 @@ import companyToolsRouter from "./company-tools";
 import promoRouter from "./promo";
 import localModelRouter from "./local-model";
 import deepResearchV2Router from "./deep-research-v2";
+import projectMapRouter from "./project-map";
 
 const router = Router();
 
@@ -112,6 +113,7 @@ router.use(buildCheckpointsRouter);
 router.use(buildTelemetryRouter);
 router.use(buildExportRouter);
 router.use("/build/schedules", buildSchedulesRouter);
+router.use("/project-map", projectMapRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);
