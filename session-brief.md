@@ -4,9 +4,20 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 11:00
+LAST_UPDATED: 2026-08-23 11:30
 
 ## Just did (last action)
+- **Phase 3: Specialized Subagents with Schemas — COMPLETE** — Created `artifacts/api-server/src/lib/subagents.ts` with 5 structured-output subagents:
+  - **code-reviewer**: Adversarial review — defaults to "broken unless proven correct", finds bugs/security/perf/maintainability/style issues with severity, confidence, file/line
+  - **planner**: Task decomposition into minimal verifiable steps with dependencies, risk analysis, tool hints, verification criteria
+  - **researcher**: Browse→extract→cite — every claim requires source URL, structured findings with confidence/relevance, gap analysis
+  - **fixer**: Targeted repairs with unified diffs, verification steps, risk assessment, root cause analysis
+  - **synthesizer**: Merges multiple perspectives, resolves conflicts, prioritized recommendations with weights
+  - All subagents have Zod schemas validated at tool-call layer with 3 retries on mismatch
+  - **Subagent Registry** (`SUBAGENTS` object) with `getSubagent()`, `spawnSubagent()`, `spawnSubagentsParallel()`
+  - **Perspective-diverse verification** — `perspectiveDiverseVerify()` runs same claim through 4 lenses (correctness, security, performance, reproducibility) using code-reviewer
+  - **Orchestration Engine Integration** — re-exports subagent functions and `SUBAGENTS` registry in `orchestration-engine.ts`
+  - Typecheck + build pass ✅
 - **Phase 2: Orchestration Engine (Claude Code Parity) — COMPLETE** — Wired orchestration primitives into Universal Tool Registry and Universal Agent:
   - **Registered 9 orchestration tools** in `tool-registry.ts`: `orchestration.pipeline`, `orchestration.pipelineConcurrent`, `orchestration.parallel`, `orchestration.verify` (adversarialVerify), `orchestration.judge` (judgePanel), `orchestration.loopUntilDry`, `orchestration.multiModalSweep`, `orchestration.completenessCritic`, `orchestration.logDropped`
   - **Extended `universal-agent.ts`** with `enableOrchestration` config flag and `orchestrationLLM` option — agent can now use orchestration primitives for multi-tool chains with quality gates

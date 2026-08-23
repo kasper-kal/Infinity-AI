@@ -17,6 +17,20 @@
 import type { LLMAdapter } from "./llm-adapter";
 import { createBestAdapter } from "./adapter-factory";
 import { sanitizePrompt } from "./infinity-prompt";
+import {
+  SUBAGENTS,
+  type SubagentDefinition,
+  type SubagentConfig,
+  spawnSubagent,
+  spawnSubagentsParallel,
+  perspectiveDiverseVerify,
+  type CodeReviewerOutput,
+  type VerificationLens,
+} from "./subagents";
+
+// Re-export with orchestration prefix to avoid naming conflicts
+export { SUBAGENTS };
+export type { SubagentDefinition, SubagentConfig, CodeReviewerOutput, VerificationLens };
 
 /**
  * Type for a pipeline stage function
@@ -719,6 +733,10 @@ export const orchestration = {
   multiModalSweep,
   completenessCritic,
   logDropped,
+  spawnSubagent,
+  spawnSubagentsParallel,
+  perspectiveDiverseVerify,
+  SUBAGENTS,
 };
 
 export default orchestration;

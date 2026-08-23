@@ -15,7 +15,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 |-------|-------|--------|
 | **1** | **Build Project Map Subsystem** | ✅ **COMPLETE** |
 | **2** | **Orchestration Engine (Claude Code Parity)** | ✅ **COMPLETE** |
-| **3** | **Specialized Subagents with Schemas** | 🔲 PLANNED |
+| **3** | **Specialized Subagents with Schemas** | ✅ **COMPLETE** |
 | **4** | **Virtual Worktrees + Parallel Agent Execution** | 🔲 PLANNED |
 | **5** | **Local Terminal Bridge (node-pty WebSocket)** | 🔲 PLANNED |
 | **6** | **MCP Client + Ecosystem Integration** | 🔲 PLANNED |
