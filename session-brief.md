@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 11:45
+LAST_UPDATED: 2026-08-23 12:45
 
 ## Just did (last action)
+- **Phase 6: MCP Client Database Persistence COMPLETE** — Implemented full database persistence for MCP server configurations with encryption:
+  - Encryption utilities using AES-256-GCM with project-scoped key derivation
+  - loadConfigs() reads from mcp_servers table, decrypts sensitive fields on startup
+  - persistConfigs() upserts configs with encryption for tokens, API keys, connection strings
+  - Auto-loads on registry initialization via constructor
+  - Fixed Badge import in MCPConfigPanel.tsx + added to UI barrel
+  - Typecheck + build pass cleanly ✅
+- **Phase 6: Fixed missing i18n keys & TypeScript errors** — Added `settings.mcpServers` and `settings.mcpServersDescription` translation keys (EN + NL) to i18n.tsx for the MCP Servers settings section. Fixed TypeScript error in `useTerminalBridge.ts` (optional chaining assignment on wsRef.current.onclose).
+- Typecheck + build pass on all packages ✅
+
 - **Phase 4: Virtual Worktrees + Parallel Agent Execution — COMPLETE** — Built true parallel execution with isolated filesystems per agent:
   - **Virtual Worktree Manager** (`artifacts/api-server/src/lib/virtual-worktree.ts`) — 960+ lines, 4 storage backends:
     - **OPFS** (Origin Private File System) — browser-native persistent filesystem via `navigator.storage.getDirectory()`
@@ -236,9 +246,9 @@ LAST_UPDATED: 2026-08-23 11:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 6 — MCP Client + Ecosystem Integration** 🔲 **IN PROGRESS** — Browser-native MCP client to connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Infinity becomes an MCP *client*, not just a server.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge)
-- **Next Phases:** Phase 6 (MCP Client), Phase 7 (VS Code Extension), then Replit/v0/Cursor parity phases.
+- **Current Phase:** **Phase 6 — MCP Client + Ecosystem Integration** ✅ **DATABASE PERSISTENCE COMPLETE** — Remaining: Test MCP client with actual MCP servers (filesystem, GitHub, PostgreSQL, etc.), verify Universal Tool Registry integration works end-to-end with agents
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client Database Persistence)
+- **Next Phases:** Phase 6 (MCP Client testing), Phase 7 (VS Code Extension), then Replit/v0/Cursor parity phases.
 - **UI Overhaul (Jarvis → Infinity):** COMPLETE — All "Jarvis" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
 - **Build Studio progress work:** complete. Transcript portaled out of notice content, screenshot requests settle safely, accepted plans leave plan mode immediately, plan requests preserve earlier updates, pipeline terminal states remain visible, progress messages avoid nested state updates, dismissed questions cannot strand the run.
@@ -260,6 +270,28 @@ LAST_UPDATED: 2026-08-23 11:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-23 **Phase 6: MCP Client Database Persistence COMPLETE + TypeScript/i18n fixes** — Implemented database persistence for MCP server configurations + fixed missing i18n keys & type errors:
+  - Added encryption utilities (encrypt, decrypt, encryptConfig, decryptConfig) in mcp-registry.ts using AES-256-GCM with project-scoped key derivation
+  - Updated MCPServerConfig interface to include config and builtinType fields for server-specific settings and built-in type tracking
+  - Implemented loadConfigs() to read from mcp_servers table and decrypt sensitive fields (API keys, tokens, connection strings) on startup
+  - Implemented persistConfigs() to upsert configs with encryption for sensitive fields before storing
+  - Called loadConfigs() in constructor for automatic initialization
+  - Fixed Badge import in MCPConfigPanel.tsx (lowercase badge.tsx)
+  - Added Badge export to UI barrel file (index.ts)
+  - **Added missing i18n keys**: `settings.mcpServers` and `settings.mcpServersDescription` (EN + NL) for MCP Servers settings section
+  - **Fixed TypeScript error** in `useTerminalBridge.ts`: optional chaining assignment on wsRef.current.onclose
+  - TypeScript typecheck and build pass cleanly on all packages ✅
+
+- 2026-08-23 **Phase 6: MCP Client Database Persistence COMPLETE** — Implemented database persistence for MCP server configurations:
+  - Added encryption utilities (encrypt, decrypt, encryptConfig, decryptConfig) in mcp-registry.ts using AES-256-GCM with project-scoped key derivation
+  - Updated MCPServerConfig interface to include config and builtinType fields for server-specific settings and built-in type tracking
+  - Implemented loadConfigs() to read from mcp_servers table and decrypt sensitive fields (API keys, tokens, connection strings) on startup
+  - Implemented persistConfigs() to upsert configs with encryption for sensitive fields before storing
+  - Called loadConfigs() in constructor for automatic initialization
+  - Fixed Badge import in MCPConfigPanel.tsx (lowercase badge.tsx)
+  - Added Badge export to UI barrel file (index.ts)
+  - TypeScript typecheck and build pass cleanly on all packages ✅
+
 - 2026-08-23 **Phase 5: Local Terminal Bridge COMPLETE** — Built complete terminal bridge system:
   - **Bridge Server** (`artifacts/terminal-bridge/src/index.ts` ~700 lines): node-pty WebSocket server on ws://127.0.0.1:3001 with shared secret auth, multiple session support, stdin/stdout/stderr forwarding, resize, signals, session timeouts, buffer replay
   - **CLI Entry** (`artifacts/terminal-bridge/bin/bridge.ts`): Zero-config `npx infinity-terminal-bridge` auto-generates secret in ~/.infinity/bridge-secret, prints connection URL, supports CLI args/env vars
@@ -439,7 +471,8 @@ LAST_UPDATED: 2026-08-23 11:45
 - 2026-08-12 Jarvis sidebar cleanup: navigation is grouped, the workspace header is compact, and footer actions no longer compete with the top toolbar.
 
 ## Active threads
-- **Phase 6: MCP Client + Ecosystem Integration** — **IN PROGRESS** 🔲: Browser-native MCP client to connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket. Registry integration with `mcp.` namespace. Built-in server configs for filesystem, GitHub, PostgreSQL, Slack, etc. Project-scoped connections with encrypted secrets. UI in SettingsView.
+- **Phase 6: MCP Client + Ecosystem Integration** — **DATABASE PERSISTENCE COMPLETE** ✅: Browser-native MCP client to connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket. Registry integration with `mcp.` namespace. Built-in server configs for filesystem, GitHub, PostgreSQL, Slack, etc. Project-scoped connections with encrypted secrets (AES-256-GCM). UI in SettingsView. **loadConfigs()/persistConfigs() implemented with encryption.**
+- **Phase 6: MCP Client + Ecosystem Integration** — **IN PROGRESS** 🔲: Remaining: Test MCP client with actual MCP servers, verify Universal Tool Registry integration works end-to-end with agents.
 - **Phase 1: Build Project Map Subsystem** — **COMPLETE** ✅: Built `build-project-map.ts` with full static analysis, incremental updates, impact analysis, smart context selection, persistence. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. REST API routes at `/api/jarvis/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
 - **Phase 2-5: Claude Code Parity Roadmap** — **ALL COMPLETE** ✅: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5)
 - **Phase 31-38: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)

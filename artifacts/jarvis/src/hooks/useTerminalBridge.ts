@@ -290,9 +290,11 @@ export function useTerminalBridge(config: Partial<BridgeConfig> = {}) {
           }
         }, 30000);
 
-        wsRef.current.onclose = () => {
-          clearInterval(pingInterval);
-        };
+        if (wsRef.current) {
+          wsRef.current.onclose = () => {
+            clearInterval(pingInterval);
+          };
+        }
       };
 
       ws.onclose = (event) => {

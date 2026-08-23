@@ -576,12 +576,12 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
 
   const getStatusBadge = (server: MCPServerStatus) => {
     if (server.connected) {
-      return <Badge variant="success" size="sm">Connected</Badge>;
+      return <Badge variant="default">Connected</Badge>;
     }
     if (server.lastError) {
-      return <Badge variant="danger" size="sm">Error</Badge>;
+      return <Badge variant="destructive">Error</Badge>;
     }
-    return <Badge variant="secondary" size="sm">Disconnected</Badge>;
+    return <Badge variant="secondary">Disconnected</Badge>;
   };
 
   if (loading) {
@@ -617,7 +617,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
                 <div className="font-medium truncate">{template.name}</div>
                 <div className="text-xs text-muted-foreground truncate">{template.description}</div>
               </div>
-              <Badge variant="secondary" size="sm">{template.transportType}</Badge>
+              <Badge variant="secondary">{template.transportType}</Badge>
             </Button>
           ))}
         </div>
@@ -749,7 +749,7 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium truncate">{server.name}</h3>
                     {getStatusBadge(server)}
-                    <Badge variant="outline" size="sm">{server.transportType}</Badge>
+                    <Badge variant="outline">{server.transportType}</Badge>
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                     <span>🔧 {server.toolsCount} tools</span>
@@ -839,9 +839,9 @@ export const MCPConfigPanel: React.FC<MCPConfigPanelProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-medium">Status:</span>
             {serverToTest?.connected ? (
-              <Badge variant="success" size="sm">Connected</Badge>
+              <Badge variant="default">Connected</Badge>
             ) : (
-              <Badge variant="danger" size="sm">Failed</Badge>
+              <Badge variant="destructive">Failed</Badge>
             )}
           </div>
           {serverToTest && (

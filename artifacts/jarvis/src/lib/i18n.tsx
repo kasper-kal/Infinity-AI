@@ -1244,6 +1244,8 @@ const en = {
   "settings.apiKeys": "API Keys",
   "settings.apiKeysDescription": "Manage your API keys for AI providers",
   "settings.apiKeyPlaceholder": "sk-...",
+  "settings.mcpServers": "MCP Servers",
+  "settings.mcpServersDescription": "Configure Model Context Protocol servers",
   "settings.advanced": "Advanced",
   "settings.resetToDefaults": "Reset to defaults",
 
@@ -2434,6 +2436,8 @@ const nl: Record<keyof typeof en, string> = {
   "settings.apiKeys": "API-sleutels",
   "settings.apiKeysDescription": "Beheer je API-sleutels voor AI-providers",
   "settings.apiKeyPlaceholder": "sk-...",
+  "settings.mcpServers": "MCP Servers",
+  "settings.mcpServersDescription": "Configureer Model Context Protocol servers",
   "settings.advanced": "Geavanceerd",
   "settings.resetToDefaults": "Standaardinstellingen herstellen",
 

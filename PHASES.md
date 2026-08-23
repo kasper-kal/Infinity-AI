@@ -227,34 +227,38 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 **Browser-native MCP client** — connect to any MCP server (local via terminal bridge, remote via HTTP/SSE). Infinity becomes an MCP *client*, not just a server.
 
 ### Requirements
-- [ ] **MCP Client** — `artifacts/api-server/src/lib/mcp-client.ts`:
+- [x] **MCP Client** — `artifacts/api-server/src/lib/mcp-client.ts`:
   - Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket
   - `connect(config)` → discovers tools/resources/prompts
   - `callTool(name, args)` → typed invocation with timeout/retry
   - `listTools()` / `listResources()` / `readResource(uri)`
   - Session management (reconnect, capability negotiation)
-- [ ] **Registry Integration** — MCP tools auto-registered in Universal Tool Registry with `mcp.` namespace
-- [ ] **Built-in Server Configs** — one-click connect to:
+- [x] **Registry Integration** — MCP tools auto-registered in Universal Tool Registry with `mcp.` namespace
+- [x] **Built-in Server Configs** — one-click connect to:
   - `filesystem` (via terminal bridge)
   - `github` (OAuth + PAT)
   - `postgres` / `sqlite` / `mysql`
   - `slack` / `discord` / `notion` / `linear` / `jira`
   - `brave-search` / `fetch` / `puppeteer`
-- [ ] **Project-Scoped Connections** — each project has its own MCP server configs (encrypted secrets)
-- [ ] **UI** — MCP Servers tab in Project Settings: add/remove/test/configure
+- [x] **Project-Scoped Connections** — each project has its own MCP server configs (encrypted secrets)
+- [x] **UI** — MCP Servers tab in Project Settings: add/remove/test/configure
+- [x] **Database Persistence** — `mcp_servers` table with AES-256-GCM encryption for sensitive fields (API keys, tokens, connection strings)
+- [ ] **Test MCP client with actual MCP servers** (filesystem, GitHub, PostgreSQL, etc.)
+- [ ] **Verify Universal Tool Registry integration works end-to-end with agents**
 
 ### Implementation Plan
-1. **MCP Client Library** — TypeScript implementation of MCP spec (modelcontextprotocol/sdk types)
-2. **Transport Adapters** — stdio-over-bridge, HTTP, SSE, WebSocket
-3. **Tool Registry Bridge** — `MCPToolAdapter` wraps MCP tool → Universal tool definition
-4. **Project Settings UI** — `MCPConfigPanel.tsx` in SettingsView
-5. **Secrets Management** — encrypt MCP credentials with project-scoped key
+1. **MCP Client Library** — TypeScript implementation of MCP spec (modelcontextprotocol/sdk types) ✅
+2. **Transport Adapters** — stdio-over-bridge, HTTP, SSE, WebSocket ✅
+3. **Tool Registry Bridge** — `MCPToolAdapter` wraps MCP tool → Universal tool definition ✅
+4. **Project Settings UI** — `MCPConfigPanel.tsx` in SettingsView ✅
+5. **Secrets Management** — encrypt MCP credentials with project-scoped key ✅
+6. **Database Persistence** — `mcp_servers` table with `loadConfigs()`/`persistConfigs()` ✅
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/mcp-client.ts` (new)
-- `artifacts/api-server/src/lib/mcp-registry.ts` (new — auto-register discovered tools)
-- `artifacts/jarvis/src/components/views/SettingsView.tsx` (MCP servers tab)
-- `artifacts/api-server/src/routes/jarvis/mcp-servers.ts` (new — CRUD for project MCP configs)
+- `artifacts/api-server/src/lib/mcp-client.ts` (new) ✅
+- `artifacts/api-server/src/lib/mcp-registry.ts` (new — auto-register discovered tools) ✅
+- `artifacts/jarvis/src/components/views/SettingsView.tsx` (MCP servers tab) ✅
+- `artifacts/api-server/src/routes/jarvis/mcp-servers.ts` (new — CRUD for project MCP configs) ✅
 
 ---
 
@@ -1357,12 +1361,12 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 6 — MCP Client + Ecosystem Integration** 🔲 IN PROGRESS
+## 🎯 Current Phase: **Phase 6 — MCP Client + Ecosystem Integration** ✅ **DATABASE PERSISTENCE COMPLETE** — Remaining: Test with actual MCP servers, verify Universal Tool Registry integration with agents
 
 ## 🎯 Upcoming Phases
 1. **Phase 2** — Orchestration Engine (COMPLETE ✅)
 2. **Phase 3** — Specialized Subagents (COMPLETE ✅)
 3. **Phase 4** — Virtual Worktrees + Parallel Agents (COMPLETE ✅)
 4. **Phase 5** — Local Terminal Bridge (COMPLETE ✅)
-5. **Phase 6** — MCP Client + Ecosystem
+5. **Phase 6** — MCP Client + Ecosystem (Database Persistence ✅)
 6. **Phase 7** — VS Code Extension
