@@ -439,7 +439,7 @@ async function fetchImagesWidget(msg: string): Promise<Extract<Widget, { type: '
   try {
     const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=6&license_type=all`;
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'JarvisAssistant/1.0', 'Accept': 'application/json' },
+      headers: { 'User-Agent': 'InfinityAssistant/1.0', 'Accept': 'application/json' },
       signal: AbortSignal.timeout(7000),
     });
     if (!res.ok) return null;
@@ -574,7 +574,7 @@ async function fetchDefineWidget(msg: string): Promise<Extract<Widget, { type: '
   if (!word) return null;
   try {
     const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, {
-      headers: { 'User-Agent': 'JarvisAssistant/1.0' },
+      headers: { 'User-Agent': 'InfinityAssistant/1.0' },
       signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return null;
@@ -757,7 +757,7 @@ async function fetchMapWidget(msg: string): Promise<Extract<Widget, { type: 'map
   if (!query) return null;
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
-      headers: { 'User-Agent': 'JarvisAssistant/1.0' },
+      headers: { 'User-Agent': 'InfinityAssistant/1.0' },
       signal: AbortSignal.timeout(7000),
     });
     if (!res.ok) return null;

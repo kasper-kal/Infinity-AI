@@ -22,7 +22,7 @@ export const REPO_ROOT = ((): string => {
   return path.resolve(process.cwd(), "..");
 })();
 
-/** Files/dirs Jarvis must never read, secrets and his own runtime instructions. */
+/** Files/dirs Infinity must never read, secrets and his own runtime instructions. */
 // NOTE: dot-prefixed names must use (^|[/\\]) anchors, a leading `\b` never
 // matches before a `.` when it follows a `/`, which would leak .git/.env/etc.
 export const BLOCKED_PATTERNS: RegExp[] = [

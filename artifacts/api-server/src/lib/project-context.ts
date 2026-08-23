@@ -229,8 +229,8 @@ export async function buildFullProjectContext(
   }
 
   const identity = project.description?.trim()
-    ? `You are working inside the Jarvis project '${project.name}'. Project description: ${project.description.trim()}`
-    : `You are working inside the Jarvis project '${project.name}'.`;
+    ? `You are working inside the Infinity project '${project.name}'. Project description: ${project.description.trim()}`
+    : `You are working inside the Infinity project '${project.name}'.`;
 
   const parts = ['## PROJECT CONTEXT' + newline + identity];
 

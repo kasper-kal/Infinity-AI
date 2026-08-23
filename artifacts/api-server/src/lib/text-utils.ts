@@ -1,5 +1,5 @@
 /**
- * Shared text utilities used across Jarvis routes.
+ * Shared text utilities used across Infinity routes.
  * The new IDE-phase routes import cleanText/parseJsonObject from a few
  * different paths (utils, text-utils, text); this is the canonical module.
  */

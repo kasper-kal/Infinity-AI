@@ -447,8 +447,8 @@ async function notifyAllKeysFailed(err: Error): Promise<void> {
   lastAllFailedNotifiedAt = now;
   try {
     await notifyAll(
-      "Jarvis failed with every API key",
-      "Every configured AI provider failed. Jarvis could not resume the request, please try again later.",
+      "Infinity failed with every API key",
+      "Every configured AI provider failed. Infinity could not resume the request, please try again later.",
       "/",
     );
   } catch {

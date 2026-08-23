@@ -14,7 +14,7 @@
  *
  * When the loop finally converges, the engine writes a deep report and
  * spawns an "expert" conversation, a special chat whose system prompt makes
- * Jarvis behave like a 30-year veteran of the researched field.
+ * Infinity behave like a 30-year veteran of the researched field.
  *
  * Everything is persisted to Postgres on every step, so the frontend can
  * poll progress and a server restart resumes the job (via recoverStuckJobs).
@@ -640,7 +640,7 @@ async function runJob(jobId: string): Promise<void> {
       if (phaseErr instanceof LLMAllKeysCoolingError) {
         // Every LLM key is cooling down, pause + notify + auto-resume on the SAME phase.
         await appendLog(jobId, "All LLM keys are cooling down (quota/rate limits). Pausing research for ~10 minutes, will auto-resume on this same phase. Nothing is lost.");
-        void notifyAll(`Research paused: ${job.title}`, "Every LLM key is cooling down. Jarvis will auto-resume in ~10 minutes, nothing is lost.", "/");
+        void notifyAll(`Research paused: ${job.title}`, "Every LLM key is cooling down. Infinity will auto-resume in ~10 minutes, nothing is lost.", "/");
         await sleep(10 * 60 * 1000);
         index -= 1; // retry this phase
         continue;
@@ -674,7 +674,7 @@ async function runJob(jobId: string): Promise<void> {
     } catch (gemRetryErr) {
       if (gemRetryErr instanceof LLMAllKeysCoolingError && attempt < 2) {
         await appendLog(jobId, "All LLM keys cooling during final synthesis, retrying in 10 minutes.");
-        void notifyAll(`Research nearly done: ${job.title}`, "Every LLM key is cooling down. Jarvis will write the final report when a key revives.", "/");
+        void notifyAll(`Research nearly done: ${job.title}`, "Every LLM key is cooling down. Infinity will write the final report when a key revives.", "/");
         await sleep(10 * 60 * 1000);
       } else {
         throw gemRetryErr;

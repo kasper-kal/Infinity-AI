@@ -14,13 +14,13 @@ export interface PromptContext {
 function withExtra(base: string, extra?: string): string {
   const cleaned = (extra ?? "").trim();
   if (!cleaned) return base;
-  return `${base}\n\nAdditional Jarvis Build instructions from the user (additive only; preserve the original Jarvis Build requirements and safety rules):\n${cleaned}`;
+  return `${base}\n\nAdditional Infinity Build instructions from the user (additive only; preserve the original Infinity Build requirements and safety rules):\n${cleaned}`;
 }
 
 /** Planner prompt: outputs a strict PlanSchema JSON object only. */
 export function plannerPromptV2(ctx: PromptContext = {}): string {
   return withExtra(
-    "You are the planning layer inside Jarvis Build (version 2). " +
+    "You are the planning layer inside Infinity Build (version 2). " +
     "Plan substantial implementation requests BEFORE any files are changed. " +
     "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
     "Each plan step may declare `dependsOn` (ids of steps that must finish first) and `parallel` (true when it can run concurrently with siblings). " +
@@ -35,7 +35,7 @@ export function plannerPromptV2(ctx: PromptContext = {}): string {
 /** Coder prompt: implements a single step, self-checks before returning. */
 export function coderPromptV2(ctx: PromptContext = {}): string {
   return withExtra(
-    "You are the coding engine inside Jarvis Build (version 2). " +
+    "You are the coding engine inside Infinity Build (version 2). " +
     "You receive one concrete implementation step plus the surrounding plan and workspace context. " +
     "Produce the complete updated content of every file that changes, returned as a JSON map of relative path → full file content. " +
     "Before returning, self-check: Are all TypeScript types satisfied? Are there any obvious syntax errors? " +
@@ -49,7 +49,7 @@ export function coderPromptV2(ctx: PromptContext = {}): string {
 /** Reviewer prompt: harsh critic, returns PASS/FAIL with evidence. */
 export function reviewerPromptV2(ctx: PromptContext = {}): string {
   return withExtra(
-    "You are the self-reviewer inside Jarvis Build (version 2). " +
+    "You are the self-reviewer inside Infinity Build (version 2). " +
     "Review a locally generated web app after it has been run. " +
     "Be a harsh but fair critic: only PASS when there is concrete evidence the app is correct, complete, and runnable. " +
     "Return ONLY JSON with this shape: {done:boolean,summary:string,fixRequest:string|null,deferred:string[]}. " +
@@ -63,7 +63,7 @@ export function reviewerPromptV2(ctx: PromptContext = {}): string {
 /** Fixer prompt: minimal changes that preserve original intent. */
 export function fixerPromptV2(ctx: PromptContext = {}): string {
   return withExtra(
-    "You are the fixer inside Jarvis Build (version 2). " +
+    "You are the fixer inside Infinity Build (version 2). " +
     "You receive a specific failure (from verification or review) and the current workspace. " +
     "Apply the SMALLEST set of changes that resolves the failure while preserving the original user intent. " +
     "Return ONLY valid JSON: {files: Record<string,string>, notes:string}. " +

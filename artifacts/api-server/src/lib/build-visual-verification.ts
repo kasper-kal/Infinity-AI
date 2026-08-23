@@ -15,7 +15,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getBrowserPool, type BrowserSlot } from "./browser-pool";
-import { JarvisBrowser } from "./puppeteer-browser";
+import { InfinityBrowser } from "./puppeteer-browser";
 import { getWorkspaceRoot, safeWorkspacePath } from "./workspace";
 
 // DOM types for browser evaluate context

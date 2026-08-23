@@ -420,8 +420,8 @@ export function buildBookHtml(plan: BookPlan, manuscript: string): string {
   <div class="title-page">
     <div class="title">${escHtml(plan.title)}</div>
     <div class="rule"></div>
-    <div class="subtitle">${escHtml(plan.summary || "A book written with Jarvis")}</div>
-    <div class="credit">Generated with Jarvis · Book Studio</div>
+    <div class="subtitle">${escHtml(plan.summary || "A book written with Infinity")}</div>
+    <div class="credit">Generated with Infinity · Book Studio</div>
   </div>
   <div class="toc-page">
     <div class="toc-heading">Contents</div>

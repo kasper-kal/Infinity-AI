@@ -62,7 +62,7 @@ export async function buildProjectContextForBuild(
   if (!project) return null;
 
   const parts: string[] = [
-    `## PROJECT CONTEXT (from Jarvis project '${project.name}')`,
+    `## PROJECT CONTEXT (from Infinity project '${project.name}')`,
   ];
 
   // 1. Project instructions — explicit rules, scoped API takes precedence.

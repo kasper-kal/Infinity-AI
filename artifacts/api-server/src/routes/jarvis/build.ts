@@ -121,7 +121,7 @@ function fallbackBuildPlan(prompt: string, existingFiles: string[]): BuildPlan {
   const subject = cleanText(prompt, 120) || "the requested app";
   return {
     title: `Build plan: ${subject}`,
-    summary: `Jarvis will turn this request into a runnable local build, preserve the existing workspace, and verify the result in the preview.`,
+    summary: `Infinity will turn this request into a runnable local build, preserve the existing workspace, and verify the result in the preview.`,
     steps: [
       `Translate the request into a focused implementation for ${subject}.`,
       "Inspect the current workspace and reuse existing files before creating new ones.",
@@ -161,7 +161,7 @@ async function createBuildPlan(
     const systemPrompt = buildInfinityPrompt({
       role: "planner",
       extraInstructions: withExtraBuildInstructions(
-        "You are the planning layer inside Jarvis Build. Plan substantial implementation requests before any files are changed. " +
+        "You are the planning layer inside Infinity Build. Plan substantial implementation requests before any files are changed. " +
         "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
         "Do not write code and do not claim that anything has been implemented. Return ONLY valid JSON with this shape: " +
         "{title:string,summary:string,steps:string[],files:string[],risks:string[]}. " +
@@ -409,7 +409,7 @@ function cleanText(value: unknown, max: number): string {
 function withExtraBuildInstructions(basePrompt: string, extraPrompt: string): string {
   const extra = cleanText(extraPrompt, 4000);
   if (!extra) return basePrompt;
-  return `${basePrompt}\n\nAdditional Jarvis Build instructions from the user (additive only; preserve the original Jarvis Build requirements and safety rules):\n${extra}`;
+  return `${basePrompt}\n\nAdditional Infinity Build instructions from the user (additive only; preserve the original Infinity Build requirements and safety rules):\n${extra}`;
 }
 
 async function readWorkspaceEnv(workspaceId = "default"): Promise<Record<string, string>> {
@@ -594,8 +594,8 @@ router.post("/build/plan", requireAuth, async (req, res) => {
     const plan = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt);
     res.json({ ok: true, plan });
   } catch (err) {
-    req.log.error({ err }, "Failed to create Jarvis Build plan");
-    res.status(500).json({ error: "Could not create a Jarvis Build plan" });
+    req.log.error({ err }, "Failed to create Infinity Build plan");
+    res.status(500).json({ error: "Could not create an Infinity Build plan" });
   }
 });
 
@@ -614,7 +614,7 @@ router.post("/build/start", requireAuth, async (req, res) => {
 router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const rawAnswers = (req.body?.answers && typeof req.body.answers === "object" && !Array.isArray(req.body.answers))
     ? req.body.answers as Record<string, unknown>
     : {};
@@ -718,7 +718,7 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
 router.post("/build/iterate", requireAuth, requireScope("build:write"), async (req, res) => {
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const previewOutput = cleanText(req.body?.previewOutput, 6000);
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
   const rawAnswers = req.body?.answers && typeof req.body.answers === "object" && !Array.isArray(req.body.answers)
@@ -934,7 +934,7 @@ router.post("/build/fix", requireAuth, requireScope("build:write"), async (req, 
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
   const projectId = cleanText(req.body?.projectId, 64) || workspaceId;
   const failure = cleanText(req.body?.failure, 4000);
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
   if (!failure) {
     res.status(400).json({ error: "failure description is required" });
@@ -1005,7 +1005,7 @@ router.post("/build/fix", requireAuth, requireScope("build:write"), async (req, 
 router.post("/build/execute-plan", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const rawAnswers = req.body?.answers && typeof req.body.answers === "object" && !Array.isArray(req.body.answers)
     ? req.body.answers as Record<string, unknown>
     : {};
@@ -1212,7 +1212,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
 router.post("/build/agent/run", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
   const previewPort = Number(req.body?.previewPort);
   const maxIterations = Math.min(30, Math.max(1, Number(req.body?.maxIterations) || 20));
@@ -1310,7 +1310,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
 router.post("/build/agent/step", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
-  const prompt = cleanText(req.body?.prompt, 300) || "a simple Jarvis starter app";
+  const prompt = cleanText(req.body?.prompt, 300) || "a simple Infinity starter app";
   const stepId = cleanText(req.body?.stepId, 64);
   const stepDescription = cleanText(req.body?.stepDescription, 500);
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
@@ -1537,7 +1537,7 @@ router.post("/build/preview/agent", requireAuth, requireScope("build:write"), as
     return;
   }
   if (!preview || preview.port !== port || !Number.isInteger(port) || port < 1024 || port > 65535) {
-    res.status(400).json({ error: "Start the local preview before asking Jarvis to interact with it" });
+    res.status(400).json({ error: "Start the local preview before asking Infinity to interact with it" });
     return;
   }
 
@@ -1600,7 +1600,7 @@ router.post("/build/preview/agent", requireAuth, requireScope("build:write"), as
       });
       const decision = parsePreviewAgentDecision(completion.content.trim() ?? "");
       if (!decision) {
-        summary = "Jarvis could not produce a valid browser action plan.";
+        summary = "Infinity could not produce a valid browser action plan.";
         events.push({ type: "error", step, message: summary });
         break;
       }
@@ -2902,7 +2902,7 @@ router.post("/build/wait-rate-limit/:key", requireAuth, requireScope("build:writ
 router.post("/build/orchestrate", requireAuth, requireScope("build:write"), async (req, res) => {
   const projectId = cleanText(req.body?.projectId, 64) || "default";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || projectId;
-  const goal = cleanText(req.body?.goal, 500) || "a simple Jarvis starter app";
+  const goal = cleanText(req.body?.goal, 500) || "a simple Infinity starter app";
   const previewPort = Number(req.body?.previewPort);
   const model = cleanText(req.body?.model, 64);
   const skipPreflight = Boolean(req.body?.skipPreflight);

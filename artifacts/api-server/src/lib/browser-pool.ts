@@ -1,4 +1,4 @@
-import { JarvisBrowser, type BrowserState, type InteractiveElement, type BrowseAction } from "./puppeteer-browser";
+import { InfinityBrowser, type BrowserState, type InteractiveElement, type BrowseAction } from "./puppeteer-browser";
 import { EventEmitter } from "events";
 import { getBrowserPolicy, type PolicyCheckResult, type ActionContext } from "./browser-policy";
 
@@ -20,7 +20,7 @@ export interface PoolConfig {
 
 export interface BrowserSlot {
   id: string;
-  browser: JarvisBrowser;
+  browser: InfinityBrowser;
   wsPort: number;
   state: "idle" | "busy" | "starting" | "stopping";
   currentTask: string | null;
@@ -87,7 +87,7 @@ export class BrowserPool extends EventEmitter {
 
     const slot: BrowserSlot = {
       id,
-      browser: new JarvisBrowser(wsPort),
+      browser: new InfinityBrowser(wsPort),
       wsPort,
       state: "starting",
       currentTask: null,

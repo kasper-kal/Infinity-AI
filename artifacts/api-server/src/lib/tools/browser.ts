@@ -2,19 +2,19 @@
  * Phase 22: Universal Tool Layer — Browser Capability Integration
  *
  * Registers browser navigation, screenshot, and content-extraction tools.
- * Uses the existing JarvisBrowser (Puppeteer) instance management.
+ * Uses the existing InfinityBrowser (Puppeteer) instance management.
  */
 
 import { registerTool } from "../tool-registry";
-import { JarvisBrowser } from "../puppeteer-browser";
+import { InfinityBrowser as InfinityBrowser } from "../puppeteer-browser";
 import { logger } from "../logger";
 import type { UniversalToolDefinition, ToolExecutionContext, UniversalToolResult } from "../tool-types";
 
 /** Shared browser instance for universal tools. */
-let browser: JarvisBrowser | null = null;
+let browser: InfinityBrowser | null = null;
 let initializing = false;
 
-async function getBrowser(): Promise<JarvisBrowser> {
+async function getBrowser(): Promise<InfinityBrowser> {
   if (browser && !initializing) return browser;
   if (initializing) {
     await new Promise<void>((resolve) => {
@@ -28,7 +28,7 @@ async function getBrowser(): Promise<JarvisBrowser> {
   }
   initializing = true;
   try {
-    browser = new JarvisBrowser();
+    browser = new InfinityBrowser();
     await browser.launch();
   } catch (err) {
     browser = null;
@@ -146,7 +146,7 @@ export function registerBrowserTools(): void {
       try {
         const b = await getBrowser();
         if (typeof args["index"] === "number") {
-          await b.click({ selector: `[data-jarvis-idx="${args["index"]}"]` });
+          await b.click({ selector: `[data-infinity-idx="${args["index"]}"]` });
         } else if (typeof args["selector"] === "string") {
           await b.click({ selector: args["selector"] });
         } else {

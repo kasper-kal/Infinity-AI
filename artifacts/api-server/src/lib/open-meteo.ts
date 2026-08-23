@@ -6,7 +6,7 @@
  * Forecast:  https://api.open-meteo.com
  */
 
-const USER_AGENT = "JarvisAssistant/1.0";
+const USER_AGENT = "InfinityAssistant/1.0";
 
 /** WMO weather codes -> human-readable condition (Open-Meteo "weather_code"). */
 export const WMO_CONDITIONS: Record<number, string> = {

@@ -1,5 +1,5 @@
 /**
- * Live context utilities, fetches real-world data to inject into Jarvis's system prompt.
+ * Live context utilities, fetches real-world data to inject into Infinity's system prompt.
  * All sources are free and require no API keys unless noted.
  */
 import { geocodeLocation, fetchOpenMeteoForecast, wmoCondition } from "./open-meteo";

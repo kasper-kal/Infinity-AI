@@ -6,10 +6,10 @@ import { randomUUID } from "node:crypto";
 import { runInSandbox, validateCommand, createSandboxedEnv, enforceWorkspaceBoundary } from "./build-sandbox";
 
 /**
- * Jarvis Build workspace primitives.
+ * Infinity Build workspace primitives.
  *
  * Every project gets a separate directory below WORKSPACE_ROOT/projects. The
- * legacy default workspace remains available for existing Jarvis callers.
+ * legacy default workspace remains available for existing Infinity callers.
  * Commands are capped and run with a deliberately small environment so API
  * credentials are not accidentally exposed by `env` in the terminal.
  */
@@ -435,7 +435,7 @@ export async function cleanupOldBuildWorktrees(projectId: string, keep: number =
 export const WORKSPACE_ROOT = path.resolve(
   __dirname, "..", "..", "..", "..", "artifacts", "workspace",
 );
-export const WORKSPACE_URL = "/api/jarvis/workspace";
+export const WORKSPACE_URL = "/api/infinity/workspace";
 
 const PROJECT_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const SESSIONS = new Map<string, string>();
