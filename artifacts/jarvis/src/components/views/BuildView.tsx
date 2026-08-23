@@ -67,6 +67,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [plusMenuCoords, setPlusMenuCoords] = useState<{ top: number; left: number } | null>(null);
 
+  // Terminal command output (for /terminal slash command)
+  const [terminalOutputOpen, setTerminalOutputOpen] = useState(false);
+  const [terminalOutput, setTerminalOutput] = useState<{ command: string; stdout: string; stderr: string; exitCode: number; timedOut?: boolean } | null>(null);
+  const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
+
   // Mobile state
   const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'tools'>('terminal');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -87,13 +92,61 @@ export const BuildView: React.FC<BuildViewProps> = ({
   }, []);
 
   const handleCommandSubmit = useCallback(async () => {
-    if (!commandInput.trim() || commandBusy) return;
+    const trimmed = commandInput.trim();
+    if (!trimmed || commandBusy) return;
+
+    // Check for /terminal slash command
+    const terminalPrefix = '/terminal ';
+    if (trimmed.startsWith(terminalPrefix)) {
+      const command = trimmed.slice(terminalPrefix.length).trim();
+      if (command) {
+        setCommandBusy(true);
+        setTerminalOutputBusy(true);
+        setTerminalOutput(null);
+        setTerminalOutputOpen(true);
+
+        try {
+          // Execute via terminal API
+          const response = await fetch('/api/jarvis/terminal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workspaceId: projectId ?? 'default',
+              sessionId: 'buildview-terminal',
+              command,
+            }),
+          });
+
+          const data = await response.json();
+          setTerminalOutput({
+            command,
+            stdout: data.stdout ?? data.output ?? '',
+            stderr: data.stderr ?? '',
+            exitCode: data.exitCode ?? (response.ok ? 0 : 1),
+            timedOut: data.timedOut,
+          });
+        } catch (err) {
+          setTerminalOutput({
+            command,
+            stdout: '',
+            stderr: err instanceof Error ? err.message : 'Failed to execute command',
+            exitCode: 1,
+          });
+        } finally {
+          setCommandBusy(false);
+          setTerminalOutputBusy(false);
+        }
+      }
+      setCommandInput('');
+      return;
+    }
+
+    // Regular command execution (placeholder for future)
     setCommandBusy(true);
     setCommandInput('');
-    // Execute command via build studio
     await new Promise(r => setTimeout(r, 100));
     setCommandBusy(false);
-  }, [commandInput, commandBusy]);
+  }, [commandInput, commandBusy, projectId]);
 
   const handleOpenPlusMenu = useCallback((ref: React.RefObject<HTMLDivElement>) => {
     if (ref.current) {
@@ -303,6 +356,47 @@ export const BuildView: React.FC<BuildViewProps> = ({
             </button>
           </div>
         </SheetModal>
+
+        {/* Terminal output drawer for /terminal command (mobile) */}
+        {terminalOutputOpen && (
+          <Drawer
+            open={terminalOutputOpen}
+            onClose={() => setTerminalOutputOpen(false)}
+            position="bottom"
+            size="full"
+            title={terminalOutput ? `${t('build.tabs.terminal')}: ${terminalOutput.command}` : t('build.tabs.terminal')}
+          >
+            {terminalOutput && (
+              <div className="flex flex-col h-full p-4 space-y-4 font-mono text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className="font-mono">$</span>
+                  <span className="break-all">{terminalOutput.command}</span>
+                  <span className="ml-auto px-2 py-0.5 text-xs rounded bg-muted">
+                    {terminalOutput.timedOut ? 'TIMEOUT' : terminalOutput.exitCode === 0 ? 'OK' : 'FAILED'}
+                  </span>
+                </div>
+                {(terminalOutput.stdout || terminalOutput.stderr) && (
+                  <div className="flex-1 overflow-auto bg-black/20 rounded p-3 space-y-2 min-h-0">
+                    {terminalOutput.stdout && (
+                      <pre className="whitespace-pre-wrap text-green-300">{terminalOutput.stdout}</pre>
+                    )}
+                    {terminalOutput.stderr && (
+                      <pre className="whitespace-pre-wrap text-red-300">{terminalOutput.stderr}</pre>
+                    )}
+                    {(!terminalOutput.stdout && !terminalOutput.stderr) && (
+                      <p className="text-muted-foreground text-center py-8">No output</p>
+                    )}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <Button variant="ghost" size="sm" onClick={() => setTerminalOutputOpen(false)}>
+                    {t('common.close')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Drawer>
+        )}
       </div>
     );
   }
@@ -530,6 +624,45 @@ export const BuildView: React.FC<BuildViewProps> = ({
           { id: 'terminal', label: t('build.sidebar.terminal'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>, action: () => setBuildTab('terminal') },
         ]}
       />
+
+      {/* Terminal output drawer for /terminal command */}
+      <Drawer
+        open={terminalOutputOpen}
+        onClose={() => setTerminalOutputOpen(false)}
+        position="bottom"
+        size="full"
+        title={terminalOutput ? `${t('build.tabs.terminal')}: ${terminalOutput.command}` : t('build.tabs.terminal')}
+      >
+        {terminalOutput && (
+          <div className="flex flex-col h-full p-4 space-y-4 font-mono text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="font-mono">$</span>
+              <span className="break-all">{terminalOutput.command}</span>
+              <span className="ml-auto px-2 py-0.5 text-xs rounded bg-muted">
+                {terminalOutput.timedOut ? 'TIMEOUT' : terminalOutput.exitCode === 0 ? 'OK' : 'FAILED'}
+              </span>
+            </div>
+            {(terminalOutput.stdout || terminalOutput.stderr) && (
+              <div className="flex-1 overflow-auto bg-black/20 rounded p-3 space-y-2 min-h-0">
+                {terminalOutput.stdout && (
+                  <pre className="whitespace-pre-wrap text-green-300">{terminalOutput.stdout}</pre>
+                )}
+                {terminalOutput.stderr && (
+                  <pre className="whitespace-pre-wrap text-red-300">{terminalOutput.stderr}</pre>
+                )}
+                {(!terminalOutput.stdout && !terminalOutput.stderr) && (
+                  <p className="text-muted-foreground text-center py-8">No output</p>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button variant="ghost" size="sm" onClick={() => setTerminalOutputOpen(false)}>
+                {t('common.close')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </AppShell>
   );
 };
