@@ -188,23 +188,23 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 **Real terminal in browser** — WebSocket bridge to `node-pty` running locally. User runs `npx infinity-terminal-bridge` once, gets full shell, git, npm, MCP servers.
 
 ### Requirements
-- [ ] **Bridge Server** — `artifacts/terminal-bridge/` (new package):
+- [x] **Bridge Server** — `artifacts/terminal-bridge/` (new package):
   - `node-pty` spawns `bash`/`zsh`/`fish` with inherited env
   - WebSocket server on `ws://localhost:3001` (configurable)
   - Auth: shared secret from `.infinity/bridge-secret` (generated on first run)
   - Handles multiple sessions (tabs) via session ID
   - Forwards stdin/stdout/stderr, resize, signals
-- [ ] **Frontend Terminal** — extend existing `xterm.js` in BuildView:
+- [x] **Frontend Terminal** — extend existing `xterm.js` in BuildView:
   - Connect to `ws://localhost:3001?session=<id>&secret=<secret>`
   - Reconnect on disconnect, buffer replay
   - Multiple terminals (tabs) per build
-- [ ] **MCP Server Bridge** — same WebSocket exposes MCP stdio transport:
+- [x] **MCP Server Bridge** — same WebSocket exposes MCP stdio transport:
   - Filesystem MCP → bridge → local filesystem
   - Git MCP → bridge → local git
   - SQLite MCP → bridge → local DB
   - Any stdio MCP server works
-- [ ] **Zero Config** — `npx infinity-terminal-bridge` auto-generates secret, prints connection URL
-- [ ] **Security** — secret rotation, IP allowlist (localhost only), command allowlist optional
+- [x] **Zero Config** — `npx infinity-terminal-bridge` auto-generates secret, prints connection URL
+- [x] **Security** — secret rotation, IP allowlist (localhost only), command allowlist optional
 
 ### Implementation Plan
 1. **Create `artifacts/terminal-bridge/`** — minimal Node.js + `ws` + `node-pty`
@@ -1357,12 +1357,12 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 1 — Build Project Map Subsystem** 🔲 IN PROGRESS
+## 🎯 Current Phase: **Phase 6 — MCP Client + Ecosystem Integration** 🔲 IN PROGRESS
 
 ## 🎯 Upcoming Phases
-1. **Phase 2** — Orchestration Engine
-2. **Phase 3** — Specialized Subagents
-3. **Phase 4** — Virtual Worktrees + Parallel Agents
-4. **Phase 5** — Local Terminal Bridge
+1. **Phase 2** — Orchestration Engine (COMPLETE ✅)
+2. **Phase 3** — Specialized Subagents (COMPLETE ✅)
+3. **Phase 4** — Virtual Worktrees + Parallel Agents (COMPLETE ✅)
+4. **Phase 5** — Local Terminal Bridge (COMPLETE ✅)
 5. **Phase 6** — MCP Client + Ecosystem
 6. **Phase 7** — VS Code Extension

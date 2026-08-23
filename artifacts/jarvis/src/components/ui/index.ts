@@ -50,6 +50,10 @@ export type { DiffViewProps, InlineDiffProps, FileDiffProps, DiffLine, DiffHunk 
 export { MarkdownRenderer, MarkdownEditor } from "./MarkdownRenderer";
 export type { MarkdownRendererProps, MarkdownEditorProps } from "./MarkdownRenderer";
 
+// Badge
+export { Badge } from "./badge";
+export type { BadgeProps } from "./badge";
+
 // Mobile Components (re-export for convenience)
 export {
   BottomNav,

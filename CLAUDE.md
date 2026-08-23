@@ -33,4 +33,4 @@ WHEN USER SAYS "go" (OR ANY MESSAGE):
 4. Update LAST_UPDATED in session-brief.md.
 5. Go to step 2 — do the next action. Keep going.
 
-GitHub: kasper-kal/Jarvis — user is Kasper Kal (kasperkal1970@gmail.com)
+GitHub: kasper-kal/Infinity-AI — user is Kasper Kal (kasperkal1970@gmail.com)

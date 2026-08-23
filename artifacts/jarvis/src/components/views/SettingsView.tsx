@@ -18,15 +18,18 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
+import { MCPConfigPanel } from "@/components/settings/MCPConfigPanel";
 
 export interface SettingsViewProps {
   /** On navigate back */
   onBack?: () => void;
   /** On navigate to a different view */
   onNavigate?: (view: 'terminal' | 'build' | 'chat' | 'settings' | 'projects') => void;
+  /** Project ID for project-scoped settings (e.g., MCP servers) */
+  projectId?: string;
 }
 
-type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'advanced';
+type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -61,6 +64,16 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
     ),
     labelKey: 'settings.language',
   },
+  'mcp-servers': {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M6 9h12M6 13h12" />
+      </svg>
+    ),
+    labelKey: 'settings.mcpServers',
+  },
   advanced: {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -74,6 +87,7 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
 export const SettingsView: React.FC<SettingsViewProps> = ({
   onBack,
   onNavigate,
+  projectId,
 }) => {
   const isMobile = useIsMobile();
   const { t } = useI18n();
@@ -174,6 +188,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
           </div>
         );
+      case 'mcp-servers':
+        return (
+          <MCPConfigPanel
+            projectId={projectId || ''}
+            onServersChange={() => {}}
+          />
+        );
       case 'advanced':
         return (
           <div className="space-y-4">
@@ -215,6 +236,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'language',
       label: t('settings.language'),
       icon: SECTION_CONFIG.language.icon,
+    },
+    {
+      id: 'mcp-servers',
+      label: t('settings.mcpServers'),
+      icon: SECTION_CONFIG['mcp-servers'].icon,
     },
     {
       id: 'advanced',

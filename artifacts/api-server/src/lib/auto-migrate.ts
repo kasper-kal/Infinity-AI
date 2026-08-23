@@ -398,6 +398,23 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+
+  // ── MCP Server Configurations (project-scoped, encrypted secrets) ────
+  `CREATE TABLE IF NOT EXISTS "mcp_servers" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "server_id" text NOT NULL,
+    "name" text NOT NULL,
+    "transport_type" text NOT NULL,
+    "transport_config" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "builtin_type" text,
+    "config" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "enabled" boolean NOT NULL DEFAULT true,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "mcp_servers_project_server_idx" ON "mcp_servers" ("project_id", "server_id")`,
+  `CREATE INDEX IF NOT EXISTS "mcp_servers_project_idx" ON "mcp_servers" ("project_id")`,
   // ── Phase 1.2: Build Checkpoints (resume system) ────────────────
   `CREATE TABLE IF NOT EXISTS "build_checkpoints" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
