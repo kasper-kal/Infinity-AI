@@ -23,6 +23,9 @@ import {
   type Artifact,
 } from "./tool-types";
 import { executeTool as buildExecuteTool, formatToolResults as buildFormatToolResults } from "./build-tools";
+import { createBestAdapter } from "./adapter-factory";
+import { sanitizePrompt } from "./infinity-prompt";
+import { pipelineConcurrent, parallel, adversarialVerify, judgePanel, loopUntilDry, multiModalSweep, completenessCritic, logDropped, type AdversarialVerifyConfig, type JudgePanelConfig, type LoopUntilDryConfig, type MultiModalSweepConfig, type CompletenessCriticConfig, type Approach, type Judge } from "./orchestration-engine";
 
 /** Internal registry storage */
 const toolRegistry = new Map<string, UniversalToolDefinition>();
@@ -347,3 +350,569 @@ export function clearRegistry(): void {
  * Build Mode code continues to work without modification.
  */
 export { buildExecuteTool as executeBuildTool, buildFormatToolResults as formatBuildToolResults };
+
+/**
+ * Register orchestration tools in the Universal Tool Registry.
+ * These are the core primitives for multi-agent workflows.
+ */
+function registerOrchestrationTools(): void {
+  // orchestration.pipeline — concurrent pipeline with no barrier between stages
+  registerTool({
+    name: "orchestration.pipeline",
+    description: "Run a concurrent pipeline: each item flows through all stages independently (no barrier). Returns results per item with stage outputs and errors.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          description: "Array of items to process through the pipeline",
+          items: { type: "object" },
+        },
+        stages: {
+          type: "array",
+          description: "Array of stage definitions (serialized functions not supported; use orchestration.pipelineConcurrent for concurrent execution)",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["name", "prompt"],
+          },
+        },
+        llmConfig: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.3 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["items", "stages"],
+    },
+    execute: async (args, ctx) => {
+      const { items, stages, llmConfig = {} } = args as {
+        items: unknown[];
+        stages: Array<{ name: string; prompt: string }>;
+        llmConfig?: { temperature?: number; maxTokens?: number };
+      };
+      const adapter = await createBestAdapter();
+
+      const results = await pipelineConcurrent(
+        items,
+        ...stages.map(stage => async (item: unknown) => {
+          const response = await adapter.complete(
+            [
+              { role: "system", content: sanitizePrompt(stage.prompt) },
+              { role: "user", content: `Input: ${JSON.stringify(item)}` },
+            ],
+            { temperature: llmConfig.temperature ?? 0.3, maxTokens: llmConfig.maxTokens ?? 3000 }
+          );
+          return response.content;
+        })
+      );
+
+      return {
+        success: true,
+        data: results.map(r => ({
+          item: r.item,
+          stageResults: Object.fromEntries(r.stageResults),
+          errors: r.errors.map(e => e.message),
+        })),
+      };
+    },
+    timeoutMs: 120000,
+  });
+
+  // orchestration.pipelineConcurrent — true concurrent pipeline
+  registerTool({
+    name: "orchestration.pipelineConcurrent",
+    description: "Run a TRUE concurrent pipeline: each item flows through all stages independently without waiting for other items. Wall-clock = slowest single-item chain.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          description: "Array of items to process",
+          items: { type: "object" },
+        },
+        stages: {
+          type: "array",
+          description: "Array of stage prompts",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["name", "prompt"],
+          },
+        },
+        llmConfig: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.3 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["items", "stages"],
+    },
+    execute: async (args, ctx) => {
+      const { items, stages, llmConfig = {} } = args as {
+        items: unknown[];
+        stages: Array<{ name: string; prompt: string }>;
+        llmConfig?: { temperature?: number; maxTokens?: number };
+      };
+      const adapter = await createBestAdapter();
+
+      const results = await pipelineConcurrent(
+        items,
+        ...stages.map(stage => async (item: unknown) => {
+          const response = await adapter.complete(
+            [
+              { role: "system", content: sanitizePrompt(stage.prompt) },
+              { role: "user", content: `Input: ${JSON.stringify(item)}` },
+            ],
+            { temperature: llmConfig.temperature ?? 0.3, maxTokens: llmConfig.maxTokens ?? 3000 }
+          );
+          return response.content;
+        })
+      );
+
+      return {
+        success: true,
+        data: results.map(r => ({
+          item: r.item,
+          stageResults: Object.fromEntries(r.stageResults),
+          errors: r.errors.map(e => e.message),
+        })),
+      };
+    },
+    timeoutMs: 120000,
+  });
+
+  // orchestration.parallel — barrier: all complete before returning
+  registerTool({
+    name: "orchestration.parallel",
+    description: "Run multiple independent tasks in parallel with a barrier — all must complete before returning. Use for independent operations that don't depend on each other.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        tasks: {
+          type: "array",
+          description: "Array of task definitions to run in parallel",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["name", "prompt"],
+          },
+        },
+        llmConfig: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.3 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["tasks"],
+    },
+    execute: async (args, ctx) => {
+      const { tasks, llmConfig = {} } = args as {
+        tasks: Array<{ name: string; prompt: string }>;
+        llmConfig?: { temperature?: number; maxTokens?: number };
+      };
+      const adapter = await createBestAdapter();
+
+      const results = await parallel(
+        tasks.map(task => async () => {
+          const response = await adapter.complete(
+            [
+              { role: "system", content: sanitizePrompt(task.prompt) },
+              { role: "user", content: "Execute this task." },
+            ],
+            { temperature: llmConfig.temperature ?? 0.3, maxTokens: llmConfig.maxTokens ?? 3000 }
+          );
+          return { name: task.name, result: response.content };
+        })
+      );
+
+      return {
+        success: true,
+        data: results.map((r, i) => r ? { name: tasks[i].name, result: r } : { name: tasks[i].name, error: "Task failed" }),
+      };
+    },
+    timeoutMs: 120000,
+  });
+
+  // orchestration.verify — adversarial verification
+  registerTool({
+    name: "orchestration.verify",
+    description: "Adversarial verification: spawn N independent skeptic prompts to REFUTE a claim. Default to REFUTE if uncertain. Kill claim if majority refute. Use for validating findings, plans, or code correctness.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        claim: {
+          type: "string",
+          description: "The claim/statement to verify",
+        },
+        votes: {
+          type: "number",
+          description: "Number of independent skeptics (default 3)",
+          default: 3,
+          minimum: 1,
+          maximum: 10,
+        },
+        config: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.1 },
+            maxTokens: { type: "number", default: 2000 },
+          },
+        },
+      },
+      required: ["claim"],
+    },
+    execute: async (args, ctx) => {
+      const { claim, votes = 3, config = {} } = args as {
+        claim: string;
+        votes?: number;
+        config?: { temperature?: number; maxTokens?: number };
+      };
+
+      const result = await adversarialVerify(claim, {
+        votes,
+        temperature: config.temperature ?? 0.1,
+        maxTokens: config.maxTokens ?? 2000,
+      });
+
+      return {
+        success: true,
+        data: result,
+      };
+    },
+    timeoutMs: 60000,
+  });
+
+  // orchestration.judge — judge panel evaluation
+  registerTool({
+    name: "orchestration.judge",
+    description: "Judge panel: generate N approaches → score with M distinct lenses (correctness, security, performance, UX, etc.) → synthesize winner + best ideas from runners-up. Use for design decisions, architecture choices, or complex problem solving.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "The task or problem to solve",
+        },
+        approaches: {
+          type: "array",
+          description: "Array of approaches to evaluate",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              content: { type: "object" },
+            },
+            required: ["id", "name", "content"],
+          },
+        },
+        judges: {
+          type: "array",
+          description: "Array of judge lenses",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              lens: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["id", "name", "lens", "prompt"],
+          },
+        },
+        config: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.2 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["task", "approaches", "judges"],
+    },
+    execute: async (args, ctx) => {
+      const { task, approaches, judges, config = {} } = args as {
+        task: string;
+        approaches: Array<{ id: string; name: string; content: unknown }>;
+        judges: Array<{ id: string; name: string; lens: string; prompt: string }>;
+        config?: { temperature?: number; maxTokens?: number };
+      };
+
+      const result = await judgePanel(task, approaches as any, judges as any, {
+        temperature: config.temperature ?? 0.2,
+        maxTokens: config.maxTokens ?? 3000,
+      });
+
+      return {
+        success: true,
+        data: {
+          winner: result.winner,
+          allScores: result.allScores,
+          synthesis: result.synthesis,
+          runnerUp: result.runnerUp,
+        },
+      };
+    },
+    timeoutMs: 120000,
+  });
+
+  // orchestration.loopUntilDry — keep finding until K consecutive dry rounds
+  registerTool({
+    name: "orchestration.loopUntilDry",
+    description: "Loop until dry: keep spawning finders until K consecutive rounds return nothing new. Use for exhaustive discovery (bugs, security issues, edge cases, test coverage gaps).",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "The discovery task (e.g., 'find all security vulnerabilities')",
+        },
+        finders: {
+          type: "array",
+          description: "Array of finder prompts (each searches a different way)",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["name", "prompt"],
+          },
+        },
+        input: {
+          type: "object",
+          description: "Input data for finders",
+        },
+        config: {
+          type: "object",
+          properties: {
+            maxRounds: { type: "number", default: 5 },
+            dryThreshold: { type: "number", default: 2 },
+            temperature: { type: "number", default: 0.3 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["task", "finders", "input"],
+    },
+    execute: async (args, ctx) => {
+      const { task, finders, input, config = {} } = args as {
+        task: string;
+        finders: Array<{ name: string; prompt: string }>;
+        input: unknown;
+        config?: { maxRounds?: number; dryThreshold?: number; temperature?: number; maxTokens?: number };
+      };
+      const adapter = await createBestAdapter();
+
+      const finderFns = finders.map(f => async (inp: unknown) => {
+        const response = await adapter.complete(
+          [
+            { role: "system", content: sanitizePrompt(f.prompt) },
+            { role: "user", content: `Task: ${task}\nInput: ${JSON.stringify(inp)}` },
+          ],
+          { temperature: config.temperature ?? 0.3, maxTokens: config.maxTokens ?? 3000, jsonMode: true }
+        );
+        try {
+          return JSON.parse(response.content);
+        } catch {
+          return [response.content];
+        }
+      });
+
+      const findings = await loopUntilDry(finderFns, input, {
+        maxRounds: config.maxRounds ?? 5,
+        dryThreshold: config.dryThreshold ?? 2,
+        onRound: (round, newFindings, total) => {
+          console.log(`[loopUntilDry] Round ${round}: ${newFindings.length} new findings, ${total} total`);
+        },
+      });
+
+      return {
+        success: true,
+        data: { findings, total: findings.length },
+      };
+    },
+    timeoutMs: 300000,
+  });
+
+  // orchestration.multiModalSweep — parallel agents, different search modalities
+  registerTool({
+    name: "orchestration.multiModalSweep",
+    description: "Multi-modal sweep: parallel agents each searching a different way (by-container, by-content, by-entity, by-time, etc.). Use when one search angle won't find everything.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "The search task",
+        },
+        searchAngles: {
+          type: "array",
+          description: "Array of search angle definitions",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              prompt: { type: "string" },
+            },
+            required: ["name", "prompt"],
+          },
+        },
+        input: {
+          type: "object",
+          description: "Input data for search",
+        },
+        config: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.3 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["task", "searchAngles", "input"],
+    },
+    execute: async (args, ctx) => {
+      const { task, searchAngles, input, config = {} } = args as {
+        task: string;
+        searchAngles: Array<{ name: string; prompt: string }>;
+        input: unknown;
+        config?: { temperature?: number; maxTokens?: number };
+      };
+      const adapter = await createBestAdapter();
+
+      const angleResults = await multiModalSweep(
+        searchAngles.map(a => ({
+          name: a.name,
+          prompt: `Task: ${task}\n${a.prompt}`,
+        })),
+        input,
+        {
+          temperature: config.temperature ?? 0.3,
+          maxTokens: config.maxTokens ?? 3000,
+        }
+      );
+
+      return {
+        success: true,
+        data: Object.fromEntries(angleResults),
+      };
+    },
+    timeoutMs: 120000,
+  });
+
+  // orchestration.completenessCritic — "what's missing?"
+  registerTool({
+    name: "orchestration.completenessCritic",
+    description: "Completeness critic: final agent asks 'what's missing?' from current findings. Returns gaps with suggested finders for next round. Use as final quality gate before declaring task complete.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        findings: {
+          type: "array",
+          description: "Current findings to critique",
+          items: { type: "object" },
+        },
+        task: {
+          type: "string",
+          description: "Original task/goal",
+        },
+        config: {
+          type: "object",
+          properties: {
+            temperature: { type: "number", default: 0.2 },
+            maxTokens: { type: "number", default: 3000 },
+          },
+        },
+      },
+      required: ["findings", "task"],
+    },
+    execute: async (args, ctx) => {
+      const { findings, task, config = {} } = args as {
+        findings: unknown[];
+        task: string;
+        config?: { temperature?: number; maxTokens?: number };
+      };
+
+      const result = await completenessCritic(findings, task, {
+        temperature: config.temperature ?? 0.2,
+        maxTokens: config.maxTokens ?? 3000,
+      });
+
+      return {
+        success: true,
+        data: result,
+      };
+    },
+    timeoutMs: 60000,
+  });
+
+  // orchestration.logDropped — quality pattern: no silent caps
+  registerTool({
+    name: "orchestration.logDropped",
+    description: "Quality pattern: log what was dropped (no silent caps). Call when you filter/cap results to ensure transparency about what was discarded.",
+    category: "integration",
+    risk: "READ",
+    parameters: {
+      type: "object",
+      properties: {
+        label: { type: "string", description: "Label for the log entry" },
+        total: { type: "number", description: "Total items before filtering" },
+        kept: { type: "number", description: "Items kept after filtering" },
+        dropped: {
+          type: "array",
+          description: "Array of dropped items",
+          items: { type: "object" },
+        },
+        maxLog: { type: "number", default: 10, description: "Max items to log in detail" },
+      },
+      required: ["label", "total", "kept", "dropped"],
+    },
+    execute: async (args, ctx) => {
+      const { label, total, kept, dropped, maxLog = 10 } = args as {
+        label: string;
+        total: number;
+        kept: number;
+        dropped: unknown[];
+        maxLog?: number;
+      };
+      logDropped(label, total, kept, dropped, maxLog);
+      return { success: true, data: { logged: true } };
+    },
+  });
+}
+
+// Auto-register orchestration tools on module load
+registerOrchestrationTools();

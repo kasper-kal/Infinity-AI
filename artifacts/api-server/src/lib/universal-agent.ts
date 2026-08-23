@@ -16,6 +16,23 @@
  */
 
 import { LLMAdapter, LLMMessage, LLMTool, LLMCompletionOptions, LLMCompletionResult, LLMToolCall } from "./llm-adapter";
+import {
+  pipelineConcurrent,
+  parallel,
+  adversarialVerify,
+  judgePanel,
+  loopUntilDry,
+  multiModalSweep,
+  completenessCritic,
+  logDropped,
+  type AdversarialVerifyResult,
+  type JudgePanelConfig,
+  type LoopUntilDryConfig,
+  type MultiModalSweepConfig,
+  type CompletenessCriticConfig,
+  type Approach,
+  type Judge,
+} from "./orchestration-engine";
 
 // Extended message type that includes tool_calls for conversation history (OpenAI API format)
 interface LLMMessageWithToolCalls extends LLMMessage {
@@ -99,6 +116,18 @@ export interface UniversalAgentConfig {
   taskId?: string;
   /** Enable auto-checkpointing */
   autoCheckpoint?: boolean;
+  /** Enable orchestration primitives (pipeline, parallel, verify, judge, etc.) */
+  enableOrchestration?: boolean;
+  /** LLM adapter to use for orchestration (defaults to agent's adapter) */
+  orchestrationLLM?: LLMAdapter;
+  /** Run adversarial verification on integration tool results (default: true) */
+  enableAdversarialVerification?: boolean;
+  /** Run completeness critic as final quality gate (default: true) */
+  enableCompletenessCritic?: boolean;
+  /** Use judge panel for complex multi-approach decisions (default: true) */
+  enableJudgePanel?: boolean;
+  /** Minimum confidence threshold for skipping verification (0-1, default: 0.8) */
+  verificationConfidenceThreshold?: number;
 }
 
 /** Result of running the universal agent */
@@ -190,6 +219,68 @@ function hasDependencies(calls: LLMToolCall[], previousResults: UniversalToolRes
   // For now, we assume no cross-dependencies within a single batch
   // A more sophisticated implementation would analyze argument references
   return false;
+}
+
+/**
+ * Determine if a tool result should be verified via adversarial verification.
+ * Verifies results from integration tools that could have factual errors.
+ */
+function shouldVerifyResult(result: UniversalToolResult): boolean {
+  const metadata = result.metadata || {};
+  const category = metadata.category as string | undefined;
+  const toolName = (metadata.toolName as string) || "";
+
+  // Verify web search, browser, research, and data tools
+  if (category === "web" || category === "browser" || category === "research" || category === "data") {
+    return true;
+  }
+
+  // Verify specific high-stakes tools
+  const verifyTools = [
+    "web.search", "web.weather",
+    "browser.navigate", "browser.extract", "browser.screenshot",
+    "research.run", "research.run_v2", "research.status", "research.status_v2",
+    "data.analyze", "data.query",
+  ];
+
+  return verifyTools.includes(toolName);
+}
+
+/**
+ * Extract a verifiable claim from a tool result for adversarial verification.
+ */
+function extractVerificationClaim(result: UniversalToolResult): string | null {
+  const data = result.data;
+  if (!data) return null;
+
+  // Try to extract a meaningful claim from the result
+  if (typeof data === "string") {
+    return data.slice(0, 500);
+  }
+
+  if (typeof data === "object") {
+    // For search results, extract snippets
+    if (Array.isArray(data)) {
+      return data.map(item => JSON.stringify(item)).join("; ").slice(0, 500);
+    }
+
+    // For structured results, stringify key fields (use type guard)
+    const obj = data as Record<string, unknown>;
+    const claimParts: string[] = [];
+    if (obj.summary && typeof obj.summary === "string") claimParts.push(`Summary: ${obj.summary}`);
+    if (obj.findings) claimParts.push(`Findings: ${JSON.stringify(obj.findings)}`);
+    if (obj.results) claimParts.push(`Results: ${JSON.stringify(obj.results)}`);
+    if (obj.content && typeof obj.content === "string") claimParts.push(`Content: ${obj.content}`);
+    if (obj.message && typeof obj.message === "string") claimParts.push(`Message: ${obj.message}`);
+
+    if (claimParts.length > 0) {
+      return claimParts.join(" | ").slice(0, 500);
+    }
+
+    return JSON.stringify(data).slice(0, 500);
+  }
+
+  return null;
 }
 
 /**
@@ -386,7 +477,22 @@ export async function runUniversalAgent(
     resilienceOptions = {},
     taskId,
     autoCheckpoint = true,
+    enableOrchestration = true,
+    orchestrationLLM,
+    enableAdversarialVerification = true,
+    enableCompletenessCritic = true,
+    enableJudgePanel = true,
+    verificationConfidenceThreshold = 0.8,
   } = config;
+
+  // Register orchestration tools if enabled
+  if (enableOrchestration) {
+    // The orchestration tools are auto-registered when tool-registry loads
+    // We just need to ensure the filter includes them
+    if (!toolFilter.category) {
+      toolFilter.category = "integration";
+    }
+  }
 
   // Get tool definitions for the LLM
   const toolDefs = getToolDefinitionsForLLM(toolFilter);
@@ -553,6 +659,206 @@ export async function runUniversalAgent(
       if (result.artifacts?.length) {
         allArtifacts.push(...result.artifacts);
       }
+    }
+
+    // ===== ORCHESTRATION PRIMITIVES INTEGRATION =====
+    // Run quality gates on tool results when orchestration is enabled
+    if (enableOrchestration && toolResults.length > 0) {
+      const orchestrationLlm = orchestrationLLM || llmAdapter;
+
+      // 1. ADVERSARIAL VERIFICATION for high-stakes tool results
+      // Verify findings from integration tools (web search, research, browser, etc.)
+      if (enableAdversarialVerification) {
+        const verificationResults: AdversarialVerifyResult[] = [];
+        for (const result of toolResults) {
+          if (result.success && result.data && shouldVerifyResult(result)) {
+            const claim = extractVerificationClaim(result);
+            if (claim) {
+              onToolEvent({
+                type: "tool_progress",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                toolResult: {
+                  success: true,
+                  data: { verification: `Verifying: ${claim.slice(0, 80)}...` },
+                },
+              });
+              const verifyResult = await adversarialVerify(claim, {
+                votes: 3,
+                llm: orchestrationLlm,
+                temperature: 0.1,
+                maxTokens: 2000,
+              });
+              verificationResults.push(verifyResult);
+
+              if (!verifyResult.survives) {
+                onToolEvent({
+                  type: "tool_error",
+                  step: iteration,
+                  timestamp: new Date().toISOString(),
+                  toolResult: {
+                    success: false,
+                    error: `Adversarial verification FAILED: ${claim} — Refuted by majority of skeptics (${verifyResult.refuteCount}/${verifyResult.votes.length} refuted)`,
+                    data: { verification: verifyResult },
+                  },
+                });
+                // Mark the original result as unverified
+                (result as any).verificationFailed = true;
+                (result as any).verificationDetails = verifyResult;
+              } else {
+                onToolEvent({
+                  type: "tool_progress",
+                  step: iteration,
+                  timestamp: new Date().toISOString(),
+                  toolResult: {
+                    success: true,
+                    data: { verification: `Verified ✓ (${verifyResult.supportCount} support, ${verifyResult.uncertainCount} uncertain)` },
+                  },
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // 2. COMPLETENESS CRITIC as final quality gate (run on last iteration or when no tool calls)
+      if (enableCompletenessCritic) {
+        const isLastIteration = iteration === maxIterations - 1;
+        const noToolCalls = toolCalls.length === 0;
+        if ((isLastIteration || noToolCalls) && allToolResults.length > 0) {
+          onToolEvent({
+            type: "tool_progress",
+            step: iteration,
+            timestamp: new Date().toISOString(),
+            toolResult: {
+              success: true,
+              data: { qualityGate: "Running completeness critic..." },
+            },
+          });
+
+          // Extract all findings from successful tool results
+          const findings = allToolResults
+            .filter(r => r.success && r.data)
+            .map(r => ({
+              tool: r.metadata?.toolName,
+              category: r.metadata?.category,
+              data: r.data,
+              summary: r.summary,
+            }));
+
+          if (findings.length > 0) {
+            const criticResult = await completenessCritic(findings, userMessage, {
+              llm: orchestrationLlm,
+              temperature: 0.2,
+              maxTokens: 3000,
+            });
+
+            if (criticResult.hasGaps && criticResult.missing.length > 0) {
+              onToolEvent({
+                type: "tool_progress",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                toolResult: {
+                  success: true,
+                  data: {
+                    qualityGate: `Completeness critic found ${criticResult.missing.length} gaps`,
+                  gaps: criticResult.missing.map(m => `${m.modality}: ${m.claim} (${m.severity})`),
+                },
+              },
+            });
+
+            // If critical gaps found and we have iterations left, continue looping
+            // instead of returning early
+            const criticalGaps = criticResult.missing.filter(m => m.severity === "critical");
+            if (criticalGaps.length > 0 && !isLastIteration) {
+              onToolEvent({
+                type: "thinking_delta",
+                step: iteration,
+                timestamp: new Date().toISOString(),
+                content: `Critical gaps detected: ${criticalGaps.map(g => g.claim).join("; ")}. Continuing to address...`,
+              });
+              // Don't break - let the loop continue to address gaps
+            }
+          }
+        }
+      }
+
+      // 3. JUDGE PANEL for complex multi-approach decisions
+      // Detect when the agent is evaluating multiple approaches and should use judge panel
+      if (enableJudgePanel && iteration > 0 && allToolResults.length >= 2) {
+        // Check if we have results from different approaches to the same problem
+        const approachResults = allToolResults
+          .filter(r => r.success && r.data && r.metadata?.toolName)
+          .map(r => ({
+            id: (r.metadata?.toolName as string) ?? `result-${Date.now()}`,
+            name: (r.metadata?.toolName as string) ?? "Approach",
+            content: r.data,
+            metadata: { summary: r.summary },
+          }));
+
+        // If we have multiple distinct approaches from research/analysis tools, run judge panel
+        if (approachResults.length >= 2) {
+          // Only run judge panel if this looks like a complex decision
+          const decisionKeywords = ["choose", "decide", "best", "compare", "evaluate", "tradeoff", "architecture", "design", "strategy"];
+          const thoughtLower = thought.toLowerCase();
+          const hasDecisionContext = decisionKeywords.some(kw => thoughtLower.includes(kw));
+
+          if (hasDecisionContext) {
+            onToolEvent({
+              type: "tool_progress",
+              step: iteration,
+              timestamp: new Date().toISOString(),
+              toolResult: {
+                success: true,
+                data: { qualityGate: "Running judge panel for multi-approach evaluation..." },
+              },
+            });
+
+            // Define standard judge lenses
+            const standardJudges: Judge[] = [
+              { id: "correctness", name: "Correctness", lens: "correctness", prompt: "Does this approach correctly solve the problem? Are there logical errors, bugs, or incorrect assumptions?" },
+              { id: "security", name: "Security", lens: "security", prompt: "Does this approach introduce security vulnerabilities? Are secrets handled safely? Is input validated?" },
+              { id: "performance", name: "Performance", lens: "performance", prompt: "Is this approach efficient? Are there unnecessary computations, memory leaks, or scaling issues?" },
+              { id: "user-experience", name: "User Experience", lens: "user-experience", prompt: "Does this approach provide a good user experience? Is it intuitive, accessible, and responsive?" },
+            ];
+
+            const approaches: Approach[] = approachResults.slice(0, 4).map((r, i) => ({
+              id: r.id,
+              name: r.name || `Approach ${i + 1}`,
+              content: r.content,
+            }));
+
+            const judgeResult = await judgePanel(userMessage, approaches, standardJudges, {
+              llm: orchestrationLlm,
+              temperature: 0.2,
+              maxTokens: 3000,
+            });
+
+            onToolEvent({
+              type: "tool_progress",
+              step: iteration,
+              timestamp: new Date().toISOString(),
+              toolResult: {
+                success: true,
+                data: {
+                  qualityGate: `Judge panel selected: ${judgeResult.winner.name}`,
+                  winner: judgeResult.winner.name,
+                  synthesis: judgeResult.synthesis.slice(0, 200),
+                  scores: judgeResult.allScores.map(s => `${s.judgeId}: ${s.score}`).join(", "),
+                },
+              },
+            });
+
+            // Add the synthesis as context for the next iteration
+            messages.push({
+              role: "system",
+              content: `JUDGE PANEL SYNTHESIS (use this as guidance):\n${judgeResult.synthesis}`,
+            } as LLMMessage);
+          }
+        }
+      }
+    }
+    // ===== END ORCHESTRATION INTEGRATION =====
     }
 
     // Build tool results message for next LLM turn

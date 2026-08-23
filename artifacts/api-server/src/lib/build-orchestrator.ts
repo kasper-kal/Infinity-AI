@@ -37,6 +37,12 @@ import {
 } from "./build-project-map";
 import { logBuildEvent } from "./build-telemetry";
 import { withRetry } from "./build-edge-cases";
+import {
+  adversarialVerify,
+  pipelineConcurrent,
+  parallel,
+  type AdversarialVerifyResult,
+} from "./orchestration-engine";
 
 // ============================================================================
 // SCHEMAS
@@ -431,6 +437,38 @@ export class BuildOrchestrator {
     if (review.verdict === "pass") {
       this.emitProgress("reviewer", step.id, "Passed");
       return { status: "completed", review };
+    }
+
+    // Adversarial verification of review findings
+    // If reviewer found issues, verify them with independent skeptics
+    if (review.findings.length > 0) {
+      this.emitProgress("reviewer", step.id, `Adversarial verification of ${review.findings.length} findings...`);
+      const claims = review.findings.map(f => `${f.file}:${f.line} — ${f.message} (${f.severity})`);
+
+      const verifyResults = await parallel(
+        claims.map(claim => () => adversarialVerify(claim, { votes: 3 }))
+      );
+
+      const verifiedFindings = review.findings.filter((f, i) => {
+        const result = verifyResults[i] as AdversarialVerifyResult;
+        if (!result) return true; // Keep if verification failed
+        if (!result.survives) {
+          this.emitProgress("reviewer", step.id, `Finding REFUTED by skeptics: ${f.message}`);
+          return false; // Drop refuted finding
+        }
+        return true; // Keep verified finding
+      });
+
+      if (verifiedFindings.length !== review.findings.length) {
+        this.emitProgress("reviewer", step.id, `${review.findings.length - verifiedFindings.length} findings refuted, ${verifiedFindings.length} verified`);
+        // Update review with verified findings only
+        (review as any).findings = verifiedFindings;
+        // If all findings refuted, treat as pass
+        if (verifiedFindings.length === 0) {
+          this.emitProgress("reviewer", step.id, "All findings refuted — treating as PASS");
+          return { status: "completed", review: { ...review, verdict: "pass", findings: [] } };
+        }
+      }
     }
 
     // If needs fixes, run Fixer loop (max 3 iterations)
