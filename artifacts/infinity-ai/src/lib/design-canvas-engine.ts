@@ -7,7 +7,7 @@
 
 import { useRef, useEffect } from 'react';
 import { DesignCanvasEngine, getDesignCanvas, createDesignCanvas } from '../../../api-server/src/lib/design-canvas';
-import type { AmbientSuggestion, UserPreferences } from '../../../api-server/src/lib/ambient-intelligence';
+import type { AmbientSuggestion, UserPreferences, DesignModelConfig } from '../../../api-server/src/lib/ambient-intelligence';
 
 // Re-export types
 export type {
@@ -20,7 +20,7 @@ export type {
   DesignCanvasEngine as DesignCanvasEngineType,
 } from '../../../api-server/src/lib/design-canvas';
 
-export type { AmbientSuggestion, UserPreferences } from '../../../api-server/src/lib/ambient-intelligence';
+export type { AmbientSuggestion, UserPreferences, DesignModelConfig } from '../../../api-server/src/lib/ambient-intelligence';
 
 // Re-export the engine class and functions
 export { DesignCanvasEngine, getDesignCanvas, createDesignCanvas };

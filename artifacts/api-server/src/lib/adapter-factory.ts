@@ -6,7 +6,7 @@
  */
 
 import { LLMAdapter, OpenAICompatibleAdapter, AdapterConfig, AdapterFactory, LLMAdapterError, LLMCapabilities } from "./llm-adapter";
-import { getHealthyKeys, listKeys, LlmKeyEntry, resolveManualKey } from "./llm-client";
+import { getHealthyKeys, listKeys, LlmKeyEntry, resolveManualKey, isHealthy } from "./llm-client";
 import { LocalModelAdapter, createLocalAdapter, LOCAL_MODEL_CAPABILITIES } from "./adapters/local-adapter";
 
 /**

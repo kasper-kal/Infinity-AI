@@ -94,7 +94,7 @@ router.post("/:projectId/update-file", async (req: AuthenticatedRequest, res: Re
  * GET /api/infinity/project-map/:projectId/impact/:filePath
  * Analyze the impact of a file change
  */
-router.get("/:projectId/impact/:filePath(*)", async (req: AuthenticatedRequest, res: Response) => {
+router.get("/:projectId/impact/:filePath", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const projectId = getParam(req.params, "projectId");
     const filePath = getParam(req.params, "filePath");

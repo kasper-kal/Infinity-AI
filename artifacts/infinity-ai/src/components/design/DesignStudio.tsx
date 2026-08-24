@@ -41,6 +41,9 @@ export function DesignStudio({ projectId, open, onClose, initialImage }: DesignS
     acceptSuggestion,
     rejectSuggestion,
     generateSuggestions,
+    availableModels: ambientModels,
+    selectedModel: ambientSelectedModel,
+    setDesignModel,
   } = useAmbientSSE(projectId ?? null);
 
   // Initialize engines
