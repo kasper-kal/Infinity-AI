@@ -4,9 +4,17 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-24 01:15
+LAST_UPDATED: 2026-08-24 02:30
 
 ## Just did (last action)
+- **Phase 8: Figma Import Pipeline — EXACT VALUE PRESERVATION COMPLETE** — Fixed Figma Import to change NOTHING:
+  - Added `_figmaRawStyle` field to FigmaNode interface to store raw style data
+  - Added `_figmaRaw` to Token and TypographyToken interfaces
+  - Created `rgbToExactHex()` and `rgbaToExactCss()` — non-rounding conversion functions
+  - Modified `extractDesignTokens()` to store exact values for colors, typography, spacing, borderRadius, shadows, opacity
+  - Updated `generateComponentFromFrame()` and `generateChildCode()` to use exact conversions
+  - All fontSize, fontWeight, lineHeightPx, letterSpacing, x, y, width, height, itemSpacing, padding, cornerRadius, opacity preserved exactly
+  - Typecheck + build pass cleanly ✅
 - **Complete Jarvis → Infinity Rebranding — FINAL CLEANUP COMPLETE** — Removed all remaining legacy "jarvis/JARVIS" wake word patterns from the codebase:
   - **artifacts/infinity-ai/src/hooks/use-wake-word.ts** — Cleaned up `soundsLikeWakeWord()` and `extractCommand()` functions:
     - Removed 8 legacy jarvis regex patterns (`j[ua]rv[ei]s`, `j[ua]h+s?`, `j[ua]v[ie]s`, etc.)
@@ -526,7 +534,7 @@ LAST_UPDATED: 2026-08-24 01:15
 - **Task #14: Agent Timer System in BuildMode** — **COMPLETE** ✅: Implemented 5 universal timer tools (`build.set_timer`, `build.check_timer`, `build.clear_timer`, `build.clear_all_timers`, `build.wait_for_timer`) in Universal Tool Registry. Timers are agent-scoped (using taskId/conversationId/workspaceId), notify the AGENT only (not the user). Agent can use `wait_for_timer` to block until timer expires, ensuring it works for the minimum duration. Typecheck + build pass ✅.
 - **Phase 1: Build Project Map Subsystem** — **COMPLETE** ✅: Built `build-project-map.ts` with full static analysis, incremental updates, impact analysis, smart context selection, persistence. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. REST API routes at `/api/infinity-ai/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
 - **Phase 2-5: Claude Code Parity Roadmap** — **ALL COMPLETE** ✅: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5)
-- **Phase 31-38: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)
+- **Phase 31-38: Replit Competitive Parity Roadmap** — **Phase 31 (Design Canvas) IN PROGRESS**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)
 - **Phase 39-46: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (39), Visual Component Editor (40), Collaborative Workflows (41), External API/DB Integration (42), Multi-Framework Support (43), AI Design Iteration (44), Component Marketplace (45), v0-Level Polish (46)
 - **Phase 22-24: Universal Tool Layer** — **ALL COMPLETE (100%)**: Foundation (21), Capability Integration (22), Agent Loop & UX (23), Resilience & Persistence (24) — 40 tools registered, universal agent loop with SSE streaming, 118 integration tests passing
 - **Phase 15: Build Mode Intelligence & Reliability** — **ALL 11 TASKS COMPLETE** ✅

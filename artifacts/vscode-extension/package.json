@@ -30,7 +30,8 @@
   "bugs": {
     "url": "https://github.com/kasper-kal/Infinity-AI/issues"
   },
-  "homepage": "https://github.com/kasper-kal/Infinity-AI#readme",
+  "homepage": "https://github.com/kasper-kal/Infinity-AI/blob/main/artifacts/vscode-extension/README.md",
+  "readme": "README.md",
   "activationEvents": [
     "onCommand:infinity.build.open",
     "onCommand:infinity.build.sendToInfinity",

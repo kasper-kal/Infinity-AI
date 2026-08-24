@@ -35,7 +35,7 @@ export function DesignCanvas({ engine, onLayerSelect, onLayerUpdate, compact = f
 
   // Subscribe to engine events
   useEffect(() => {
-    const unsub = engine.on((event: CanvasEvent) => {
+    const unsub = engine.onCanvasEvent((event: CanvasEvent) => {
       if (event.type === 'viewport:changed') {
         setViewport(event.viewport);
       } else if (event.type === 'layer:created' || event.type === 'layer:updated' || event.type === 'layer:deleted') {

@@ -7,7 +7,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Palette, Hash, Layout, Sparkles, X, ChevronLeft, ChevronRight, Menu, Settings, Save, Share2, Download, Upload, Eye, Code2, Zap, EyeOff, Lock, Unlock, Box, Type, Square, Image, Monitor } from 'lucide-react';
+import { Layers, Palette, Hash, Layout, Sparkles, X, ChevronLeft, ChevronRight, Menu, Settings, Save, Share2, Download, Upload, Eye, Code2, Zap, EyeOff, Lock, Unlock, Box, Type, Square, Image, Monitor, Check, X as XIcon } from 'lucide-react';
 import { DesignCanvas } from './DesignCanvas';
 import { DesignSystemPanel } from './DesignSystemPanel';
 import { MobbinSidebar } from './MobbinSidebar';
@@ -16,15 +16,32 @@ import type { DesignCanvasEngine, CanvasEvent } from '@/lib/design-canvas-engine
 import { getCanvasEngine } from '@/lib/design-canvas-engine';
 import type { MobbinClient } from '@/lib/mobbin-client';
 import { getMobbinClient } from '@/lib/mobbin-client';
+import { useAmbientSSE } from '@/hooks/use-ambient-sse';
+import type { AmbientSuggestion } from '@/lib/design-canvas-engine';
 
-export function DesignStudio() {
+interface DesignStudioProps {
+  projectId?: string;
+  open?: boolean;
+  onClose?: () => void;
+  initialImage?: string | null;
+}
+
+export function DesignStudio({ projectId, open, onClose, initialImage }: DesignStudioProps) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [activeSidebar, setActiveSidebar] = useState<'layers' | 'mobbin' | 'templates' | 'ambient' | null>('layers');
   const [showDesignSystem, setShowDesignSystem] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [canvasMode, setCanvasMode] = useState<'design' | 'preview' | 'code'>('design');
-  const [ambientSuggestions, setAmbientSuggestions] = useState<any[]>([]);
+
+  // Ambient Intelligence SSE integration
+  const {
+    suggestions: ambientSuggestions,
+    isConnected: ambientConnected,
+    acceptSuggestion,
+    rejectSuggestion,
+    generateSuggestions,
+  } = useAmbientSSE(projectId ?? null);
 
   // Initialize engines
   const canvasEngine = useRef<DesignCanvasEngine | null>(null);
@@ -33,14 +50,6 @@ export function DesignStudio() {
   useEffect(() => {
     canvasEngine.current = getCanvasEngine();
     mobbinClient.current = getMobbinClient();
-
-    // Listen for ambient suggestions (when implemented)
-    // const unsub = ambientEngine.on(event => {
-    //   if (event.type === 'suggestion:generated') {
-    //     setAmbientSuggestions(prev => [...prev, event.suggestion].slice(-10));
-    //   }
-    // });
-    // return unsub;
   }, []);
 
   const handleAddMobbinToCanvas = useCallback((screen: any) => {
@@ -274,7 +283,14 @@ export function DesignStudio() {
                   <X size={16} />
                 </button>
               </div>
-              <AmbientSuggestionsPanel suggestions={ambientSuggestions} />
+              <AmbientSuggestionsPanel
+                suggestions={ambientSuggestions}
+                isConnected={ambientConnected}
+                onAccept={async (id) => { await acceptSuggestion(id, projectId!); }}
+                onReject={async (id) => { await rejectSuggestion(id, projectId!); }}
+                onGenerate={async () => { await generateSuggestions(projectId!); }}
+                projectId={projectId}
+              />
             </div>
           )}
 
@@ -293,8 +309,13 @@ export function DesignStudio() {
                 </button>
               </div>
               <DesignSystemPanel
-                designSystem={canvasEngine.current?.getDesignSystem()}
-                onUpdate={(changes) => canvasEngine.current?.setDesignSystem(changes)}
+                designSystem={canvasEngine.current?.getDesignSystem() ?? { id: '', name: '', colors: [], typography: [], spacing: [], components: [] }}
+                onUpdate={(changes) => {
+                  const current = canvasEngine.current?.getDesignSystem();
+                  if (current) {
+                    canvasEngine.current?.setDesignSystem({ ...current, ...changes });
+                  }
+                }}
               />
             </div>
           )}
@@ -337,7 +358,7 @@ function LayersPanel({ engine }: { engine: DesignCanvasEngine }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const unsub = engine.on((event: CanvasEvent) => {
+    const unsub = engine.onCanvasEvent((event: CanvasEvent) => {
       if (event.type === 'layer:created' || event.type === 'layer:updated' || event.type === 'layer:deleted') {
         setLayers(engine.getLayers());
       } else if (event.type === 'selection:changed') {
@@ -418,7 +439,21 @@ function getLayerIcon(type: string) {
   }
 }
 
-function AmbientSuggestionsPanel({ suggestions }: { suggestions: any[] }) {
+function AmbientSuggestionsPanel({
+  suggestions,
+  isConnected,
+  onAccept,
+  onReject,
+  onGenerate,
+  projectId
+}: {
+  suggestions: any[];
+  isConnected: boolean;
+  onAccept: (id: string) => Promise<void>;
+  onReject: (id: string) => Promise<void>;
+  onGenerate: () => Promise<void>;
+  projectId?: string;
+}) {
   const { t } = useTranslation();
 
   if (suggestions.length === 0) {
@@ -427,6 +462,11 @@ function AmbientSuggestionsPanel({ suggestions }: { suggestions: any[] }) {
         <Zap size={48} />
         <p>{t('design.ambient.noSuggestions')}</p>
         <p className="hint">{t('design.ambient.hint')}</p>
+        {!isConnected && projectId && (
+          <button className="btn primary mt-4" onClick={onGenerate}>
+            {t('design.ambient.generate')}
+          </button>
+        )}
       </div>
     );
   }
@@ -442,15 +482,18 @@ function AmbientSuggestionsPanel({ suggestions }: { suggestions: any[] }) {
           <h4>{suggestion.title}</h4>
           <p>{suggestion.description}</p>
           <div className="suggestion-actions">
-            <button className="btn primary" onClick={() => console.log('Accept:', suggestion.id)}>
+            <button className="btn primary" onClick={() => onAccept(suggestion.id)}>
               {t('design.ambient.accept')}
             </button>
-            <button className="btn secondary" onClick={() => console.log('Reject:', suggestion.id)}>
+            <button className="btn secondary" onClick={() => onReject(suggestion.id)}>
               {t('design.ambient.reject')}
             </button>
           </div>
         </div>
       ))}
+      <button className="btn ghost mt-4" onClick={onGenerate}>
+        <Zap size={14} /> {t('design.ambient.generateMore')}
+      </button>
     </div>
   );
 }

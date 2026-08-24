@@ -9,7 +9,8 @@
 
 import { EventEmitter } from 'events';
 import { DesignCanvasEngine, CanvasArtifact, Layer } from './design-canvas';
-import { createBestAdapter, LLMAdapter } from './adapter-factory';
+import { createBestAdapter } from './adapter-factory';
+import { LLMAdapter } from './llm-adapter';
 import { buildInfinityPrompt } from './infinity-prompt';
 
 // ============================================================================
@@ -69,7 +70,7 @@ export type AmbientEventListener = (event: AmbientEvent) => void;
 
 export class AmbientIntelligence extends EventEmitter {
   private canvas: DesignCanvasEngine;
-  private listeners: Set<AmbientEventListener> = new Set();
+  private eventListeners: Set<AmbientEventListener> = new Set();
   private suggestions: Map<string, AmbientSuggestion> = new Map();
   private preferences: UserPreferences = {
     preferredColors: [],
@@ -91,7 +92,7 @@ export class AmbientIntelligence extends EventEmitter {
   }
 
   private setupCanvasListeners(): void {
-    this.canvas.on(event => {
+    this.canvas.onCanvasEvent(event => {
       if (event.type === 'layer:created' ||
           event.type === 'layer:updated' ||
           event.type === 'layer:moved' ||
@@ -177,14 +178,16 @@ export class AmbientIntelligence extends EventEmitter {
     const prompt = this.buildPrompt(context);
 
     try {
-      const response = await this.adapter.complete({
-        messages: [
-          { role: 'system', content: buildInfinityPrompt('design-assistant') },
+      const response = await this.adapter.complete(
+        [
+          { role: 'system', content: buildInfinityPrompt({ role: 'chat', extraInstructions: 'You are an ambient design intelligence system. Generate design suggestions.' }) },
           { role: 'user', content: prompt }
         ],
-        maxTokens: 2000,
-        temperature: 0.7,
-      });
+        {
+          maxTokens: 2000,
+          temperature: 0.7,
+        }
+      );
 
       return this.parseSuggestions(response.content, context);
     } catch (error) {
@@ -417,13 +420,13 @@ Respond ONLY with a JSON array of suggestions.`;
   // Event Listeners
   // ---------------------------------------------------------------------------
 
-  on(event: AmbientEventListener): () => void {
-    this.listeners.add(event);
-    return () => this.listeners.delete(event);
+  onAmbientEvent(listener: AmbientEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
   }
 
   private emitEvent(event: AmbientEvent): void {
-    for (const listener of this.listeners) {
+    for (const listener of this.eventListeners) {
       try {
         listener(event);
       } catch (error) {

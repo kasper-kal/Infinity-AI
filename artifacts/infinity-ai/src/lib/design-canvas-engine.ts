@@ -5,6 +5,10 @@
  * Re-exports types and classes from the api-server design-canvas module.
  */
 
+import { useRef, useEffect } from 'react';
+import { DesignCanvasEngine, getDesignCanvas, createDesignCanvas } from '../../../api-server/src/lib/design-canvas';
+import type { AmbientSuggestion, UserPreferences } from '../../../api-server/src/lib/ambient-intelligence';
+
 // Re-export types
 export type {
   Layer,
@@ -13,10 +17,13 @@ export type {
   DesignSystem,
   ArtifactType,
   CanvasEvent,
+  DesignCanvasEngine as DesignCanvasEngineType,
 } from '../../../api-server/src/lib/design-canvas';
 
-// Re-export the engine class
-export { DesignCanvasEngine } from '../../../api-server/src/lib/design-canvas';
+export type { AmbientSuggestion, UserPreferences } from '../../../api-server/src/lib/ambient-intelligence';
+
+// Re-export the engine class and functions
+export { DesignCanvasEngine, getDesignCanvas, createDesignCanvas };
 
 // Create a singleton instance
 let canvasInstance: DesignCanvasEngine | null = null;
@@ -33,8 +40,6 @@ export function createCanvasEngine(): DesignCanvasEngine {
 }
 
 // React hook for using the canvas engine
-import { useRef, useEffect } from 'react';
-
 export function useCanvasEngine(): DesignCanvasEngine {
   const engineRef = useRef<DesignCanvasEngine | null>(null);
 

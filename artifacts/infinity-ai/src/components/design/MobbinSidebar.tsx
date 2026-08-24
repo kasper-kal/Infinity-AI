@@ -84,7 +84,7 @@ export function MobbinSidebar({ client, onAddToCanvas, compact = false }: Mobbin
       } else {
         setResults(result.screens);
       }
-      setOffset(searchQuery.offset);
+      setOffset(searchQuery.offset ?? 0);
       setHasMore(result.hasMore);
     } catch (error) {
       console.error('Mobbin search failed:', error);

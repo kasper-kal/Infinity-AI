@@ -68,6 +68,7 @@ import promoRouter from "./promo";
 import localModelRouter from "./local-model";
 import deepResearchV2Router from "./deep-research-v2";
 import projectMapRouter from "./project-map";
+import designCanvasRouter from "./design-canvas";
 
 const router = Router();
 
@@ -115,6 +116,7 @@ router.use(buildTelemetryRouter);
 router.use(buildExportRouter);
 router.use("/build/schedules", buildSchedulesRouter);
 router.use("/project-map", projectMapRouter);
+router.use(designCanvasRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

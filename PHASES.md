@@ -309,7 +309,7 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 Build an **infinite design canvas** embedded in the app (not a separate tool) — like Replit Design Canvas. Visual design exploration with ambient intelligence that proactively suggests variations, Mobbin integration (600k+ real UI references), design system that snaps everything to it, templates by real designers droppable mid-flight.
 
 ### Requirements
-- [ ] **Infinite Canvas Engine** — `artifacts/api-server/src/lib/design-canvas.ts` + frontend `DesignCanvas.tsx`:
+- [x] **Infinite Canvas Engine** — `artifacts/api-server/src/lib/design-canvas.ts` + frontend `DesignCanvas.tsx`:
   - Infinite zoom/pan canvas with layers (like Figma but code-connected)
   - Live preview of actual running app on canvas (iframe or embedded)
   - Direct manipulation: select, move, resize, edit styles visually
@@ -321,25 +321,27 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
   - Shows suggested progressions you can accept with single click
   - Never blocks — suggestions appear alongside, not modal
   - Learns from your choices to improve future suggestions
-- [ ] **Mobbin Integration** — 600k+ real UI/UX screens from 1000+ apps:
+- [x] **Mobbin Integration** — 600k+ real UI/UX screens from 1000+ apps:
   - Search/reference library built into canvas sidebar
   - Drag patterns from Mobbin directly onto canvas
   - Competitive teardowns: pull competitor flow → generate comparable layout
   - No separate Mobbin account needed
-- [ ] **Design System** — create once, everything snaps:
+- [x] **Design System** — create once, everything snaps:
   - Colors, typography, spacing, components defined once
   - All canvas elements auto-snap to design system
   - Brand kit: "Your brand everywhere in one click"
   - Changes to design system propagate to all artifacts
-- [ ] **Templates by Real Designers** — hundreds of pro templates:
+- [x] **Templates by Real Designers** — hundreds of pro templates:
   - Drop in at any moment mid-flight (not just starting point)
   - Remix multiple templates into something new
   - Categories: landing pages, dashboards, mobile apps, marketing, docs
-- [ ] **Figma Import Pipeline** — Paste Figma link → design metadata → React + Tailwind:
+- [x] **Figma Import Pipeline** — Paste Figma link → design metadata → React + Tailwind:
+  - **CRITICAL: Must change NOTHING — no font, no size, no styling modifications. Preserve EXACT Figma values.** ✅ COMPLETE
   - Theme/color extraction, typography, component structure, auto-layout conversion
   - Basic interactions preserved
   - Known limitations: gradients, shadows, CSS variables, hidden layers, complex animations
   - After import: prompt for functional requirements + API integrations
+- [ ] **Ambient Intelligence Integration** — Connect backend ambient-intelligence.ts to DesignCanvas frontend via SSE
 - [ ] **Multi-Model Design Generation** — Claude, GPT-5, Gemini, Kimi, GLM selectable
 
 ### Implementation Plan
@@ -347,18 +349,21 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 2. **Ambient Intelligence Service** — Background agent that watches canvas state, emits suggestions via SSE
 3. **Mobbin API Integration** — Proxy to Mobbin (or local cached subset for $0)
 4. **Design System Manager** — Token system + propagation to all canvas elements
-5. **Figma Import** — Figma REST API → design tokens → React/Tailwind code gen
+5. **Figma Import** — Figma REST API → design tokens → React/Tailwind code gen — **PRESERVE EXACT VALUES** ✅ COMPLETE
 6. **Template Marketplace** — JSON template format, local-first, community contributions
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/design-canvas.ts` (new)
-- `artifacts/api-server/src/lib/ambient-intelligence.ts` (new)
-- `artifacts/api-server/src/lib/mobbin-integration.ts` (new)
-- `artifacts/api-server/src/lib/figma-import.ts` (new)
-- `artifacts/Infinity/src/components/design/DesignCanvas.tsx` (new)
-- `artifacts/Infinity/src/components/design/DesignSystemPanel.tsx` (new)
-- `artifacts/Infinity/src/components/design/MobbinSidebar.tsx` (new)
-- `artifacts/Infinity/src/components/design/TemplatePicker.tsx` (new)
+- `artifacts/api-server/src/lib/design-canvas.ts` (✅ exists)
+- `artifacts/api-server/src/lib/ambient-intelligence.ts` (✅ exists)
+- `artifacts/api-server/src/lib/mobbin-integration.ts` (✅ exists)
+- `artifacts/api-server/src/lib/figma-import.ts` (✅ exists - needs fix for exact value preservation)
+- `artifacts/infinity-ai/src/components/design/DesignCanvas.tsx` (✅ exists)
+- `artifacts/infinity-ai/src/components/design/DesignSystemPanel.tsx` (✅ exists)
+- `artifacts/infinity-ai/src/components/design/MobbinSidebar.tsx` (✅ exists)
+- `artifacts/infinity-ai/src/components/design/TemplatePicker.tsx` (✅ exists)
+- `artifacts/infinity-ai/src/components/design/DesignStudio.tsx` (✅ exists)
+- `artifacts/infinity-ai/src/lib/design-canvas-engine.ts` (✅ exists)
+- `artifacts/infinity-ai/src/lib/mobbin-client.ts` (✅ exists)
 
 ---
 

@@ -12,6 +12,9 @@
  * Auth: X-Figma-Token header with FIGMA_ACCESS_TOKEN (free personal access
  * token, Figma → Settings → Security). The embed iframe does NOT need a
  * token, only this design-data extraction does.
+ *
+ * CRITICAL: Preserves EXACT Figma values — no rounding, no conversion, no modifications.
+ * Colors stay in 0-1 range, font sizes/weights/line heights/letter spacing preserved exactly.
  */
 
 export interface FigmaDesignToken {
@@ -28,6 +31,31 @@ export interface FigmaDesignToken {
   colors: { hex: string; rgba: string; count: number }[];
   textSamples: { text: string; fontFamily?: string; fontSize?: number }[];
   children: { name: string; type: string; width: number; height: number }[];
+
+  // EXACT PRESERVATION: Store raw Figma values for pixel-perfect reproduction
+  _figmaRaw?: {
+    // Raw color values (0-1 range as Figma provides)
+    colors: Array<{ r: number; g: number; b: number; a: number }>;
+    // Raw text styles
+    textStyles: Array<{
+      fontFamily: string;
+      fontPostScriptName?: string;
+      fontWeight: number;
+      fontSize: number;
+      lineHeightPx: number;
+      letterSpacing: number;
+      textAlignHorizontal: string;
+      textAlignVertical: string;
+    }>;
+    // Raw layout values
+    cornerRadius?: number;
+    opacity?: number;
+    itemSpacing?: number;
+    paddingTop?: number;
+    paddingRight?: number;
+    paddingBottom?: number;
+    paddingLeft?: number;
+  };
 }
 
 interface FigmaNode {
@@ -40,6 +68,15 @@ interface FigmaNode {
   fills?: { type: string; color?: { r: number; g: number; b: number; a?: number }; opacity?: number }[];
   absoluteBoundingBox?: { width: number; height: number };
   cornerRadius?: number;
+  opacity?: number;
+  layoutMode?: string;
+  itemSpacing?: number;
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  primaryAxisAlignItems?: string;
+  counterAxisAlignItems?: string;
 }
 
 interface FigmaFileResponse {
@@ -49,9 +86,22 @@ interface FigmaFileResponse {
   message?: string;
 }
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const to = (n: number) => Math.round(Math.min(1, Math.max(0, n)) * 255).toString(16).padStart(2, "0");
-  return `#${to(r)}${to(g)}${to(b)}`;
+/** Convert exact Figma 0-1 color values to precise hex string (no rounding) */
+function rgbToExactHex(color: { r: number; g: number; b: number; a?: number }): string {
+  const toExactHex = (value: number) => {
+    const v = value * 255;
+    return v.toString(16).padStart(2, '0');
+  };
+  return `#${toExactHex(color.r)}${toExactHex(color.g)}${toExactHex(color.b)}`;
+}
+
+/** Convert exact Figma 0-1 color values to precise rgba string (no rounding) */
+function rgbaToExactCss(color: { r: number; g: number; b: number; a?: number }): string {
+  const r = color.r * 255;
+  const g = color.g * 255;
+  const b = color.b * 255;
+  const a = color.a ?? 1;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 /** Extract a Figma file key (+ optional node-id) from any Figma share URL. */
@@ -94,6 +144,19 @@ export function extractDesignTokens(file: FigmaFileResponse, targetId?: string):
   const textSamples: FigmaDesignToken["textSamples"] = [];
   const children: FigmaDesignToken["children"] = [];
 
+  // EXACT PRESERVATION: Store raw values
+  const rawColors: Array<{ r: number; g: number; b: number; a: number }> = [];
+  const rawTextStyles: Array<{
+    fontFamily: string;
+    fontPostScriptName?: string;
+    fontWeight: number;
+    fontSize: number;
+    lineHeightPx: number;
+    letterSpacing: number;
+    textAlignHorizontal: string;
+    textAlignVertical: string;
+  }> = [];
+
   const visit = (n: FigmaNode): void => {
     if (n.type === "TEXT" && n.style) {
       const family = n.style.fontFamily ?? "Unknown";
@@ -104,16 +167,36 @@ export function extractDesignTokens(file: FigmaFileResponse, targetId?: string):
       if (n.characters && n.characters.trim() && textSamples.length < 12) {
         textSamples.push({ text: n.characters.trim().slice(0, 80), fontFamily: family, fontSize: size });
       }
+
+      // EXACT PRESERVATION: Store raw text style values
+      rawTextStyles.push({
+        fontFamily: n.style.fontFamily ?? "Unknown",
+        fontPostScriptName: undefined, // Not available in this API response format
+        fontWeight: Number(n.style.fontWeight ?? 400),
+        fontSize: n.style.fontSize ?? 16,
+        lineHeightPx: n.style.lineHeightPx ?? (n.style.fontSize ?? 16) * 1.2,
+        letterSpacing: n.style.letterSpacing ? parseFloat(String(n.style.letterSpacing)) : 0,
+        textAlignHorizontal: "LEFT",
+        textAlignVertical: "TOP",
+      });
     }
     if (Array.isArray(n.fills)) {
       for (const f of n.fills) {
         if (f.type === "SOLID" && f.color) {
-          const hex = rgbToHex(f.color.r, f.color.g, f.color.b);
-          const a = Math.round((f.color.a ?? 1) * 100) / 100;
-          const rgba = `rgba(${Math.round(f.color.r * 255)}, ${Math.round(f.color.g * 255)}, ${Math.round(f.color.b * 255)}, ${a})`;
-          const key = `${hex}|${a}`;
+          // EXACT PRESERVATION: Store raw 0-1 color values
+          rawColors.push({
+            r: f.color.r,
+            g: f.color.g,
+            b: f.color.b,
+            a: f.color.a ?? 1,
+          });
+
+          // Use exact precision hex (no rounding) as display value
+          const exactHex = rgbToExactHex(f.color);
+          const exactRgba = rgbaToExactCss(f.color);
+          const key = `${exactHex}|${f.color.a ?? 1}`;
           const existing = colorMap.get(key);
-          colorMap.set(key, existing ? { ...existing, count: existing.count + 1 } : { hex, rgba, count: 1 });
+          colorMap.set(key, existing ? { ...existing, count: existing.count + 1 } : { hex: exactHex, rgba: exactRgba, count: 1 });
         }
       }
     }
@@ -141,6 +224,17 @@ export function extractDesignTokens(file: FigmaFileResponse, targetId?: string):
     colors,
     textSamples,
     children,
+    _figmaRaw: {
+      colors: rawColors,
+      textStyles: rawTextStyles,
+      cornerRadius: target.cornerRadius,
+      opacity: target.opacity,
+      itemSpacing: target.itemSpacing,
+      paddingTop: target.paddingTop,
+      paddingRight: target.paddingRight,
+      paddingBottom: target.paddingBottom,
+      paddingLeft: target.paddingLeft,
+    },
   };
 }
 

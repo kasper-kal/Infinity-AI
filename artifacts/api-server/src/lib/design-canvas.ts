@@ -178,7 +178,7 @@ export type CanvasEventListener = (event: CanvasEvent) => void;
 
 export class DesignCanvasEngine extends EventEmitter {
   private state: CanvasState;
-  private listeners: Set<CanvasEventListener> = new Set();
+  private eventListeners: Set<CanvasEventListener> = new Set();
   private maxHistorySize = 100;
   private currentBreakpoint = 'lg';
   private breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', '2xl'];
@@ -490,9 +490,13 @@ export class DesignCanvasEngine extends EventEmitter {
     const existingIndex = overrides.findIndex(o => o.breakpoint === breakpoint);
 
     if (existingIndex >= 0) {
-      overrides[existingIndex] = { ...overrides[existingIndex], ...override };
+      // Remove duplicate breakpoint property from override before spreading
+      const { breakpoint: _breakpoint, ...overrideRest } = override;
+      overrides[existingIndex] = { ...overrides[existingIndex], ...overrideRest };
     } else {
-      overrides.push({ breakpoint, ...override });
+      // Remove duplicate breakpoint property from override before spreading
+      const { breakpoint: _breakpoint, ...overrideRest } = override;
+      overrides.push({ breakpoint, ...overrideRest });
     }
 
     return this.updateLayer(layerId, { responsiveOverrides: overrides });
@@ -717,7 +721,7 @@ export class DesignCanvasEngine extends EventEmitter {
   }
 
   private emitEvent(event: CanvasEvent): void {
-    for (const listener of this.listeners) {
+    for (const listener of this.eventListeners) {
       try {
         listener(event);
       } catch (error) {
@@ -730,9 +734,9 @@ export class DesignCanvasEngine extends EventEmitter {
   // Event Listeners
   // ---------------------------------------------------------------------------
 
-  on(event: CanvasEventListener): () => void {
-    this.listeners.add(event);
-    return () => this.listeners.delete(event);
+  onCanvasEvent(listener: CanvasEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
   }
 
   // ---------------------------------------------------------------------------

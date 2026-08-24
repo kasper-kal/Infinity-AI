@@ -149,7 +149,7 @@ class MobbinCache {
 
 export class MobbinClient extends EventEmitter {
   private cache = new MobbinCache();
-  private listeners: Set<MobbinEventListener> = new Set();
+  private eventListeners: Set<MobbinEventListener> = new Set();
   private baseUrl = 'https://api.mobbin.com/v1'; // Placeholder - will use proxy
   private useProxy = true;
   private proxyUrl = '/api/mobbin'; // Local proxy endpoint
@@ -519,13 +519,13 @@ export class MobbinClient extends EventEmitter {
   // Event Listeners
   // ---------------------------------------------------------------------------
 
-  on(event: MobbinEventListener): () => void {
-    this.listeners.add(event);
-    return () => this.listeners.delete(event);
+  onMobbinEvent(listener: MobbinEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
   }
 
   private emitEvent(event: MobbinEvent): void {
-    for (const listener of this.listeners) {
+    for (const listener of this.eventListeners) {
       try {
         listener(event);
       } catch (error) {

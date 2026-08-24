@@ -7,7 +7,7 @@ import { ResearchPanel, type ResearchJob } from '@/components/research-panel';
 import { DataLab } from '@/components/data-lab';
 import { ExpertDialog } from '@/components/expert-dialog';
 import { CommandPalette } from '@/components/command-palette';
-import { DesignStudio } from '@/components/design-studio';
+import { DesignStudio } from '@/components/design/DesignStudio';
 import { MusicStudio } from '@/components/music-studio';
 import { BookStudio, type BookJob } from '@/components/book-studio';
 import { StudiosHub, type StudioId } from '@/components/studios-hub';
@@ -72,6 +72,7 @@ interface AppOverlaysProps {
   designStudioOpen: boolean;
   onCloseDesign: () => void;
   designInitialImage?: string | null;
+  designProjectId?: string;
   musicStudioOpen: boolean;
   onCloseMusic: () => void;
   // Book Studio
@@ -116,7 +117,7 @@ export function AppOverlays(props: AppOverlaysProps) {
       <StudiosHub open={props.studiosOpen} onClose={props.onCloseStudios} onSelect={props.onSelectStudio} />
 
       {/* ── Design Studio ── */}
-      <DesignStudio open={props.designStudioOpen} onClose={props.onCloseDesign} initialImage={props.designInitialImage} />
+      <DesignStudio open={props.designStudioOpen} onClose={props.onCloseDesign} initialImage={props.designInitialImage} projectId={props.designProjectId} />
 
       {/* ── Music Studio ── */}
       <MusicStudio open={props.musicStudioOpen} onClose={props.onCloseMusic} />

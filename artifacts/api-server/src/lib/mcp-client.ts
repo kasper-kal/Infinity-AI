@@ -736,27 +736,28 @@ class DirectStdioTransport extends EventEmitter implements MCPTransport {
 
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
-      this.process = spawn(this.config.command, this.config.args, {
+      const proc = spawn(this.config.command, this.config.args, {
         env: { ...process.env, ...this.config.env },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
+      this.process = proc;
 
-      this.process.stdout?.on('data', (data: Buffer) => {
+      proc.stdout?.on('data', (data: Buffer) => {
         this.buffer += data.toString();
         this.processBuffer();
       });
 
-      this.process.stderr?.on('data', (data: Buffer) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         console.error('[MCP Direct Stdio stderr]:', data.toString());
       });
 
-      this.process.on('error', (err: Error) => {
+      proc.on('error', (err: Error) => {
         console.error('[MCP Direct Stdio process error]:', err);
         this.emit('error', err);
         if (!this.connected) reject(err);
       });
 
-      this.process.on('close', (code: number) => {
+      proc.on('close', (code: number) => {
         this.connected = false;
         this.emit('disconnected', code);
       });

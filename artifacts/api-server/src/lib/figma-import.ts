@@ -39,6 +39,29 @@ export interface FigmaNode {
   locked?: boolean;
   // More properties from Figma API
   [key: string]: any;
+
+  // EXACT PRESERVATION: Store raw Figma style data for pixel-perfect reproduction
+  // These fields capture the EXACT values from Figma without any conversion
+  _figmaRawStyle?: {
+    // Raw color values (0-1 range as Figma provides)
+    fills?: FigmaFill[];
+    strokes?: FigmaStroke[];
+    effects?: FigmaEffect[];
+    // Raw text style
+    textStyle?: FigmaText['style'];
+    // Raw layout values
+    layoutMode?: string;
+    itemSpacing?: number;
+    paddingTop?: number;
+    paddingRight?: number;
+    paddingBottom?: number;
+    paddingLeft?: number;
+    primaryAxisAlignItems?: string;
+    counterAxisAlignItems?: string;
+    // Raw geometry
+    cornerRadius?: number;
+    opacity?: number;
+  };
 }
 
 export interface FigmaFill {
@@ -123,6 +146,8 @@ export interface Token {
   name: string;
   value: string;
   figmaReference?: string;
+  // EXACT PRESERVATION: Store raw Figma values for pixel-perfect reproduction
+  _figmaRaw?: any;
 }
 
 export interface TypographyToken {
@@ -133,6 +158,17 @@ export interface TypographyToken {
   lineHeight: number;
   letterSpacing: number;
   figmaReference?: string;
+  // EXACT PRESERVATION: Store raw Figma text style values
+  _figmaRaw?: {
+    fontFamily: string;
+    fontPostScriptName: string;
+    fontWeight: number;
+    fontSize: number;
+    lineHeightPx: number;
+    letterSpacing: number;
+    textAlignHorizontal: string;
+    textAlignVertical: string;
+  };
 }
 
 export interface ImportWarning {
@@ -166,7 +202,7 @@ export type FigmaEventListener = (event: FigmaEvent) => void;
 // ============================================================================
 
 export class FigmaImporter extends EventEmitter {
-  private listeners: Set<FigmaEventListener> = new Set();
+  private eventListeners: Set<FigmaEventListener> = new Set();
   private accessToken: string | null = null;
   private baseUrl = 'https://api.figma.com/v1';
 
@@ -177,6 +213,12 @@ export class FigmaImporter extends EventEmitter {
 
   setAccessToken(token: string): void {
     this.accessToken = token;
+  }
+
+  // Custom event handling - don't override EventEmitter methods
+  addFigmaListener(listener: FigmaEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
   }
 
   // ---------------------------------------------------------------------------
@@ -432,13 +474,44 @@ export class FigmaImporter extends EventEmitter {
 
     // Traverse the tree
     const traverse = (node: FigmaNode): void => {
-      // Extract colors from fills
+      // PRESERVE EXACT FIGMA VALUES: Store raw style data on each node for pixel-perfect reproduction
+      // This ensures NO modifications, rounding, or conversions happen to any values
+      node._figmaRawStyle = {
+        fills: node.fills ? [...node.fills] : undefined,
+        strokes: node.strokes ? [...node.strokes] : undefined,
+        effects: node.effects ? [...node.effects] : undefined,
+        textStyle: node.text?.style ? { ...node.text.style } : undefined,
+        layoutMode: node.layoutMode,
+        itemSpacing: node.itemSpacing,
+        paddingTop: node.paddingTop,
+        paddingRight: node.paddingRight,
+        paddingBottom: node.paddingBottom,
+        paddingLeft: node.paddingLeft,
+        primaryAxisAlignItems: node.primaryAxisAlignItems,
+        counterAxisAlignItems: node.counterAxisAlignItems,
+        cornerRadius: node.cornerRadius,
+        opacity: node.opacity,
+      };
+
+      // Extract colors from fills - PRESERVE EXACT Figma values (0-1 range, no rounding)
       for (const fill of node.fills || []) {
         if (fill.type === 'SOLID' && fill.color) {
-          const hex = this.rgbToHex(fill.color);
-          const name = `color-${hex.replace('#', '')}`;
+          // Store EXACT Figma color values (0-1 range) as the primary value for pixel-perfect reproduction
+          const rawR = fill.color.r;
+          const rawG = fill.color.g;
+          const rawB = fill.color.b;
+          const rawA = fill.color.a;
+          // Use exact precision hex (no rounding) as display value
+          const exactHex = this.rgbToExactHex(fill.color);
+          const name = `color-${exactHex.replace('#', '')}`;
           if (!colors.has(name)) {
-            colors.set(name, { name, value: hex, figmaReference: node.id });
+            colors.set(name, {
+              name,
+              value: exactHex, // EXACT hex, no rounding
+              figmaReference: node.id,
+              // Store EXACT raw Figma values (0-1 range)
+              _figmaRaw: { r: rawR, g: rawG, b: rawB, a: rawA }
+            });
           }
         }
         if (fill.type === 'GRADIENT_LINEAR') {
@@ -451,7 +524,7 @@ export class FigmaImporter extends EventEmitter {
         }
       }
 
-      // Extract typography
+      // Extract typography - PRESERVE EXACT Figma values
       if (node.text) {
         const style = node.text.style;
         const key = `${style.fontFamily}-${style.fontWeight}-${style.fontSize}`;
@@ -459,30 +532,111 @@ export class FigmaImporter extends EventEmitter {
           typography.set(key, {
             name: `text-${style.fontSize}-${style.fontWeight}`,
             fontFamily: style.fontFamily,
-            fontSize: style.fontSize,
-            fontWeight: style.fontWeight,
-            lineHeight: style.lineHeightPx,
-            letterSpacing: style.letterSpacing,
+            // PRESERVE EXACT values - no rounding, no conversion, no normalization
+            fontSize: style.fontSize,        // Exact Figma fontSize (px)
+            fontWeight: style.fontWeight,    // Exact Figma fontWeight
+            lineHeight: style.lineHeightPx,  // Exact Figma lineHeightPx (px)
+            letterSpacing: style.letterSpacing, // Exact Figma letterSpacing (px)
             figmaReference: node.id,
+            // Store EXACT raw Figma text style
+            _figmaRaw: {
+              fontFamily: style.fontFamily,
+              fontPostScriptName: style.fontPostScriptName,
+              fontWeight: style.fontWeight,
+              fontSize: style.fontSize,
+              lineHeightPx: style.lineHeightPx,
+              letterSpacing: style.letterSpacing,
+              textAlignHorizontal: style.textAlignHorizontal,
+              textAlignVertical: style.textAlignVertical,
+            }
           });
         }
       }
 
-      // Extract corner radius
-      if (node.cornerRadius) {
-        const key = `radius-${node.cornerRadius}`;
-        if (!borderRadius.has(key)) {
-          borderRadius.set(key, { name: key, value: `${node.cornerRadius}px`, figmaReference: node.id });
+      // Extract spacing (itemSpacing, padding) - PRESERVE EXACT values
+      if (node.itemSpacing !== undefined) {
+        const key = `spacing-${node.itemSpacing}`;
+        if (!spacing.has(key)) {
+          spacing.set(key, {
+            name: key,
+            value: `${node.itemSpacing}px`,
+            figmaReference: node.id,
+            _figmaRaw: node.itemSpacing // exact value
+          });
+        }
+      }
+      // Padding values
+      for (const [prop, value] of Object.entries({
+        paddingTop: node.paddingTop,
+        paddingRight: node.paddingRight,
+        paddingBottom: node.paddingBottom,
+        paddingLeft: node.paddingLeft,
+      })) {
+        if (value !== undefined) {
+          const key = `spacing-${prop}-${value}`;
+          if (!spacing.has(key)) {
+            spacing.set(key, {
+              name: key,
+              value: `${value}px`,
+              figmaReference: node.id,
+              _figmaRaw: value
+            });
+          }
         }
       }
 
-      // Extract shadows
+      // Extract corner radius - PRESERVE EXACT value
+      if (node.cornerRadius !== undefined && node.cornerRadius !== null) {
+        const key = `radius-${node.cornerRadius}`;
+        if (!borderRadius.has(key)) {
+          borderRadius.set(key, {
+            name: key,
+            value: `${node.cornerRadius}px`,
+            figmaReference: node.id,
+            _figmaRaw: node.cornerRadius // exact value
+          });
+        }
+      }
+
+      // Extract opacity - PRESERVE EXACT value
+      if (node.opacity !== undefined && node.opacity !== null && node.opacity !== 1) {
+        const key = `opacity-${node.opacity}`;
+        if (!spacing.has(key)) { // store in spacing map for now
+          spacing.set(key, {
+            name: key,
+            value: node.opacity.toString(),
+            figmaReference: node.id,
+            _figmaRaw: node.opacity
+          });
+        }
+      }
+
+      // Extract shadows - PRESERVE EXACT values (no rounding in CSS conversion)
       for (const effect of node.effects || []) {
         if (effect.type === 'DROP_SHADOW' && effect.visible) {
-          const key = `shadow-${effect.radius}`;
+          const key = `shadow-${effect.radius}-${effect.offset?.x}-${effect.offset?.y}-${effect.spread}`;
           if (!shadows.has(key)) {
-            const shadowValue = `0 ${effect.offset?.y || 0}px ${effect.radius || 0}px ${this.rgbaToCss(effect.color!)}`;
-            shadows.set(key, { name: key, value: shadowValue, figmaReference: node.id });
+            // Store exact raw shadow values
+            const rawOffsetX = effect.offset?.x ?? 0;
+            const rawOffsetY = effect.offset?.y ?? 0;
+            const rawRadius = effect.radius ?? 0;
+            const rawSpread = effect.spread ?? 0;
+            const rawColor = effect.color ? { ...effect.color } : undefined;
+
+            // Use EXACT CSS conversion (no rounding)
+            const shadowValue = `0 ${rawOffsetY}px ${rawRadius}px ${rawSpread}px ${this.rgbaToExactCss(effect.color!)}`;
+            shadows.set(key, {
+              name: key,
+              value: shadowValue,
+              figmaReference: node.id,
+              _figmaRaw: {
+                offsetX: rawOffsetX,
+                offsetY: rawOffsetY,
+                radius: rawRadius,
+                spread: rawSpread,
+                color: rawColor,
+              }
+            });
           }
         }
       }
@@ -537,30 +691,36 @@ export class FigmaImporter extends EventEmitter {
 
     const styleLines: string[] = [
       `position: 'relative'`,
+      // PRESERVE EXACT dimension values
       `width: ${frame.width}px`,
       `height: ${frame.height}px`,
     ];
 
-    // Background color
+    // Background color - PRESERVE EXACT Figma values using non-rounding conversion
     const firstFill = frame.fills?.[0];
     if (firstFill?.type === 'SOLID' && firstFill.color) {
-      styleLines.push(`backgroundColor: '${this.rgbaToCss(firstFill.color)}'`);
+      styleLines.push(`backgroundColor: '${this.rgbaToExactCss(firstFill.color)}'`);
     }
 
-    if (frame.cornerRadius) {
+    if (frame.cornerRadius !== undefined && frame.cornerRadius !== null) {
       styleLines.push(`borderRadius: ${frame.cornerRadius}px`);
     }
 
-    // Layout
+    // Layout - PRESERVE EXACT values
     if (frame.layoutMode && frame.layoutMode !== 'NONE') {
       styleLines.push(`display: 'flex'`);
       styleLines.push(`flexDirection: '${frame.layoutMode.toLowerCase()}'`);
-      if (frame.itemSpacing) {
+      if (frame.itemSpacing !== undefined) {
         styleLines.push(`gap: ${frame.itemSpacing}px`);
       }
-      if (frame.paddingTop || frame.paddingBottom || frame.paddingLeft || frame.paddingRight) {
+      if (frame.paddingTop !== undefined || frame.paddingBottom !== undefined || frame.paddingLeft !== undefined || frame.paddingRight !== undefined) {
         styleLines.push(`padding: ${frame.paddingTop || 0}px ${frame.paddingRight || 0}px ${frame.paddingBottom || 0}px ${frame.paddingLeft || 0}px`);
       }
+    }
+
+    // Opacity - PRESERVE EXACT value
+    if (frame.opacity !== undefined && frame.opacity !== null && frame.opacity !== 1) {
+      styleLines.push(`opacity: ${frame.opacity}`);
     }
 
     const childrenCode = (frame.children || [])
@@ -602,6 +762,7 @@ export function ${componentName}() {
   private generateChildCode(node: FigmaNode, tokens: DesignSystem, warnings: ImportWarning[]): string {
     if (node.type === 'TEXT' && node.text) {
       const style: string[] = [
+        // PRESERVE EXACT Figma values - no rounding, no conversion
         `fontSize: ${node.text.style.fontSize}px`,
         `fontWeight: ${node.text.style.fontWeight}`,
         `lineHeight: ${node.text.style.lineHeightPx}px`,
@@ -611,7 +772,8 @@ export function ${componentName}() {
 
       const firstFill = node.text.fills[0];
       if (firstFill?.type === 'SOLID' && firstFill.color) {
-        style.push(`color: '${this.rgbaToCss(firstFill.color)}'`);
+        // PRESERVE EXACT color values - no rounding
+        style.push(`color: '${this.rgbaToExactCss(firstFill.color)}'`);
       }
 
       return `<span style={{ ${style.join(', ')} }}>${this.escapeJsxText(node.text.characters)}</span>`;
@@ -620,26 +782,32 @@ export function ${componentName}() {
     if (node.type === 'FRAME' || node.type === 'GROUP') {
       const style: string[] = [
         `position: 'relative'`,
+        // PRESERVE EXACT position values
         `left: ${node.x}px`,
         `top: ${node.y}px`,
+        // PRESERVE EXACT dimension values
         `width: ${node.width}px`,
         `height: ${node.height}px`,
       ];
 
       const firstFill = node.fills?.[0];
       if (firstFill?.type === 'SOLID' && firstFill.color) {
-        style.push(`backgroundColor: '${this.rgbaToCss(firstFill.color)}'`);
+        // PRESERVE EXACT color values - no rounding
+        style.push(`backgroundColor: '${this.rgbaToExactCss(firstFill.color)}'`);
       }
 
-      if (node.cornerRadius) {
+      if (node.cornerRadius !== undefined && node.cornerRadius !== null) {
         style.push(`borderRadius: ${node.cornerRadius}px`);
       }
 
       if (node.layoutMode && node.layoutMode !== 'NONE') {
         style.push(`display: 'flex'`);
         style.push(`flexDirection: '${node.layoutMode.toLowerCase()}'`);
-        if (node.itemSpacing) {
+        if (node.itemSpacing !== undefined) {
           style.push(`gap: ${node.itemSpacing}px`);
+        }
+        if (node.paddingTop !== undefined || node.paddingBottom !== undefined || node.paddingLeft !== undefined || node.paddingRight !== undefined) {
+          style.push(`padding: ${node.paddingTop || 0}px ${node.paddingRight || 0}px ${node.paddingBottom || 0}px ${node.paddingLeft || 0}px`);
         }
       }
 
@@ -656,18 +824,21 @@ export function ${componentName}() {
     if (node.type === 'RECTANGLE') {
       const style: string[] = [
         `position: 'absolute'`,
+        // PRESERVE EXACT position values
         `left: ${node.x}px`,
         `top: ${node.y}px`,
+        // PRESERVE EXACT dimension values
         `width: ${node.width}px`,
         `height: ${node.height}px`,
       ];
 
       const firstFill = node.fills?.[0];
       if (firstFill?.type === 'SOLID' && firstFill.color) {
-        style.push(`backgroundColor: '${this.rgbaToCss(firstFill.color)}'`);
+        // PRESERVE EXACT color values - no rounding
+        style.push(`backgroundColor: '${this.rgbaToExactCss(firstFill.color)}'`);
       }
 
-      if (node.cornerRadius) {
+      if (node.cornerRadius !== undefined && node.cornerRadius !== null) {
         style.push(`borderRadius: ${node.cornerRadius}px`);
       }
 
@@ -760,6 +931,31 @@ export function ${componentName}() {
   // Utilities
   // ---------------------------------------------------------------------------
 
+  // PRESERVE EXACT FIGMA VALUES - these functions do NOT round, they preserve full precision
+  // Figma uses 0-1 range for colors, we keep exact values for pixel-perfect reproduction
+
+  // Convert exact Figma 0-1 color values to precise hex string (no rounding)
+  private rgbToExactHex(color: { r: number; g: number; b: number; a: number }): string {
+    // Convert to 0-255 with full precision, then to hex
+    const toExactHex = (value: number) => {
+      const v = value * 255;
+      // Use full precision - format to ensure exact representation
+      return v.toString(16).padStart(2, '0');
+    };
+    return `#${toExactHex(color.r)}${toExactHex(color.g)}${toExactHex(color.b)}`;
+  }
+
+  // Convert exact Figma 0-1 color values to precise rgba string (no rounding)
+  private rgbaToExactCss(color: { r: number; g: number; b: number; a: number }): string {
+    // Keep full precision - multiply by 255 without rounding
+    const r = color.r * 255;
+    const g = color.g * 255;
+    const b = color.b * 255;
+    const a = color.a;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  // Legacy methods kept for backward compatibility - they DO round
   private rgbToHex(color: { r: number; g: number; b: number; a: number }): string {
     const toHex = (value: number) => {
       const v = Math.round(value * 255);
@@ -796,13 +992,13 @@ export function ${componentName}() {
   // Event Listeners
   // ---------------------------------------------------------------------------
 
-  on(event: FigmaEventListener): () => void {
-    this.listeners.add(event);
-    return () => this.listeners.delete(event);
+  onFigmaEvent(listener: FigmaEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
   }
 
   private emitEvent(event: FigmaEvent): void {
-    for (const listener of this.listeners) {
+    for (const listener of this.eventListeners) {
       try {
         listener(event);
       } catch (error) {
