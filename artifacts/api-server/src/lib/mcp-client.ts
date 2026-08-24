@@ -12,7 +12,7 @@ import { UniversalToolDefinition, ToolExecutionContext } from './tool-types.js';
 // Types (based on MCP spec: https://spec.modelcontextprotocol.io/)
 // ============================================================================
 
-export type MCPTransportType = 'stdio' | 'http' | 'sse' | 'websocket';
+export type MCPTransportType = 'stdio' | 'stdio-direct' | 'http' | 'sse' | 'websocket';
 
 export interface MCPTransportConfig {
   type: MCPTransportType;
@@ -516,7 +516,7 @@ class StdioTransport extends EventEmitter implements MCPTransport {
   constructor(config: MCPTransportConfig) {
     super();
     this.config = {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: config.command || '',
       args: config.args || [],
       env: config.env || {},
@@ -697,6 +697,152 @@ class StdioTransport extends EventEmitter implements MCPTransport {
 }
 
 // ============================================================================
+// Direct Stdio Transport (spawns process directly, no terminal bridge needed)
+// ============================================================================
+
+class DirectStdioTransport extends EventEmitter implements MCPTransport {
+  private config: Required<MCPTransportConfig>;
+  private connected = false;
+  private process: ReturnType<typeof import('child_process').spawn> | null = null;
+  private buffer = '';
+  private pendingRequests = new Map<string | number, {
+    resolve: (value: JSONRPCResponse) => void;
+    reject: (reason: Error) => void;
+    timeout: NodeJS.Timeout;
+  }>();
+  private requestId = 0;
+
+  constructor(config: MCPTransportConfig) {
+    super();
+    this.config = {
+      type: 'stdio-direct',
+      command: config.command || '',
+      args: config.args || [],
+      env: config.env || {},
+      bridgeSecret: '',
+      bridgeHost: '',
+      bridgePort: 0,
+      timeout: config.timeout ?? 30000,
+      retryAttempts: config.retryAttempts ?? 3,
+      retryDelay: config.retryDelay ?? 1000,
+      url: '',
+      headers: {},
+      wsUrl: '',
+    };
+  }
+
+  async connect(): Promise<void> {
+    if (this.connected) return;
+
+    return new Promise((resolve, reject) => {
+      const { spawn } = require('child_process');
+      this.process = spawn(this.config.command, this.config.args, {
+        env: { ...process.env, ...this.config.env },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      this.process.stdout?.on('data', (data: Buffer) => {
+        this.buffer += data.toString();
+        this.processBuffer();
+      });
+
+      this.process.stderr?.on('data', (data: Buffer) => {
+        console.error('[MCP Direct Stdio stderr]:', data.toString());
+      });
+
+      this.process.on('error', (err: Error) => {
+        console.error('[MCP Direct Stdio process error]:', err);
+        this.emit('error', err);
+        if (!this.connected) reject(err);
+      });
+
+      this.process.on('close', (code: number) => {
+        this.connected = false;
+        this.emit('disconnected', code);
+      });
+
+      // Wait a bit for process to start, then send initialize
+      setTimeout(() => {
+        this.connected = true;
+        this.emit('connected');
+        resolve();
+      }, 500);
+    });
+  }
+
+  private processBuffer(): void {
+    const lines = this.buffer.split('\n');
+    this.buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          const message = JSON.parse(line) as JSONRPCResponse;
+          this.handleMessage(message);
+        } catch (err) {
+          console.error('[MCP Direct Stdio] Failed to parse:', line, err);
+        }
+      }
+    }
+  }
+
+  private handleMessage(message: JSONRPCResponse): void {
+    if ('id' in message && message.id !== undefined) {
+      const pending = this.pendingRequests.get(message.id);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        this.pendingRequests.delete(message.id);
+        if (message.error) {
+          pending.reject(new Error(`${message.error.code}: ${message.error.message}`));
+        } else {
+          pending.resolve(message);
+        }
+      }
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    this.connected = false;
+    if (this.process) {
+      this.process.kill();
+      this.process = null;
+    }
+    for (const [, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error('Transport disconnected'));
+    }
+    this.pendingRequests.clear();
+  }
+
+  isConnected(): boolean {
+    return this.connected && this.process !== null;
+  }
+
+  async send(message: JSONRPCRequest): Promise<JSONRPCResponse> {
+    if (!this.isConnected() || !this.process?.stdin) {
+      throw new Error('Direct stdio transport not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const id = message.id;
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error('Request timeout'));
+      }, this.config.timeout);
+
+      this.pendingRequests.set(id, { resolve, reject, timeout });
+
+      this.process!.stdin!.write(JSON.stringify(message) + '\n');
+    });
+  }
+
+  notify(message: JSONRPCNotification): void {
+    if (this.isConnected() && this.process?.stdin) {
+      this.process.stdin.write(JSON.stringify({ ...message, jsonrpc: '2.0' }) + '\n');
+    }
+  }
+}
+
+// ============================================================================
 // MCP Client
 // ============================================================================
 
@@ -735,6 +881,8 @@ export class MCPClient extends EventEmitter {
         return new WebSocketTransport(config);
       case 'stdio':
         return new StdioTransport(config);
+      case 'stdio-direct':
+        return new DirectStdioTransport(config);
       default:
         throw new Error(`Unknown transport type: ${config.type}`);
     }
@@ -815,12 +963,15 @@ export class MCPClient extends EventEmitter {
   private async discoverCapabilities(): Promise<void> {
     if (this.serverInfo?.capabilities.tools) {
       await this.listTools();
+      this.emit('toolsChanged');
     }
     if (this.serverInfo?.capabilities.resources) {
       await this.listResources();
+      this.emit('resourcesChanged');
     }
     if (this.serverInfo?.capabilities.prompts) {
       await this.listPrompts();
+      this.emit('promptsChanged');
     }
   }
 
@@ -1065,7 +1216,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   filesystem: {
     name: 'Filesystem',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-filesystem'],
       // args will be updated with the project path at runtime
@@ -1084,7 +1235,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   postgres: {
     name: 'PostgreSQL',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-postgres'],
       env: {
@@ -1095,7 +1246,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   sqlite: {
     name: 'SQLite',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-sqlite'],
       env: {
@@ -1116,7 +1267,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   braveSearch: {
     name: 'Brave Search',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-brave-search'],
       env: {
@@ -1127,7 +1278,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   fetch: {
     name: 'Fetch',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-fetch'],
     },
@@ -1135,7 +1286,7 @@ export const BUILTIN_MCP_SERVERS: Record<string, Omit<MCPServerConfig, 'id' | 'e
   puppeteer: {
     name: 'Puppeteer',
     transport: {
-      type: 'stdio',
+      type: 'stdio-direct',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-puppeteer'],
     },
