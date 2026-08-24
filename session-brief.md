@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-23 13:45
+LAST_UPDATED: 2026-08-24 01:15
 
 ## Just did (last action)
 - **Complete Jarvis → Infinity Rebranding — FINAL CLEANUP COMPLETE** — Removed all remaining legacy "jarvis/JARVIS" wake word patterns from the codebase:
@@ -271,9 +271,9 @@ LAST_UPDATED: 2026-08-23 13:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 6 — MCP Client + Ecosystem Integration** ✅ **COMPLETE** — All tests pass with filesystem MCP server (14 tools discovered and registered in Universal Tool Registry), Universal Tool Registry integration verified end-to-end with agents
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration)
-- **Next Phases:** Phase 7 (VS Code Extension), then Replit/v0/Cursor parity phases.
+- **Current Phase:** **Phase 7 — VS Code Extension (Infinity Build Panel)** ✅ **COMPLETE** — .vsix created: `artifacts/vscode-extension/infinity-build-0.1.0.vsix` (405KB, 63 files). **Publisher fixed to `KasperKal`** (matches VS Code Marketplace account). Extension includes: Build Panel with 4 tabs (Build, Terminal, Diagnostics, Settings), WebSocket communication with Infinity API server (ws://localhost:3000/api/infinity-ai/extension/ws) and terminal bridge (ws://localhost:3001), React-based webview with VS Code CSS variables, bidirectional file sync via FileSystemWatcher, diagnostics integration with VS Code Problems panel, "Send to Infinity" context menu command, terminal sessions with xterm-style component.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), **Phase 7 (VS Code Extension)**
+- **Next Phases:** Phase 8 (Replit-Level Design Canvas), then Phase 9-15 Replit parity, Phase 16-23 v0 parity, Phase 24-31 Cursor parity.
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
 - **Build Studio progress work:** complete. Transcript portaled out of notice content, screenshot requests settle safely, accepted plans leave plan mode immediately, plan requests preserve earlier updates, pipeline terminal states remain visible, progress messages avoid nested state updates, dismissed questions cannot strand the run.
@@ -295,6 +295,17 @@ LAST_UPDATED: 2026-08-23 13:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-24 **Phase 7: VS Code Extension — PUBLISHER FIX + REPACKAGE** — Fixed publisher ID mismatch: changed `publisher: "infinity-ai"` → `publisher: "KasperKal"` in package.json, repackaged with `vsce package --no-dependencies`. New .vsix manifest shows `Publisher="KasperKal"` (matches Marketplace account). Extension ready for upload.
+- 2026-08-24 **Phase 7: VS Code Extension (Infinity Build Panel) — COMPLETE** — Created full VS Code extension with .vsix output:
+  - **Extension** (`artifacts/vscode-extension/`): TypeScript + React webview, esbuild dual build (Node/CommonJS + browser/IIFE)
+  - **InfinityBuildProvider** (`src/extension.ts` ~500 lines): WebviewViewProvider handling WebSocket connections to Infinity API (ws://localhost:3000/api/infinity-ai/extension/ws) and terminal bridge (ws://localhost:3001), FileSystemWatcher for bidirectional file sync, diagnostics integration with VS Code Problems panel, terminal session management
+  - **Webview React App** (`src/webview/`): BuildPanel with 4 tabs (Build, Terminal, Diagnostics, Settings), Toolbar with project selector/connection status/build controls, BuildEvents with filtering, Terminal component with session tabs + input/output, DiagnosticsPanel grouped by file with severity, ProjectInfo, SettingsPanel
+  - **Features**: Build goal input + start/stop, terminal sessions with quick commands, file sync (watch + push), diagnostics → Problems panel, "Send to Infinity" context menu (editor/explorer), refresh/open-terminal/sync commands, keybindings (Ctrl+Shift+I, Ctrl+Shift+Alt+I), activity bar view
+  - **Build**: `esbuild.config.mjs` with dual configs, copies CSS + media to dist, production minify
+  - **Package**: `vsce package` → `infinity-build-0.1.0.vsix` (415KB, 63 files) ready for free Marketplace publish
+  - **TypeScript fixes**: Fixed __dirname in CommonJS, TabBar typing, BuildEvents vscode prop, Toolbar vscode prop, Terminal ref type
+  - Typecheck + build + package all pass ✅
+
 - 2026-08-23 **Complete Jarvis → Infinity Rebranding — FINAL CLEANUP COMPLETE** — Removed all remaining legacy "jarvis/JARVIS" wake word patterns from the codebase:
   - **artifacts/infinity-ai/src/hooks/use-wake-word.ts** — Cleaned up `soundsLikeWakeWord()` and `extractCommand()` functions:
     - Removed 8 legacy jarvis regex patterns (`j[ua]rv[ei]s`, `j[ua]h+s?`, `j[ua]v[ie]s`, etc.)

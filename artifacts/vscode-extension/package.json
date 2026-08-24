@@ -1,0 +1,211 @@
+{
+  "name": "infinity-build",
+  "displayName": "Infinity Build",
+  "description": "Infinity AI Build Panel - Build, debug, and deploy applications directly from VS Code with AI-powered multi-agent orchestration",
+  "version": "0.1.0",
+  "publisher": "KasperKal",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "AI",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "infinity",
+    "ai",
+    "build",
+    "agent",
+    "coding",
+    "mcp",
+    "terminal"
+  ],
+  "icon": "media/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kasper-kal/Infinity-AI"
+  },
+  "bugs": {
+    "url": "https://github.com/kasper-kal/Infinity-AI/issues"
+  },
+  "homepage": "https://github.com/kasper-kal/Infinity-AI#readme",
+  "activationEvents": [
+    "onCommand:infinity.build.open",
+    "onCommand:infinity.build.sendToInfinity",
+    "onCommand:infinity.build.openTerminal",
+    "onCommand:infinity.build.syncFiles",
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "infinity.build.open",
+        "title": "Infinity: Open Build Panel",
+        "category": "Infinity",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "infinity.build.sendToInfinity",
+        "title": "Infinity: Send to Infinity Build",
+        "category": "Infinity",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "infinity.build.openTerminal",
+        "title": "Infinity: Open Terminal",
+        "category": "Infinity",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "infinity.build.syncFiles",
+        "title": "Infinity: Sync Files",
+        "category": "Infinity",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "infinity.build.refresh",
+        "title": "Infinity: Refresh Build Panel",
+        "category": "Infinity",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "infinity.build.sendToInfinity",
+          "when": "resourceScheme == file",
+          "group": "infinity@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "infinity.build.sendToInfinity",
+          "when": "resourceScheme == file",
+          "group": "infinity@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "infinity.build.refresh",
+          "when": "view == infinity-build-view",
+          "group": "navigation"
+        },
+        {
+          "command": "infinity.build.openTerminal",
+          "when": "view == infinity-build-view",
+          "group": "navigation"
+        },
+        {
+          "command": "infinity.build.syncFiles",
+          "when": "view == infinity-build-view",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "infinity": [
+        {
+          "id": "infinity-build-view",
+          "name": "Infinity Build",
+          "icon": "media/infinity-icon.svg",
+          "when": "workspaceFolderCount > 0"
+        }
+      ],
+      "explorer": [
+        {
+          "id": "infinity-file-explorer",
+          "name": "Infinity Files",
+          "icon": "media/infinity-icon.svg",
+          "when": "infinity.hasWorkspace"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "infinity",
+          "title": "Infinity",
+          "icon": "media/infinity-icon.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Infinity Build",
+      "properties": {
+        "infinity.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Infinity API server URL"
+        },
+        "infinity.projectId": {
+          "type": "string",
+          "default": "",
+          "description": "Current project ID (auto-detected if empty)"
+        },
+        "infinity.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-connect to Infinity on startup"
+        },
+        "infinity.terminalBridgeUrl": {
+          "type": "string",
+          "default": "ws://localhost:3001",
+          "description": "Terminal bridge WebSocket URL"
+        },
+        "infinity.enableFileSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable bidirectional file sync with Infinity workspace"
+        },
+        "infinity.showDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Infinity diagnostics in Problems panel"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "infinity.build.open",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "!inBuildPanel"
+      },
+      {
+        "command": "infinity.build.sendToInfinity",
+        "key": "ctrl+shift+alt+i",
+        "mac": "cmd+shift+alt+i",
+        "when": "editorTextFocus && resourceScheme == file"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -p ./tsconfig.json -w",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "esbuild": "0.27.3",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ws": "^8.14.0"
+  }
+}
