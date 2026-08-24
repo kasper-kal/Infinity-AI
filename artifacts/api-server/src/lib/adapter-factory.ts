@@ -46,6 +46,204 @@ const GENERIC_CAPABILITIES: LLMCapabilities = {
 };
 
 /**
+ * Design Model Configurations - Specific models for design generation
+ */
+export const DESIGN_MODEL_CONFIGS: Record<string, {
+  adapterType: 'openrouter' | 'nvidia' | 'openai-compatible' | 'ollama' | 'local';
+  model: string;
+  baseUrl?: string;
+  capabilities: LLMCapabilities;
+  displayName: string;
+  description: string;
+}> = {
+  // Free/OpenRouter models (available via OPENROUTER_API_KEY)
+  'claude-3.5-sonnet': {
+    adapterType: 'openrouter',
+    model: 'anthropic/claude-3.5-sonnet',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 200000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'Claude 3.5 Sonnet',
+    description: 'Anthropic\'s best model for design reasoning and code generation',
+  },
+  'claude-3-opus': {
+    adapterType: 'openrouter',
+    model: 'anthropic/claude-3-opus',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 200000,
+      maxOutputTokens: 4096,
+    },
+    displayName: 'Claude 3 Opus',
+    description: 'Most capable for complex design tasks (paid tier)',
+  },
+  'gpt-4o': {
+    adapterType: 'openrouter',
+    model: 'openai/gpt-4o',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 128000,
+      maxOutputTokens: 16384,
+    },
+    displayName: 'GPT-4o',
+    description: 'OpenAI\'s flagship multimodal model',
+  },
+  'gpt-4o-mini': {
+    adapterType: 'openrouter',
+    model: 'openai/gpt-4o-mini',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 128000,
+      maxOutputTokens: 16384,
+    },
+    displayName: 'GPT-4o Mini',
+    description: 'Fast, cost-effective for iterative design',
+  },
+  'gemini-2.5-pro': {
+    adapterType: 'openrouter',
+    model: 'google/gemini-2.5-pro',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 1000000,
+      maxOutputTokens: 65536,
+    },
+    displayName: 'Gemini 2.5 Pro',
+    description: 'Google\'s latest with massive context for complex designs',
+  },
+  'gemini-2.0-flash': {
+    adapterType: 'openrouter',
+    model: 'google/gemini-2.0-flash-exp',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 1000000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'Gemini 2.0 Flash',
+    description: 'Fast, free tier with large context',
+  },
+  'kimi-k2': {
+    adapterType: 'openrouter',
+    model: 'moonshotai/kimi-k2',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 16384,
+    },
+    displayName: 'Kimi K2',
+    description: 'Moonshot AI\'s advanced reasoning model',
+  },
+  'glm-4.5': {
+    adapterType: 'openrouter',
+    model: 'zai/glm-4.5',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: true,
+      maxContextTokens: 128000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'GLM 4.5',
+    description: 'Z.ai\'s latest general language model',
+  },
+  // NVIDIA NIM models (free via NVIDIA_API_KEY)
+  'nemotron-3-ultra': {
+    adapterType: 'nvidia',
+    model: 'nvidia/nemotron-3-ultra',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 4096,
+    },
+    displayName: 'Nemotron 3 Ultra',
+    description: 'NVIDIA\'s top reasoning model (free via NIM)',
+  },
+  'llama-3.1-405b': {
+    adapterType: 'nvidia',
+    model: 'meta/llama-3.1-405b-instruct',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'Llama 3.1 405B',
+    description: 'Meta\'s largest open model (free via NIM)',
+  },
+  'llama-3.1-70b': {
+    adapterType: 'nvidia',
+    model: 'meta/llama-3.1-70b-instruct',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'Llama 3.1 70B',
+    description: 'Balanced performance/cost for design tasks',
+  },
+  // Local models (via Ollama)
+  'qwen2.5-coder-32b': {
+    adapterType: 'ollama',
+    model: 'qwen2.5-coder:32b',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'Qwen2.5-Coder 32B',
+    description: 'Best open coding model, runs locally',
+  },
+  'deepseek-coder-v2': {
+    adapterType: 'ollama',
+    model: 'deepseek-coder-v2:236b',
+    capabilities: {
+      streaming: true,
+      jsonMode: true,
+      toolCalling: true,
+      vision: false,
+      maxContextTokens: 128000,
+      maxOutputTokens: 8192,
+    },
+    displayName: 'DeepSeek-Coder-V2',
+    description: 'Strong reasoning for complex design logic',
+  },
+};
+
+/**
  * Determine capabilities based on key entry
  */
 function getCapabilitiesForEntry(entry: LlmKeyEntry): LLMCapabilities {
@@ -158,6 +356,57 @@ export const adapterFactory: AdapterFactory = {
     return ["openrouter", "nvidia", "openai-compatible", "ollama", "local", "auto"];
   },
 };
+
+/**
+ * Create an adapter for a specific design model
+ */
+export async function createDesignModelAdapter(modelKey: keyof typeof DESIGN_MODEL_CONFIGS): Promise<LLMAdapter> {
+  const config = DESIGN_MODEL_CONFIGS[modelKey];
+  if (!config) {
+    throw new LLMAdapterError(`Unknown design model: ${modelKey}`, "UNKNOWN_DESIGN_MODEL", false);
+  }
+
+  // For openrouter/nvidia/openai-compatible, we need the key from the pool
+  if (config.adapterType === 'openrouter' || config.adapterType === 'nvidia' || config.adapterType === 'openai-compatible') {
+    const allKeys = await listKeys();
+    // Find a matching key for the provider
+    let providerFilter = '';
+    if (config.adapterType === 'openrouter') providerFilter = 'openrouter';
+    else if (config.adapterType === 'nvidia') providerFilter = 'nvidia';
+
+    const matchingKey = allKeys.find(k => k.provider === providerFilter && isHealthy(k));
+    if (!matchingKey) {
+      throw new LLMAdapterError(
+        `No healthy ${config.adapterType} key available for ${config.displayName}`,
+        "NO_KEY_FOR_PROVIDER",
+        true
+      );
+    }
+    return new OpenAICompatibleAdapter(
+      matchingKey.baseUrl,
+      matchingKey.apiKey,
+      config.model,
+      config.capabilities
+    );
+  }
+
+  // For local/Ollama
+  if (config.adapterType === 'ollama' || config.adapterType === 'local') {
+    return await createLocalAdapter(config.baseUrl ?? 'http://localhost:11434', config.model);
+  }
+
+  throw new LLMAdapterError(`Unsupported adapter type: ${config.adapterType}`, "UNSUPPORTED_ADAPTER", false);
+}
+
+/**
+ * Get available design models with their configs
+ */
+export function getDesignModels() {
+  return Object.entries(DESIGN_MODEL_CONFIGS).map(([key, config]) => ({
+    id: key,
+    ...config,
+  }));
+}
 
 /**
  * Get adapter info for debugging/status (doesn't expose sensitive data)

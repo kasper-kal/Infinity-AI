@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { DesignCanvasEngine } from "../../lib/design-canvas";
 import { createAmbientIntelligence, AmbientIntelligence } from "../../lib/ambient-intelligence";
 import { requireAuth, AuthenticatedRequest } from "../../middleware/auth-middleware";
+import { getDesignModels } from "../../lib/adapter-factory";
 
 function getProjectId(req: AuthenticatedRequest): string {
   return Array.isArray(req.params.projectId) ? req.params.projectId[0] : req.params.projectId;
@@ -592,6 +593,47 @@ router.post("/design-canvas/:projectId/ambient/preferences", requireAuth, async 
   } catch (error) {
     console.error('Set preferences error:', error);
     return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to set preferences" });
+  }
+});
+
+// ============================================================================
+// Ambient Intelligence Model Selection Endpoints
+// ============================================================================
+
+/** Get available design models */
+router.get("/design-canvas/:projectId/ambient/models", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const models = getDesignModels();
+    return res.json({ ok: true, models });
+  } catch (error) {
+    console.error('Get design models error:', error);
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to get design models" });
+  }
+});
+
+/** Get currently selected model */
+router.get("/design-canvas/:projectId/ambient/model", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const projectId = getProjectId(req);
+    const ambient = getAmbientEngine(projectId);
+    return res.json({ ok: true, model: ambient.getDesignModel() });
+  } catch (error) {
+    console.error('Get selected model error:', error);
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to get selected model" });
+  }
+});
+
+/** Set selected model for ambient intelligence */
+router.post("/design-canvas/:projectId/ambient/model", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const projectId = getProjectId(req);
+    const { model } = req.body;
+    const ambient = getAmbientEngine(projectId);
+    ambient.setDesignModel(model);
+    return res.json({ ok: true, model: ambient.getDesignModel() });
+  } catch (error) {
+    console.error('Set model error:', error);
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : "Failed to set model" });
   }
 });
 

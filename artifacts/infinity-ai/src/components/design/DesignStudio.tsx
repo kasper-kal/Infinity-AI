@@ -7,7 +7,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Palette, Hash, Layout, Sparkles, X, ChevronLeft, ChevronRight, Menu, Settings, Save, Share2, Download, Upload, Eye, Code2, Zap, EyeOff, Lock, Unlock, Box, Type, Square, Image, Monitor, Check, X as XIcon } from 'lucide-react';
+import { Layers, Palette, Hash, Layout, Sparkles, X, ChevronLeft, ChevronRight, Menu, Settings, Save, Share2, Download, Upload, Eye, Code2, Zap, EyeOff, Lock, Unlock, Box, Type, Square, Image, Monitor, Check, X as XIcon, Cpu, Sparkle } from 'lucide-react';
 import { DesignCanvas } from './DesignCanvas';
 import { DesignSystemPanel } from './DesignSystemPanel';
 import { MobbinSidebar } from './MobbinSidebar';
@@ -17,7 +17,7 @@ import { getCanvasEngine } from '@/lib/design-canvas-engine';
 import type { MobbinClient } from '@/lib/mobbin-client';
 import { getMobbinClient } from '@/lib/mobbin-client';
 import { useAmbientSSE } from '@/hooks/use-ambient-sse';
-import type { AmbientSuggestion } from '@/lib/design-canvas-engine';
+import type { AmbientSuggestion, DesignModelConfig } from '@/lib/design-canvas-engine';
 
 interface DesignStudioProps {
   projectId?: string;
@@ -290,6 +290,9 @@ export function DesignStudio({ projectId, open, onClose, initialImage }: DesignS
                 onReject={async (id) => { await rejectSuggestion(id, projectId!); }}
                 onGenerate={async () => { await generateSuggestions(projectId!); }}
                 projectId={projectId}
+                availableModels={ambientModels}
+                selectedModel={ambientSelectedModel}
+                onModelChange={async (modelId) => { await setDesignModel(modelId, projectId!); }}
               />
             </div>
           )}
@@ -445,7 +448,10 @@ function AmbientSuggestionsPanel({
   onAccept,
   onReject,
   onGenerate,
-  projectId
+  projectId,
+  availableModels,
+  selectedModel,
+  onModelChange
 }: {
   suggestions: any[];
   isConnected: boolean;
@@ -453,6 +459,9 @@ function AmbientSuggestionsPanel({
   onReject: (id: string) => Promise<void>;
   onGenerate: () => Promise<void>;
   projectId?: string;
+  availableModels: DesignModelConfig[];
+  selectedModel: string | null;
+  onModelChange: (modelId: string | null) => void;
 }) {
   const { t } = useTranslation();
 
@@ -473,6 +482,30 @@ function AmbientSuggestionsPanel({
 
   return (
     <div className="ambient-suggestions">
+      {/* Model Selector */}
+      {availableModels.length > 0 && (
+        <div className="ambient-model-selector">
+          <label className="model-selector-label">
+            <Cpu size={14} /> {t('design.ambient.model')}
+          </label>
+          <select
+            className="model-selector"
+            value={selectedModel || ''}
+            onChange={(e) => onModelChange(e.target.value || null)}
+          >
+            <option value="">{t('design.ambient.autoModel')}</option>
+            {availableModels.map(model => (
+              <option key={model.id} value={model.id}>
+                {model.displayName}
+              </option>
+            ))}
+          </select>
+          <p className="model-selector-hint">
+            <Sparkle size={12} /> {t('design.ambient.modelHint')}
+          </p>
+        </div>
+      )}
+
       {suggestions.map(suggestion => (
         <div key={suggestion.id} className="ambient-suggestion">
           <div className="suggestion-header">

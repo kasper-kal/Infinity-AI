@@ -9,13 +9,23 @@
 
 import { EventEmitter } from 'events';
 import { DesignCanvasEngine, CanvasArtifact, Layer } from './design-canvas';
-import { createBestAdapter } from './adapter-factory';
+import { createBestAdapter, createDesignModelAdapter, getDesignModels } from './adapter-factory';
 import { LLMAdapter } from './llm-adapter';
 import { buildInfinityPrompt } from './infinity-prompt';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+export interface DesignModelConfig {
+  id: string;
+  adapterType: 'openrouter' | 'nvidia' | 'openai-compatible' | 'ollama' | 'local';
+  model: string;
+  baseUrl?: string;
+  capabilities: any;
+  displayName: string;
+  description: string;
+}
 
 export interface AmbientSuggestion {
   id: string;
@@ -80,6 +90,7 @@ export class AmbientIntelligence extends EventEmitter {
     recentChoices: [],
   };
   private adapter: LLMAdapter | null = null;
+  private selectedModel: string | null = null; // Model key from DESIGN_MODEL_CONFIGS
   private generationTimer: NodeJS.Timeout | null = null;
   private isGenerating = false;
   private debounceMs = 2000; // Wait 2s after changes before generating
@@ -89,6 +100,28 @@ export class AmbientIntelligence extends EventEmitter {
     super();
     this.canvas = canvas;
     this.setupCanvasListeners();
+  }
+
+  /**
+   * Set the model to use for design generation
+   */
+  setDesignModel(modelKey: string | null): void {
+    this.selectedModel = modelKey;
+    this.adapter = null; // Reset adapter so it recreates with new model
+  }
+
+  /**
+   * Get the currently selected model
+   */
+  getDesignModel(): string | null {
+    return this.selectedModel;
+  }
+
+  /**
+   * Get available design models
+   */
+  static getAvailableModels() {
+    return getDesignModels();
   }
 
   private setupCanvasListeners(): void {
@@ -166,9 +199,14 @@ export class AmbientIntelligence extends EventEmitter {
   }
 
   private async queryLLM(context: AmbientContext): Promise<AmbientSuggestion[]> {
+    // Use selected model if set, otherwise fall back to best available
     if (!this.adapter) {
       try {
-        this.adapter = await createBestAdapter();
+        if (this.selectedModel) {
+          this.adapter = await createDesignModelAdapter(this.selectedModel as keyof typeof import('./adapter-factory').DESIGN_MODEL_CONFIGS);
+        } else {
+          this.adapter = await createBestAdapter();
+        }
       } catch {
         // Fallback: template-based suggestions
         return this.generateTemplateSuggestions(context);

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AmbientSuggestion, UserPreferences } from '../../../api-server/src/lib/ambient-intelligence';
+import type { AmbientSuggestion, UserPreferences, DesignModelConfig } from '../../../api-server/src/lib/ambient-intelligence';
 
 interface AmbientSSEEvent {
   type: 'connected' | 'suggestions:snapshot' | 'suggestion:generated' | 'suggestion:accepted' | 'suggestion:rejected' | 'preferences:updated';
@@ -25,12 +25,20 @@ interface UseAmbientSSEReturn {
   generateSuggestions: (projectId: string) => Promise<AmbientSuggestion[]>;
   setPreferences: (preferences: Partial<UserPreferences>, projectId: string) => Promise<UserPreferences>;
   getSuggestions: (projectId: string) => Promise<AmbientSuggestion[]>;
+  // Model selection
+  availableModels: DesignModelConfig[];
+  selectedModel: string | null;
+  setDesignModel: (modelId: string | null, projectId: string) => Promise<string | null>;
+  getAvailableModels: (projectId: string) => Promise<DesignModelConfig[]>;
+  getSelectedModel: (projectId: string) => Promise<string | null>;
 }
 
 export function useAmbientSSE(projectId: string | null): UseAmbientSSEReturn {
   const [suggestions, setSuggestions] = useState<AmbientSuggestion[]>([]);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [availableModels, setAvailableModels] = useState<DesignModelConfig[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -227,6 +235,71 @@ export function useAmbientSSE(projectId: string | null): UseAmbientSSEReturn {
     }
   }, []);
 
+  // Get available design models
+  const getAvailableModels = useCallback(async (projectId: string): Promise<DesignModelConfig[]> => {
+    try {
+      const res = await fetch(`/api/infinity/design-canvas/${projectId}/ambient/models`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const models = data.models ?? [];
+      setAvailableModels(models);
+      return models;
+    } catch (err) {
+      console.error('[AmbientSSE] Get available models failed:', err);
+      return [];
+    }
+  }, []);
+
+  // Get currently selected model
+  const getSelectedModel = useCallback(async (projectId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/infinity/design-canvas/${projectId}/ambient/model`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const model = data.model ?? null;
+      setSelectedModel(model);
+      return model;
+    } catch (err) {
+      console.error('[AmbientSSE] Get selected model failed:', err);
+      return null;
+    }
+  }, []);
+
+  // Set selected model for ambient intelligence
+  const setDesignModel = useCallback(async (modelId: string | null, projectId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/infinity/design-canvas/${projectId}/ambient/model`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId }),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to set model');
+      }
+      const data = await res.json();
+      const model = data.model ?? null;
+      setSelectedModel(model);
+      return model;
+    } catch (err) {
+      console.error('[AmbientSSE] Set model failed:', err);
+      return null;
+    }
+  }, []);
+
+  // Load models on project change
+  useEffect(() => {
+    if (projectId) {
+      getAvailableModels(projectId);
+      getSelectedModel(projectId);
+    }
+  }, [projectId, getAvailableModels, getSelectedModel]);
+
   return {
     suggestions,
     preferences,
@@ -236,5 +309,10 @@ export function useAmbientSSE(projectId: string | null): UseAmbientSSEReturn {
     generateSuggestions,
     setPreferences: setPreferencesAPI,
     getSuggestions,
+    availableModels,
+    selectedModel,
+    setDesignModel,
+    getAvailableModels,
+    getSelectedModel,
   };
 }
