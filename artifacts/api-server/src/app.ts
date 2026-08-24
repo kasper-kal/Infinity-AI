@@ -59,42 +59,34 @@ app.use(cors({
 app.use(cookieParser());
 // Note: body parsers now applied per-route below
 
-// Public router for endpoints that don't require authentication
-const publicRouter = express.Router();
+// Public routes that don't require authentication
+app.use("/api/auth", json1mb, urlencoded1mb, (await import("./routes/infinity/auth")).default);
+app.use("/api/health", (await import("./routes/health")).default);
+app.use("/api/extension", (await import("./routes/infinity/extension")).default);
 
-// Mount public endpoints BEFORE auth middleware
-// These must be explicitly listed as public
-publicRouter.use("/auth", urlencoded1mb, (await import("./routes/infinity/auth")).default);
-publicRouter.use("/health", (await import("./routes/health")).default);
-publicRouter.use("/extension", (await import("./routes/infinity/extension")).default);
-
-// Apply public routes
-app.use("/api", publicRouter);
-
-// Global authentication middleware - protects all remaining /api routes
-app.use("/api", requireAuth);
-
-// Main router (all routes now require auth by default)
+// Protected routes - all /api/infinity/* require auth
 // Apply per-route body parsers based on endpoint category
 // /chat, /memory, /research → 1mb
 // /build/* → 10mb
 // /files/*, /import/upload → multer
 // /data/import → 50mb
-app.use("/api/infinity/chat", json1mb, urlencoded1mb);
-app.use("/api/infinity/memories", json1mb, urlencoded1mb);
-app.use("/api/infinity/project-memories", json1mb, urlencoded1mb);
-app.use("/api/infinity/research", json1mb, urlencoded1mb);
-app.use("/api/infinity/build", json10mb, urlencoded10mb);
-app.use("/api/infinity/build-checkpoints", json10mb, urlencoded10mb);
-app.use("/api/infinity/build-telemetry", json10mb, urlencoded10mb);
-app.use("/api/infinity/build-export", json10mb, urlencoded10mb);
-app.use("/api/infinity/build-schedules", json10mb, urlencoded10mb);
-app.use("/api/files", upload.any()); // multipart for file uploads
-app.use("/api/import", upload.any()); // multipart for archive imports
+app.use("/api/infinity/chat", requireAuth, json1mb, urlencoded1mb);
+app.use("/api/infinity/memories", requireAuth, json1mb, urlencoded1mb);
+app.use("/api/infinity/project-memories", requireAuth, json1mb, urlencoded1mb);
+app.use("/api/infinity/research", requireAuth, json1mb, urlencoded1mb);
+app.use("/api/infinity/build", requireAuth, json10mb, urlencoded10mb);
+app.use("/api/infinity/build-checkpoints", requireAuth, json10mb, urlencoded10mb);
+app.use("/api/infinity/build-telemetry", requireAuth, json10mb, urlencoded10mb);
+app.use("/api/infinity/build-export", requireAuth, json10mb, urlencoded10mb);
+app.use("/api/infinity/build-schedules", requireAuth, json10mb, urlencoded10mb);
+app.use("/api/infinity/files", requireAuth, upload.any()); // multipart for file uploads
+app.use("/api/infinity/import", requireAuth, upload.any()); // multipart for archive imports
 // For data import endpoints if they exist
-app.use("/api/infinity/data", json50mb, urlencoded10mb);
+app.use("/api/infinity/data", requireAuth, json50mb, urlencoded10mb);
 // Default for all other infinity routes: 1mb
-app.use("/api/infinity", json1mb, urlencoded1mb);
+app.use("/api/infinity", requireAuth, json1mb, urlencoded1mb);
+
+// Main router (mounted at /api, routes under /infinity/*)
 app.use("/api", router);
 
 // ── Serve built frontend static files (production only) ──

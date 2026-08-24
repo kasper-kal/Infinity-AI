@@ -29,7 +29,7 @@ export async function requireAuth(
   next: NextFunction
 ): Promise<void> {
   try {
-    const sessionId = req.cookies?.["session_id"];
+    const sessionId = req.cookies?.["infinity_session"];
     if (!sessionId) {
       res.status(401).json({ success: false, error: "Not authenticated" });
       return;
@@ -44,7 +44,7 @@ export async function requireAuth(
         revokedAt: sessions.revokedAt,
       })
       .from(sessions)
-      .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, now)))
+      .where(and(eq(sessions.token, sessionId), gt(sessions.expiresAt, now)))
       .limit(1);
 
     if (!session) {
@@ -135,7 +135,7 @@ export async function optionalAuth(
   next: NextFunction
 ): Promise<void> {
   try {
-    const sessionId = req.cookies?.["session_id"];
+    const sessionId = req.cookies?.["infinity_session"];
     if (!sessionId) {
       next();
       return;
@@ -150,7 +150,7 @@ export async function optionalAuth(
         revokedAt: sessions.revokedAt,
       })
       .from(sessions)
-      .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, now)))
+      .where(and(eq(sessions.token, sessionId), gt(sessions.expiresAt, now)))
       .limit(1);
 
     if (!session || session.revokedAt) {

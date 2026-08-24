@@ -31,10 +31,10 @@ const COOKIE_OPTIONS = {
 };
 
 /**
- * POST /api/infinity/auth/register
+ * POST /api/infinity/register
  * Register a new account
  */
-router.post("/auth/register", registerRateLimiter, async (req: Request, res: Response) => {
+router.post("/register", registerRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, displayName } = req.body as {
       email?: string;
@@ -96,10 +96,10 @@ router.post("/auth/register", registerRateLimiter, async (req: Request, res: Res
 });
 
 /**
- * POST /api/infinity/auth/login
+ * POST /api/infinity/login
  * Login with email and password
  */
-router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response) => {
+router.post("/login", loginRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
 
@@ -146,10 +146,10 @@ router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response)
 });
 
 /**
- * POST /api/infinity/auth/logout
+ * POST /api/infinity/logout
  * Logout current session
  */
-router.post("/auth/logout", async (req: Request, res: Response) => {
+router.post("/logout", async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (token) {
@@ -164,10 +164,10 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/infinity/auth/me
+ * GET /api/infinity/me
  * Get current authenticated account
  */
-router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) => {
+router.get("/me", authMeRateLimiter, async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (!token) {
@@ -209,11 +209,11 @@ router.get("/auth/me", authMeRateLimiter, async (req: Request, res: Response) =>
 });
 
 /**
- * PUT /api/infinity/auth/profile
+ * PUT /api/infinity/profile
  * Update account profile (display name, avatar, email)
  * Email change invalidates all other sessions for security
  */
-router.put("/auth/profile", async (req: Request, res: Response) => {
+router.put("/profile", async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (!token) {
@@ -283,10 +283,10 @@ router.put("/auth/profile", async (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/infinity/auth/password
+ * PUT /api/infinity/password
  * Change password
  */
-router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Response) => {
+router.put("/password", passwordRateLimiter, async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (!token) {
@@ -347,10 +347,10 @@ router.put("/auth/password", passwordRateLimiter, async (req: Request, res: Resp
 });
 
 /**
- * POST /api/infinity/auth/revoke-sessions
+ * POST /api/infinity/revoke-sessions
  * Revoke all other sessions for the current account (keep current session)
  */
-router.post("/auth/revoke-sessions", async (req: Request, res: Response) => {
+router.post("/revoke-sessions", async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (!token) {
@@ -382,10 +382,10 @@ router.post("/auth/revoke-sessions", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/infinity/auth/revoke-session/:sessionId
+ * POST /api/infinity/revoke-session/:sessionId
  * Revoke a specific session by its token
  */
-router.post("/auth/revoke-session/:sessionId", async (req: Request, res: Response) => {
+router.post("/revoke-session/:sessionId", async (req: Request, res: Response) => {
   try {
     const token = req.cookies?.infinity_session;
     if (!token) {
