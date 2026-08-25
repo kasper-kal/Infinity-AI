@@ -57,3 +57,4 @@ export const filesDatabaseConfigured = !!filesConnectionString;
 export { files };
 
 export * from "./schema";
+export * from "./schema/mobile-apps.js";

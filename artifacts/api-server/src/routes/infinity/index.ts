@@ -69,6 +69,7 @@ import localModelRouter from "./local-model";
 import deepResearchV2Router from "./deep-research-v2";
 import projectMapRouter from "./project-map";
 import designCanvasRouter from "./design-canvas";
+import mobileAppsRouter from "./mobile-apps";
 
 const router = Router();
 
@@ -117,6 +118,7 @@ router.use(buildExportRouter);
 router.use("/build/schedules", buildSchedulesRouter);
 router.use("/project-map", projectMapRouter);
 router.use(designCanvasRouter);
+router.use("/mobile-apps", mobileAppsRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);
