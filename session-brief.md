@@ -4,9 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-25 00:05
+LAST_UPDATED: 2026-08-25 00:25
 
 ## Just did (last action)
+- **Phase 10: Mobile App Development (React Native + Expo) — COMPLETE ✅** — Full mobile app lifecycle from browser:
+  - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
+  - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
+  - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
+  - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
+  - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
+  - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
+  - **i18n**: 100+ mobile.* translation keys in English and Dutch
+  - PHASES.md: Phase 10 marked ✅ COMPLETE, all 10 file tasks checked off
 - **PHASES.md: Added Phase 34: Context Auto-Compact & Limit Recognition** — New final phase for intelligent context management:
   - Token budget tracking with per-model limits (128K-1M from DESIGN_MODEL_CONFIGS)
   - 4-level auto-compaction pipeline (Summarize → Compress → Goal+State → Emergency)
@@ -300,19 +309,19 @@ LAST_UPDATED: 2026-08-25 00:05
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 9 — Parallel Agent Execution (Replit Agent 4 Style)** ✅ **COMPLETE** — Backend infrastructure (`parallel-orchestrator.ts`, `agent-pool.ts`, `merge-engine.ts`) + Agent Panel UI (`AgentPanel.tsx` integrated into `BuildView.tsx`) complete with:
-  - Task decomposition via planner subagent
-  - Parallel agent pool with concurrency limits & token budgets
-  - Real-time SSE progress events (AgentProgressEvent)
-  - Per-workstream checkpoints with create/rollback controls
-  - Three-way merge engine (code + design systems)
-  - Shared context store with versioning & pub/sub
-  - Agent Panel UI: workstream list, detail view (Overview/Logs/Checkpoints tabs), compact mode, real-time log streaming, merge conflict visualization
+- **Current Phase:** **Phase 10 — Mobile App Development (React Native + Expo)** ✅ **COMPLETE** — Full mobile app lifecycle from browser:
+  - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
+  - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
+  - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
+  - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
+  - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
+  - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
+  - **i18n**: 100+ mobile.* translation keys in English and Dutch
 
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution)
-- **Next Phases:** Phase 10 (Mobile App Development - React Native + Expo), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support)
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
+- **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-25 00:25 — Phase 9 complete + Phase 32 added + Phase 33 added: Phase 32 "Infinity Self-Management & Live Task Intelligence" (Secrets Manager, Self-Settings, Dynamic Island). Phase 33 "AI-Managed Roadmap (Build Map Intelligence)" added as new phase with 11 roadmap tools (create/update/delete/connect/disconnect/split/merge/complete/block/reorder/get), node operations, dependency management, structural operations, status operations, roadmap state access, intentional changes only, user visibility, human+AI collaboration, dependency-aware planning, versioned persistence. AI-Managed Roadmap removed from Phase 1.
+**LAST_UPDATED:** 2026-08-25 00:30 — Phase 10 complete + Phase 34 added: Phase 32 "Infinity Self-Management & Live Task Intelligence", Phase 33 "AI-Managed Roadmap (Build Map Intelligence)", Phase 34 "Context Auto-Compact & Limit Recognition" added to PHASES.md
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -709,19 +718,18 @@ LAST_UPDATED: 2026-08-25 00:05
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 10: Mobile App Development (React Native + Expo)** — **PLANNED**: React Native project generator, Expo Go preview, native device features, backend integration, App Store/Play Store submission, mobile templates, web↔mobile code sharing, **Figma iOS/Android asset sync** (new requirement)
-2. **Phase 11: Security Scanner + Secrets Manager** — **PLANNED**: Semgrep scanner + LLM false positive filter, encrypted secrets manager, secret detection, pre-deployment scan, security dashboard
-3. **Phase 12: Multi-Artifact Support** — **PLANNED**: Artifact type registry, parallel artifact builds, shared foundation, artifact-specific generators, cross-artifact sync, unified deploy
-4. **Phase 13: External Service Connectors** — **PLANNED**: Connector framework, Linear/Slack/Notion/Google Sheets/GitHub/Figma connectors, agent tool access, bi-directional sync, connector UI
-5. **Phase 14: Enterprise Features** — **PLANNED**: SSO/SAML/OIDC, SCIM, VPC peering, single-tenant, static outbound IPs, region selection, audit logs, observability export, RBAC
-6. **Phase 15: Agent Skills & Custom Instructions Marketplace** — **PLANNED**: Skill definition format, project/team-scoped skills, marketplace, custom instructions, skill inheritance, analytics
-7. **Phase 16: v0-Level Generative UI Engine** — **PLANNED**: UI Builder chat mode, live preview, shadcn/ui + Radix integration, codegen pipeline, one-click deploy
-8. **Phase 17: Visual Component Editor** — **PLANNED**: Visual element inspector, prop editor panel, bidirectional code sync
-9. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings (accent, avatar, density, notifications, editor), Secrets Manager, Live Dynamic Island (10 task categories), AI-Managed Roadmap (11 tools, node ops, deps, structural, status, versioned persistence)
-10. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools (create/update/get/list/connect/split/merge/reorder/delete/bulk/status/version), visual graph + activity feed, BuildView integration
-11. **Phase 34: Context Auto-Compact & Limit Recognition** — **PLANNED**: Token budget tracking, 4-level auto-compaction, preservation rules, visibility/control via Debug panel, integration points
-12. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
-13. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
+1. **Phase 11: Security Scanner + Secrets Manager** — **PLANNED**: Semgrep scanner + LLM false positive filter, encrypted secrets manager, secret detection, pre-deployment scan, security dashboard
+2. **Phase 12: Multi-Artifact Support** — **PLANNED**: Artifact type registry, parallel artifact builds, shared foundation, artifact-specific generators, cross-artifact sync, unified deploy
+3. **Phase 13: External Service Connectors** — **PLANNED**: Connector framework, Linear/Slack/Notion/Google Sheets/GitHub/Figma connectors, agent tool access, bi-directional sync, connector UI
+4. **Phase 14: Enterprise Features** — **PLANNED**: SSO/SAML/OIDC, SCIM, VPC peering, single-tenant, static outbound IPs, region selection, audit logs, observability export, RBAC
+5. **Phase 15: Agent Skills & Custom Instructions Marketplace** — **PLANNED**: Skill definition format, project/team-scoped skills, marketplace, custom instructions, skill inheritance, analytics
+6. **Phase 16: v0-Level Generative UI Engine** — **PLANNED**: UI Builder chat mode, live preview, shadcn/ui + Radix integration, codegen pipeline, one-click deploy
+7. **Phase 17: Visual Component Editor** — **PLANNED**: Visual element inspector, prop editor panel, bidirectional code sync
+8. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings (accent, avatar, density, notifications, editor), Secrets Manager, Live Dynamic Island (10 task categories), AI-Managed Roadmap (11 tools, node ops, deps, structural, status, versioned persistence)
+9. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools (create/update/get/list/connect/split/merge/reorder/delete/bulk/status/version), visual graph + activity feed, BuildView integration
+10. **Phase 34: Context Auto-Compact & Limit Recognition** — **PLANNED**: Token budget tracking, 4-level auto-compaction, preservation rules, visibility/control via Debug panel, integration points
+11. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
+12. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
