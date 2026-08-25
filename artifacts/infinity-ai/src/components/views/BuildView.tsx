@@ -35,6 +35,7 @@ import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MobileAppsView } from "@/components/mobile/MobileAppsView";
+import { SecurityDashboard } from "@/components/security/SecurityDashboard";
 
 export interface BuildViewProps {
   /** Active project ID */
@@ -80,7 +81,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile'>('plan');
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security'>('plan');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -93,7 +94,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state
-  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'agents' | 'tools'>('terminal');
+  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'agents' | 'tools' | 'security'>('terminal');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -211,6 +212,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
         ),
       },
       {
+        id: 'security',
+        label: t('build.tabs.security'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" />
+          </svg>
+        ),
+      },
+      {
         id: 'tools',
         label: t('build.sidebar.sections.tools'),
         icon: (
@@ -299,6 +309,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'tools' && (
             <div className="flex flex-col h-full p-4 space-y-4">
               <BuildDebugPanel workspaceId={projectId ?? ''} />
+            </div>
+          )}
+          {bottomNavTab === 'security' && (
+            <div className="flex flex-col h-full p-4">
+              <SecurityDashboard projectId={projectId ?? ''} />
             </div>
           )}
         </div>
@@ -477,7 +492,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ButtonGroup>
-              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile'].map((tab) => (
+              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security'].map((tab) => (
                 <Button
                   key={tab}
                   variant={buildTab === tab ? 'primary' : 'ghost'}
@@ -581,6 +596,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 active={buildTab === 'agents'}
               />
               <AppShellSidebarNavItem
+                label={t('build.tabs.security')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>}
+                onClick={() => setBuildTab('security')}
+                active={buildTab === 'security'}
+              />
+              <AppShellSidebarNavItem
                 label={t('mobile.title')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>}
                 onClick={() => setBuildTab('mobile')}
@@ -666,6 +687,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
               <MobileAppsView projectId={projectId} onProjectChange={onProjectChange} />
             </div>
           )}
+          {buildTab === 'security' && (
+            <div className="flex flex-col h-full">
+              <SecurityDashboard projectId={projectId ?? ''} />
+            </div>
+          )}
         </div>
 
         {/* Command input bar for terminal */}
@@ -720,6 +746,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           { id: 'plan', label: t('build.sidebar.plan'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, action: () => setBuildTab('plan') },
           { id: 'transcript', label: t('build.sidebar.recentBuilds'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>, action: () => setBuildTab('transcript') },
           { id: 'terminal', label: t('build.sidebar.terminal'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>, action: () => setBuildTab('terminal') },
+          { id: 'security', label: t('build.tabs.security'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>, action: () => setBuildTab('security') },
           { id: 'mobile', label: t('mobile.title'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>, action: () => setBuildTab('mobile') },
         ]}
       />

@@ -456,6 +456,7 @@ const en = {
   "build.tabs.agents": "Agents",
   "build.tabs.chat": "Chat",
   "build.tabs.build": "Build",
+  "build.tabs.security": "Security",
   "build.sidebar.sections.project": "Project",
   "build.sidebar.sections.history": "History",
   "build.sidebar.sections.tools": "Tools",
@@ -2244,6 +2245,7 @@ const nl: Record<keyof typeof en, string> = {
   "build.tabs.terminal": "Terminal",
   "build.tabs.chat": "Chat",
   "build.tabs.build": "Build",
+  "build.tabs.security": "Beveiliging",
   "build.sidebar.sections.project": "Project",
   "build.sidebar.sections.history": "Geschiedenis",
   "build.sidebar.sections.tools": "Hulpmiddelen",
@@ -3013,7 +3015,6 @@ const nl: Record<keyof typeof en, string> = {
   "security.common.environment": "Omgeving",
   "security.common.project": "Project",
   "security.common.workspace": "Werkruimte",
-};
 };
 
 export type TranslationKey = keyof typeof en;

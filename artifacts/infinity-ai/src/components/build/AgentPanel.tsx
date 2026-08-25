@@ -439,14 +439,11 @@ function WorkstreamRow({ workstream, selected, onClick, compact }: WorkstreamRow
           )}
           <div className="flex items-center gap-2 mt-1">
             <div className="flex items-center gap-1 flex-1">
-            <Progress value={workstream.progress} className="flex-1 h-1" />
-            <span className="text-xs text-muted-foreground font-mono shrink-0">
-              {workstream.progress}%
-            </span>
-          </div>
-            <span className="text-xs text-muted-foreground font-mono">
-              {workstream.progress}%
-            </span>
+              <Progress value={workstream.progress} className="flex-1 h-1" />
+              <span className="text-xs text-muted-foreground font-mono shrink-0">
+                {workstream.progress}%
+              </span>
+            </div>
           </div>
           {workstream.dependencies.length > 0 && !compact && (
             <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -848,5 +845,4 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
-
-export default AgentPanel;
+}
