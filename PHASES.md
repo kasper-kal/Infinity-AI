@@ -52,7 +52,7 @@ Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity*
 ## 📦 Phase 1: Build Project Map Subsystem (CURRENT)
 
 ### Goal
-Add pre-build analysis that constructs persistent project understanding — framework detection, architecture mapping, change impact analysis, and smart context selection.
+Add pre-build analysis that constructs persistent project understanding — framework detection, architecture mapping, change impact analysis, and smart context selection. **The Build Map is a living document that Infinity Build actively maintains** — AI-managed roadmap where the agent creates, updates, connects, splits, merges, and reorganizes nodes as it discovers new work.
 
 ### Requirements
 - [ ] **Pre-build analysis** — construct project understanding:
@@ -69,6 +69,17 @@ Add pre-build analysis that constructs persistent project understanding — fram
 - [ ] **Persistent project map** — stored in `.infinity/project-map.json`, updated incrementally
 - [ ] **Change impact analysis** — when files modified, update map, detect affected areas
 - [ ] **Smart file inclusion** — only relevant files in context based on goal
+- [ ] **AI-Managed Roadmap** — Infinity Build can edit and maintain the roadmap as it works:
+  - [ ] **Roadmap Tools** — Exposed to agent: `roadmap.create`, `roadmap.update`, `roadmap.delete`, `roadmap.connect`, `roadmap.disconnect`, `roadmap.split`, `roadmap.merge`, `roadmap.complete`, `roadmap.block`, `roadmap.reorder`, `roadmap.get`
+  - [ ] **Node Operations** — Create/edit/delete nodes, change titles, descriptions, status, progress, priority, type
+  - [ ] **Dependency Management** — Create/remove dependencies, connect/disconnect nodes, reorganize groups
+  - [ ] **Structural Operations** — Split nodes, merge nodes, create subtasks, create milestones, rename groups
+  - [ ] **Status Operations** — Complete/reopen nodes, mark/unmark blocked, update progress
+  - [ ] **Roadmap State Access** — Agent can read current roadmap (in progress, completed, blocked, dependencies, next workable items)
+  - [ ] **Intentional Changes Only** — Infinity only modifies roadmap for meaningful project understanding changes (not cosmetic)
+  - [ ] **User Visibility** — UI shows "✦ Infinity updated the Build Map" with Added/Changed/Updated summary + activity history
+  - [ ] **Human + AI Collaboration** — Single shared data model; both user and AI operate on same roadmap
+  - [ ] **Dependency-Aware Planning** — Before substantial work, Infinity inspects roadmap to understand: in-progress, completed, blocked, dependencies, next workable items, obsolete work
 
 ### Implementation Plan
 1. **Project Map Engine** — `artifacts/api-server/src/lib/build-project-map.ts`
@@ -1335,6 +1346,113 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/Infinity/public/sw.js` (extend — offline support)
 - `artifacts/Infinity/src/hooks/useOffline.ts` (new)
 - `artifacts/Infinity/src/components/cursor/Accessibility.tsx` (new — a11y helpers)
+
+---
+
+## 📦 Phase 32: Infinity Self-Management & Live Task Intelligence
+
+### Goal
+**Infinity manages itself** — secrets, settings, and real-time task visibility. Build becomes a self-sustaining, self-aware system that securely stores its own credentials, adjusts its own configuration (with user consent), and surfaces every active task in a Live Dynamic Island — from building websites to deep research to writing books.
+
+### Requirements
+- [ ] **Infinity Build Secrets Manager** — Build saves its own API keys/secrets securely:
+  - Encrypted storage (AES-256) for OpenRouter, NVIDIA NIM, ElevenLabs, Tavily, Figma, Flux, Whisper, Spotify, Gmail, Neon, and any future provider keys
+  - Keys never exposed to LLM context — injected at runtime only
+  - Per-project + per-environment (dev/staging/prod) secret scopes
+  - Auto-rotation for supported providers (GitHub, Vercel, AWS, etc.)
+  - Secret detection in generated code — blocks commits with leaked keys
+  - UI in BuildView → Secrets tab: add/view/rotate/revoke (values masked)
+  - Integration with Phase 11 Security Scanner for pre-deployment secret scan
+- [ ] **Infinity Self-Settings (Limited, Confirmed)** — Build can modify its own settings with explicit user confirmation:
+  - **Allowed (with confirmation dialog):**
+    - Accent color / theme variant
+    - Profile picture / avatar (from uploaded file or generated)
+    - UI density (comfortable/cozy/compact)
+    - Sidebar default state (expanded/collapsed)
+    - Notification preferences (toast position, sound, duration)
+    - Language / i18n locale (EN/NL)
+    - Code editor preferences (font size, tab size, minimap, line numbers)
+    - Build Mode defaults (auto-save interval, checkpoint frequency)
+  - **FORBIDDEN (never auto-modified):**
+    - Profile settings (name, email, username, password, 2FA)
+    - Billing / subscription / payment
+    - Connected accounts (GitHub, Google, Figma, Spotify, Gmail OAuth)
+    - API keys / secrets (managed separately via Secrets Manager)
+    - Security settings (session timeout, device management)
+    - Organization / team membership
+    - Data export / deletion requests
+  - **Audit Trail** — Every self-change logged: timestamp, old value, new value, triggered by (task ID), user confirmed (yes/no)
+  - **Rollback** — One-click revert any self-made setting change
+- [ ] **Live Dynamic Island — All Active Tasks** — Persistent, always-visible task tracker showing EVERYTHING Infinity is doing:
+  - **Task Categories** (each with distinct icon/color):
+    - 🌐 Building Website / Web App (framework, files created, deploy status)
+    - 📱 Building Mobile App (platform, Expo status, device preview)
+    - 🔬 Deep Research (topic, sources found, current phase, estimated completion)
+    - ✍️ Writing Book (title, current chapter, word count, target, progress %)
+    - 🎨 Designing UI (screen/component, variations generated, preview link)
+    - 🔧 Running Build / Compile (target, progress, errors/warnings)
+    - 🧪 Running Tests (suite, passed/failed, coverage)
+    - 🚀 Deploying (platform, environment, status, URL)
+    - 🔍 Code Analysis / Security Scan (files scanned, findings)
+    - 📊 Data Processing / ETL (source, destination, records, status)
+  - **Dynamic Island UI:**
+    - Persistent pill in top-center (desktop) / top (mobile) — always visible
+    - Expands on hover/click → full task list with live progress bars
+    - Real-time updates via SSE from Build orchestrator
+    - Each task: title, category icon, progress ring, ETA, status badge, quick actions (pause, view logs, open artifact)
+    - Grouped by project — switch project filter
+    - Minimized state: shows only count + highest-priority task
+    - Keyboard accessible: `Cmd+Shift+I` to focus, arrow keys to navigate
+    - Reduce-motion respected: static progress when enabled
+  - **Task Data Source** — Aggregates from:
+    - Build orchestrator (parallel workstreams)
+    - Book Studio engine (chapter progress)
+    - Deep Research jobs (background job status)
+    - Design Canvas (active artboard, component generation)
+    - Universal Agent (active tool chains)
+    - Mobile preview (Expo Metro status)
+    - Deploy pipelines (Vercel/Netlify/Expo/EAS)
+  - **Persistence** — Survives page refresh, browser close (IndexedDB + server sync)
+
+### Implementation Plan
+1. **Secrets Manager Core** — `artifacts/api-server/src/lib/infinity-secrets-manager.ts`
+   - AES-256-GCM encryption with per-project keys (derived from project ID + master key)
+   - Runtime injection middleware: intercept build/runtime env, inject secrets without logging
+   - API: `setSecret(projectId, env, key, value)`, `getSecret(projectId, env, key)`, `listSecrets(projectId, env)`, `rotateSecret(...)`, `deleteSecret(...)`
+   - Secret detection regex/ML scanner for generated code
+2. **Self-Settings Engine** — `artifacts/api-server/src/lib/infinity-self-settings.ts`
+   - Schema defining allowed/forbidden settings with validation
+   - Confirmation flow: agent proposes change → UI shows diff → user confirms → apply + audit log
+   - Audit log table: `infinity_settings_audit` (id, projectId, settingKey, oldValue, newValue, triggeredByTaskId, userConfirmed, timestamp)
+   - Rollback API: `revertSetting(auditId)`
+3. **Dynamic Island Core** — `artifacts/api-server/src/lib/dynamic-island.ts`
+   - Task registry: `registerTask(task: DynamicIslandTask)`, `updateTask(id, updates)`, `completeTask(id)`, `removeTask(id)`
+   - SSE endpoint: `/api/infinity/dynamic-island/stream` — pushes real-time updates
+   - Aggregation layer: pulls from all subsystems (build, book, research, design, deploy, agent)
+   - Persistence: `task_states` table extended with Dynamic Island fields
+4. **Frontend Dynamic Island** — `artifacts/Infinity/src/components/dynamic-island/DynamicIsland.tsx`
+   - Persistent portal-rendered component (z-index 9999)
+   - Compact pill → expanded panel animation (Framer Motion)
+   - Task list virtualized for performance
+   - i18n keys (EN+NL) for all task categories, statuses, actions
+   - Keyboard navigation + screen reader support
+5. **BuildView Integration** — Secrets tab + Self-Settings panel + Dynamic Island always mounted
+6. **SettingsView Integration** — "Infinity Self-Management" section showing audit log, secrets overview (masked), allowed settings toggles
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/infinity-secrets-manager.ts` (new)
+- `artifacts/api-server/src/lib/infinity-self-settings.ts` (new)
+- `artifacts/api-server/src/lib/dynamic-island.ts` (new)
+- `artifacts/api-server/src/routes/Infinity/infinity-self.ts` (new — secrets, settings, dynamic island APIs)
+- `artifacts/api-server/src/db/schema/infinity-self.ts` (new — audit log, secrets, task states extensions)
+- `artifacts/Infinity/src/components/dynamic-island/DynamicIsland.tsx` (new)
+- `artifacts/Infinity/src/components/dynamic-island/TaskCard.tsx` (new)
+- `artifacts/Infinity/src/components/dynamic-island/TaskProgressRing.tsx` (new)
+- `artifacts/Infinity/src/components/build/SecretsPanel.tsx` (new)
+- `artifacts/Infinity/src/components/build/SelfSettingsPanel.tsx` (new)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Secrets tab, Self-Settings panel, Dynamic Island mount)
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Infinity Self-Management section)
+- `artifacts/Infinity/src/lib/i18n.tsx` (add ~60 Dynamic Island + Secrets + Self-Settings keys EN+NL)
 
 ---
 
