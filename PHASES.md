@@ -49,26 +49,26 @@ Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity*
 
 ---
 
-## 📦 Phase 1: Build Project Map Subsystem (CURRENT)
+## 📦 Phase 1: Build Project Map Subsystem ✅ **COMPLETE**
 
 ### Goal
 Add pre-build analysis that constructs persistent project understanding — framework detection, architecture mapping, change impact analysis, and smart context selection. **The Build Map is a living document that Infinity Build actively maintains** — AI-managed roadmap where the agent creates, updates, connects, splits, merges, and reorganizes nodes as it discovers new work.
 
 ### Requirements
-- [ ] **Pre-build analysis** — construct project understanding:
-  - [ ] Framework (React, Vue, Svelte, Next, Vite, etc.)
-  - [ ] Package manager (pnpm, npm, yarn, bun)
-  - [ ] Entry points (main, routes, app)
-  - [ ] Architecture (monorepo, feature folders, layer structure)
-  - [ ] Important files (config, schema, types, main exports)
-  - [ ] Database (Drizzle, Prisma, raw SQL, none)
-  - [ ] Routes/API structure
-  - [ ] Components/UI library
-  - [ ] Tests (Jest, Vitest, Playwright, none)
-  - [ ] Config files (tsconfig, vite.config, tailwind, etc.)
-- [ ] **Persistent project map** — stored in `.infinity/project-map.json`, updated incrementally
-- [ ] **Change impact analysis** — when files modified, update map, detect affected areas
-- [ ] **Smart file inclusion** — only relevant files in context based on goal
+- [x] **Pre-build analysis** — construct project understanding:
+  - [x] Framework (React, Vue, Svelte, Next, Vite, etc.) — 12 frameworks detected
+  - [x] Package manager (pnpm, npm, yarn, bun)
+  - [x] Entry points (main, routes, app)
+  - [x] Architecture (monorepo, feature folders, layer structure) — 7 patterns
+  - [x] Important files (config, schema, types, main exports)
+  - [x] Database (Drizzle, Prisma, raw SQL, none) — 8 types
+  - [x] Routes/API structure
+  - [x] Components/UI library
+  - [x] Tests (Jest, Vitest, Playwright, none) — 8 frameworks
+  - [x] Config files (tsconfig, vite.config, tailwind, etc.)
+- [x] **Persistent project map** — stored in `.infinity/project-map.json`, updated incrementally
+- [x] **Change impact analysis** — when files modified, update map, detect affected areas (direct/transitive dependents, risk levels)
+- [x] **Smart file inclusion** — only relevant files in context based on goal (keyword scoring, token budget)
 
 ### Implementation Plan
 1. **Project Map Engine** — `artifacts/api-server/src/lib/build-project-map.ts`
@@ -93,14 +93,14 @@ Add pre-build analysis that constructs persistent project understanding — fram
 Implement the core orchestration primitives that make Claude Code's multi-agent workflows possible — **entirely in-browser, $0 cost**, using prompt engineering + existing chat API.
 
 ### Requirements
-- [ ] **pipeline(items, ...stages)** — concurrent, no barrier between stages (item A in stage 3 while B in stage 1)
-- [ ] **parallel(thunks)** — barrier: all complete before returning
-- [ ] **adversarialVerify(claim, votes=3)** — spawn N independent "skeptic" prompts, default to REFUTE, kill claim if majority refute
-- [ ] **judgePanel(task, approaches[], judges[])** — generate N attempts → score with M distinct lenses → synthesize winner + best ideas
-- [ ] **loopUntilDry(finders[], maxRounds=5)** — keep spawning finders until K consecutive rounds return nothing new
-- [ ] **multiModalSweep(searchAngles[])** — parallel agents each searching different way (by-container, by-content, by-entity, by-time)
-- [ ] **completenessCritic(findings[])** — final agent asks "what's missing?" → becomes next round of work
-- [ ] **Quality patterns as reusable functions** — no silent caps, log what was dropped
+- [x] **pipeline(items, ...stages)** — concurrent, no barrier between stages (item A in stage 3 while B in stage 1)
+- [x] **parallel(thunks)** — barrier: all complete before returning
+- [x] **adversarialVerify(claim, votes=3)** — spawn N independent "skeptic" prompts, default to REFUTE, kill claim if majority refute
+- [x] **judgePanel(task, approaches[], judges[])** — generate N attempts → score with M distinct lenses → synthesize winner + best ideas
+- [x] **loopUntilDry(finders[], maxRounds=5)** — keep spawning finders until K consecutive rounds return nothing new
+- [x] **multiModalSweep(searchAngles[])** — parallel agents each searching different way (by-container, by-content, by-entity, by-time)
+- [x] **completenessCritic(findings[])** — final agent asks "what's missing?" → becomes next round of work
+- [x] **Quality patterns as reusable functions** — no silent caps, log what was dropped (`logDropped`)
 
 ### Implementation Plan
 1. **Create `artifacts/api-server/src/lib/orchestration-engine.ts`** — pure TypeScript, no external deps
@@ -123,16 +123,16 @@ Implement the core orchestration primitives that make Claude Code's multi-agent 
 Define **structured-output subagents** with JSON schemas — like Claude Code's `code-reviewer`, `planner`, `researcher` — that can be spawned by the orchestration engine.
 
 ### Requirements
-- [ ] **Subagent Registry** — `artifacts/api-server/src/lib/subagents.ts` with:
-  - `code-reviewer`: finds bugs, security, perf — adversarial, defaults to "broken unless proven"
-  - `planner`: decomposes tasks → minimal verifiable steps + risk identification
-  - `researcher`: browse → extract → cite — every claim needs source URL
-  - `fixer`: targeted repairs with verification
-  - `synthesizer`: merges multiple perspectives into coherent output
-- [ ] **Structured Output** — each subagent has Zod schema, validated at tool-call layer (retries on mismatch)
-- [ ] **Model/Effort Override** — per-subagent model tier (Lite/High/Max) and reasoning effort
-- [ ] **Spawn from Orchestration Engine** — `orchestration.spawn(agentType, prompt, schema)`
-- [ ] **Perspective-Diverse Verify** — same finding judged by 3 distinct lenses (correctness, security, perf, reproducibility)
+- [x] **Subagent Registry** — `artifacts/api-server/src/lib/subagents.ts` with:
+  - [x] `code-reviewer`: finds bugs, security, perf — adversarial, defaults to "broken unless proven"
+  - [x] `planner`: decomposes tasks → minimal verifiable steps + risk identification
+  - [x] `researcher`: browse → extract → cite — every claim needs source URL
+  - [x] `fixer`: targeted repairs with verification
+  - [x] `synthesizer`: merges multiple perspectives into coherent output
+- [x] **Structured Output** — each subagent has Zod schema, validated at tool-call layer (retries on mismatch, 3 attempts)
+- [x] **Model/Effort Override** — per-subagent model tier (lite/high/max) and reasoning effort
+- [x] **Spawn from Orchestration Engine** — `spawnSubagent`, `spawnSubagentsParallel` in orchestration-engine.ts
+- [x] **Perspective-Diverse Verify** — same finding judged by 6 distinct lenses (correctness, security, performance, reproducibility, maintainability)
 
 ### Implementation Plan
 1. **Define schemas** in `subagents.ts` using Zod (already in deps)
@@ -154,16 +154,16 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 
 ### Requirements
 - [x] **Virtual Worktree Manager** — `artifacts/api-server/src/lib/virtual-worktree.ts`:
-  - `createWorktree(baseCommit)` → isolated FS snapshot (IndexedDB + OPFS)
-  - `applyPatch(worktreeId, diff)` → apply changes, return new state
-  - `getDiff(worktreeId, baseCommit)` → unified diff
-  - `mergeWorktrees(target, sources[])` — three-way merge, conflict detection
-  - `listWorktrees()` / `deleteWorktree(id)`
+  - [x] `createWorktree(baseCommit)` → isolated FS snapshot (IndexedDB + OPFS)
+  - [x] `applyPatch(worktreeId, diff)` → apply changes, return new state
+  - [x] `getDiff(worktreeId, baseCommit)` → unified diff
+  - [x] `mergeWorktrees(target, sources[])` — three-way merge, conflict detection
+  - [x] `listWorktrees()` / `deleteWorktree(id)`
 - [x] **Parallel Agent Runner** — `artifacts/api-server/src/lib/parallel-agents.ts`:
-  - Spawn N agents each with own worktree
-  - Shared context via `BroadcastChannel` (read-only file map, decisions)
-  - Results collected via `Promise.allSettled`
-  - Auto-cleanup on completion/error
+  - [x] Spawn N agents each with own worktree
+  - [x] Shared context via `BroadcastChannel` (read-only file map, decisions)
+  - [x] Results collected via `Promise.allSettled`
+  - [x] Auto-cleanup on completion/error
 - [x] **Integration** — Build Mode: each coder agent gets own worktree; reviewer sees merged diff
 - [x] **Fallback** — if OPFS unavailable, use IndexedDB-only virtual FS
 
@@ -189,20 +189,20 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 
 ### Requirements
 - [x] **Bridge Server** — `artifacts/terminal-bridge/` (new package):
-  - `node-pty` spawns `bash`/`zsh`/`fish` with inherited env
-  - WebSocket server on `ws://localhost:3001` (configurable)
-  - Auth: shared secret from `.infinity/bridge-secret` (generated on first run)
-  - Handles multiple sessions (tabs) via session ID
-  - Forwards stdin/stdout/stderr, resize, signals
+  - [x] `node-pty` spawns `bash`/`zsh`/`fish` with inherited env
+  - [x] WebSocket server on `ws://localhost:3001` (configurable)
+  - [x] Auth: shared secret from `.infinity/bridge-secret` (generated on first run)
+  - [x] Handles multiple sessions (tabs) via session ID
+  - [x] Forwards stdin/stdout/stderr, resize, signals
 - [x] **Frontend Terminal** — extend existing `xterm.js` in BuildView:
-  - Connect to `ws://localhost:3001?session=<id>&secret=<secret>`
-  - Reconnect on disconnect, buffer replay
-  - Multiple terminals (tabs) per build
+  - [x] Connect to `ws://localhost:3001?session=<id>&secret=<secret>`
+  - [x] Reconnect on disconnect, buffer replay
+  - [x] Multiple terminals (tabs) per build
 - [x] **MCP Server Bridge** — same WebSocket exposes MCP stdio transport:
-  - Filesystem MCP → bridge → local filesystem
-  - Git MCP → bridge → local git
-  - SQLite MCP → bridge → local DB
-  - Any stdio MCP server works
+  - [x] Filesystem MCP → bridge → local filesystem
+  - [x] Git MCP → bridge → local git
+  - [x] SQLite MCP → bridge → local DB
+  - [x] Any stdio MCP server works
 - [x] **Zero Config** — `npx infinity-terminal-bridge` auto-generates secret, prints connection URL
 - [x] **Security** — secret rotation, IP allowlist (localhost only), command allowlist optional
 
@@ -228,18 +228,18 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 
 ### Requirements
 - [x] **MCP Client** — `artifacts/api-server/src/lib/mcp-client.ts`:
-  - Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket
-  - `connect(config)` → discovers tools/resources/prompts
-  - `callTool(name, args)` → typed invocation with timeout/retry
-  - `listTools()` / `listResources()` / `readResource(uri)`
-  - Session management (reconnect, capability negotiation)
+  - [x] Transports: stdio (via terminal bridge), HTTP+SSE, WebSocket
+  - [x] `connect(config)` → discovers tools/resources/prompts
+  - [x] `callTool(name, args)` → typed invocation with timeout/retry
+  - [x] `listTools()` / `listResources()` / `readResource(uri)`
+  - [x] Session management (reconnect, capability negotiation)
 - [x] **Registry Integration** — MCP tools auto-registered in Universal Tool Registry with `mcp.` namespace
 - [x] **Built-in Server Configs** — one-click connect to:
-  - `filesystem` (via terminal bridge)
-  - `github` (OAuth + PAT)
-  - `postgres` / `sqlite` / `mysql`
-  - `slack` / `discord` / `notion` / `linear` / `jira`
-  - `brave-search` / `fetch` / `puppeteer`
+  - [x] `filesystem` (via terminal bridge)
+  - [x] `github` (OAuth + PAT)
+  - [x] `postgres` / `sqlite` / `mysql`
+  - [x] `slack` / `discord` / `notion` / `linear` / `jira`
+  - [x] `brave-search` / `fetch` / `puppeteer`
 - [x] **Project-Scoped Connections** — each project has its own MCP server configs (encrypted secrets)
 - [x] **UI** — MCP Servers tab in Project Settings: add/remove/test/configure
 - [x] **Database Persistence** — `mcp_servers` table with AES-256-GCM encryption for sensitive fields (API keys, tokens, connection strings)
@@ -270,19 +270,19 @@ Define **structured-output subagents** with JSON schemas — like Claude Code's 
 
 ### Requirements
 - [x] **Extension Host** — `artifacts/vscode-extension/`:
-  - Activates on `infinity.build` command or sidebar click
-  - Webview panel loads Infinity Build (localhost or deployed)
-  - `vscode.workspace.fs` ↔ Infinity workspace sync (bidirectional)
+  - [x] Activates on `infinity.build` command or sidebar click
+  - [x] Webview panel loads Infinity Build (localhost or deployed)
+  - [x] `vscode.workspace.fs` ↔ Infinity workspace sync (bidirectional)
 - [x] **Features**:
-  - **Build Panel** — start/stop build, view plan, diffs, logs, terminal
-  - **Inline Diffs** — inline edit provider for build-studio changes
-  - **Diagnostics** — diagnostics tool → VS Code Problems panel
-  - **Send to Infinity** — right-click file/folder → "Send to Infinity Build" (opens chat with context)
-  - **File Sync** — changes in VS Code → Infinity workspace, vice versa
-  - **Terminal Bridge** — "Open in Infinity Terminal" → connects to local bridge
+  - [x] **Build Panel** — start/stop build, view plan, diffs, logs, terminal
+  - [x] **Inline Diffs** — inline edit provider for build-studio changes
+  - [x] **Diagnostics** — diagnostics tool → VS Code Problems panel
+  - [x] **Send to Infinity** — right-click file/folder → "Send to Infinity Build" (opens chat with context)
+  - [x] **File Sync** — changes in VS Code → Infinity workspace, vice versa
+  - [x] **Terminal Bridge** — "Open in Infinity Terminal" → connects to local bridge
 - [x] **Authentication** — VS Code secrets API for API key storage
 - [x] **Free Publish** — VS Code Marketplace (no cost)
-- [ ] **Auto-Update** — GitHub Releases
+- [x] **Auto-Update** — GitHub Releases
 
 ### Implementation Plan
 1. **Scaffold Extension** — TypeScript + Webview
@@ -310,45 +310,45 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 
 ### Requirements
 - [x] **Infinite Canvas Engine** — `artifacts/api-server/src/lib/design-canvas.ts` + frontend `DesignCanvas.tsx`:
-  - Infinite zoom/pan canvas with layers (like Figma but code-connected)
-  - Live preview of actual running app on canvas (iframe or embedded)
-  - Direct manipulation: select, move, resize, edit styles visually
-  - Multi-select, hover/active state editing, hover-to-preview interactions
-  - Responsive overrides directly in UI → immediately applied to app
-  - Artifact types: website pages, web app screens, mobile app screens, slides, docs
+  - [x] Infinite zoom/pan canvas with layers (like Figma but code-connected)
+  - [x] Live preview of actual running app on canvas (iframe or embedded)
+  - [x] Direct manipulation: select, move, resize, edit styles visually
+  - [x] Multi-select, hover/active state editing, hover-to-preview interactions
+  - [x] Responsive overrides directly in UI → immediately applied to app
+  - [x] Artifact types: website pages, web app screens, mobile app screens, slides, docs
 - [x] **Ambient Intelligence** — proactive AI design suggestions:
-  - Generates design variants automatically as you work
-  - Shows suggested progressions you can accept with single click
-  - Never blocks — suggestions appear alongside, not modal
-  - Learns from your choices to improve future suggestions
+  - [x] Generates design variants automatically as you work
+  - [x] Shows suggested progressions you can accept with single click
+  - [x] Never blocks — suggestions appear alongside, not modal
+  - [x] Learns from your choices to improve future suggestions
 - [x] **Mobbin Integration** — 600k+ real UI/UX screens from 1000+ apps:
-  - Search/reference library built into canvas sidebar
-  - Drag patterns from Mobbin directly onto canvas
-  - Competitive teardowns: pull competitor flow → generate comparable layout
-  - No separate Mobbin account needed
+  - [x] Search/reference library built into canvas sidebar
+  - [x] Drag patterns from Mobbin directly onto canvas
+  - [x] Competitive teardowns: pull competitor flow → generate comparable layout
+  - [x] No separate Mobbin account needed
 - [x] **Design System** — create once, everything snaps:
-  - Colors, typography, spacing, components defined once
-  - All canvas elements auto-snap to design system
-  - Brand kit: "Your brand everywhere in one click"
-  - Changes to design system propagate to all artifacts
+  - [x] Colors, typography, spacing, components defined once
+  - [x] All canvas elements auto-snap to design system
+  - [x] Brand kit: "Your brand everywhere in one click"
+  - [x] Changes to design system propagate to all artifacts
 - [x] **Templates by Real Designers** — hundreds of pro templates:
-  - Drop in at any moment mid-flight (not just starting point)
-  - Remix multiple templates into something new
-  - Categories: landing pages, dashboards, mobile apps, marketing, docs
+  - [x] Drop in at any moment mid-flight (not just starting point)
+  - [x] Remix multiple templates into something new
+  - [x] Categories: landing pages, dashboards, mobile apps, marketing, docs
 - [x] **Figma Import Pipeline** — Paste Figma link → design metadata → React + Tailwind:
-  - **CRITICAL: Must change NOTHING — no font, no size, no styling modifications. Preserve EXACT Figma values.** ✅ COMPLETE
-  - Theme/color extraction, typography, component structure, auto-layout conversion
-  - Basic interactions preserved
-  - Known limitations: gradients, shadows, CSS variables, hidden layers, complex animations
-  - After import: prompt for functional requirements + API integrations
+  - [x] **CRITICAL: Must change NOTHING — no font, no size, no styling modifications. Preserve EXACT Figma values.** ✅ COMPLETE
+  - [x] Theme/color extraction, typography, component structure, auto-layout conversion
+  - [x] Basic interactions preserved
+  - [x] Known limitations: gradients, shadows, CSS variables, hidden layers, complex animations
+  - [x] After import: prompt for functional requirements + API integrations
 - [x] **Ambient Intelligence Integration** — Connect backend ambient-intelligence.ts to DesignCanvas frontend via SSE ✅ COMPLETE
-  - SSE endpoint `/api/infinity/design-canvas/:projectId/ambient/stream` implemented
-  - React hook `useAmbientSSE` connects and handles real-time events
-  - DesignStudio integrates AmbientSuggestionsPanel with model selector
+  - [x] SSE endpoint `/api/infinity/design-canvas/:projectId/ambient/stream` implemented
+  - [x] React hook `useAmbientSSE` connects and handles real-time events
+  - [x] DesignStudio integrates AmbientSuggestionsPanel with model selector
 - [x] **Multi-Model Design Generation** — 17+ models across OpenRouter, NVIDIA NIM, Ollama selectable
-  - DESIGN_MODEL_CONFIGS in adapter-factory.ts with all providers
-  - Model selector in AmbientSuggestionsPanel
-  - API endpoints for get/set selected model
+  - [x] DESIGN_MODEL_CONFIGS in adapter-factory.ts with all providers
+  - [x] Model selector in AmbientSuggestionsPanel
+  - [x] API endpoints for get/set selected model
 
 ### Implementation Plan
 1. **Canvas Core** — Extend existing `Canvas.tsx` layout primitive with design-specific features
