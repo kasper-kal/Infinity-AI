@@ -4,16 +4,17 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-25 00:00
+LAST_UPDATED: 2026-08-25 00:05
 
 ## Just did (last action)
-- **PHASES.md: Updated all checkboxes for Phases 4-9 to ✅ complete** — Matched PHASES.md checkboxes to actual implemented code:
-  - Phase 4 (Virtual Worktrees): All 4 backends (OPFS, IndexedDB, NodeFS, Memory) + Parallel Agent Runner complete
-  - Phase 5 (Terminal Bridge): Bridge server, frontend terminal, MCP bridge, zero config, security all complete
-  - Phase 6 (MCP Client): Client, registry integration, built-in configs, project-scoped connections, UI, DB persistence, tests all complete
-  - Phase 7 (VS Code Extension): All features + Auto-Update via GitHub Releases complete (.vsix 405KB, publisher KasperKal)
-  - Phase 8 (Design Canvas): Infinite canvas, ambient intelligence, Mobbin, design system, templates, Figma import, multi-model all complete
-  - Phase 9 (Parallel Agent Execution): Task decomposition, agent pool, progress tracking, checkpoints, merge, agent panel, cross-agent comm, resource management all complete
+- **PHASES.md: Added Phase 34: Context Auto-Compact & Limit Recognition** — New final phase for intelligent context management:
+  - Token budget tracking with per-model limits (128K-1M from DESIGN_MODEL_CONFIGS)
+  - 4-level auto-compaction pipeline (Summarize → Compress → Goal+State → Emergency)
+  - Preservation rules for critical info (decisions, fileMap, error patterns, project instructions)
+  - Visibility & control via Debug panel (token gauge, compaction history, manual controls)
+  - Integration points: universal-agent.ts, build-orchestrator.ts, chat.ts, build-context.ts
+  - Persistence in messages table + build checkpoints
+- **PHASES.md: Updated phase table** — Added Phases 32, 33, 34 to overview table
 - **Phase 8: Replit-Level Design Canvas — COMPLETE ✅** — All infrastructure complete and verified end-to-end:
   - **Infinite Canvas Engine** — Backend `design-canvas.ts` + frontend `DesignCanvas.tsx` with zoom/pan, layers, direct manipulation
   - **Ambient Intelligence** — Proactive AI design suggestions via SSE at `/api/infinity/design-canvas/:projectId/ambient/stream`
@@ -718,8 +719,9 @@ LAST_UPDATED: 2026-08-25 00:00
 8. **Phase 17: Visual Component Editor** — **PLANNED**: Visual element inspector, prop editor panel, bidirectional code sync
 9. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings (accent, avatar, density, notifications, editor), Secrets Manager, Live Dynamic Island (10 task categories), AI-Managed Roadmap (11 tools, node ops, deps, structural, status, versioned persistence)
 10. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools (create/update/get/list/connect/split/merge/reorder/delete/bulk/status/version), visual graph + activity feed, BuildView integration
-11. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
-12. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
+11. **Phase 34: Context Auto-Compact & Limit Recognition** — **PLANNED**: Token budget tracking, 4-level auto-compaction, preservation rules, visibility/control via Debug panel, integration points
+12. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
+13. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
