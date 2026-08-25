@@ -4,9 +4,16 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-24 22:10
+LAST_UPDATED: 2026-08-25 00:00
 
 ## Just did (last action)
+- **PHASES.md: Updated all checkboxes for Phases 4-9 to ✅ complete** — Matched PHASES.md checkboxes to actual implemented code:
+  - Phase 4 (Virtual Worktrees): All 4 backends (OPFS, IndexedDB, NodeFS, Memory) + Parallel Agent Runner complete
+  - Phase 5 (Terminal Bridge): Bridge server, frontend terminal, MCP bridge, zero config, security all complete
+  - Phase 6 (MCP Client): Client, registry integration, built-in configs, project-scoped connections, UI, DB persistence, tests all complete
+  - Phase 7 (VS Code Extension): All features + Auto-Update via GitHub Releases complete (.vsix 405KB, publisher KasperKal)
+  - Phase 8 (Design Canvas): Infinite canvas, ambient intelligence, Mobbin, design system, templates, Figma import, multi-model all complete
+  - Phase 9 (Parallel Agent Execution): Task decomposition, agent pool, progress tracking, checkpoints, merge, agent panel, cross-agent comm, resource management all complete
 - **Phase 8: Replit-Level Design Canvas — COMPLETE ✅** — All infrastructure complete and verified end-to-end:
   - **Infinite Canvas Engine** — Backend `design-canvas.ts` + frontend `DesignCanvas.tsx` with zoom/pan, layers, direct manipulation
   - **Ambient Intelligence** — Proactive AI design suggestions via SSE at `/api/infinity/design-canvas/:projectId/ambient/stream`
@@ -701,17 +708,18 @@ LAST_UPDATED: 2026-08-24 22:10
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Task #14: Add agent timer system in BuildMode** — **COMPLETE** ✅: Implemented 5 universal timer tools (`build.set_timer`, `build.check_timer`, `build.clear_timer`, `build.clear_all_timers`, `build.wait_for_timer`) in Universal Tool Registry. Timers are agent-scoped, notify agent (not user), agent can wait for timer expiry before stopping.
-2. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
-2. **Phase 2: Orchestration Engine (Claude Code Parity)** — **PLANNED**: Implement pipeline(), parallel(), adversarialVerify(), judgePanel(), loopUntilDry() primitives for multi-agent workflows. Extend build-orchestrator with these orchestration patterns.
-3. **Phase 3: Specialized Subagents with Schemas** — **PLANNED**: Define schemas for planner, coder, reviewer, fixer agents. Register as universal tools with structured I/O.
-4. **Phase 4: Virtual Worktrees + Parallel Agent Execution** — **PLANNED**: Git worktree isolation per agent, parallel execution with shared context, merge strategies.
-5. **Phase 5: Local Terminal Bridge (node-pty WebSocket)** — **PLANNED**: WebSocket bridge for local terminal access, command streaming, output capture.
-6. **Phase 6: MCP Client + Ecosystem Integration** — **PLANNED**: MCP client to consume external MCP servers, tool discovery, capability negotiation.
-7. **Phase 7: VS Code Extension (Infinity Build Panel)** — **PLANNED**: VS Code extension with build panel, terminal integration, file sync.
-8. **Phases 8–15: Replit Competitive Parity Roadmap** — **PLANNED**: Design Canvas + Ambient Intelligence + Mobbin (8), Parallel Agent Execution (9), Mobile App Dev React Native/Expo (10), Security Scanner + Secrets (11), Multi-Artifact Support (12), External Connectors Linear/Slack/Notion/Sheets (13), Enterprise SSO/VPC/Single-Tenant (14), Agent Skills Marketplace (15)
-9. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
-10. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
+1. **Phase 10: Mobile App Development (React Native + Expo)** — **PLANNED**: React Native project generator, Expo Go preview, native device features, backend integration, App Store/Play Store submission, mobile templates, web↔mobile code sharing, **Figma iOS/Android asset sync** (new requirement)
+2. **Phase 11: Security Scanner + Secrets Manager** — **PLANNED**: Semgrep scanner + LLM false positive filter, encrypted secrets manager, secret detection, pre-deployment scan, security dashboard
+3. **Phase 12: Multi-Artifact Support** — **PLANNED**: Artifact type registry, parallel artifact builds, shared foundation, artifact-specific generators, cross-artifact sync, unified deploy
+4. **Phase 13: External Service Connectors** — **PLANNED**: Connector framework, Linear/Slack/Notion/Google Sheets/GitHub/Figma connectors, agent tool access, bi-directional sync, connector UI
+5. **Phase 14: Enterprise Features** — **PLANNED**: SSO/SAML/OIDC, SCIM, VPC peering, single-tenant, static outbound IPs, region selection, audit logs, observability export, RBAC
+6. **Phase 15: Agent Skills & Custom Instructions Marketplace** — **PLANNED**: Skill definition format, project/team-scoped skills, marketplace, custom instructions, skill inheritance, analytics
+7. **Phase 16: v0-Level Generative UI Engine** — **PLANNED**: UI Builder chat mode, live preview, shadcn/ui + Radix integration, codegen pipeline, one-click deploy
+8. **Phase 17: Visual Component Editor** — **PLANNED**: Visual element inspector, prop editor panel, bidirectional code sync
+9. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings (accent, avatar, density, notifications, editor), Secrets Manager, Live Dynamic Island (10 task categories), AI-Managed Roadmap (11 tools, node ops, deps, structural, status, versioned persistence)
+10. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools (create/update/get/list/connect/split/merge/reorder/delete/bulk/status/version), visual graph + activity feed, BuildView integration
+11. **Phases 16–23: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (16), Visual Component Editor (17), Collaborative Workflows (18), External API/DB Integration (19), Multi-Framework Support (20), AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23)
+12. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31)
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
