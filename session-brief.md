@@ -4,9 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-25 00:25
+LAST_UPDATED: 2026-08-25 00:45
 
 ## Just did (last action)
+- **Phase 11: Security Scanner + Secrets Manager (Replit-Level) — COMPLETE ✅** — Full security stack with frontend integration:
+  - **SecurityDashboard.tsx** (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log) — follows BuildDebugPanel pattern
+  - **BuildView Security Tab** — Integrated across desktop header tabs, mobile bottom nav (shield icon), sidebar navigation, command palette
+  - **i18n**: "build.tabs.security" = "Security" (EN) / "Beveiliging" (NL)
+  - **Backend already complete**: security-scanner.ts (961 lines), secrets-manager.ts (442 lines), security.ts routes (442 lines)
+  - **Fixed schema imports**: project-secrets.ts added missing `boolean`, `integer`, `index` imports
+  - **Fixed i18n.tsx**: Removed duplicate closing brace (TS1128)
+  - **Fixed AgentPanel.tsx**: Fixed duplicate Progress JSX + missing closing brace
+  - **PHASES.md**: All 4 requirements checked off, all 7 files marked COMPLETE with line counts
 - **Phase 10: Mobile App Development (React Native + Expo) — COMPLETE ✅** — Full mobile app lifecycle from browser:
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
@@ -309,7 +318,15 @@ LAST_UPDATED: 2026-08-25 00:25
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 10 — Mobile App Development (React Native + Expo)** ✅ **COMPLETE** — Full mobile app lifecycle from browser:
+- **Current Phase:** **Phase 11 — Security Scanner + Secrets Manager (Replit-Level)** ✅ **COMPLETE** — Full security stack:
+  - **SecurityDashboard.tsx** (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log)
+  - **BuildView Security Tab** — Integrated across desktop header tabs, mobile bottom nav (shield icon), sidebar, command palette
+  - **i18n**: "Security" (EN) / "Beveiliging" (NL)
+  - **Backend**: security-scanner.ts (961 lines), secrets-manager.ts (442 lines), security.ts routes (442 lines)
+  - **Fixed**: project-secrets.ts schema imports, i18n.tsx duplicate brace, AgentPanel.tsx JSX/braces
+  - **PHASES.md**: All 4 requirements ✅, all 7 files COMPLETE with line counts
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), **Phase 11 (Security Scanner + Secrets Manager)**
+- **Next Phases:** Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -321,7 +338,7 @@ LAST_UPDATED: 2026-08-25 00:25
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-25 00:30 — Phase 10 complete + Phase 34 added: Phase 32 "Infinity Self-Management & Live Task Intelligence", Phase 33 "AI-Managed Roadmap (Build Map Intelligence)", Phase 34 "Context Auto-Compact & Limit Recognition" added to PHASES.md
+**LAST_UPDATED:** 2026-08-25 00:45 — Phase 11 complete: Security Scanner + Secrets Manager frontend integration (SecurityDashboard, BuildView security tab, i18n, schema fixes). All Phase 11 requirements checked off, 7 files marked COMPLETE in PHASES.md.
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -344,6 +361,15 @@ LAST_UPDATED: 2026-08-25 00:25
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-25 **Phase 11: Security Scanner + Secrets Manager (Replit-Level) — COMPLETE ✅** — Full security stack frontend integration:
+  - Created `SecurityDashboard.tsx` (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log) following BuildDebugPanel pattern
+  - Integrated Security tab across BuildView: desktop header tabs, mobile bottom nav (shield SVG icon), sidebar navigation, command palette
+  - Added i18n: "build.tabs.security" = "Security" (EN) / "Beveiliging" (NL)
+  - Backend already complete: security-scanner.ts (961 lines), secrets-manager.ts (442 lines), security.ts routes (442 lines), project-secrets.ts schema
+  - Fixed project-secrets.ts: added missing `boolean`, `integer`, `index` imports (TS2693/TS2304)
+  - Fixed i18n.tsx: removed duplicate closing brace at line 3019 (TS1128)
+  - Fixed AgentPanel.tsx: fixed duplicate Progress JSX + missing closing brace (TS1005)
+  - Updated PHASES.md: all 4 requirements [x], all 7 files marked COMPLETE with line counts
 - 2026-08-24 **Phase 9: Parallel Agent Execution (Replit Agent 4 Style) — COMPLETE ✅** — Built Agent Panel UI (`AgentPanel.tsx`) + integrated into `BuildView.tsx` with full i18n (EN+NL ~50 keys):
   - **Workstream list** — Status badges (pending/running/completed/failed/blocked), progress bars, dependency indicators
   - **Detail view tabs** — Overview (agent info, task, dependencies), Logs (real-time streaming, auto-scroll, level colors), Checkpoints (create/rollback controls)
