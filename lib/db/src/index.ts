@@ -58,3 +58,4 @@ export { files };
 
 export * from "./schema";
 export * from "./schema/mobile-apps.js";
+export * from "./schema/project-secrets.js";

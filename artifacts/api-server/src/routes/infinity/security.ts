@@ -1,262 +1,443 @@
 import { Router, Request, Response } from "express";
-import { execSync } from "node:child_process";
-import { cleanText } from "../../lib/text-utils";
+import {
+  scanSecurity,
+  checkDeploymentGate,
+  scanChangedFiles,
+  listRules,
+  getRuleStats,
+  addSuppression,
+  getSuppressionLog,
+  clearSuppression,
+  auditDependencies,
+  type ScanOptions,
+  type SecuritySeverity,
+  type SecurityFinding,
+} from "../../lib/security-scanner";
+import {
+  createSecret,
+  getSecretValue,
+  listSecrets,
+  updateSecretValue,
+  deleteSecret,
+  resolveSecretEnv,
+  buildInjectionEnv,
+  rotateSecret,
+  getRotationProviders,
+  scanForSecrets,
+  detectSecrets,
+  type CreateSecretInput,
+  type SecretEnvironment,
+  type DetectedSecret,
+} from "../../lib/secrets-manager";
 
 const router = Router();
 
-interface SecurityIssue {
-  severity: "critical" | "high" | "medium" | "low" | "info";
-  type: string;
-  file?: string;
-  line?: number;
-  message: string;
-  remediation?: string;
-}
-
-interface SecurityAuditResult {
-  timestamp: number;
-  workspace: string;
-  issues: SecurityIssue[];
-  summary: {
-    critical: number;
-    high: number;
-    medium: number;
-    low: number;
-    info: number;
-  };
-}
+// ============================================================================
+// SECURITY SCANNER ROUTES
+// ============================================================================
 
 /**
- * POST /security/audit - Run security audit
+ * POST /security/scan - Full security scan of workspace
+ * Body: { workspaceId: string, options?: ScanOptions }
  */
-router.post("/security/audit", async (req: Request, res: Response) => {
-  const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
-
-  const result: SecurityAuditResult = {
-    timestamp: Date.now(),
-    workspace: workspaceId,
-    issues: [],
-    summary: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
-  };
-
+router.post("/security/scan", async (req: Request, res: Response) => {
   try {
-    // Check for hardcoded secrets
-    const secretPatterns = [
-      /api[_-]?key\s*=\s*["']([^"']+)["']/gi,
-      /password\s*=\s*["']([^"']+)["']/gi,
-      /secret\s*=\s*["']([^"']+)["']/gi,
-      /(mongodb|postgres|mysql)[+:]\/\/.*:.*@/gi,
-    ];
+    const workspaceId = req.body?.workspaceId as string | undefined;
+    const options = req.body?.options as ScanOptions | undefined;
 
-    // Simulated file scanning (in production, would use actual file system)
-    secretPatterns.forEach((pattern) => {
-      result.issues.push({
-        severity: "critical",
-        type: "hardcoded-secret",
-        message: `Potential hardcoded secret detected. Never commit secrets to version control.`,
-        remediation: "Use environment variables or secure secret management tools",
-      });
-    });
-
-    // Check for SQL injection vulnerabilities
-    result.issues.push({
-      severity: "high",
-      type: "sql-injection-risk",
-      message: "Check for parameterized queries. Avoid string concatenation in SQL.",
-      remediation: "Use prepared statements or ORM query builders",
-    });
-
-    // Check for XSS vulnerabilities
-    result.issues.push({
-      severity: "high",
-      type: "xss-risk",
-      message: "Ensure user input is sanitized before rendering",
-      remediation: "Use templating engines that auto-escape output",
-    });
-
-    // Check for CSRF protection
-    result.issues.push({
-      severity: "high",
-      type: "csrf-protection",
-      message: "Verify CSRF tokens are used for state-changing operations",
-      remediation: "Implement CSRF middleware for POST/PUT/DELETE endpoints",
-    });
-
-    // Check for dependency vulnerabilities
-    try {
-      const npmAudit = execSync("npm audit --json 2>/dev/null || echo '{}'", {
-        encoding: "utf-8",
-      });
-      const auditData = JSON.parse(npmAudit);
-
-      if (auditData.vulnerabilities) {
-        Object.entries(auditData.vulnerabilities).forEach(([pkg, vuln]: any) => {
-          result.issues.push({
-            severity: vuln.severity || "medium",
-            type: "vulnerable-dependency",
-            message: `${pkg}: ${vuln.title || "Vulnerability found"}`,
-            remediation: `Update to version ${vuln.patched_versions || "latest"}`,
-          });
-        });
-      }
-    } catch {
-      // npm audit not available
+    if (!workspaceId) {
+      return res.status(400).json({ error: "workspaceId is required" });
     }
 
-    // Check for .env file exposure
-    result.issues.push({
-      severity: "critical",
-      type: "env-exposure",
-      message: ".env files should never be committed to version control",
-      remediation: "Add .env to .gitignore",
-    });
-
-    // Check for insecure dependencies
-    result.issues.push({
-      severity: "medium",
-      type: "outdated-dependencies",
-      message: "Some dependencies may have security updates available",
-      remediation: "Run `npm audit fix` or `pnpm audit --fix`",
-    });
-
-    // Calculate summary
-    result.issues.forEach((issue) => {
-      result.summary[issue.severity]++;
-    });
-
-    res.json({ ok: true, result });
+    const result = await scanSecurity(workspaceId, options);
+    return res.json(result);
   } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
+    console.error("[security] Scan failed:", (err as Error).message);
+    return res.status(500).json({ error: "Security scan failed" });
   }
 });
 
 /**
- * POST /security/dependency-scan - Scan for vulnerable dependencies
+ * POST /security/scan/incremental - Incremental scan of changed files
+ * Body: { workspaceId: string, changedFiles: string[] }
  */
-router.post("/security/dependency-scan", (req: Request, res: Response) => {
-  const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";
-
+router.post("/security/scan/incremental", async (req: Request, res: Response) => {
   try {
-    // Try to run npm audit
-    const auditOutput = execSync("npm audit --json 2>/dev/null || echo '{}'", {
-      encoding: "utf-8",
-      cwd: `/workspace/${workspaceId}`,
-    });
+    const workspaceId = req.body?.workspaceId as string | undefined;
+    const changedFiles = req.body?.changedFiles as string[] | undefined;
 
-    const auditData = JSON.parse(auditOutput);
-    const vulnerabilities = auditData.vulnerabilities || {};
+    if (!workspaceId || !changedFiles || !Array.isArray(changedFiles)) {
+      return res.status(400).json({ error: "workspaceId and changedFiles array required" });
+    }
 
-    const issues = Object.entries(vulnerabilities).map(([pkg, vuln]: any) => ({
-      package: pkg,
-      severity: vuln.severity || "unknown",
-      title: vuln.title || "Vulnerability",
-      description: vuln.description || "",
-      fixAvailable: !!vuln.patched_versions,
-      patchedVersions: vuln.patched_versions || "none",
-    }));
-
-    res.json({ ok: true, vulnerabilities: issues, count: issues.length });
+    const result = await scanChangedFiles(workspaceId, changedFiles);
+    return res.json(result);
   } catch (err) {
-    res.json({ ok: false, error: (err as Error).message, vulnerabilities: [] });
+    console.error("[security] Incremental scan failed:", (err as Error).message);
+    return res.status(500).json({ error: "Incremental scan failed" });
   }
 });
 
 /**
- * GET /security/headers-check - Check for security headers
+ * POST /security/gate - Pre-deployment security gate
+ * Body: { workspaceId: string, severityThreshold?: SecuritySeverity, environment?: string }
  */
-router.get("/security/headers-check", (req: Request, res: Response) => {
-  const requiredHeaders = [
-    { name: "X-Content-Type-Options", expected: "nosniff" },
-    { name: "X-Frame-Options", expected: "SAMEORIGIN" },
-    { name: "X-XSS-Protection", expected: "1; mode=block" },
-    { name: "Strict-Transport-Security", expected: "max-age=63072000" },
-    { name: "Content-Security-Policy", expected: "default-src 'self'" },
-  ];
+router.post("/security/gate", async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.body?.workspaceId as string | undefined;
+    const severityThreshold = req.body?.severityThreshold as SecuritySeverity | undefined;
+    const environment = req.body?.environment as string | undefined;
 
-  const recommendations = [
-    {
-      header: "X-Content-Type-Options",
-      value: "nosniff",
-      purpose: "Prevent MIME-type sniffing attacks",
-    },
-    {
-      header: "Strict-Transport-Security",
-      value: "max-age=63072000; includeSubDomains",
-      purpose: "Force HTTPS connections",
-    },
-    {
-      header: "X-Frame-Options",
-      value: "SAMEORIGIN",
-      purpose: "Prevent clickjacking attacks",
-    },
-    {
-      header: "Content-Security-Policy",
-      value: "default-src 'self'; script-src 'self' 'unsafe-inline'",
-      purpose: "Prevent XSS and injection attacks",
-    },
-  ];
+    if (!workspaceId) {
+      return res.status(400).json({ error: "workspaceId is required" });
+    }
 
-  res.json({
-    ok: true,
-    requiredHeaders,
-    recommendations,
-    guide: "Add these headers in your Express middleware or Next.js next.config.js",
-  });
+    const gate = await checkDeploymentGate(workspaceId, {
+      severityThreshold,
+      environment,
+    });
+    return res.json(gate);
+  } catch (err) {
+    console.error("[security] Deployment gate check failed:", (err as Error).message);
+    return res.status(500).json({ error: "Deployment gate check failed" });
+  }
 });
 
 /**
- * POST /security/code-injection - Check for code injection vulnerabilities
+ * POST /security/dependencies - Audit npm/pnpm dependencies for vulnerabilities
+ * Body: { workspaceId: string }
  */
-router.post("/security/code-injection", (req: Request, res: Response) => {
-  const code = cleanText(req.body?.code, 10000);
+router.post("/security/dependencies", async (req: Request, res: Response) => {
+  try {
+    const workspaceId = req.body?.workspaceId as string | undefined;
 
-  if (!code) {
-    return res.status(400).json({ error: "Code sample required" });
+    if (!workspaceId) {
+      return res.status(400).json({ error: "workspaceId is required" });
+    }
+
+    const result = await auditDependencies(workspaceId);
+    return res.json(result);
+  } catch (err) {
+    console.error("[security] Dependency audit failed:", (err as Error).message);
+    return res.status(500).json({ error: "Dependency audit failed" });
   }
+});
 
-  const issues = [];
-
-  // Check for eval usage
-  if (/\beval\s*\(/i.test(code)) {
-    issues.push({
-      severity: "critical",
-      type: "eval-usage",
-      message: "eval() is dangerous and should never be used",
-      remediation: "Use Function() with strict parameter validation instead",
-    });
+/**
+ * GET /security/rules - List all built-in security rules
+ */
+router.get("/security/rules", async (_req: Request, res: Response) => {
+  try {
+    const rules = listRules();
+    return res.json({ rules });
+  } catch (err) {
+    console.error("[security] List rules failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to list rules" });
   }
+});
 
-  // Check for dynamic require
-  if (/require\s*\(\s*['"][+\w]/.test(code)) {
-    issues.push({
-      severity: "high",
-      type: "dynamic-require",
-      message: "Dynamic require with user input can lead to arbitrary code execution",
-      remediation: "Use a whitelist of allowed module names",
-    });
+/**
+ * GET /security/rules/stats - Get rule statistics
+ */
+router.get("/security/rules/stats", async (_req: Request, res: Response) => {
+  try {
+    const stats = getRuleStats();
+    return res.json(stats);
+  } catch (err) {
+    console.error("[security] Get rule stats failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to get rule stats" });
   }
+});
 
-  // Check for template injection
-  if (/`.*\${.*}`/.test(code) && /SQL|query|execute/i.test(code)) {
-    issues.push({
-      severity: "high",
-      type: "template-injection",
-      message: "Template strings in SQL queries can lead to injection attacks",
-      remediation: "Use parameterized queries instead",
-    });
+/**
+ * POST /security/suppressions - Add a finding suppression
+ * Body: { findingId: string, ruleId: string, reason: string, expiresAt?: number }
+ */
+router.post("/security/suppressions", async (req: Request, res: Response) => {
+  try {
+    const { findingId, ruleId, reason, expiresAt } = req.body as {
+      findingId: string;
+      ruleId: string;
+      reason: string;
+      expiresAt?: number;
+    };
+
+    if (!findingId || !ruleId || !reason) {
+      return res.status(400).json({ error: "findingId, ruleId, and reason are required" });
+    }
+
+    addSuppression({ findingId, ruleId, reason, expiresAt });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[security] Add suppression failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to add suppression" });
   }
+});
 
-  // Check for XSS
-  if (/innerHTML\s*=|innerText\s*=|textContent\s*=/i.test(code)) {
-    issues.push({
-      severity: "medium",
-      type: "dom-manipulation",
-      message: "Direct DOM manipulation can introduce XSS vulnerabilities",
-      remediation: "Use textContent instead of innerHTML, or sanitize input",
-    });
+/**
+ * GET /security/suppressions - List all suppressions
+ */
+router.get("/security/suppressions", async (_req: Request, res: Response) => {
+  try {
+    const suppressions = getSuppressionLog();
+    return res.json({ suppressions });
+  } catch (err) {
+    console.error("[security] Get suppressions failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to get suppressions" });
   }
+});
 
-  return res.json({ ok: true, issues, codeLength: code.length });
+/**
+ * DELETE /security/suppressions/:findingId - Remove a suppression
+ */
+router.delete("/security/suppressions/:findingId", async (req: Request, res: Response) => {
+  try {
+    const { findingId } = req.params;
+    clearSuppression(findingId);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[security] Clear suppression failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to clear suppression" });
+  }
+});
+
+// ============================================================================
+// SECRETS MANAGER ROUTES
+// ============================================================================
+
+/**
+ * POST /secrets - Create a new secret (encrypted)
+ * Body: { projectId: string, key: string, value: string, environment?: SecretEnvironment, description?: string, category?: string }
+ */
+router.post("/secrets", async (req: Request, res: Response) => {
+  try {
+    const input = req.body as CreateSecretInput;
+
+    if (!input.projectId || !input.key || !input.value) {
+      return res.status(400).json({ error: "projectId, key, and value are required" });
+    }
+
+    const secret = await createSecret(input);
+    return res.status(201).json(secret);
+  } catch (err) {
+    console.error("[secrets] Create failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to create secret" });
+  }
+});
+
+/**
+ * GET /secrets - List secrets for a project (without values)
+ * Query: projectId, environment?
+ */
+router.get("/secrets", async (req: Request, res: Response) => {
+  try {
+    const projectId = req.query.projectId as string | undefined;
+    const environment = req.query.environment as SecretEnvironment | undefined;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId is required" });
+    }
+
+    const secrets = await listSecrets(projectId, environment);
+    return res.json({ secrets });
+  } catch (err) {
+    console.error("[secrets] List failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to list secrets" });
+  }
+});
+
+/**
+ * GET /secrets/:secretId - Get a secret value (decrypted)
+ * Query: projectId (for ownership check)
+ */
+router.get("/secrets/:secretId", async (req: Request, res: Response) => {
+  try {
+    const { secretId } = req.params;
+    const projectId = req.query.projectId as string | undefined;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId query param required" });
+    }
+
+    const value = await getSecretValue(secretId, projectId);
+    if (value === null) {
+      return res.status(404).json({ error: "Secret not found" });
+    }
+
+    return res.json({ value });
+  } catch (err) {
+    console.error("[secrets] Get value failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to get secret value" });
+  }
+});
+
+/**
+ * PATCH /secrets/:secretId - Update secret value
+ * Body: { projectId: string, value: string }
+ */
+router.patch("/secrets/:secretId", async (req: Request, res: Response) => {
+  try {
+    const { secretId } = req.params;
+    const { projectId, value } = req.body as { projectId: string; value: string };
+
+    if (!projectId || !value) {
+      return res.status(400).json({ error: "projectId and value are required" });
+    }
+
+    await updateSecretValue(secretId, projectId, value);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[secrets] Update failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to update secret" });
+  }
+});
+
+/**
+ * DELETE /secrets/:secretId - Delete a secret
+ * Query: projectId (for ownership check)
+ */
+router.delete("/secrets/:secretId", async (req: Request, res: Response) => {
+  try {
+    const { secretId } = req.params;
+    const projectId = req.query.projectId as string | undefined;
+
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId query param required" });
+    }
+
+    await deleteSecret(secretId, projectId);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("[secrets] Delete failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to delete secret" });
+  }
+});
+
+/**
+ * POST /secrets/resolve - Resolve all secrets as env vars for build/runtime injection
+ * Body: { projectId: string, environment?: SecretEnvironment }
+ */
+router.post("/secrets/resolve", async (req: Request, res: Response) => {
+  try {
+    const { projectId, environment } = req.body as {
+      projectId: string;
+      environment?: SecretEnvironment;
+    };
+
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId is required" });
+    }
+
+    const env = await resolveSecretEnv(projectId, environment);
+    return res.json({ env });
+  } catch (err) {
+    console.error("[secrets] Resolve failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to resolve secrets" });
+  }
+});
+
+/**
+ * POST /secrets/inject - Build complete injection environment
+ * Body: { projectId: string, environment: SecretEnvironment, additionalEnv?: Record<string, string> }
+ */
+router.post("/secrets/inject", async (req: Request, res: Response) => {
+  try {
+    const { projectId, environment, additionalEnv } = req.body as {
+      projectId: string;
+      environment: SecretEnvironment;
+      additionalEnv?: Record<string, string>;
+    };
+
+    if (!projectId || !environment) {
+      return res.status(400).json({ error: "projectId and environment are required" });
+    }
+
+    const env = await buildInjectionEnv({ projectId, environment, additionalEnv });
+    return res.json({ env });
+  } catch (err) {
+    console.error("[secrets] Inject failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to build injection env" });
+  }
+});
+
+/**
+ * POST /secrets/rotate - Rotate a secret with a provider
+ * Body: { secretId: string, projectId: string, provider: string }
+ */
+router.post("/secrets/rotate", async (req: Request, res: Response) => {
+  try {
+    const { secretId, projectId, provider } = req.body as {
+      secretId: string;
+      projectId: string;
+      provider: string;
+    };
+
+    if (!secretId || !projectId || !provider) {
+      return res.status(400).json({ error: "secretId, projectId, and provider are required" });
+    }
+
+    const newValue = await rotateSecret(secretId, projectId, provider);
+    return res.json({ success: true, newValue });
+  } catch (err) {
+    console.error("[secrets] Rotate failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to rotate secret" });
+  }
+});
+
+/**
+ * GET /secrets/rotation/providers - List supported rotation providers
+ */
+router.get("/secrets/rotation/providers", async (_req: Request, res: Response) => {
+  try {
+    const providers = getRotationProviders();
+    return res.json({ providers });
+  } catch (err) {
+    console.error("[secrets] Get rotation providers failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to get rotation providers" });
+  }
+});
+
+/**
+ * POST /secrets/detect - Detect secrets in file content
+ * Body: { filePath: string, content: string }
+ */
+router.post("/secrets/detect", async (req: Request, res: Response) => {
+  try {
+    const { filePath, content } = req.body as { filePath: string; content: string };
+
+    if (!filePath || !content) {
+      return res.status(400).json({ error: "filePath and content are required" });
+    }
+
+    const detected = detectSecrets(filePath, content);
+    return res.json({ detected });
+  } catch (err) {
+    console.error("[secrets] Detect failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to detect secrets" });
+  }
+});
+
+/**
+ * POST /secrets/scan - Scan workspace files for secrets
+ * Body: { workspaceId: string, filePaths: string | string[] }
+ */
+router.post("/secrets/scan", async (req: Request, res: Response) => {
+  try {
+    const { workspaceId, filePaths } = req.body as {
+      workspaceId: string;
+      filePaths: string | string[];
+    };
+
+    if (!workspaceId || !filePaths) {
+      return res.status(400).json({ error: "workspaceId and filePaths are required" });
+    }
+
+    const detected = await scanForSecrets(workspaceId, filePaths);
+    return res.json({ detected });
+  } catch (err) {
+    console.error("[secrets] Scan failed:", (err as Error).message);
+    return res.status(500).json({ error: "Failed to scan for secrets" });
+  }
 });
 
 export default router;
