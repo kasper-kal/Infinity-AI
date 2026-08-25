@@ -292,11 +292,19 @@ LAST_UPDATED: 2026-08-24 22:10
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 9 — Parallel Agent Execution (Replit Agent 4 Style)** ✅ **CORE INFRASTRUCTURE COMPLETE** — `parallel-orchestrator.ts` created with all backend primitives: task decomposition, agent pool, progress SSE, checkpoints, merge engine, shared context, resource management. API server typecheck passes cleanly.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas)
-- **Next Phases:** Phase 9 UI (Agent Panel), Phase 10 (Mobile App Development - React Native + Expo), Phase 11 (Security Scanner + Secrets Manager)
+- **Current Phase:** **Phase 9 — Parallel Agent Execution (Replit Agent 4 Style)** ✅ **COMPLETE** — Backend infrastructure (`parallel-orchestrator.ts`, `agent-pool.ts`, `merge-engine.ts`) + Agent Panel UI (`AgentPanel.tsx` integrated into `BuildView.tsx`) complete with:
+  - Task decomposition via planner subagent
+  - Parallel agent pool with concurrency limits & token budgets
+  - Real-time SSE progress events (AgentProgressEvent)
+  - Per-workstream checkpoints with create/rollback controls
+  - Three-way merge engine (code + design systems)
+  - Shared context store with versioning & pub/sub
+  - Agent Panel UI: workstream list, detail view (Overview/Logs/Checkpoints tabs), compact mode, real-time log streaming, merge conflict visualization
 
-**LAST_UPDATED:** 2026-08-24 22:45 — Phase 9 core infrastructure complete. Next: Build Agent Panel UI in BuildView sidebar for parallel agent status display.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution)
+- **Next Phases:** Phase 10 (Mobile App Development - React Native + Expo), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support)
+
+**LAST_UPDATED:** 2026-08-24 23:15 — Phase 9 complete: Agent Panel UI built and integrated into BuildView with full i18n support (EN + NL). Typecheck + build pass ✅
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -319,6 +327,15 @@ LAST_UPDATED: 2026-08-24 22:10
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-24 **Phase 9: Parallel Agent Execution (Replit Agent 4 Style) — COMPLETE ✅** — Built Agent Panel UI (`AgentPanel.tsx`) + integrated into `BuildView.tsx` with full i18n (EN+NL ~50 keys):
+  - **Workstream list** — Status badges (pending/running/completed/failed/blocked), progress bars, dependency indicators
+  - **Detail view tabs** — Overview (agent info, task, dependencies), Logs (real-time streaming, auto-scroll, level colors), Checkpoints (create/rollback controls)
+  - **Compact mode** — Sidebar summary with running/completed/failed counts + expandable detail
+  - **Real-time logs** — Auto-scroll toggle, level-colored entries, workstream filtering
+  - **Checkpoint system** — Create/rollback buttons per workstream, timestamp display
+  - **BuildView integration** — Agents tab in sidebar, right sidebar AgentPanel (conditional on parallelTask), mobile bottom nav, tools sheet
+  - **i18n** — 50+ translation keys for Agent Panel UI in English and Dutch
+  - Typecheck + build pass ✅
 - 2026-08-24 **Phase 9: Parallel Agent Execution (Replit Agent 4 Style) — CORE INFRASTRUCTURE COMPLETE** — Created `parallel-orchestrator.ts` with all backend primitives:
   - **Task Decomposition** — Planner subagent breaks goals into independent parallel workstreams with dependencies
   - **Agent Pool Manager** — Concurrency limits (max 4), token budgets (100k default), priority queue

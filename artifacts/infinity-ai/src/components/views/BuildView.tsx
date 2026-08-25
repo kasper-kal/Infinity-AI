@@ -25,6 +25,7 @@ import { BuildDiffPreview } from "@/components/build-diff-preview";
 import { BuildDebugPanel } from "@/components/build-debug-panel";
 import { BuildProgressPanel } from "@/components/build-progress-panel";
 import { BuildProgressRing } from "@/components/build-progress-ring";
+import { AgentPanel, type ParallelTask, type AgentProgressEvent, type Workstream } from "@/components/build/AgentPanel";
 import { PlusMenu, type PlusAction } from "@/components/plus-menu";
 import { BuildCommandPalette, type CommandPaletteItem } from "@/components/build-command-palette";
 import { BottomNav, type BottomNavItem } from "@/components/mobile/BottomNav";
@@ -45,6 +46,18 @@ export interface BuildViewProps {
   initialPrompt?: string;
   /** Build run key for remounting */
   buildRunKey?: number;
+  /** Parallel task for agent panel */
+  parallelTask?: ParallelTask | null;
+  /** SSE event stream for progress updates */
+  onProgressEvent?: (event: AgentProgressEvent) => void;
+  /** Start parallel execution */
+  onStartParallel?: (goal: string) => void;
+  /** Cancel parallel execution */
+  onCancelParallel?: () => void;
+  /** Create checkpoint */
+  onCreateCheckpoint?: (workstreamId: string, description: string) => void;
+  /** Rollback to checkpoint */
+  onRollback?: (checkpointId: string) => void;
 }
 
 export const BuildView: React.FC<BuildViewProps> = ({
@@ -53,6 +66,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
   onBack,
   initialPrompt,
   buildRunKey,
+  parallelTask,
+  onProgressEvent,
+  onStartParallel,
+  onCancelParallel,
+  onCreateCheckpoint,
+  onRollback,
 }) => {
   const isMobile = useIsMobile();
   const { t } = useI18n();
@@ -60,7 +79,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal'>('plan');
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents'>('plan');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -73,10 +92,14 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state
-  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'tools'>('terminal');
+  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'agents' | 'tools'>('terminal');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+
+  // Agent panel state
+  const [agentPanelOpen, setAgentPanelOpen] = useState(!!parallelTask);
+  const [agentPanelCompact, setAgentPanelCompact] = useState(false);
 
   const handlePlusAction = useCallback((action: PlusAction) => {
     setPlusMenuOpen(false);
@@ -178,6 +201,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
         ),
       },
       {
+        id: 'agents',
+        label: t('build.tabs.agents'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ),
+      },
+      {
         id: 'tools',
         label: t('build.sidebar.sections.tools'),
         icon: (
@@ -249,6 +281,18 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'history' && (
             <div className="flex flex-col h-full">
               <BuildTranscript toolCalls={[]} autoScroll />
+            </div>
+          )}
+          {bottomNavTab === 'agents' && parallelTask && (
+            <div className="flex flex-col h-full p-4">
+              <AgentPanel
+                task={parallelTask}
+                onProgressEvent={onProgressEvent}
+                onCancel={onCancelParallel}
+                onCreateCheckpoint={onCreateCheckpoint}
+                onRollback={onRollback}
+                compact={true}
+              />
             </div>
           )}
           {bottomNavTab === 'tools' && (
@@ -354,6 +398,16 @@ export const BuildView: React.FC<BuildViewProps> = ({
             >
               {t('build.sidebar.terminal')}
             </button>
+            <button
+              onClick={() => {
+                setBuildTab('agents');
+                setToolsOpen(false);
+                setAgentPanelOpen(true);
+              }}
+              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
+            >
+              {t('build.sidebar.agents')}
+            </button>
           </div>
         </SheetModal>
 
@@ -422,7 +476,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ButtonGroup>
-              {['plan', 'transcript', 'diff', 'debug', 'terminal'].map((tab) => (
+              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents'].map((tab) => (
                 <Button
                   key={tab}
                   variant={buildTab === tab ? 'primary' : 'ghost'}
@@ -516,6 +570,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onClick={() => setBuildTab('terminal')}
                 active={buildTab === 'terminal'}
               />
+              <AppShellSidebarNavItem
+                label={t('build.sidebar.agents')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+                onClick={() => {
+                  setBuildTab('agents');
+                  setAgentPanelOpen(true);
+                }}
+                active={buildTab === 'agents'}
+              />
             </div>
           </AppShellSidebarSection>
         </Sidebar>
@@ -527,6 +590,18 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <AppShellSidebarSection title={t('build.sidebar.sections.debug')}>
             <BuildDebugPanel workspaceId={projectId ?? ''} />
           </AppShellSidebarSection>
+          {agentPanelOpen && parallelTask && (
+            <AppShellSidebarSection title={t('build.sidebar.sections.agents')}>
+              <AgentPanel
+                task={parallelTask}
+                onProgressEvent={onProgressEvent}
+                onCancel={onCancelParallel}
+                onCreateCheckpoint={onCreateCheckpoint}
+                onRollback={onRollback}
+                compact={agentPanelCompact}
+              />
+            </AppShellSidebarSection>
+          )}
         </Sidebar>
       }
       sidebarOpen={sidebarOpen}
@@ -565,6 +640,17 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onReady={(term) => {
                   if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
                 }}
+              />
+            </div>
+          )}
+          {buildTab === 'agents' && parallelTask && (
+            <div className="flex flex-col h-full p-4">
+              <AgentPanel
+                task={parallelTask}
+                onProgressEvent={onProgressEvent}
+                onCancel={onCancelParallel}
+                onCreateCheckpoint={onCreateCheckpoint}
+                onRollback={onRollback}
               />
             </div>
           )}
