@@ -69,17 +69,6 @@ Add pre-build analysis that constructs persistent project understanding — fram
 - [ ] **Persistent project map** — stored in `.infinity/project-map.json`, updated incrementally
 - [ ] **Change impact analysis** — when files modified, update map, detect affected areas
 - [ ] **Smart file inclusion** — only relevant files in context based on goal
-- [ ] **AI-Managed Roadmap** — Infinity Build can edit and maintain the roadmap as it works:
-  - [ ] **Roadmap Tools** — Exposed to agent: `roadmap.create`, `roadmap.update`, `roadmap.delete`, `roadmap.connect`, `roadmap.disconnect`, `roadmap.split`, `roadmap.merge`, `roadmap.complete`, `roadmap.block`, `roadmap.reorder`, `roadmap.get`
-  - [ ] **Node Operations** — Create/edit/delete nodes, change titles, descriptions, status, progress, priority, type
-  - [ ] **Dependency Management** — Create/remove dependencies, connect/disconnect nodes, reorganize groups
-  - [ ] **Structural Operations** — Split nodes, merge nodes, create subtasks, create milestones, rename groups
-  - [ ] **Status Operations** — Complete/reopen nodes, mark/unmark blocked, update progress
-  - [ ] **Roadmap State Access** — Agent can read current roadmap (in progress, completed, blocked, dependencies, next workable items)
-  - [ ] **Intentional Changes Only** — Infinity only modifies roadmap for meaningful project understanding changes (not cosmetic)
-  - [ ] **User Visibility** — UI shows "✦ Infinity updated the Build Map" with Added/Changed/Updated summary + activity history
-  - [ ] **Human + AI Collaboration** — Single shared data model; both user and AI operate on same roadmap
-  - [ ] **Dependency-Aware Planning** — Before substantial work, Infinity inspects roadmap to understand: in-progress, completed, blocked, dependencies, next workable items, obsolete work
 
 ### Implementation Plan
 1. **Project Map Engine** — `artifacts/api-server/src/lib/build-project-map.ts`
@@ -1453,6 +1442,46 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/Infinity/src/components/views/BuildView.tsx` (Secrets tab, Self-Settings panel, Dynamic Island mount)
 - `artifacts/Infinity/src/components/views/SettingsView.tsx` (Infinity Self-Management section)
 - `artifacts/Infinity/src/lib/i18n.tsx` (add ~60 Dynamic Island + Secrets + Self-Settings keys EN+NL)
+
+---
+
+## 📦 Phase 33: AI-Managed Roadmap (Build Map Intelligence)
+
+### Goal
+**The Build Map is a living roadmap** — Infinity Build actively creates, updates, connects, splits, merges, and reorganizes roadmap nodes as it discovers new work. A dedicated agent toolset allows the AI to maintain project understanding autonomously while keeping the user fully informed and in control.
+
+### Requirements
+- [ ] **Roadmap Tools** — Exposed to agent: `roadmap.create`, `roadmap.update`, `roadmap.delete`, `roadmap.connect`, `roadmap.disconnect`, `roadmap.split`, `roadmap.merge`, `roadmap.complete`, `roadmap.block`, `roadmap.reorder`, `roadmap.get`
+- [ ] **Node Operations** — Create/edit/delete nodes, change titles, descriptions, status, progress, priority, type
+- [ ] **Dependency Management** — Create/remove dependencies, connect/disconnect nodes, reorganize groups
+- [ ] **Structural Operations** — Split nodes, merge nodes, create subtasks, create milestones, rename groups
+- [ ] **Status Operations** — Complete/reopen nodes, mark/unmark blocked, update progress
+- [ ] **Roadmap State Access** — Agent can read current roadmap (in progress, completed, blocked, dependencies, next workable items)
+- [ ] **Intentional Changes Only** — Infinity only modifies roadmap for meaningful project understanding changes (not cosmetic)
+- [ ] **User Visibility** — UI shows "✦ Infinity updated the Build Map" with Added/Changed/Updated summary + activity history
+- [ ] **Human + AI Collaboration** — Single shared data model; both user and AI operate on same roadmap
+- [ ] **Dependency-Aware Planning** — Before substantial work, Infinity inspects roadmap to understand: in-progress, completed, blocked, dependencies, next workable items, obsolete work
+- [ ] **Roadmap Persistence** — Stored in `.infinity/roadmap.json` + DB, versioned with full history
+
+### Implementation Plan
+1. **Roadmap Engine** — `artifacts/api-server/src/lib/roadmap-engine.ts`
+   - Tool implementations for all 11 roadmap operations
+   - Validation: no cycles in dependencies, status transitions valid, progress 0-100
+   - Versioning: every change creates immutable snapshot
+2. **Agent Integration** — Register roadmap tools in Universal Tool Registry
+   - System prompt addition: "You maintain the Build Map roadmap. Use roadmap.* tools to track work."
+   - Pre-task hook: agent calls `roadmap.get` to understand current state before planning
+3. **Persistence** — `.infinity/roadmap.json` + `roadmap_versions` DB table
+4. **API** — `GET /build/roadmap/:projectId`, `POST /build/roadmap/:projectId/version/:version`
+5. **UI** — BuildView Roadmap tab: visual graph (nodes + edges), activity feed, version history, manual edit mode
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/roadmap-engine.ts` (new)
+- `artifacts/api-server/src/db/schema/roadmap.ts` (new — nodes, edges, versions tables)
+- `artifacts/api-server/src/routes/Infinity/roadmap.ts` (new)
+- `artifacts/Infinity/src/components/build/RoadmapView.tsx` (new — visual graph + activity feed)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Roadmap tab)
+- `artifacts/Infinity/src/lib/i18n.tsx` (add ~30 roadmap keys EN+NL)
 
 ---
 
