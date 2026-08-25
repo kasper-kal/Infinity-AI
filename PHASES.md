@@ -406,7 +406,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 ## 📦 Phase 10: Mobile App Development (React Native + Expo)
 
 ### Goal
-**Native iOS/Android app development from browser** — like Replit Mobile Apps: generate React Native + Expo apps from prompt, preview via QR code in Expo Go, submit to App Store/Play Store through guided flow. Full backend (database, auth, AI) included.
+**Native iOS/Android app development from browser** — like Replit Mobile Apps: generate React Native + Expo apps from prompt, preview via QR code in Expo Go, submit to App Store/Play Store through guided flow. Full backend (database, auth, AI) included. **Direct Figma integration** — iOS development connected to newest iOS Figma assets, Android development connected to newest Android Figma assets (Material 3 / Material You).
 
 ### Requirements
 - [ ] **React Native Project Generator** — Scaffold Expo + React Native + TypeScript + NativeWind
@@ -417,6 +417,10 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - [ ] **Play Store Submission** — Guided flow: signing, bundles, Play Console
 - [ ] **Mobile-Specific Templates** — iOS/Android design patterns, navigation, gestures
 - [ ] **Web ↔ Mobile Code Sharing** — Share components, logic, types between web and mobile
+- [ ] **Figma iOS Asset Sync** — Direct connection to Figma's newest iOS design kit (SF Symbols, iOS 17/18 components, Human Interface Guidelines tokens, native UI components) — auto-import latest iOS design system as NativeWind/React Native components
+- [ ] **Figma Android Asset Sync** — Direct connection to Figma's newest Android/Material 3 design kit (Material You tokens, M3 components, dynamic color, adaptive layouts, predictive back) — auto-import latest Material 3 as NativeWind/React Native components
+- [ ] **Design Token Bridge** — Figma → NativeWind config: colors, spacing, typography, border radius, shadows, motion tokens synced bidirectionally
+- [ ] **Component Parity** — Figma iOS/Android component variants → React Native component library with platform-specific implementations (Cupertino vs Material)
 
 ### Implementation Plan
 1. **Expo Project Scaffold** — Template with TypeScript, NativeWind, file-based routing (Expo Router)
@@ -425,14 +429,22 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 4. **Unified Backend** — Same database/auth API for web + mobile
 5. **Store Submission Automation** — `eas-cli` integration for build/submit pipelines
 6. **Mobile Build View** — New tab in BuildView for mobile-specific controls
+7. **Figma iOS Design Kit Integration** — Connect to Figma Community iOS 17/18 design system file, auto-fetch latest components/tokens, generate Cupertino-style React Native components with SF Symbols
+8. **Figma Material 3 Design Kit Integration** — Connect to Figma Community Material 3 / Material You design system, auto-fetch latest tokens/components, generate Material-style React Native components with dynamic color support
+9. **Design Token Sync Engine** — Bidirectional Figma ↔ NativeWind config sync: colors (light/dark/dynamic), spacing, typography (platform fonts), border radius, shadows, motion/reduced-motion tokens
+10. **Platform Component Library** — Generate `src/components/ios/` (Cupertino) and `src/components/android/` (Material) with platform-specific implementations, shared interface for cross-platform code
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/mobile-app-generator.ts` (new)
 - `artifacts/api-server/src/lib/expo-preview.ts` (new)
 - `artifacts/api-server/src/lib/store-submission.ts` (new)
+- `artifacts/api-server/src/lib/figma-ios-sync.ts` (new) — Figma iOS design kit fetcher + component generator
+- `artifacts/api-server/src/lib/figma-android-sync.ts` (new) — Figma Material 3 design kit fetcher + component generator
+- `artifacts/api-server/src/lib/design-token-bridge.ts` (new) — Figma tokens → NativeWind config transformer
 - `artifacts/Infinity/src/components/views/BuildView.tsx` (Mobile tab)
 - `artifacts/Infinity/src/components/mobile/QRCodePreview.tsx` (new)
 - `artifacts/Infinity/src/components/mobile/DeviceFeaturesPanel.tsx` (new)
+- `artifacts/Infinity/src/components/mobile/FigmaAssetPanel.tsx` (new) — UI to browse/sync Figma iOS/Android assets
 
 ---
 
