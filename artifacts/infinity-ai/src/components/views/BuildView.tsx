@@ -795,7 +795,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
         }}
         templates={templates}
         selectedArtifactType={selectedArtifactType ?? undefined}
-      />}
+      />
 
       {/* Command palette - BuildCommandPalette used instead of standard */}
       <BuildCommandPalette

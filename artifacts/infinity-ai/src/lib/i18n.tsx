@@ -1472,6 +1472,7 @@ const en = {
   "settings.mcpServers": "MCP Servers",
   "settings.mcpServersDescription": "Configure Model Context Protocol servers",
   "settings.advanced": "Advanced",
+  "settings.enterprise": "Enterprise",
   "settings.resetToDefaults": "Reset to defaults",
 
   /* Projects View */

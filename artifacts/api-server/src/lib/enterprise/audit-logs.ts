@@ -85,6 +85,22 @@ export type AuditEventType =
 
 export type AuditSeverity = "info" | "warning" | "critical";
 
+/**
+ * Audit log destination types
+ */
+export type AuditDestinationType =
+  | "clickhouse"
+  | "bigquery"
+  | "postgresql"
+  | "elasticsearch"
+  | "webhook"
+  | "file"
+  | "console"
+  | "datadog"
+  | "splunk"
+  | "sumologic"
+  | "custom-webhook";
+
 export interface AuditEvent {
   /** Unique event ID */
   id: string;
@@ -198,7 +214,7 @@ export interface AuditDestination {
   /** Destination name */
   name: string;
   /** Destination type */
-  type: "clickhouse" | "bigquery" | "postgresql" | "elasticsearch" | "webhook" | "file" | "console";
+  type: "clickhouse" | "bigquery" | "postgresql" | "elasticsearch" | "webhook" | "file" | "console" | "datadog" | "splunk" | "sumologic" | "custom-webhook";
   /** Write events */
   write(events: AuditEvent[]): Promise<WriteResult>;
   /** Query events */
@@ -691,6 +707,357 @@ export class ElasticsearchAuditDestination implements AuditDestination {
 
   async healthCheck(): Promise<HealthCheckResult> {
     return { healthy: false, error: "Not implemented" };
+  }
+
+  async close(): Promise<void> {}
+}
+
+/**
+ * Datadog destination
+ */
+export class DatadogAuditDestination implements AuditDestination {
+  readonly name: string;
+  readonly type = "datadog" as const;
+  private apiKey: string;
+  private site: string;
+  private batchSize: number;
+
+  constructor(config: { name: string; apiKey: string; site?: string; batchSize?: number }) {
+    this.name = config.name;
+    this.apiKey = config.apiKey;
+    this.site = config.site || "datadoghq.com";
+    this.batchSize = config.batchSize || 100;
+  }
+
+  async write(events: AuditEvent[]): Promise<WriteResult> {
+    let written = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    // Batch events
+    for (let i = 0; i < events.length; i += this.batchSize) {
+      const batch = events.slice(i, i + this.batchSize);
+      try {
+        await this.sendBatch(batch);
+        written += batch.length;
+      } catch (err) {
+        failed += batch.length;
+        errors.push(err instanceof Error ? err.message : "Datadog send failed");
+      }
+    }
+
+    return { success: failed === 0, written, failed, errors: errors.length > 0 ? errors : undefined };
+  }
+
+  private async sendBatch(batch: AuditEvent[]): Promise<void> {
+    const logs = batch.map(event => ({
+      ddtags: [
+        `type:${event.type}`,
+        `severity:${event.severity}`,
+        `outcome:${event.outcome}`,
+        `actor_type:${event.actor.type}`,
+        `target_type:${event.target.type}`,
+        ...(event.tags || []),
+      ].join(","),
+      message: JSON.stringify(event.context),
+      service: "infinity-audit",
+      status: event.severity === "critical" ? "error" : event.severity === "warning" ? "warning" : "info",
+      timestamp: Math.floor(new Date(event.timestamp).getTime() / 1000),
+      hostname: "infinity-ai",
+      // Custom attributes
+      audit_event_id: event.id,
+      audit_actor_id: event.actor.id,
+      audit_actor_type: event.actor.type,
+      audit_target_id: event.target.id,
+      audit_target_type: event.target.type,
+      audit_action: event.action,
+      audit_outcome: event.outcome,
+      audit_ip: event.ipAddress,
+      audit_user_agent: event.userAgent,
+      audit_request_id: event.requestId,
+      audit_correlation_id: event.correlationId,
+    }));
+
+    const response = await fetch(`https://http-intake.logs.${this.site}/api/v2/logs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "DD-API-KEY": this.apiKey,
+      },
+      body: JSON.stringify(logs),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Datadog returned ${response.status}: ${await response.text()}`);
+    }
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    try {
+      const start = Date.now();
+      const response = await fetch(`https://api.${this.site}/api/v1/validate`, {
+        method: "GET",
+        headers: { "DD-API-KEY": this.apiKey },
+      });
+      return { healthy: response.ok, latencyMs: Date.now() - start };
+    } catch (err) {
+      return { healthy: false, error: err instanceof Error ? err.message : "Health check failed" };
+    }
+  }
+
+  async close(): Promise<void> {}
+}
+
+/**
+ * Splunk destination (HTTP Event Collector)
+ */
+export class SplunkAuditDestination implements AuditDestination {
+  readonly name: string;
+  readonly type = "splunk" as const;
+  private url: string;
+  private token: string;
+  private batchSize: number;
+
+  constructor(config: { name: string; url: string; token: string; batchSize?: number }) {
+    this.name = config.name;
+    this.url = config.url; // e.g., https://your-splunk:8088/services/collector
+    this.token = config.token;
+    this.batchSize = config.batchSize || 100;
+  }
+
+  async write(events: AuditEvent[]): Promise<WriteResult> {
+    let written = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < events.length; i += this.batchSize) {
+      const batch = events.slice(i, i + this.batchSize);
+      try {
+        await this.sendBatch(batch);
+        written += batch.length;
+      } catch (err) {
+        failed += batch.length;
+        errors.push(err instanceof Error ? err.message : "Splunk send failed");
+      }
+    }
+
+    return { success: failed === 0, written, failed, errors: errors.length > 0 ? errors : undefined };
+  }
+
+  private async sendBatch(batch: AuditEvent[]): Promise<void> {
+    const events = batch.map(event => ({
+      time: Math.floor(new Date(event.timestamp).getTime() / 1000),
+      host: "infinity-ai",
+      source: "infinity-audit",
+      sourcetype: "_json",
+      index: "main",
+      fields: {
+        audit_event_id: event.id,
+        audit_type: event.type,
+        audit_severity: event.severity,
+        audit_actor_id: event.actor.id,
+        audit_actor_type: event.actor.type,
+        audit_target_id: event.target.id,
+        audit_target_type: event.target.type,
+        audit_action: event.action,
+        audit_outcome: event.outcome,
+        audit_ip: event.ipAddress,
+        audit_user_agent: event.userAgent,
+        audit_request_id: event.requestId,
+        audit_correlation_id: event.correlationId,
+        ...event.context,
+      },
+      event: event.context,
+    }));
+
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Splunk ${this.token}`,
+      },
+      body: JSON.stringify({ events }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Splunk returned ${response.status}: ${await response.text()}`);
+    }
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    try {
+      const start = Date.now();
+      const response = await fetch(this.url.replace("/services/collector", "/services/collector/health"), {
+        method: "GET",
+        headers: { "Authorization": `Splunk ${this.token}` },
+      });
+      return { healthy: response.ok, latencyMs: Date.now() - start };
+    } catch (err) {
+      return { healthy: false, error: err instanceof Error ? err.message : "Health check failed" };
+    }
+  }
+
+  async close(): Promise<void> {}
+}
+
+/**
+ * Custom Webhook destination (for any HTTP endpoint)
+ */
+export class CustomWebhookAuditDestination implements AuditDestination {
+  readonly name: string;
+  readonly type = "webhook" as const;
+  private url: string;
+  private secret?: string;
+  private headers: Record<string, string>;
+  private batchSize: number;
+
+  constructor(config: {
+    name: string;
+    url: string;
+    secret?: string;
+    headers?: Record<string, string>;
+    batchSize?: number
+  }) {
+    this.name = config.name;
+    this.url = config.url;
+    this.secret = config.secret;
+    this.headers = config.headers || {};
+    this.batchSize = config.batchSize || 50;
+  }
+
+  async write(events: AuditEvent[]): Promise<WriteResult> {
+    let written = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < events.length; i += this.batchSize) {
+      const batch = events.slice(i, i + this.batchSize);
+      try {
+        await this.sendBatch(batch);
+        written += batch.length;
+      } catch (err) {
+        failed += batch.length;
+        errors.push(err instanceof Error ? err.message : "Webhook send failed");
+      }
+    }
+
+    return { success: failed === 0, written, failed, errors: errors.length > 0 ? errors : undefined };
+  }
+
+  private async sendBatch(batch: AuditEvent[]): Promise<void> {
+    const payload = {
+      events: batch,
+      timestamp: new Date().toISOString(),
+      count: batch.length,
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": "Infinity-Audit/1.0",
+      ...this.headers,
+    };
+
+    if (this.secret) {
+      const crypto = await import("node:crypto");
+      const signature = crypto.createHmac("sha256", this.secret).update(JSON.stringify(payload)).digest("hex");
+      headers["X-Infinity-Signature"] = `sha256=${signature}`;
+    }
+
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Webhook returned ${response.status}: ${await response.text()}`);
+    }
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    try {
+      const start = Date.now();
+      const response = await fetch(this.url, { method: "HEAD" });
+      return { healthy: response.ok, latencyMs: Date.now() - start };
+    } catch (err) {
+      return { healthy: false, error: err instanceof Error ? err.message : "Health check failed" };
+    }
+  }
+
+  async close(): Promise<void> {}
+}
+
+/**
+ * Sumo Logic destination
+ */
+export class SumoLogicAuditDestination implements AuditDestination {
+  readonly name: string;
+  readonly type = "sumologic" as const;
+  private url: string;
+  private batchSize: number;
+
+  constructor(config: { name: string; url: string; batchSize?: number }) {
+    this.name = config.name;
+    this.url = config.url; // Sumo Logic HTTP Source URL
+    this.batchSize = config.batchSize || 100;
+  }
+
+  async write(events: AuditEvent[]): Promise<WriteResult> {
+    let written = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < events.length; i += this.batchSize) {
+      const batch = events.slice(i, i + this.batchSize);
+      try {
+        await this.sendBatch(batch);
+        written += batch.length;
+      } catch (err) {
+        failed += batch.length;
+        errors.push(err instanceof Error ? err.message : "Sumo Logic send failed");
+      }
+    }
+
+    return { success: failed === 0, written, failed, errors: errors.length > 0 ? errors : undefined };
+  }
+
+  private async sendBatch(batch: AuditEvent[]): Promise<void> {
+    const payload = batch.map(event => ({
+      _time: Math.floor(new Date(event.timestamp).getTime() / 1000),
+      audit_event_id: event.id,
+      audit_type: event.type,
+      audit_severity: event.severity,
+      audit_actor_id: event.actor.id,
+      audit_actor_type: event.actor.type,
+      audit_target_id: event.target.id,
+      audit_target_type: event.target.type,
+      audit_action: event.action,
+      audit_outcome: event.outcome,
+      ...event.context,
+    }));
+
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sumo-Category": "infinity/audit",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sumo Logic returned ${response.status}: ${await response.text()}`);
+    }
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    try {
+      const start = Date.now();
+      const response = await fetch(this.url, { method: "HEAD" });
+      return { healthy: response.ok, latencyMs: Date.now() - start };
+    } catch (err) {
+      return { healthy: false, error: err instanceof Error ? err.message : "Health check failed" };
+    }
   }
 
   async close(): Promise<void> {}

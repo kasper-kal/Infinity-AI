@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Button, Card, Input, Select, Textarea, Checkbox, Label, Tabs } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/card";
+import { Input, Textarea, Select } from "@/components/ui/Input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Tabs } from "@/components/ui/Tabs";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 interface StoreSubmission {

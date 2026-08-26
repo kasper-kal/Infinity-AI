@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Card, Input, Select } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/Input";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 interface MobilePreviewTabProps {

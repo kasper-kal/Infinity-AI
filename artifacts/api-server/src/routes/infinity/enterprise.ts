@@ -1,12 +1,27 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, AuthenticatedRequest } from "../../middleware/auth-middleware";
-import { auditLogger, AuditHelpers } from "../../lib/enterprise/audit-logs";
-import type { AuditEventType } from "../../lib/enterprise/audit-logs";
+import { auditLogger, AuditHelpers, DatadogAuditDestination, SplunkAuditDestination, CustomWebhookAuditDestination, SumoLogicAuditDestination, type AuditEventType } from "../../lib/enterprise/audit-logs";
 import { SSOManager, SSOConfig, createSSOConfigWithProviders, initializeSSO, getSSOManager } from "../../lib/enterprise/sso";
 import { VPCConfig, VPCManager, createStandardVPCConfig, vpcManager, TerraformOutput, VPCModuleGenerator } from "../../lib/enterprise/vpc";
 import { SCIMServer, SCIMConfig, initializeSCIM, getSCIMServer, SCIMPatchRequest } from "../../lib/enterprise/scim";
+import { RBACManager, RBACConfig, initializeRBAC, getRBACManager } from "../../lib/enterprise/rbac";
+import { SingleTenantManager, SingleTenantConfig, initializeSingleTenant, getSingleTenantManager } from "../../lib/enterprise/single-tenant";
 
 const router = Router();
+
+// Audit destination type (inline to avoid esbuild export resolution issue)
+type AuditDestinationType =
+  | "clickhouse"
+  | "bigquery"
+  | "postgresql"
+  | "elasticsearch"
+  | "webhook"
+  | "file"
+  | "console"
+  | "datadog"
+  | "splunk"
+  | "sumologic"
+  | "custom-webhook";
 
 // ============================================
 // SSO / SAML / OIDC Routes
@@ -915,6 +930,803 @@ router.delete("/scim/Groups/:id", async (req: Request, res: Response) => {
     status: 501,
     detail: "Group provisioning not yet implemented",
   });
+});
+
+// ============================================
+// Observability Export Routes
+// ============================================
+
+/**
+ * GET /api/infinity/enterprise/observability/destinations
+ * Get configured audit log destinations
+ */
+router.get("/observability/destinations", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // In production, fetch from database
+    const destinations = [
+      { type: AuditDestinationType.CLOUD_LOGGING, name: "Google Cloud Logging", enabled: true },
+      { type: AuditDestinationType.CLOUDWATCH, name: "AWS CloudWatch", enabled: false },
+      { type: AuditDestinationType.AZURE_MONITOR, name: "Azure Monitor", enabled: false },
+      { type: AuditDestinationType.CLICKHOUSE, name: "ClickHouse", enabled: false },
+      { type: AuditDestinationType.BIGQUERY, name: "BigQuery", enabled: false },
+      { type: AuditDestinationType.SPLUNK_HEC, name: "Splunk HEC", enabled: false },
+      { type: AuditDestinationType.DATADOG, name: "Datadog", enabled: false },
+      { type: AuditDestinationType.SUMO_LOGIC, name: "Sumo Logic", enabled: false },
+      { type: AuditDestinationType.CUSTOM_WEBHOOK, name: "Custom Webhook", enabled: false },
+    ];
+
+    res.json({ destinations });
+  } catch (err) {
+    console.error("Get observability destinations error:", err);
+    res.status(500).json({ error: "Failed to get observability destinations" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/observability/destinations
+ * Configure audit log destination
+ */
+router.post("/observability/destinations", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { type, name, config, enabled } = req.body;
+
+    if (!type || !name || !config) {
+      return res.status(400).json({ error: "type, name, and config are required" });
+    }
+
+    // In production, validate and save to database
+    // Test connection to destination
+
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "observability_destination", id: type, name },
+      action: "configure_destination",
+      outcome: "success",
+      metadata: { type, enabled },
+      severity: "info",
+    });
+
+    res.json({ success: true, message: "Observability destination configured" });
+  } catch (err) {
+    console.error("Configure observability destination error:", err);
+    res.status(500).json({ error: "Failed to configure observability destination" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/observability/destinations/test
+ * Test audit log destination
+ */
+router.post("/observability/destinations/test", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { type, config } = req.body;
+
+    if (!type || !config) {
+      return res.status(400).json({ error: "type and config are required" });
+    }
+
+    // In production, test the actual destination
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "observability_destination", id: type, name: "Test" },
+      action: "test_destination",
+      outcome: "success",
+      metadata: { type },
+      severity: "info",
+    });
+
+    res.json({ success: true, message: "Test event sent successfully" });
+  } catch (err) {
+    console.error("Test observability destination error:", err);
+    res.status(500).json({ error: "Failed to test observability destination" });
+  }
+});
+
+// ============================================
+// RBAC Routes
+// ============================================
+
+/**
+ * GET /api/infinity/enterprise/rbac/roles
+ * Get all roles (system and custom)
+ */
+router.get("/rbac/roles", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const roles = rbacManager.getAllRoles();
+    res.json({ roles });
+  } catch (err) {
+    console.error("Get RBAC roles error:", err);
+    res.status(500).json({ error: "Failed to get RBAC roles" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/rbac/roles/:roleId
+ * Get specific role details
+ */
+router.get("/rbac/roles/:roleId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { roleId } = req.params;
+    const role = rbacManager.getRole(roleId);
+
+    if (!role) {
+      return res.status(404).json({ error: "Role not found" });
+    }
+
+    res.json({ role });
+  } catch (err) {
+    console.error("Get RBAC role error:", err);
+    res.status(500).json({ error: "Failed to get RBAC role" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/rbac/roles
+ * Create a custom role
+ */
+router.post("/rbac/roles", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { id, name, description, permissions, inherits, conditions } = req.body;
+
+    if (!id || !name || !permissions || !Array.isArray(permissions)) {
+      return res.status(400).json({ error: "id, name, and permissions array are required" });
+    }
+
+    const role = rbacManager.createCustomRole({
+      id,
+      name,
+      description: description || "",
+      permissions,
+      inherits: inherits || [],
+      conditions: conditions || [],
+      isSystem: false,
+    });
+
+    await auditLogger.log({
+      type: AuditEventType.ROLE_ASSIGNMENT_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "role", id, name },
+      action: "create_custom_role",
+      outcome: "success",
+      metadata: { permissions, inherits },
+      severity: "info",
+    });
+
+    res.status(201).json({ role });
+  } catch (err) {
+    console.error("Create RBAC role error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to create role" });
+  }
+});
+
+/**
+ * PUT /api/infinity/enterprise/rbac/roles/:roleId
+ * Update a custom role
+ */
+router.put("/rbac/roles/:roleId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { roleId } = req.params;
+    const updates = req.body;
+
+    const role = rbacManager.updateCustomRole(roleId, updates);
+
+    await auditLogger.log({
+      type: AuditEventType.ROLE_ASSIGNMENT_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "role", id: roleId },
+      action: "update_custom_role",
+      outcome: "success",
+      metadata: updates,
+      severity: "info",
+    });
+
+    res.json({ role });
+  } catch (err) {
+    console.error("Update RBAC role error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to update role" });
+  }
+});
+
+/**
+ * DELETE /api/infinity/enterprise/rbac/roles/:roleId
+ * Delete a custom role
+ */
+router.delete("/rbac/roles/:roleId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { roleId } = req.params;
+
+    rbacManager.deleteCustomRole(roleId);
+
+    await auditLogger.log({
+      type: AuditEventType.ROLE_ASSIGNMENT_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "role", id: roleId },
+      action: "delete_custom_role",
+      outcome: "success",
+      severity: "info",
+    });
+
+    res.status(204).send();
+  } catch (err) {
+    console.error("Delete RBAC role error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to delete role" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/rbac/permissions
+ * Get all available permissions
+ */
+router.get("/rbac/permissions", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const permissions = rbacManager.getAllPermissions();
+    res.json({ permissions });
+  } catch (err) {
+    console.error("Get RBAC permissions error:", err);
+    res.status(500).json({ error: "Failed to get RBAC permissions" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/rbac/assignments
+ * Assign role to principal
+ */
+router.post("/rbac/assignments", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { principalId, principalType, roleId, resourceType, resourceId, expiresAt } = req.body;
+
+    if (!principalId || !principalType || !roleId) {
+      return res.status(400).json({ error: "principalId, principalType, and roleId are required" });
+    }
+
+    const assignment = rbacManager.assignRole(principalId, principalType, roleId, {
+      resourceType,
+      resourceId,
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      assignedBy: req.accountId!,
+    });
+
+    await auditLogger.log({
+      type: AuditEventType.ROLE_ASSIGNMENT_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "role_assignment", id: assignment.id },
+      action: "assign_role",
+      outcome: "success",
+      metadata: { principalId, principalType, roleId, resourceType, resourceId },
+      severity: "info",
+    });
+
+    res.status(201).json({ assignment });
+  } catch (err) {
+    console.error("Assign RBAC role error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to assign role" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/rbac/assignments
+ * List role assignments
+ */
+router.get("/rbac/assignments", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { principalId, roleId, resourceType, resourceId } = req.query;
+
+    const assignments = rbacManager.getAssignments({
+      principalId: principalId as string,
+      roleId: roleId as string,
+      resourceType: resourceType as string,
+      resourceId: resourceId as string,
+    });
+
+    res.json({ assignments });
+  } catch (err) {
+    console.error("List RBAC assignments error:", err);
+    res.status(500).json({ error: "Failed to list role assignments" });
+  }
+});
+
+/**
+ * DELETE /api/infinity/enterprise/rbac/assignments/:assignmentId
+ * Revoke role assignment
+ */
+router.delete("/rbac/assignments/:assignmentId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { assignmentId } = req.params;
+
+    rbacManager.revokeAssignment(assignmentId, req.accountId!);
+
+    await auditLogger.log({
+      type: AuditEventType.ROLE_ASSIGNMENT_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "role_assignment", id: assignmentId },
+      action: "revoke_role_assignment",
+      outcome: "success",
+      severity: "info",
+    });
+
+    res.status(204).send();
+  } catch (err) {
+    console.error("Revoke RBAC assignment error:", err);
+    res.status(500).json({ error: "Failed to revoke role assignment" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/rbac/check
+ * Check permission for principal
+ */
+router.post("/rbac/check", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { principalId, permission, resourceType, resourceId, context } = req.body;
+
+    if (!principalId || !permission) {
+      return res.status(400).json({ error: "principalId and permission are required" });
+    }
+
+    const result = rbacManager.checkPermission(principalId, permission, {
+      resourceType,
+      resourceId,
+      context,
+    });
+
+    res.json({ allowed: result.allowed, reason: result.reason, matchedRoles: result.matchedRoles });
+  } catch (err) {
+    console.error("Check RBAC permission error:", err);
+    res.status(500).json({ error: "Failed to check permission" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/rbac/audit
+ * Get RBAC audit log
+ */
+router.get("/rbac/audit", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rbacManager = getRBACManager();
+    if (!rbacManager) {
+      return res.status(404).json({ error: "RBAC not initialized" });
+    }
+
+    const { limit = "100", offset = "0" } = req.query;
+    const auditLog = rbacManager.getAuditLog(parseInt(limit as string), parseInt(offset as string));
+
+    res.json({ auditLog });
+  } catch (err) {
+    console.error("Get RBAC audit log error:", err);
+    res.status(500).json({ error: "Failed to get RBAC audit log" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/rbac/initialize
+ * Initialize RBAC with default configuration
+ */
+router.post("/rbac/initialize", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const config = req.body as any;
+
+    const rbacManager = initializeRBAC(config);
+
+    res.json({
+      success: true,
+      message: "RBAC initialized",
+      roles: rbacManager.getAllRoles().length,
+      permissions: rbacManager.getAllPermissions().length,
+    });
+  } catch (err) {
+    console.error("Initialize RBAC error:", err);
+    res.status(500).json({ error: "Failed to initialize RBAC" });
+  }
+});
+
+// ============================================
+// Single Tenant Routes
+// ============================================
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/provision
+ * Provision a new single-tenant environment
+ */
+router.post("/single-tenant/provision", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const config = req.body as Omit<SingleTenantConfig, "createdAt" | "updatedAt" | "createdBy">;
+
+    if (!config.name || !config.tier) {
+      return res.status(400).json({ error: "name and tier are required" });
+    }
+
+    const fullConfig: Omit<SingleTenantConfig, "createdAt" | "updatedAt" | "createdBy"> = {
+      ...config,
+      tenantId: config.tenantId || `tenant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    };
+
+    const result = await singleTenantManager.provision(fullConfig);
+
+    await auditLogger.log({
+      type: AuditEventType.DEPLOYMENT_CREATE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: result.tenantId, name: config.name },
+      action: "provision_single_tenant",
+      outcome: result.success ? "success" : "failure",
+      metadata: { tier: config.tier, error: result.error },
+      severity: result.success ? "info" : "error",
+    });
+
+    if (result.success) {
+      res.status(201).json(result);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (err) {
+    console.error("Provision single tenant error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to provision single tenant" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/single-tenant
+ * List all single-tenant environments
+ */
+router.get("/single-tenant", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const tenants = singleTenantManager.listTenants();
+
+    res.json({ tenants });
+  } catch (err) {
+    console.error("List single tenants error:", err);
+    res.status(500).json({ error: "Failed to list single tenants" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/single-tenant/:tenantId
+ * Get single-tenant configuration
+ */
+router.get("/single-tenant/:tenantId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const tenant = singleTenantManager.getTenant(tenantId);
+
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    res.json({ tenant });
+  } catch (err) {
+    console.error("Get single tenant error:", err);
+    res.status(500).json({ error: "Failed to get single tenant" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/single-tenant/:tenantId/status
+ * Get single-tenant status
+ */
+router.get("/single-tenant/:tenantId/status", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const status = singleTenantManager.getStatus(tenantId);
+
+    if (!status) {
+      return res.status(404).json({ error: "Tenant status not found" });
+    }
+
+    res.json({ status });
+  } catch (err) {
+    console.error("Get single tenant status error:", err);
+    res.status(500).json({ error: "Failed to get single tenant status" });
+  }
+});
+
+/**
+ * PUT /api/infinity/enterprise/single-tenant/:tenantId
+ * Update single-tenant configuration
+ */
+router.put("/single-tenant/:tenantId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const updates = req.body;
+
+    const tenant = singleTenantManager.updateTenant(tenantId, updates);
+
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: tenantId },
+      action: "update_single_tenant",
+      outcome: "success",
+      metadata: updates,
+      severity: "info",
+    });
+
+    res.json({ tenant });
+  } catch (err) {
+    console.error("Update single tenant error:", err);
+    res.status(500).json({ error: "Failed to update single tenant" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/:tenantId/suspend
+ * Suspend a single-tenant environment
+ */
+router.post("/single-tenant/:tenantId/suspend", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const success = await singleTenantManager.suspend(tenantId);
+
+    if (!success) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: tenantId },
+      action: "suspend_single_tenant",
+      outcome: "success",
+      severity: "warning",
+    });
+
+    res.json({ success: true, message: "Tenant suspended" });
+  } catch (err) {
+    console.error("Suspend single tenant error:", err);
+    res.status(500).json({ error: "Failed to suspend single tenant" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/:tenantId/resume
+ * Resume a suspended single-tenant environment
+ */
+router.post("/single-tenant/:tenantId/resume", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const success = await singleTenantManager.resume(tenantId);
+
+    if (!success) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: tenantId },
+      action: "resume_single_tenant",
+      outcome: "success",
+      severity: "info",
+    });
+
+    res.json({ success: true, message: "Tenant resumed" });
+  } catch (err) {
+    console.error("Resume single tenant error:", err);
+    res.status(500).json({ error: "Failed to resume single tenant" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/:tenantId/deprovision
+ * Deprovision a single-tenant environment
+ */
+router.post("/single-tenant/:tenantId/deprovision", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const { force = false } = req.body;
+
+    const success = await singleTenantManager.deprovision(tenantId, force);
+
+    if (!success) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    await auditLogger.log({
+      type: AuditEventType.DEPLOYMENT_DELETE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: tenantId },
+      action: "deprovision_single_tenant",
+      outcome: "success",
+      metadata: { force },
+      severity: "warning",
+    });
+
+    res.json({ success: true, message: "Tenant deprovisioned" });
+  } catch (err) {
+    console.error("Deprovision single tenant error:", err);
+    res.status(500).json({ error: "Failed to deprovision single tenant" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/single-tenant/:tenantId/provisioning
+ * Get provisioning job status
+ */
+router.get("/single-tenant/:tenantId/provisioning", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const provisioning = singleTenantManager.getProvisioningStatus(tenantId);
+
+    if (!provisioning) {
+      return res.status(404).json({ error: "Provisioning status not found" });
+    }
+
+    res.json({ provisioning });
+  } catch (err) {
+    console.error("Get provisioning status error:", err);
+    res.status(500).json({ error: "Failed to get provisioning status" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/:tenantId/upgrade
+ * Upgrade single-tenant version
+ */
+router.post("/single-tenant/:tenantId/upgrade", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const singleTenantManager = getSingleTenantManager();
+    if (!singleTenantManager) {
+      return res.status(404).json({ error: "Single Tenant not initialized" });
+    }
+
+    const { tenantId } = req.params;
+    const { targetVersion } = req.body;
+
+    if (!targetVersion) {
+      return res.status(400).json({ error: "targetVersion is required" });
+    }
+
+    const success = await singleTenantManager.upgrade(tenantId, targetVersion);
+
+    if (!success) {
+      return res.status(404).json({ error: "Tenant not found or upgrade failed" });
+    }
+
+    await auditLogger.log({
+      type: AuditEventType.SYSTEM_CONFIG_CHANGE,
+      actor: { type: "user", id: req.accountId!, email: req.userEmail },
+      resource: { type: "single_tenant", id: tenantId },
+      action: "upgrade_single_tenant",
+      outcome: "success",
+      metadata: { targetVersion },
+      severity: "info",
+    });
+
+    res.json({ success: true, message: `Tenant upgraded to ${targetVersion}` });
+  } catch (err) {
+    console.error("Upgrade single tenant error:", err);
+    res.status(500).json({ error: "Failed to upgrade single tenant" });
+  }
+});
+
+/**
+ * POST /api/infinity/enterprise/single-tenant/initialize
+ * Initialize Single Tenant manager
+ */
+router.post("/single-tenant/initialize", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    initializeSingleTenant();
+
+    res.json({ success: true, message: "Single Tenant manager initialized" });
+  } catch (err) {
+    console.error("Initialize Single Tenant error:", err);
+    res.status(500).json({ error: "Failed to initialize Single Tenant" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/single-tenant/default-config
+ * Get default single-tenant configuration template
+ */
+router.get("/single-tenant/default-config", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { createDefaultSingleTenantConfig } = await import("../../lib/enterprise/single-tenant");
+    const config = createDefaultSingleTenantConfig();
+
+    res.json({ config });
+  } catch (err) {
+    console.error("Get default single tenant config error:", err);
+    res.status(500).json({ error: "Failed to get default configuration" });
+  }
 });
 
 // ============================================

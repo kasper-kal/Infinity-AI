@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Search, Star, GitBranch, Clock, Download, Palette } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, type Tab } from "@/components/ui/Tabs";
 
 export interface ArtifactTemplate {

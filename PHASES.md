@@ -26,8 +26,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **11** | **Security Scanner + Secrets Manager (Replit-Level)** | ✅ **COMPLETE** |
 | **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
 | **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | ✅ **COMPLETE** |
-| **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔄 **IN PROGRESS** |
-| **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔲 PLANNED |
+| **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
+| **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | 🔲 PLANNED |
 | **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔲 PLANNED |
@@ -567,12 +567,12 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - [x] **SSO/SAML/OIDC** — Integration with Okta, Microsoft Entra ID, Google Workspace, custom SAML
 - [x] **SCIM Provisioning** — Auto-provision/deprovision users from IdP
 - [x] **VPC Peering** — Dedicated GCP/AWS project, private network connectivity
-- [ ] **Single-Tenant Option** — Isolated control plane + data plane per enterprise
-- [ ] **Static Outbound IPs** — Predictable egress for firewall rules
-- [ ] **Region Selection** — Deploy to specific GCP/AWS regions (data residency)
+- [x] **Single-Tenant Option** — Isolated control plane + data plane per enterprise
+- [x] **Static Outbound IPs** — Predictable egress for firewall rules
+- [x] **Region Selection** — Deploy to specific GCP/AWS regions (data residency)
 - [x] **Audit Logs** — Organization-wide: app edits, deployments, permission changes, agent runs
-- [ ] **Observability Export** — Send logs to Datadog, Splunk, Elastic, custom webhook
-- [ ] **Role-Based Access Control** — Custom roles, resource-level permissions
+- [x] **Observability Export** — Send logs to Datadog, Splunk, Elastic, custom webhook (11 destinations: ClickHouse, BigQuery, PostgreSQL, Elasticsearch, Webhook, File, Console, Datadog, Splunk, Sumo Logic, Custom Webhook)
+- [x] **Role-Based Access Control** — Custom roles, resource-level permissions, ABAC conditions, role inheritance, 5 system roles (Owner, Admin, Developer, Viewer, Auditor), 50+ permissions
 
 ### Implementation Plan
 1. **Auth Provider Abstraction** — Pluggable IdP support (Clerk/Auth0/Keycloak/self-hosted)

@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Button, Card, Input, Textarea, Tabs } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/card";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Tabs } from "@/components/ui/Tabs";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 interface MobileDesignTabProps {

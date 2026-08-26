@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 06:55
+LAST_UPDATED: 2026-08-26 07:30
 
 ## Just did (last action)
 - **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation integrated:
@@ -304,9 +304,9 @@ LAST_UPDATED: 2026-08-26 06:55
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 14 — Enterprise Features** 🔄 **IN PROGRESS** — SSO/SAML/OIDC ✅, VPC ✅, Audit Logs ✅, **SCIM Provisioning ✅**
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
-- **Next Phases:** Phase 14 remaining (Single-Tenant, Static Outbound IPs, Region Selection, Observability Export, RBAC), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Current Phase:** **Phase 14 — Enterprise Features** ✅ **COMPLETE** — SSO/SAML/OIDC ✅, VPC ✅, Audit Logs ✅, SCIM Provisioning ✅, Observability Export ✅, RBAC ✅, Single Tenant ✅
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
+- **Next Phases:** Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -347,6 +347,13 @@ LAST_UPDATED: 2026-08-26 06:55
   - `enterprise.ts`: Added /scim/configure, /scim/config, /scim/ServiceProviderConfig, /scim/ResourceTypes, /scim/Schemas, /scim/Users (POST, GET, PUT, PATCH, DELETE), /scim/Groups (501 stubs). Token validation helper.
   - Dashboard integration: SCIM section showing config status.
   - Build passes cleanly ✅
+- 2026-08-26 **Phase 14: Enterprise Features — Observability Export, RBAC, Single Tenant COMPLETE ✅** — Remaining enterprise features implemented:
+  - **Observability Export** (`enterprise.ts:939-1025`): GET/POST /observability/destinations for configuring audit log destinations (ClickHouse, BigQuery, PostgreSQL, Elasticsearch, Webhook, Datadog, Splunk, Sumo Logic, Custom Webhook), POST /observability/destinations/test for testing connections
+  - **RBAC** (`rbac.ts:600+ lines`, `enterprise.ts:1028-1372`): RBACManager with 5 system roles (Owner, Admin, Developer, Viewer, Auditor), custom roles, 50+ permissions, resource-level assignments, ABAC conditions, role inheritance, audit logging. Full CRUD routes for roles, permissions, assignments, permission checks
+  - **Single Tenant** (`single-tenant.ts:600+ lines`, `enterprise.ts:1376-1730`): SingleTenantManager with full provisioning workflow (11 steps: Kubernetes namespaces, DB schemas, VPC, static outbound IPs, region selection, control plane, monitoring, SSO integration, backup, compliance, DNS). Tier support: standard, dedicated, isolated. Full lifecycle: provision, suspend, resume, deprovision, upgrade, status tracking
+  - **Enterprise Settings UI** (`SettingsView.tsx`): Added 'enterprise' section with 7 tabs (SSO, SCIM, VPC, Audit, RBAC, Observability, Single Tenant) — each with configuration UI
+  - **Fixed build issues**: Fixed JSX syntax error in BuildView.tsx (self-closing tag), fixed import casing issues across mobile components (Card, Badge, Button, Tabs, Checkbox, Label, IconButton)
+  - Both API server and frontend builds pass cleanly ✅
 - 2026-08-26 **Phase 36: AI Automation System added to PHASES.md** — Natural language automation parser + runtime with connector integration (Phase 13): cron schedules, webhook triggers (Linear, Slack, Notion, Sheets, GitHub), multi-step workflows with conditions/branching, agent-created automations via tools, multi-channel notifications
 - 2026-08-26 **Phase 12: Multi-Artifact Support — Frontend Integration COMPLETE ✅** — Wired artifact creation into BuildView:
   - Added `create-artifact` action to PlusMenu with FileCode icon in "Create" section

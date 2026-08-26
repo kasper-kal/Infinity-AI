@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, Input, Textarea, Select, SelectOption, Checkbox, Label } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Input, Textarea, Select, SelectOption } from "@/components/ui/Input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Dialog } from "@/components/ui/Dialog";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 

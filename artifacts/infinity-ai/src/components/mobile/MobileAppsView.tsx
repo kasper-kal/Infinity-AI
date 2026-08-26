@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Button, IconButton, Input, Textarea, Select, SelectOption } from "@/components/ui/Input";
+import { Button, IconButton } from "@/components/ui/Button";
+import { Input, Textarea, Select, SelectOption } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { MobileAppCard } from "./MobileAppCard";
 import { MobileCreateModal } from "./MobileCreateModal";

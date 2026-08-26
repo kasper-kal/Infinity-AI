@@ -20,6 +20,270 @@ import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MCPConfigPanel } from "@/components/settings/MCPConfigPanel";
 
+/* ── Enterprise Settings Panel ── */
+const EnterpriseSettingsPanel: React.FC = () => {
+  const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState<string>('sso');
+
+  const tabs = [
+    { id: 'sso', label: 'SSO / SAML / OIDC' },
+    { id: 'scim', label: 'SCIM Provisioning' },
+    { id: 'vpc', label: 'VPC / Network' },
+    { id: 'audit', label: 'Audit Logs' },
+    { id: 'rbac', label: 'RBAC' },
+    { id: 'observability', label: 'Observability Export' },
+    { id: 'single-tenant', label: 'Single Tenant' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">{t('settings.enterprise')}</h3>
+      <p className="text-sm text-muted-foreground">
+        Configure enterprise features: SSO, SCIM, VPC, audit logging, RBAC, and single-tenant environments.
+      </p>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 overflow-x-auto pb-2">
+        {tabs.map((tab) => (
+          <Button
+            key={tab.id}
+            variant={activeTab === tab.id ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setActiveTab(tab.id)}
+            className="whitespace-nowrap"
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-4">
+        {activeTab === 'sso' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">SSO / SAML / OIDC Configuration</h4>
+            <p className="text-sm text-muted-foreground">
+              Configure identity providers (Okta, Entra ID, Google Workspace, custom SAML/OIDC).
+            </p>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Okta</div>
+                    <div className="text-sm text-muted-foreground">OIDC / SAML 2.0</div>
+                  </div>
+                  <span className="px-2 py-1 text-xs rounded-full bg-muted-foreground/10 text-muted-foreground">
+                    Not Configured
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Entra ID (Azure AD)</div>
+                    <div className="text-sm text-muted-foreground">OIDC</div>
+                  </div>
+                  <span className="px-2 py-1 text-xs rounded-full bg-muted-foreground/10 text-muted-foreground">
+                    Not Configured
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Google Workspace</div>
+                    <div className="text-sm text-muted-foreground">OIDC</div>
+                  </div>
+                  <span className="px-2 py-1 text-xs rounded-full bg-muted-foreground/10 text-muted-foreground">
+                    Not Configured
+                  </span>
+                </div>
+              </div>
+              <Button variant="outline" size="sm">Configure SSO Providers</Button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'scim' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">SCIM Provisioning</h4>
+            <p className="text-sm text-muted-foreground">
+              Automate user and group provisioning from your identity provider (RFC 7644).
+            </p>
+            <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">SCIM Server</div>
+                  <div className="text-sm text-muted-foreground">Base URL: not configured</div>
+                </div>
+                <span className="px-2 py-1 text-xs rounded-full bg-muted-foreground/10 text-muted-foreground">
+                  Not Configured
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <input type="checkbox" className="w-4 h-4" />
+                <span className="text-sm">Enable User Provisioning</span>
+              </label>
+              <label className="flex items-center gap-2 p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <input type="checkbox" className="w-4 h-4" />
+                <span className="text-sm">Enable Group Provisioning</span>
+              </label>
+            </div>
+            <Button variant="outline" size="sm">Configure SCIM</Button>
+          </div>
+        )}
+
+        {activeTab === 'vpc' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">VPC / Network Configuration</h4>
+            <p className="text-sm text-muted-foreground">
+              Generate Terraform configurations for isolated VPCs (GCP, AWS, Azure).
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {['gcp', 'aws', 'azure'].map((provider) => (
+                <div key={provider} className="p-4 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                  <div className="font-medium capitalize">{provider}</div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Region: us-central1 / us-east-1 / eastus
+                  </div>
+                  <Button variant="outline" size="sm" className="mt-3 w-full">
+                    Generate Terraform
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">Audit Logs</h4>
+            <p className="text-sm text-muted-foreground">
+              Comprehensive audit trail for all organization activity. Export to multiple destinations.
+            </p>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Audit Logging</div>
+                    <div className="text-sm text-muted-foreground">Enabled</div>
+                  </div>
+                  <span className="px-2 py-1 text-xs rounded-full bg-green-500/10 text-green-500">
+                    Active
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Destinations</div>
+                    <div className="text-sm text-muted-foreground">Console, File (ClickHouse, BigQuery, Splunk, Datadog available)</div>
+                  </div>
+                  <Button variant="outline" size="sm">Manage</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rbac' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">Role-Based Access Control (RBAC)</h4>
+            <p className="text-sm text-muted-foreground">
+              Fine-grained permissions with custom roles, resource-level access, and ABAC conditions.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="font-medium">System Roles</div>
+                <div className="text-sm text-muted-foreground mt-1">Owner, Admin, Developer, Viewer, Auditor</div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="font-medium">Custom Roles</div>
+                <div className="text-sm text-muted-foreground mt-1">0 configured</div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="font-medium">Active Assignments</div>
+                <div className="text-sm text-muted-foreground mt-1">0</div>
+              </div>
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="font-medium">Permissions</div>
+                <div className="text-sm text-muted-foreground mt-1">47 available</div>
+              </div>
+            </div>
+            <Button variant="outline" size="sm">Manage RBAC</Button>
+          </div>
+        )}
+
+        {activeTab === 'observability' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">Observability Export</h4>
+            <p className="text-sm text-muted-foreground">
+              Stream audit logs to observability platforms: Datadog, Splunk, Sumo Logic, custom webhooks.
+            </p>
+            <div className="space-y-3">
+              {[
+                { name: 'Datadog', type: 'datadog', configured: false },
+                { name: 'Splunk HEC', type: 'splunk', configured: false },
+                { name: 'Sumo Logic', type: 'sumologic', configured: false },
+                { name: 'Custom Webhook', type: 'webhook', configured: false },
+              ].map((dest) => (
+                <div key={dest.type} className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{dest.name}</div>
+                      <div className="text-sm text-muted-foreground">Audit log destination</div>
+                    </div>
+                    <span className="px-2 py-1 text-xs rounded-full bg-muted-foreground/10 text-muted-foreground">
+                      {dest.configured ? 'Configured' : 'Not Configured'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" size="sm">Add Destination</Button>
+          </div>
+        )}
+
+        {activeTab === 'single-tenant' && (
+          <div className="space-y-4">
+            <h4 className="font-medium">Single-Tenant Environments</h4>
+            <p className="text-sm text-muted-foreground">
+              Provision isolated control plane + data plane per enterprise. Dedicated VPC, static IPs, custom domain.
+            </p>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">Active Tenants</div>
+                    <div className="text-sm text-muted-foreground">0 provisioned</div>
+                  </div>
+                  <Button variant="primary" size="sm">Provision New Tenant</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                  <div className="font-medium">Standard</div>
+                  <div className="text-sm text-muted-foreground mt-1">Shared control plane, isolated data</div>
+                </div>
+                <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50 border-accent/50">
+                  <div className="font-medium">Dedicated</div>
+                  <div className="text-sm text-muted-foreground mt-1">Dedicated control + data plane</div>
+                </div>
+                <div className="p-3 rounded-lg bg-bg-elevated/50 border border-border-primary/50">
+                  <div className="font-medium">Isolated</div>
+                  <div className="text-sm text-muted-foreground mt-1">Full VPC isolation, static IPs</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export interface SettingsViewProps {
   /** On navigate back */
   onBack?: () => void;
@@ -29,7 +293,7 @@ export interface SettingsViewProps {
   projectId?: string;
 }
 
-type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced';
+type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -81,6 +345,17 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.advanced',
+  },
+  enterprise: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M6 9h12M6 13h12" />
+        <path d="M2 9h20M2 13h20" />
+      </svg>
+    ),
+    labelKey: 'settings.enterprise',
   },
 };
 
@@ -213,6 +488,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </Button>
           </div>
         );
+      case 'enterprise':
+        return (
+          <EnterpriseSettingsPanel />
+        );
     }
   };
 
@@ -246,6 +525,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'advanced',
       label: t('settings.advanced'),
       icon: SECTION_CONFIG.advanced.icon,
+    },
+    {
+      id: 'enterprise',
+      label: t('settings.enterprise'),
+      icon: SECTION_CONFIG.enterprise.icon,
     },
   ];
 
