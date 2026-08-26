@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 02:45
+LAST_UPDATED: 2026-08-26 04:30
 
 ## Just did (last action)
+- **Fixed all TypeScript build errors for connector @ commands in normal chat mode** — All 11 connectors now work in normal chat:
+  - **tool-registry.ts**: Fixed duplicate case clauses by making switch platform-aware (nested switches per platform for Linear, Notion, Google Sheets, Slack, Discord, Telegram, GitHub, Figma, Spotify, Gmail, Google Calendar)
+  - **figma.ts**: Merged duplicate NavigationBar entries in componentKeywords (combined keywords into single entry)
+  - **lib/db/package.json**: Added project-secrets export to package exports
+  - **chat.ts**: Removed duplicate detectGitHubCommand and detectFigmaCommand function declarations
+  - All TypeScript errors resolved, build passes cleanly ✅
 - **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
   - **API Generator** (`api.ts`): Hono/Fastify/Express backend APIs with Zod validation, Drizzle ORM, JWT auth, Scalar/Swagger docs, rate limiting, CORS, Pino logging, Docker, tests
   - **CLI Tool Generator** (`cli-tool.ts`): Commander/CAC/Yargs/OCLIF CLI tools with auto-complete (bash/zsh/fish), config file support, TypeScript, tsup/esbuild/pkg packaging, npm publishing
@@ -44,61 +50,6 @@ LAST_UPDATED: 2026-08-26 02:45
   - Integration points: universal-agent.ts, build-orchestrator.ts, chat.ts, build-context.ts
   - Persistence in messages table + build checkpoints
 - **PHASES.md: Updated phase table** — Added Phases 32, 33, 34 to overview table
-- **Phase 8: Replit-Level Design Canvas — COMPLETE ✅** — All infrastructure complete and verified end-to-end:
-  - **Infinite Canvas Engine** — Backend `design-canvas.ts` + frontend `DesignCanvas.tsx` with zoom/pan, layers, direct manipulation
-  - **Ambient Intelligence** — Proactive AI design suggestions via SSE at `/api/infinity/design-canvas/:projectId/ambient/stream`
-  - **React hook `useAmbientSSE`** — Handles real-time suggestion events (generated, accepted, rejected, preferences)
-  - **DesignStudio integration** — AmbientSuggestionsPanel with model selector for 17+ models (OpenRouter, NVIDIA NIM, Ollama)
-  - **Multi-Model Design Generation** — `DESIGN_MODEL_CONFIGS` in adapter-factory.ts with all providers, API endpoints for get/set model
-  - **Figma Import Pipeline** — Exact value preservation (no font/size/styling modifications) ✅
-  - **Mobbin Integration** — 600k+ real UI references in MobbinSidebar
-  - **Design System** — Colors, typography, spacing, components with auto-snap
-  - **Templates** — TemplatePicker with pro templates droppable mid-flight
-  - **Authentication fixed** — All protected routes (`/api/infinity/*`) require valid session cookie; public auth routes (`/api/auth/*`, `/api/health`, `/api/extension`) work without auth
-  - **SSE endpoint verified** — Returns `data: {"type":"connected","projectId":"test-project"}` with authenticated session
-  - Typecheck + build pass on both API server and frontend ✅
-- **Phase 8: Figma Import Pipeline — EXACT VALUE PRESERVATION COMPLETE** — Fixed Figma Import to change NOTHING:
-  - Added `_figmaRawStyle` field to FigmaNode interface to store raw style data
-  - Added `_figmaRaw` to Token and TypographyToken interfaces
-  - Created `rgbToExactHex()` and `rgbaToExactCss()` — non-rounding conversion functions
-  - Modified `extractDesignTokens()` to store exact values for colors, typography, spacing, borderRadius, shadows, opacity
-  - Updated `generateComponentFromFrame()` and `generateChildCode()` to use exact conversions
-  - All fontSize, fontWeight, lineHeightPx, letterSpacing, x, y, width, height, itemSpacing, padding, cornerRadius, opacity preserved exactly
-  - Typecheck + build pass cleanly ✅
-- **Complete Jarvis → Infinity Rebranding — FINAL CLEANUP COMPLETE** — Removed all remaining legacy "jarvis/JARVIS" wake word patterns from the codebase:
-  - **artifacts/infinity-ai/src/hooks/use-wake-word.ts** — Cleaned up `soundsLikeWakeWord()` and `extractCommand()` functions:
-    - Removed 8 legacy jarvis regex patterns (`j[ua]rv[ei]s`, `j[ua]h+s?`, `j[ua]v[ie]s`, etc.)
-    - Kept only clean Infinity patterns: `/\bhey\s+Infinity\b/` and `/\bInfinity\b/`
-    - Updated `extractCommand()` to strip `Infinity` instead of jarvis variants
-  - **Final verification**: Zero jarvis/JARVIS references remain anywhere in the codebase
-  - Both backend and frontend builds pass cleanly ✅
-- **Task #14: Agent Timer System in BuildMode COMPLETE** — Implemented full timer system for agents in Build Mode:
-  - Created `artifacts/api-server/src/lib/tools/timers.ts` with 5 universal tools:
-    - `build.set_timer` — Set a timer with name and duration (minutes + seconds)
-    - `build.check_timer` — Check status of specific timer or all timers for agent
-    - `build.clear_timer` — Remove a specific timer
-    - `build.clear_all_timers` — Clear all timers for current agent
-    - `build.wait_for_timer` — Block/poll until a timer expires (ensures agent works for minimum duration)
-  - Timers are agent-scoped (using taskId/conversationId/workspaceId), not user-facing
-  - Timer notifications go to the AGENT only, not the user
-  - Agent won't stop working before timer is done (can use `wait_for_timer` to enforce)
-  - Registered in Universal Tool Registry via `tools/index.ts`
-  - Typecheck + build pass cleanly ✅
-- **Fixed TypeScript errors in BuildView.tsx for /terminal slash command feature** — Fixed duplicate Drawer import and incorrect Drawer props:
-  - Removed duplicate `Drawer` import from `@/components/ui/Dialog` (already exported from barrel)
-  - Fixed Drawer prop: `onOpenChange` → `onClose` (Drawer uses onClose callback)
-  - Fixed Drawer prop: `direction` → `position` (Drawer uses position: "bottom")
-  - Removed `className` prop (Drawer doesn't accept className)
-  - Typecheck + build pass cleanly ✅
-- **Phase 6: MCP Client Database Persistence COMPLETE** — Implemented full database persistence for MCP server configurations with encryption:
-  - Encryption utilities using AES-256-GCM with project-scoped key derivation
-  - loadConfigs() reads from mcp_servers table, decrypts sensitive fields on startup
-  - persistConfigs() upserts configs with encryption for tokens, API keys, connection strings
-  - Auto-loads on registry initialization via constructor
-  - Fixed Badge import in MCPConfigPanel.tsx + added to UI barrel
-  - Typecheck + build pass cleanly ✅
-- **Phase 6: Fixed missing i18n keys & TypeScript errors** — Added `settings.mcpServers` and `settings.mcpServersDescription` translation keys (EN + NL) to i18n.tsx for the MCP Servers settings section. Fixed TypeScript error in `useTerminalBridge.ts` (optional chaining assignment on wsRef.current.onclose).
-- Typecheck + build pass on all packages ✅
 
 - **Phase 4: Virtual Worktrees + Parallel Agent Execution — COMPLETE** — Built true parallel execution with isolated filesystems per agent:
   - **Virtual Worktree Manager** (`artifacts/api-server/src/lib/virtual-worktree.ts`) — 960+ lines, 4 storage backends:
