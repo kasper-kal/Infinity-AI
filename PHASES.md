@@ -564,13 +564,13 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 **Enterprise-grade deployment** — SSO/SAML, VPC peering, single-tenant environments, audit logs, SCIM provisioning, static outbound IPs, region selection.
 
 ### Requirements
-- [ ] **SSO/SAML/OIDC** — Integration with Okta, Microsoft Entra ID, Google Workspace, custom SAML
+- [x] **SSO/SAML/OIDC** — Integration with Okta, Microsoft Entra ID, Google Workspace, custom SAML
 - [ ] **SCIM Provisioning** — Auto-provision/deprovision users from IdP
-- [ ] **VPC Peering** — Dedicated GCP/AWS project, private network connectivity
+- [x] **VPC Peering** — Dedicated GCP/AWS project, private network connectivity
 - [ ] **Single-Tenant Option** — Isolated control plane + data plane per enterprise
 - [ ] **Static Outbound IPs** — Predictable egress for firewall rules
 - [ ] **Region Selection** — Deploy to specific GCP/AWS regions (data residency)
-- [ ] **Audit Logs** — Organization-wide: app edits, deployments, permission changes, agent runs
+- [x] **Audit Logs** — Organization-wide: app edits, deployments, permission changes, agent runs
 - [ ] **Observability Export** — Send logs to Datadog, Splunk, Elastic, custom webhook
 - [ ] **Role-Based Access Control** — Custom roles, resource-level permissions
 

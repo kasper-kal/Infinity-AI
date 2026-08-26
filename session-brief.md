@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 05:15
+LAST_UPDATED: 2026-08-26 06:45
 
 ## Just did (last action)
 - **Verified all 11 connector @ commands work in normal chat mode** — Build passes cleanly ✅
@@ -17,6 +17,20 @@ LAST_UPDATED: 2026-08-26 05:15
   - Figma connector: generateDesign with 5 design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
   - All other connectors implement their platform-specific actions
   - Commands work in normal chat mode (not Build Mode) via agentMode flag and SSE streaming
+- **Phase 14: Enterprise Features (SSO, VPC, Audit Logs) — IN PROGRESS** — Core backend infrastructure complete:
+  - **SSO Module** (`sso.ts`): Complete SSOManager class with initiateLogin, handleCallback, logout, validateSession, refreshSession, provisionUser, updateUser, revokeAllSessions. Includes SSOConfig, SessionConfig, ProvisioningConfig, SecurityConfig interfaces. Exports createDefaultSSOConfig, createSSOConfigWithProviders, initializeSSO, getSSOManager.
+  - **Auth Providers** (`auth-providers.ts`): Abstract AuthProvider interface with OktaProvider, EntraIdProvider (Microsoft Entra ID), GoogleWorkspaceProvider, SAMLProvider, GenericOIDCProvider, LocalAuthProvider. AuthProviderRegistry for managing multiple providers.
+  - **VPC/Network Layer** (`vpc.ts`): VPCConfig with subnets, peering, private endpoints, firewall, DNS, flow logs. VPCModuleGenerator generates Terraform for GCP/AWS/Azure. VPCManager for lifecycle operations. createStandardVPCConfig for quick setup.
+  - **Audit Logs** (`audit-logs.ts`): AuditLogger with 7 destination types (Console, File, Webhook, ClickHouse, BigQuery, PostgreSQL, Elasticsearch). AuditEventType enum with 90+ event types. Query, export, stats, test endpoints.
+  - **Enterprise API Routes** (`enterprise.ts`): SSO (/sso/config, /sso/initiate, /sso/callback, /sso/logout, /sso/session/:id, /sso/configure, /sso/configure-quick), VPC (/vpc/generate, /vpc/examples), Audit Logs (/audit-logs, /audit-logs/export, /audit-logs/stats, /audit-logs/test), Dashboard (/dashboard).
+  - **Fixed TypeScript errors**: logger import paths, type assertions, async function fixes, constructor spread issues
+  - **Build passes cleanly** ✅
+- **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
+  - **VPC/Network Layer** (`vpc.ts`): VPCConfig with subnets, peering, private endpoints, firewall, DNS, flow logs. VPCModuleGenerator generates Terraform for GCP/AWS/Azure. VPCManager for lifecycle operations. createStandardVPCConfig for quick setup.
+  - **Audit Logs** (`audit-logs.ts`): AuditLogger with 7 destination types (Console, File, Webhook, ClickHouse, BigQuery, PostgreSQL, Elasticsearch). AuditEventType enum with 90+ event types. Query, export, stats, test endpoints.
+  - **Enterprise API Routes** (`enterprise.ts`): SSO (/sso/config, /sso/initiate, /sso/callback, /sso/logout, /sso/session/:id, /sso/configure, /sso/configure-quick), VPC (/vpc/generate, /vpc/examples), Audit Logs (/audit-logs, /audit-logs/export, /audit-logs/stats, /audit-logs/test), Dashboard (/dashboard).
+  - **Fixed TypeScript errors**: logger import paths, type assertions, async function fixes, constructor spread issues
+  - **Build passes cleanly** ✅
 - **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
   - **API Generator** (`api.ts`): Hono/Fastify/Express backend APIs with Zod validation, Drizzle ORM, JWT auth, Scalar/Swagger docs, rate limiting, CORS, Pino logging, Docker, tests
   - **CLI Tool Generator** (`cli-tool.ts`): Commander/CAC/Yargs/OCLIF CLI tools with auto-complete (bash/zsh/fish), config file support, TypeScript, tsup/esbuild/pkg packaging, npm publishing
