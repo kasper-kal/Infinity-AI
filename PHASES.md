@@ -503,7 +503,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - [x] **Cross-Artifact Sync** — Changes to shared foundation propagate to all artifacts
 - [x] **UI Template System** — 13 templates including 5 Figma Community design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
 - [ ] **Unified Deploy** — Deploy all artifacts from single project (web + mobile + slides)
-- [ ] **Frontend Integration** — Artifact selector + parallel build UI in BuildView
+- [x] **Frontend Integration** — Artifact selector + parallel build UI in BuildView (PlusMenu "Create Artifact" → Template Selector → API create → Build tab)
 
 ### Implementation Plan
 1. **Artifact Type System** — Base class + registry, each type defines: scaffold, build, deploy, preview

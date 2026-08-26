@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 01:00
+LAST_UPDATED: 2026-08-26 02:30
 
 ## Just did (last action)
 - **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
@@ -333,6 +333,7 @@ LAST_UPDATED: 2026-08-26 01:00
   - API (Hono/Fastify/Express), CLI Tool (Commander/CAC), Chrome Extension (Manifest V3)
   - Website (Astro/Next), Web App (Next/Vite), Mobile App (Expo), Slide Deck (Marp/Reveal)
   - Artifact type registry with Zod schemas, shared foundation, 13 templates (5 Figma Community)
+  - **Frontend Integration COMPLETE**: PlusMenu "Create Artifact" action + ArtifactTemplateSelector modal in BuildView wired to artifact-templates API
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), **Phase 12 (Multi-Artifact Support)**
 - **Next Phases:** Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
@@ -346,7 +347,7 @@ LAST_UPDATED: 2026-08-26 01:00
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-26 01:00 — Phase 12 complete: All 7 artifact generators (API, CLI Tool, Chrome Extension, Website, Web App, Mobile App, Slide Deck) + artifact type registry + 13 templates (5 Figma Community). All artifact generators typecheck + build pass cleanly.
+**LAST_UPDATED:** 2026-08-26 02:30 — Phase 12 complete: All 7 artifact generators + artifact type registry + 13 templates (5 Figma Community) + **Frontend Integration** (PlusMenu Create Artifact → Template Selector → API create → Build tab). All typecheck + build pass.
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -369,6 +370,12 @@ LAST_UPDATED: 2026-08-26 01:00
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-26 **Phase 12: Multi-Artifact Support — Frontend Integration COMPLETE ✅** — Wired artifact creation into BuildView:
+  - Added `create-artifact` action to PlusMenu with FileCode icon in "Create" section
+  - Added `ArtifactTemplateSelector` modal component (existing) to BuildView
+  - Connected PlusMenu → fetches templates from `/api/infinity/artifact-templates` → opens selector
+  - Template selection → POST `/api/infinity/artifact-templates/create` → creates artifact config → navigates to Plan tab
+  - All artifact generators (7 types) + 13 templates (5 Figma Community) now accessible from Build UI
 - 2026-08-25 **Phase 11: Security Scanner + Secrets Manager (Replit-Level) — COMPLETE ✅** — Full security stack frontend integration:
   - Created `SecurityDashboard.tsx` (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log) following BuildDebugPanel pattern
   - Integrated Security tab across BuildView: desktop header tabs, mobile bottom nav (shield SVG icon), sidebar navigation, command palette
