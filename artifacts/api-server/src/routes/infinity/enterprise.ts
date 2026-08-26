@@ -4,6 +4,7 @@ import { auditLogger, AuditHelpers } from "../../lib/enterprise/audit-logs";
 import type { AuditEventType } from "../../lib/enterprise/audit-logs";
 import { SSOManager, SSOConfig, createSSOConfigWithProviders, initializeSSO, getSSOManager } from "../../lib/enterprise/sso";
 import { VPCConfig, VPCManager, createStandardVPCConfig, vpcManager, TerraformOutput, VPCModuleGenerator } from "../../lib/enterprise/vpc";
+import { SCIMServer, SCIMConfig, initializeSCIM, getSCIMServer, SCIMPatchRequest } from "../../lib/enterprise/scim";
 
 const router = Router();
 
@@ -520,6 +521,403 @@ router.post("/audit-logs/test", requireAuth, async (req: AuthenticatedRequest, r
 });
 
 // ============================================
+// SCIM Provisioning Routes
+// ============================================
+
+/**
+ * POST /api/infinity/enterprise/scim/configure
+ * Configure SCIM provisioning
+ */
+router.post("/scim/configure", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const config = req.body as SCIMConfig;
+
+    // Validate required fields
+    if (!config.baseUrl || !config.bearerToken) {
+      return res.status(400).json({ error: "baseUrl and bearerToken are required" });
+    }
+
+    const scimServer = initializeSCIM(config);
+
+    res.json({
+      success: true,
+      message: "SCIM configuration updated",
+      config: {
+        baseUrl: config.baseUrl,
+        enableUserProvisioning: config.enableUserProvisioning,
+        enableGroupProvisioning: config.enableGroupProvisioning,
+      },
+    });
+  } catch (err) {
+    console.error("SCIM configure error:", err);
+    res.status(500).json({ error: "Failed to configure SCIM" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/config
+ * Get current SCIM configuration status
+ */
+router.get("/scim/config", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const scimServer = getSCIMServer();
+
+    if (!scimServer) {
+      return res.json({
+        configured: false,
+        message: "SCIM not configured",
+      });
+    }
+
+    res.json({
+      configured: true,
+      baseUrl: scimServer.config.baseUrl,
+      enableUserProvisioning: scimServer.config.enableUserProvisioning,
+      enableGroupProvisioning: scimServer.config.enableGroupProvisioning,
+    });
+  } catch (err) {
+    console.error("SCIM config error:", err);
+    res.status(500).json({ error: "Failed to get SCIM configuration" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/ServiceProviderConfig
+ * Get SCIM Service Provider Configuration
+ */
+router.get("/scim/ServiceProviderConfig", async (req: Request, res: Response) => {
+  try {
+    const scimServer = getSCIMServer();
+
+    if (!scimServer) {
+      return res.status(404).json({ error: "SCIM not configured" });
+    }
+
+    const config = await scimServer.getServiceProviderConfig();
+    res.json(config);
+  } catch (err) {
+    console.error("SCIM ServiceProviderConfig error:", err);
+    res.status(500).json({ error: "Failed to get service provider config" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/ResourceTypes
+ * Get SCIM Resource Types
+ */
+router.get("/scim/ResourceTypes", async (req: Request, res: Response) => {
+  try {
+    const scimServer = getSCIMServer();
+
+    if (!scimServer) {
+      return res.status(404).json({ error: "SCIM not configured" });
+    }
+
+    const types = await scimServer.getResourceTypes();
+    res.json(types);
+  } catch (err) {
+    console.error("SCIM ResourceTypes error:", err);
+    res.status(500).json({ error: "Failed to get resource types" });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/Schemas
+ * Get SCIM Schemas
+ */
+router.get("/scim/Schemas", async (req: Request, res: Response) => {
+  try {
+    const scimServer = getSCIMServer();
+
+    if (!scimServer) {
+      return res.status(404).json({ error: "SCIM not configured" });
+    }
+
+    const schemas = await scimServer.getSchemas();
+    res.json(schemas);
+  } catch (err) {
+    console.error("SCIM Schemas error:", err);
+    res.status(500).json({ error: "Failed to get schemas" });
+  }
+});
+
+/**
+ * SCIM User Routes
+ * All require Bearer token authentication
+ */
+
+function validateSCIMToken(req: Request, res: Response): SCIMServer | null {
+  const scimServer = getSCIMServer();
+  if (!scimServer) {
+    res.status(404).json({ error: "SCIM not configured" });
+    return null;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 401,
+      detail: "Invalid or missing Bearer token",
+    });
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  if (token !== scimServer.config.bearerToken) {
+    res.status(401).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 401,
+      detail: "Invalid Bearer token",
+    });
+    return null;
+  }
+
+  return scimServer;
+}
+
+/**
+ * POST /api/infinity/enterprise/scim/Users
+ * Create a new user
+ */
+router.post("/scim/Users", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const user = req.body as any;
+    const authHeader = req.headers.authorization!;
+    const result = await scimServer.createUser(user, authHeader);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.status(result.status).json(result.user);
+  } catch (err) {
+    console.error("SCIM create user error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to create user",
+    });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/Users/:id
+ * Get a user by ID
+ */
+router.get("/scim/Users/:id", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const { id } = req.params;
+    const authHeader = req.headers.authorization!;
+    const result = await scimServer.getUser(id, authHeader);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.json(result.user);
+  } catch (err) {
+    console.error("SCIM get user error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to get user",
+    });
+  }
+});
+
+/**
+ * GET /api/infinity/enterprise/scim/Users
+ * List users with pagination and filtering
+ */
+router.get("/scim/Users", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const authHeader = req.headers.authorization!;
+    const params = {
+      startIndex: parseInt(req.query.startIndex as string) || 1,
+      count: parseInt(req.query.count as string) || 100,
+      filter: req.query.filter as string,
+      attributes: req.query.attributes as string,
+      excludedAttributes: req.query.excludedAttributes as string,
+    };
+
+    const result = await scimServer.listUsers(authHeader, params);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.json(result.response);
+  } catch (err) {
+    console.error("SCIM list users error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to list users",
+    });
+  }
+});
+
+/**
+ * PUT /api/infinity/enterprise/scim/Users/:id
+ * Replace a user (full update)
+ */
+router.put("/scim/Users/:id", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const { id } = req.params;
+    const user = req.body as any;
+    const authHeader = req.headers.authorization!;
+    const result = await scimServer.replaceUser(id, user, authHeader);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.json(result.user);
+  } catch (err) {
+    console.error("SCIM replace user error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to replace user",
+    });
+  }
+});
+
+/**
+ * PATCH /api/infinity/enterprise/scim/Users/:id
+ * Patch a user (partial update)
+ */
+router.patch("/scim/Users/:id", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const { id } = req.params;
+    const patch = req.body as SCIMPatchRequest;
+    const authHeader = req.headers.authorization!;
+    const result = await scimServer.patchUser(id, patch, authHeader);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.json(result.user);
+  } catch (err) {
+    console.error("SCIM patch user error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to patch user",
+    });
+  }
+});
+
+/**
+ * DELETE /api/infinity/enterprise/scim/Users/:id
+ * Delete a user
+ */
+router.delete("/scim/Users/:id", async (req: Request, res: Response) => {
+  try {
+    const scimServer = validateSCIMToken(req, res);
+    if (!scimServer) return;
+
+    const { id } = req.params;
+    const authHeader = req.headers.authorization!;
+    const result = await scimServer.deleteUser(id, authHeader);
+
+    if ("error" in result) {
+      return res.status(result.status).json(result.error);
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    console.error("SCIM delete user error:", err);
+    res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: 500,
+      detail: "Failed to delete user",
+    });
+  }
+});
+
+/**
+ * SCIM Group Routes (placeholder - not fully implemented)
+ */
+
+router.post("/scim/Groups", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+router.get("/scim/Groups/:id", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+router.get("/scim/Groups", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+router.put("/scim/Groups/:id", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+router.patch("/scim/Groups/:id", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+router.delete("/scim/Groups/:id", async (req: Request, res: Response) => {
+  const scimServer = validateSCIMToken(req, res);
+  if (!scimServer) return;
+  res.status(501).json({
+    schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+    status: 501,
+    detail: "Group provisioning not yet implemented",
+  });
+});
+
+// ============================================
 // Enterprise Dashboard Summary
 // ============================================
 
@@ -530,6 +928,7 @@ router.post("/audit-logs/test", requireAuth, async (req: AuthenticatedRequest, r
 router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const ssoManager = getSSOManager();
+    const scimServer = getSCIMServer();
 
     const dashboard = {
       sso: {
@@ -539,6 +938,12 @@ router.get("/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Res
           name: p.name,
           configured: p.isConfigured(),
         })) || [],
+      },
+      scim: {
+        configured: !!scimServer,
+        baseUrl: scimServer?.config.baseUrl || null,
+        enableUserProvisioning: scimServer?.config.enableUserProvisioning || false,
+        enableGroupProvisioning: scimServer?.config.enableGroupProvisioning || false,
       },
       vpc: {
         // Would query from database in production

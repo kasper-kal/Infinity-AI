@@ -4,9 +4,15 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 06:45
+LAST_UPDATED: 2026-08-26 06:55
 
 ## Just did (last action)
+- **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation integrated:
+  - **SCIM Server** (`scim.ts` — 970+ lines): Complete SCIM 2.0 server with full CRUD for Users (create, read, list, replace, patch, delete), Groups (placeholder endpoints returning 501), ServiceProviderConfig, ResourceTypes, Schemas. Supports Bearer token auth, SCIM filtering (eq, co, sw, ew, pr), pagination (startIndex, count), attribute selection (attributes, excludedAttributes), version/etag tracking. Maps users to SSO sessions via SSOManager.
+  - **SCIM Client** (`scim.ts`): SCIMClient class for provisioning TO external IdPs — full CRUD operations against remote SCIM endpoints.
+  - **Enterprise Routes** (`enterprise.ts`): Added /scim/configure, /scim/config, /scim/ServiceProviderConfig, /scim/ResourceTypes, /scim/Schemas, /scim/Users (POST, GET, PUT, PATCH, DELETE), /scim/Groups (all 501 stubs). Token validation helper validates Bearer token against config.
+  - **Dashboard integration**: Added SCIM section to /dashboard showing configured status, baseUrl, user/group provisioning flags.
+  - **Build passes cleanly** ✅
 - **Verified all 11 connector @ commands work in normal chat mode** — Build passes cleanly ✅
   - All 11 connector implementations complete: GitHub, Figma, Linear, Notion, Google Sheets, Slack, Discord, Telegram, Spotify, Gmail, Google Calendar
   - Detection functions in chat.ts for all 11 @ commands (lines 251-438)
@@ -298,13 +304,9 @@ LAST_UPDATED: 2026-08-26 06:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 12 — Multi-Artifact Support** ✅ **COMPLETE** — All 7 artifact generators implemented:
-  - API (Hono/Fastify/Express), CLI Tool (Commander/CAC), Chrome Extension (Manifest V3)
-  - Website (Astro/Next), Web App (Next/Vite), Mobile App (Expo), Slide Deck (Marp/Reveal)
-  - Artifact type registry with Zod schemas, shared foundation, 13 templates (5 Figma Community)
-  - **Frontend Integration COMPLETE**: PlusMenu "Create Artifact" action + ArtifactTemplateSelector modal in BuildView wired to artifact-templates API
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), **Phase 12 (Multi-Artifact Support)**
-- **Next Phases:** Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Current Phase:** **Phase 14 — Enterprise Features** 🔄 **IN PROGRESS** — SSO/SAML/OIDC ✅, VPC ✅, Audit Logs ✅, **SCIM Provisioning ✅**
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
+- **Next Phases:** Phase 14 remaining (Single-Tenant, Static Outbound IPs, Region Selection, Observability Export, RBAC), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -339,6 +341,12 @@ LAST_UPDATED: 2026-08-26 06:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-26 **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation:
+  - `scim.ts` (970+ lines): SCIMServer with full User CRUD (create, read, list, replace, patch, delete), Groups (501 stubs), ServiceProviderConfig, ResourceTypes, Schemas. Bearer token auth, SCIM filtering (eq, co, sw, ew, pr), pagination, attribute selection, version tracking. Maps users to SSO sessions.
+  - SCIMClient for provisioning TO external IdPs.
+  - `enterprise.ts`: Added /scim/configure, /scim/config, /scim/ServiceProviderConfig, /scim/ResourceTypes, /scim/Schemas, /scim/Users (POST, GET, PUT, PATCH, DELETE), /scim/Groups (501 stubs). Token validation helper.
+  - Dashboard integration: SCIM section showing config status.
+  - Build passes cleanly ✅
 - 2026-08-26 **Phase 36: AI Automation System added to PHASES.md** — Natural language automation parser + runtime with connector integration (Phase 13): cron schedules, webhook triggers (Linear, Slack, Notion, Sheets, GitHub), multi-step workflows with conditions/branching, agent-created automations via tools, multi-channel notifications
 - 2026-08-26 **Phase 12: Multi-Artifact Support — Frontend Integration COMPLETE ✅** — Wired artifact creation into BuildView:
   - Added `create-artifact` action to PlusMenu with FileCode icon in "Create" section
