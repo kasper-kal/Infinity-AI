@@ -196,7 +196,7 @@ export class ExpoPreviewManager {
   /**
    * Parse Metro output for QR code and status
    */
-  private handleMetroOutput(session: ExpoPreviewSession, line: string, metroPort: number): void {
+  private async handleMetroOutput(session: ExpoPreviewSession, line: string, metroPort: number): Promise<void> {
     this.addLog(session, "info", line);
 
     // Detect Metro running message

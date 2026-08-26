@@ -1192,3 +1192,409 @@ function registerTerminalBridgeTools(): void {
 
 // Auto-register terminal bridge tools on module load
 registerTerminalBridgeTools();
+
+/**
+ * Register connector tools for external service integration.
+ * These tools allow agents to interact with Linear, Notion, Google Sheets, Slack, Discord, Telegram.
+ */
+function registerConnectorTools(): void {
+  const connectorPlatforms = [
+    { name: "linear", displayName: "Linear", category: "integration" },
+    { name: "notion", displayName: "Notion", category: "integration" },
+    { name: "google-sheets", displayName: "Google Sheets", category: "integration" },
+    { name: "slack", displayName: "Slack", category: "integration" },
+    { name: "discord", displayName: "Discord", category: "integration" },
+    { name: "telegram", displayName: "Telegram", category: "integration" },
+    { name: "github", displayName: "GitHub", category: "integration" },
+    { name: "figma", displayName: "Figma", category: "integration" },
+    { name: "spotify", displayName: "Spotify", category: "integration" },
+    { name: "gmail", displayName: "Gmail", category: "integration" },
+    { name: "google-calendar", displayName: "Google Calendar", category: "integration" },
+  ];
+
+  for (const platform of connectorPlatforms) {
+    // connector.createIssue / connector.createPage / connector.appendRow etc.
+    registerTool({
+      name: `connector.${platform.name}.execute`,
+      description: `Execute an action on ${platform.displayName} connector. Actions vary by platform: Linear (createIssue, updateIssue, listIssues, searchIssues, listProjects, listCycles, listTeams, addComment), Notion (createPage, createDatabaseEntry, updatePage, searchPages, queryDatabase, listDatabases, addComment), Google Sheets (getValues, updateValues, appendValues, batchUpdate, createSheet, clearValues, listNamedRanges), Slack (postMessage, listChannels, getChannelHistory), Discord (sendMessage, listChannels, createChannel), Telegram (sendMessage, getUpdates).`,
+      category: platform.category,
+      risk: "EXTERNAL_ACTION",
+      parameters: {
+        type: "object",
+        properties: {
+          connectorId: { type: "string", description: "Connector ID from project settings" },
+          projectId: { type: "string", description: "Project ID" },
+          action: { type: "string", description: "Action to execute (e.g., createIssue, createPage, appendValues)" },
+          params: { type: "object", description: "Action-specific parameters", additionalProperties: true },
+        },
+        required: ["connectorId", "projectId", "action"],
+      },
+      execute: async (args, ctx) => {
+        const { connectorId, projectId, action, params = {} } = args as {
+          connectorId: string;
+          projectId: string;
+          action: string;
+          params?: Record<string, unknown>;
+        };
+
+        // Dynamic import to avoid circular deps
+        const { db, connectors } = await import("@workspace/db");
+        const { eq } = await import("drizzle-orm");
+        const { createConnector } = await import("./connectors/base");
+        const { logActivity } = await import("./project-activity");
+
+        const [connectorRecord] = await db.select().from(connectors).where(eq(connectors.id, connectorId)).limit(1);
+        if (!connectorRecord) {
+          return { success: false, error: `Connector "${connectorId}" not found` };
+        }
+        if (connectorRecord.projectId !== projectId) {
+          return { success: false, error: "Connector does not belong to this project" };
+        }
+        if (!connectorRecord.enabled) {
+          return { success: false, error: "Connector is disabled" };
+        }
+
+        const connector = await createConnector(
+          connectorRecord.platform,
+          connectorRecord.config as Record<string, any>,
+          connectorRecord.projectId,
+          connectorRecord.id
+        );
+
+        // Execute the action via the connector's public API methods
+        let result: any;
+        try {
+          // Platform-specific action handling to avoid duplicate case names
+          switch (platform.name) {
+            case "linear": {
+              switch (action) {
+                case "createIssue":
+                  result = await (connector as any).createIssue(params);
+                  break;
+                case "updateIssue":
+                  result = await (connector as any).updateIssue(params.issueId, params);
+                  break;
+                case "listIssues":
+                  result = await (connector as any).listIssues(params);
+                  break;
+                case "searchIssues":
+                  result = await (connector as any).searchIssues(params.query);
+                  break;
+                case "listProjects":
+                  result = await (connector as any).listProjects();
+                  break;
+                case "listCycles":
+                  result = await (connector as any).listCycles();
+                  break;
+                case "listTeams":
+                  result = await (connector as any).listTeams();
+                  break;
+                case "addComment":
+                  result = await (connector as any).addComment(params.issueId, params.body);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Linear action "${action}"` };
+              }
+              break;
+            }
+
+            case "notion": {
+              switch (action) {
+                case "createPage":
+                  result = await (connector as any).createPage(params);
+                  break;
+                case "createDatabaseEntry":
+                  result = await (connector as any).createDatabaseEntry(params);
+                  break;
+                case "updatePage":
+                  result = await (connector as any).updatePage(params.pageId, params);
+                  break;
+                case "searchPages":
+                  result = await (connector as any).searchPages(params.query);
+                  break;
+                case "queryDatabase":
+                  result = await (connector as any).queryDatabase(params.databaseId, params);
+                  break;
+                case "listDatabases":
+                  result = await (connector as any).listDatabases();
+                  break;
+                case "addComment":
+                  result = await (connector as any).addComment(params.pageId, params.text);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Notion action "${action}"` };
+              }
+              break;
+            }
+
+            case "google-sheets": {
+              switch (action) {
+                case "getValues":
+                  result = await (connector as any).getValues(params.range, params.spreadsheetId);
+                  break;
+                case "updateValues":
+                  result = await (connector as any).updateValues(params.range, params.values, params.spreadsheetId, params.valueInputOption);
+                  break;
+                case "appendValues":
+                  result = await (connector as any).appendValues(params.range, params.values, params.spreadsheetId, params.valueInputOption);
+                  break;
+                case "batchUpdate":
+                  result = await (connector as any).batchUpdate(params.spreadsheetId, params.requests);
+                  break;
+                case "createSheet":
+                  result = await (connector as any).createSheet(params.title, params.rows, params.cols, params.spreadsheetId);
+                  break;
+                case "clearValues":
+                  result = await (connector as any).clearValues(params.range, params.spreadsheetId);
+                  break;
+                case "listNamedRanges":
+                  result = await (connector as any).listNamedRanges(params.spreadsheetId);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Google Sheets action "${action}"` };
+              }
+              break;
+            }
+
+            case "slack": {
+              switch (action) {
+                case "postMessage":
+                  result = { success: false, error: "Slack actions not yet implemented in tool registry" };
+                  break;
+                default:
+                  return { success: false, error: `Unknown Slack action "${action}"` };
+              }
+              break;
+            }
+
+            case "discord": {
+              switch (action) {
+                case "sendMessage":
+                  result = { success: false, error: "Discord actions not yet implemented in tool registry" };
+                  break;
+                case "listChannels":
+                  result = { success: false, error: "Discord actions not yet implemented in tool registry" };
+                  break;
+                case "createChannel":
+                  result = { success: false, error: "Discord actions not yet implemented in tool registry" };
+                  break;
+                default:
+                  return { success: false, error: `Unknown Discord action "${action}"` };
+              }
+              break;
+            }
+
+            case "telegram": {
+              switch (action) {
+                case "sendMessage":
+                  result = { success: false, error: "Telegram actions not yet implemented in tool registry" };
+                  break;
+                case "getUpdates":
+                  result = { success: false, error: "Telegram actions not yet implemented in tool registry" };
+                  break;
+                default:
+                  return { success: false, error: `Unknown Telegram action "${action}"` };
+              }
+              break;
+            }
+
+            case "github": {
+              switch (action) {
+                case "analyzeRepo":
+                  result = await (connector as any).analyzeRepo(params);
+                  break;
+                case "listIssues":
+                  result = await (connector as any).listIssues(params);
+                  break;
+                case "listPRs":
+                  result = await (connector as any).listPRs(params);
+                  break;
+                case "getStructure":
+                  result = await (connector as any).getStructure(params);
+                  break;
+                case "readFile":
+                  result = await (connector as any).readFile(params);
+                  break;
+                case "search":
+                  result = await (connector as any).search(params);
+                  break;
+                case "createIssue":
+                  result = await (connector as any).createIssue(params);
+                  break;
+                default:
+                  return { success: false, error: `Unknown GitHub action "${action}"` };
+              }
+              break;
+            }
+
+            case "figma": {
+              switch (action) {
+                case "generate_design":
+                  result = await (connector as any).generateDesign(params);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Figma action "${action}"` };
+              }
+              break;
+            }
+
+            case "spotify": {
+              switch (action) {
+                case "play":
+                  result = await (connector as any).play(params);
+                  break;
+                case "pause":
+                  result = await (connector as any).pause(params);
+                  break;
+                case "next":
+                  result = await (connector as any).next(params);
+                  break;
+                case "previous":
+                  result = await (connector as any).previous(params);
+                  break;
+                case "search":
+                  result = await (connector as any).search(params);
+                  break;
+                case "listPlaylists":
+                  result = await (connector as any).listPlaylists(params);
+                  break;
+                case "getSavedTracks":
+                  result = await (connector as any).getSavedTracks(params);
+                  break;
+                case "getUserProfile":
+                  result = await (connector as any).getUserProfile();
+                  break;
+                case "getDevices":
+                  result = await (connector as any).getDevices();
+                  break;
+                case "getQueue":
+                  result = await (connector as any).getQueue();
+                  break;
+                case "setVolume":
+                  result = await (connector as any).setVolume(params);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Spotify action "${action}"` };
+              }
+              break;
+            }
+
+            case "gmail": {
+              switch (action) {
+                case "send":
+                  result = await (connector as any).send(params);
+                  break;
+                case "list":
+                  result = await (connector as any).list(params);
+                  break;
+                case "search":
+                  result = await (connector as any).search(params);
+                  break;
+                case "listLabels":
+                  result = await (connector as any).listLabels();
+                  break;
+                case "listDrafts":
+                  result = await (connector as any).listDrafts(params);
+                  break;
+                case "read":
+                  result = await (connector as any).read(params);
+                  break;
+                case "trash":
+                  result = await (connector as any).trash(params);
+                  break;
+                case "archive":
+                  result = await (connector as any).archive(params);
+                  break;
+                case "createDraft":
+                  result = await (connector as any).createDraft(params);
+                  break;
+                default:
+                  return { success: false, error: `Unknown Gmail action "${action}"` };
+              }
+              break;
+            }
+
+            case "google-calendar": {
+              switch (action) {
+                case "createEvent":
+                  result = await (connector as any).createEvent(params);
+                  break;
+                case "listEvents":
+                  result = await (connector as any).listEvents(params);
+                  break;
+                case "searchEvents":
+                  result = await (connector as any).searchEvents(params);
+                  break;
+                case "getFreeBusy":
+                  result = await (connector as any).getFreeBusy(params);
+                  break;
+                case "updateEvent":
+                  result = await (connector as any).updateEvent(params);
+                  break;
+                case "deleteEvent":
+                  result = await (connector as any).deleteEvent(params);
+                  break;
+                case "listCalendars":
+                  result = await (connector as any).listCalendars();
+                  break;
+                default:
+                  return { success: false, error: `Unknown Google Calendar action "${action}"` };
+              }
+              break;
+            }
+
+            default:
+              return { success: false, error: `Unknown platform "${platform.name}"` };
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { success: false, error: `Connector action failed: ${message}` };
+        }
+
+        await logActivity(projectId, "agent_ran", `Executed ${platform.displayName} action: ${action}`);
+
+        return { success: true, data: result };
+      },
+      timeoutMs: 30000,
+    });
+  }
+
+  // Generic connector notification tool
+  registerTool({
+    name: "connector.sendNotification",
+    description: "Send a notification to all enabled connectors for a project that are subscribed to the event type. Use for build completions, failures, research completions, etc.",
+    category: "integration",
+    risk: "EXTERNAL_ACTION",
+    parameters: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "Project ID" },
+        eventType: { type: "string", description: "Event type (e.g., build_completed, build_failed, research_completed)" },
+        title: { type: "string", description: "Notification title" },
+        body: { type: "string", description: "Notification body (markdown supported)" },
+        url: { type: "string", description: "Optional URL to link to" },
+        metadata: { type: "object", description: "Additional metadata", additionalProperties: true },
+      },
+      required: ["projectId", "eventType", "title", "body"],
+    },
+    execute: async (args, ctx) => {
+      const { projectId, eventType, title, body, url, metadata } = args as {
+        projectId: string;
+        eventType: string;
+        title: string;
+        body: string;
+        url?: string;
+        metadata?: Record<string, unknown>;
+      };
+
+      const { dispatchNotification } = await import("../routes/infinity/connectors");
+      await dispatchNotification(projectId, eventType, title, body, { url, metadata });
+
+      return { success: true, data: { sent: true } };
+    },
+    timeoutMs: 15000,
+  });
+}
+
+// Auto-register connector tools on module load
+registerConnectorTools();

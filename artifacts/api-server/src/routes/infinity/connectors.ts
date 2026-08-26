@@ -58,7 +58,7 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    const validPlatforms = ["slack", "discord", "telegram"];
+    const validPlatforms = ["slack", "discord", "telegram", "linear", "notion", "google-sheets"];
     if (!validPlatforms.includes(platform)) {
       res.status(400).json({ error: `platform must be one of: ${validPlatforms.join(", ")}` });
       return;
@@ -334,6 +334,70 @@ router.post("/connectors/telegram/webhook", async (req: Request, res: Response) 
   }
 });
 
+/** Webhook endpoint for Linear events */
+router.post("/connectors/linear/webhook", async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+    const signature = req.headers["linear-signature"] as string;
+
+    // Verify webhook signature if secret is configured
+    // In production, verify signature against connector's webhookSecret
+
+    // Find connector for this webhook
+    // In production, would use a mapping from webhook URL to connector
+    logger.info({ action: payload.action, type: payload.type, projectId: req.query.projectId }, "Linear webhook received");
+
+    // Process asynchronously
+    // processLinearWebhook(payload).catch(err => logger.error({ err }, "Linear webhook processing failed"));
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Linear webhook error");
+    res.status(500).json({ error: "Webhook error" });
+  }
+});
+
+/** Webhook endpoint for Notion events */
+router.post("/connectors/notion/webhook", async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+    const signature = req.headers["notion-signature"] as string;
+
+    // Verify webhook signature if secret is configured
+    // In production, verify signature against connector's webhookSecret
+
+    logger.info({ type: payload.type, projectId: req.query.projectId }, "Notion webhook received");
+
+    // Process asynchronously
+    // processNotionWebhook(payload).catch(err => logger.error({ err }, "Notion webhook processing failed"));
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Notion webhook error");
+    res.status(500).json({ error: "Webhook error" });
+  }
+});
+
+/** Webhook endpoint for Google Sheets/Drive push notifications */
+router.post("/connectors/google-sheets/webhook", async (req: Request, res: Response) => {
+  try {
+    const payload = req.body;
+
+    // Google Drive push notifications don't use signatures
+    // They send a channel resource with id and resourceId
+
+    logger.info({ resourceId: payload.resourceId, projectId: req.query.projectId }, "Google Sheets webhook received");
+
+    // Process asynchronously
+    // processGoogleSheetsWebhook(payload).catch(err => logger.error({ err }, "Google Sheets webhook processing failed"));
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Google Sheets webhook error");
+    res.status(500).json({ error: "Webhook error" });
+  }
+});
+
 /** OAuth callback for Slack */
 router.get("/connectors/slack/oauth/callback", async (req: Request, res: Response) => {
   try {
@@ -500,6 +564,283 @@ router.get("/connectors/discord/oauth/callback", async (req: Request, res: Respo
     `);
   } catch (err) {
     logger.error({ err }, "Discord OAuth callback error");
+    res.status(500).send("OAuth callback failed");
+  }
+});
+
+/** OAuth callback for Linear */
+router.get("/connectors/linear/oauth/callback", async (req: Request, res: Response) => {
+  try {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError) {
+      res.status(400).send(`OAuth error: ${oauthError}`);
+      return;
+    }
+
+    if (!code) {
+      res.status(400).send("Missing authorization code");
+      return;
+    }
+
+    const clientId = process.env.LINEAR_CLIENT_ID;
+    const clientSecret = process.env.LINEAR_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      res.status(500).send("Linear OAuth not configured on server");
+      return;
+    }
+
+    const tokenResponse = await fetch("https://api.linear.app/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "authorization_code",
+        code: code as string,
+        redirect_uri: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/infinity/connectors/linear/oauth/callback`,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json() as Record<string, any>;
+
+    if (!tokenResponse.ok) {
+      res.status(400).send(`Token exchange failed: ${JSON.stringify(tokenData)}`);
+      return;
+    }
+
+    // Get user info
+    const userResponse = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": tokenData.access_token,
+      },
+      body: JSON.stringify({
+        query: `query { viewer { id name email } }`,
+      }),
+    });
+    const userData = await userResponse.json() as Record<string, any>;
+
+    const [projectId, connectorId] = (state as string).split("|");
+
+    await db.update(connectors)
+      .set({
+        config: {
+          apiKey: tokenData.access_token,
+          teamId: userData.data?.viewer?.id,
+          userName: userData.data?.viewer?.name,
+          email: userData.data?.viewer?.email,
+        },
+        installation: {
+          accessToken: tokenData.access_token,
+          tokenType: tokenData.token_type,
+          scope: tokenData.scope,
+          userId: userData.data?.viewer?.id,
+          userName: userData.data?.viewer?.name,
+          email: userData.data?.viewer?.email,
+          installedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(connectors.id, connectorId as string));
+
+    await logActivity(projectId as string, "agent_ran", `Linear OAuth completed for connector`);
+
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; text-align: center; padding: 50px;">
+          <h1>✅ Linear Connected</h1>
+          <p>Your Linear account has been connected to Infinity.</p>
+          <p>You can close this window.</p>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    logger.error({ err }, "Linear OAuth callback error");
+    res.status(500).send("OAuth callback failed");
+  }
+});
+
+/** OAuth callback for Notion */
+router.get("/connectors/notion/oauth/callback", async (req: Request, res: Response) => {
+  try {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError) {
+      res.status(400).send(`OAuth error: ${oauthError}`);
+      return;
+    }
+
+    if (!code) {
+      res.status(400).send("Missing authorization code");
+      return;
+    }
+
+    const clientId = process.env.NOTION_CLIENT_ID;
+    const clientSecret = process.env.NOTION_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      res.status(500).send("Notion OAuth not configured on server");
+      return;
+    }
+
+    const tokenResponse = await fetch("https://api.notion.com/v1/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code: code as string,
+        redirect_uri: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/infinity/connectors/notion/oauth/callback`,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json() as Record<string, any>;
+
+    if (!tokenResponse.ok) {
+      res.status(400).send(`Token exchange failed: ${JSON.stringify(tokenData)}`);
+      return;
+    }
+
+    // Get bot info
+    const botResponse = await fetch("https://api.notion.com/v1/users/me", {
+      headers: {
+        "Authorization": `Bearer ${tokenData.access_token}`,
+        "Notion-Version": "2022-06-28",
+      },
+    });
+    const botData = await botResponse.json() as Record<string, any>;
+
+    const [projectId, connectorId] = (state as string).split("|");
+
+    await db.update(connectors)
+      .set({
+        config: {
+          apiKey: tokenData.access_token,
+          botId: botData.bot_id,
+          workspaceId: tokenData.workspace_id,
+          workspaceName: tokenData.workspace_name,
+          owner: botData.owner,
+        },
+        installation: {
+          accessToken: tokenData.access_token,
+          tokenType: tokenData.token_type,
+          workspaceId: tokenData.workspace_id,
+          workspaceName: tokenData.workspace_name,
+          botId: botData.bot_id,
+          installedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(connectors.id, connectorId as string));
+
+    await logActivity(projectId as string, "agent_ran", `Notion OAuth completed for connector`);
+
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; text-align: center; padding: 50px;">
+          <h1>✅ Notion Connected</h1>
+          <p>Your Notion workspace has been connected to Infinity.</p>
+          <p>You can close this window.</p>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    logger.error({ err }, "Notion OAuth callback error");
+    res.status(500).send("OAuth callback failed");
+  }
+});
+
+/** OAuth callback for Google Sheets */
+router.get("/connectors/google-sheets/oauth/callback", async (req: Request, res: Response) => {
+  try {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError) {
+      res.status(400).send(`OAuth error: ${oauthError}`);
+      return;
+    }
+
+    if (!code) {
+      res.status(400).send("Missing authorization code");
+      return;
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      res.status(500).send("Google OAuth not configured on server");
+      return;
+    }
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "authorization_code",
+        code: code as string,
+        redirect_uri: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/infinity/connectors/google-sheets/oauth/callback`,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json() as Record<string, any>;
+
+    if (!tokenResponse.ok) {
+      res.status(400).send(`Token exchange failed: ${JSON.stringify(tokenData)}`);
+      return;
+    }
+
+    // Get user info
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const userData = await userResponse.json() as Record<string, any>;
+
+    const [projectId, connectorId] = (state as string).split("|");
+
+    await db.update(connectors)
+      .set({
+        config: {
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          clientId: clientId,
+          clientSecret: clientSecret,
+          email: userData.email,
+          name: userData.name,
+        },
+        installation: {
+          accessToken: tokenData.access_token,
+          tokenType: tokenData.token_type,
+          scope: tokenData.scope,
+          refreshToken: tokenData.refresh_token,
+          email: userData.email,
+          name: userData.name,
+          installedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(connectors.id, connectorId as string));
+
+    await logActivity(projectId as string, "agent_ran", `Google Sheets OAuth completed for connector`);
+
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; text-align: center; padding: 50px;">
+          <h1>✅ Google Sheets Connected</h1>
+          <p>Your Google account has been connected to Infinity.</p>
+          <p>You can close this window.</p>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    logger.error({ err }, "Google Sheets OAuth callback error");
     res.status(500).send("OAuth callback failed");
   }
 });

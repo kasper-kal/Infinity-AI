@@ -248,18 +248,206 @@ function detectScreenCommand(text: string): { isScreen: boolean; action: 'share'
   return { isScreen: true, action };
 }
 
+/** Detect @GitHub command for repository analysis.
+ * Matches: @GitHub [owner/]repo analyze|review|issues|prs|files|structure
+ */
+function detectGitHubCommand(text: string): { isGitHub: boolean; repo: string; action: string; args: string } {
+  const trimmed = text.trim();
+  // Match @GitHub owner/repo action [args]
+  const match = trimmed.match(/^@GitHub\s+([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isGitHub: false, repo: '', action: '', args: '' };
+
+  const repo = match[1];
+  const action = match[2].toLowerCase();
+  const args = match[3]?.trim() || '';
+  const validActions = ['analyze', 'review', 'issues', 'prs', 'files', 'structure', 'read', 'search'];
+  if (!validActions.includes(action)) {
+    return { isGitHub: false, repo: '', action: '', args: '' };
+  }
+  return { isGitHub: true, repo, action, args };
+}
+
+/** Detect @Figma command for design generation using design kits.
+ * Matches: @Figma make design using [ios 27|macos 27|material you 3|watchos|dashboard] assets [for <description>]
+ */
+function detectFigmaCommand(text: string): { isFigma: boolean; kit: string; description: string } {
+  const trimmed = text.trim();
+  // Match @Figma make design using [kit] assets [for description]
+  const match = trimmed.match(/^@Figma\s+(?:make|create|generate)\s+(?:a\s+)?design\s+using\s+(ios\s+27|macos\s+27|material\s+you\s+3|watchos|dashboard\s+ui\s+kit)(?:\s+assets)?(?:\s+for\s+(.+))?$/i);
+  if (!match) return { isFigma: false, kit: '', description: '' };
+
+  const kit = match[1].toLowerCase();
+  const description = match[2]?.trim() || '';
+  const validKits = ['ios 27', 'macos 27', 'material you 3', 'watchos', 'dashboard ui kit'];
+  if (!validKits.includes(kit)) {
+    return { isFigma: false, kit: '', description: '' };
+  }
+  return { isFigma: true, kit, description };
+}
+
+/** Detect @Linear command for Linear issue/project management.
+ * Matches: @Linear create issue|project|cycle|comment|search [args]
+ */
+function detectLinearCommand(text: string): { isLinear: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Linear\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isLinear: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['create', 'get', 'list', 'search', 'update', 'comment', 'webhook'];
+  if (!validActions.includes(action)) {
+    return { isLinear: false, action: '', args: '' };
+  }
+  return { isLinear: true, action, args };
+}
+
+/** Detect @Notion command for Notion pages/databases.
+ * Matches: @Notion create page|database|block|search|query [args]
+ */
+function detectNotionCommand(text: string): { isNotion: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Notion\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isNotion: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['create', 'get', 'list', 'search', 'query', 'update', 'append', 'webhook'];
+  if (!validActions.includes(action)) {
+    return { isNotion: false, action: '', args: '' };
+  }
+  return { isNotion: true, action, args };
+}
+
+/** Detect @Sheets command for Google Sheets operations.
+ * Matches: @Sheets read|write|append|create|list|search [args]
+ */
+function detectSheetsCommand(text: string): { isSheets: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Sheets\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isSheets: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['read', 'write', 'append', 'create', 'list', 'search', 'update', 'clear', 'format'];
+  if (!validActions.includes(action)) {
+    return { isSheets: false, action: '', args: '' };
+  }
+  return { isSheets: true, action, args };
+}
+
+/** Detect @Slack command for Slack operations.
+ * Matches: @Slack post|channels|messages|threads|users|search [args]
+ */
+function detectSlackCommand(text: string): { isSlack: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Slack\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isSlack: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['post', 'channels', 'messages', 'threads', 'users', 'search', 'react', 'webhook'];
+  if (!validActions.includes(action)) {
+    return { isSlack: false, action: '', args: '' };
+  }
+  return { isSlack: true, action, args };
+}
+
+/** Detect @Discord command for Discord operations.
+ * Matches: @Discord send|channels|messages|guilds|roles [args]
+ */
+function detectDiscordCommand(text: string): { isDiscord: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Discord\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isDiscord: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['send', 'channels', 'messages', 'guilds', 'roles', 'search', 'webhook'];
+  if (!validActions.includes(action)) {
+    return { isDiscord: false, action: '', args: '' };
+  }
+  return { isDiscord: true, action, args };
+}
+
+/** Detect @Telegram command for Telegram operations.
+ * Matches: @Telegram send|chats|messages|users [args]
+ */
+function detectTelegramCommand(text: string): { isTelegram: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Telegram\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isTelegram: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['send', 'chats', 'messages', 'users', 'search', 'webhook'];
+  if (!validActions.includes(action)) {
+    return { isTelegram: false, action: '', args: '' };
+  }
+  return { isTelegram: true, action, args };
+}
+
+/** Detect @Spotify command for Spotify operations.
+ * Matches: @Spotify play|pause|search|playlists|tracks|user [args]
+ */
+function detectSpotifyCommand(text: string): { isSpotify: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Spotify\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isSpotify: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['play', 'pause', 'search', 'playlists', 'tracks', 'user', 'devices', 'queue'];
+  if (!validActions.includes(action)) {
+    return { isSpotify: false, action: '', args: '' };
+  }
+  return { isSpotify: true, action, args };
+}
+
+/** Detect @Gmail command for Gmail operations.
+ * Matches: @Gmail send|list|search|labels|drafts [args]
+ */
+function detectGmailCommand(text: string): { isGmail: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Gmail\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isGmail: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['send', 'list', 'search', 'labels', 'drafts', 'read', 'trash', 'archive'];
+  if (!validActions.includes(action)) {
+    return { isGmail: false, action: '', args: '' };
+  }
+  return { isGmail: true, action, args };
+}
+
+/** Detect @Calendar command for Google Calendar operations.
+ * Matches: @Calendar create|list|search|events|freebusy [args]
+ */
+function detectCalendarCommand(text: string): { isCalendar: boolean; action: string; args: string } {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^@Calendar\s+(\w+)(?:\s+(.*))?$/i);
+  if (!match) return { isCalendar: false, action: '', args: '' };
+
+  const action = match[1].toLowerCase();
+  const args = match[2]?.trim() || '';
+  const validActions = ['create', 'list', 'search', 'events', 'freebusy', 'update', 'delete'];
+  if (!validActions.includes(action)) {
+    return { isCalendar: false, action: '', args: '' };
+  }
+  return { isCalendar: true, action, args };
+}
+
 /** Detect @ProjectName tag for referencing another project.
  * Matches: @ProjectName (at start or in message)
  */
 function detectProjectTagCommand(text: string): { isProjectTag: boolean; projectName: string } {
   const trimmed = text.trim();
-  // Match @ProjectName at start of message or after whitespace
   const match = trimmed.match(/(?:^|\s)@([A-Za-z][A-Za-z0-9_-]{2,})\b/);
   if (!match) return { isProjectTag: false, projectName: '' };
 
   const projectName = match[1];
-  // Exclude known @ commands so they don't get caught as project tags
-  const knownCommands = ['Browse', 'Agent', 'Promo', 'Deep', 'Research', 'Maps', 'Image', 'Screen', 'Book', 'Build', 'Book'];
+  const knownCommands = ['Browse', 'Agent', 'Promo', 'Deep', 'Research', 'Maps', 'Image', 'Screen', 'Book', 'Build', 'GitHub', 'Figma', 'Linear', 'Notion', 'Sheets', 'Slack', 'Discord', 'Telegram', 'Spotify', 'Gmail', 'Calendar'];
   if (knownCommands.some(cmd => cmd.toLowerCase() === projectName.toLowerCase())) {
     return { isProjectTag: false, projectName: '' };
   }
@@ -1622,6 +1810,573 @@ router.post("/chat", requireAuth, async (req, res) => {
         }
       } catch (err) {
         res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error resolving project: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @GitHub command: Repository analysis and operations ──────────
+    const githubCheck = detectGitHubCommand(sanitizedMessage);
+    if (githubCheck.isGitHub) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      // Use the connector tool to execute the GitHub action
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: false, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const [owner, repo] = githubCheck.repo.split("/");
+        let toolAction: string;
+        let toolParams: Record<string, any> = { owner, repo };
+
+        // Map detected actions to tool actions
+        switch (githubCheck.action) {
+          case "analyze":
+          case "review":
+            toolAction = "analyzeRepo";
+            break;
+          case "issues":
+            toolAction = "listIssues";
+            // Parse args for state, labels, assignee
+            if (githubCheck.args) {
+              const argsParts = githubCheck.args.split(" ");
+              if (argsParts[0]) toolParams.state = argsParts[0];
+              if (argsParts[1]) toolParams.labels = argsParts[1];
+              if (argsParts[2]) toolParams.assignee = argsParts[2];
+            }
+            break;
+          case "prs":
+          case "pulls":
+            toolAction = "listPRs";
+            if (githubCheck.args) toolParams.state = githubCheck.args;
+            break;
+          case "files":
+          case "structure":
+          case "tree":
+            toolAction = "getStructure";
+            if (githubCheck.args) toolParams.path = githubCheck.args;
+            break;
+          case "read":
+            toolAction = "readFile";
+            toolParams.path = githubCheck.args;
+            break;
+          case "search":
+            toolAction = "search";
+            toolParams.query = githubCheck.args;
+            break;
+          default:
+            toolAction = "analyzeRepo";
+        }
+
+        const result = await executeTool("connector.github.execute", {
+          action: toolAction,
+          params: toolParams,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ GitHub ${githubCheck.action} for ${githubCheck.repo}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ GitHub ${githubCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Figma command: Design generation using design kits ──────────
+    const figmaCheck = detectFigmaCommand(sanitizedMessage);
+    if (figmaCheck.isFigma) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: useBuildMode, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.figma.execute", {
+          action: "generate_design",
+          kit: figmaCheck.kit,
+          description: figmaCheck.description,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "widget",
+            widget: {
+              type: "figma_design",
+              kit: figmaCheck.kit,
+              description: figmaCheck.description,
+              result: result.result,
+            },
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Figma design generation failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Linear command: Linear issue/project management ────────────
+    const linearCheck = detectLinearCommand(sanitizedMessage);
+    if (linearCheck.isLinear) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.linear.execute", {
+          action: linearCheck.action,
+          args: linearCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Linear ${linearCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Linear ${linearCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Notion command: Notion pages/databases ─────────────────────
+    const notionCheck = detectNotionCommand(sanitizedMessage);
+    if (notionCheck.isNotion) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.notion.execute", {
+          action: notionCheck.action,
+          args: notionCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Notion ${notionCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Notion ${notionCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Sheets command: Google Sheets operations ───────────────────
+    const sheetsCheck = detectSheetsCommand(sanitizedMessage);
+    if (sheetsCheck.isSheets) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.google-sheets.execute", {
+          action: sheetsCheck.action,
+          args: sheetsCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Google Sheets ${sheetsCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Sheets ${sheetsCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Slack command: Slack operations ────────────────────────────
+    const slackCheck = detectSlackCommand(sanitizedMessage);
+    if (slackCheck.isSlack) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.slack.execute", {
+          action: slackCheck.action,
+          args: slackCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Slack ${slackCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Slack ${slackCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Discord command: Discord operations ────────────────────────
+    const discordCheck = detectDiscordCommand(sanitizedMessage);
+    if (discordCheck.isDiscord) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.discord.execute", {
+          action: discordCheck.action,
+          args: discordCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Discord ${discordCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Discord ${discordCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Telegram command: Telegram operations ──────────────────────
+    const telegramCheck = detectTelegramCommand(sanitizedMessage);
+    if (telegramCheck.isTelegram) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.telegram.execute", {
+          action: telegramCheck.action,
+          args: telegramCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Telegram ${telegramCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Telegram ${telegramCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Spotify command: Spotify operations ────────────────────────
+    const spotifyCheck = detectSpotifyCommand(sanitizedMessage);
+    if (spotifyCheck.isSpotify) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.spotify.execute", {
+          action: spotifyCheck.action,
+          args: spotifyCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Spotify ${spotifyCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Spotify ${spotifyCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Gmail command: Gmail operations ────────────────────────────
+    const gmailCheck = detectGmailCommand(sanitizedMessage);
+    if (gmailCheck.isGmail) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.gmail.execute", {
+          action: gmailCheck.action,
+          args: gmailCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Gmail ${gmailCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Gmail ${gmailCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
+      }
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
+
+    // ── @Calendar command: Google Calendar operations ────────────────
+    const calendarCheck = detectCalendarCommand(sanitizedMessage);
+    if (calendarCheck.isCalendar) {
+      await db.insert(messages).values({
+        conversationId: convId,
+        role: "user",
+        content: userMessage,
+      });
+
+      try {
+        const { executeTool } = await import("../../lib/tool-registry");
+        const toolContext = {
+          userId: userId ?? "anonymous",
+          conversationId: convId,
+          taskId: randomUUID(),
+          projectId: projectContext?.projectId ?? "default",
+          workspaceId: projectContext?.projectId ?? "default",
+          permissions: { allowWrite: true, allowExternal: true, allowSelfModification: false },
+          memories: [],
+          artifacts: [],
+          previousToolResults: [],
+          workspacePath: process.cwd(),
+          env: process.env,
+        };
+
+        const result = await executeTool("connector.google-calendar.execute", {
+          action: calendarCheck.action,
+          args: calendarCheck.args,
+        }, toolContext);
+
+        if (result.ok) {
+          res.write(`data: ${JSON.stringify({
+            type: "live_text",
+            content: `✅ Google Calendar ${calendarCheck.action}:\n\n${result.result?.content || JSON.stringify(result.result, null, 2)}`,
+          })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Calendar ${calendarCheck.action} failed: ${result.error}` })}\n\n`);
+        }
+      } catch (err) {
+        res.write(`data: ${JSON.stringify({ type: "live_text", content: `❌ Error: ${(err as Error).message}` })}\n\n`);
       }
 
       res.write("data: [DONE]\n\n");

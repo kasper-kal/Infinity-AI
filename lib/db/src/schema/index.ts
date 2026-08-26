@@ -14,6 +14,7 @@ export * from "./research-jobs-v2";
 export * from "./push";
 export * from "./llm-keys";
 export * from "./secrets";
+export * from "./project-secrets";
 export * from "./timers";
 export * from "./projects";
 export * from "./sharing";

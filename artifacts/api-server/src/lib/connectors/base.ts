@@ -9,7 +9,7 @@ import { logActivity } from "../project-activity";
  * in the database with encrypted config.
  */
 
-export type Platform = "slack" | "discord" | "telegram";
+export type Platform = "slack" | "discord" | "telegram" | "linear" | "notion" | "google-sheets" | "github" | "figma" | "spotify" | "gmail" | "google-calendar";
 
 export interface ConnectorConfig {
   /** Webhook URL for incoming webhooks */
@@ -156,6 +156,38 @@ export async function createConnector(
     case "telegram": {
       const { TelegramConnector } = await import("./telegram");
       return new TelegramConnector(config, projectId, connectorId);
+    }
+    case "linear": {
+      const { LinearConnector } = await import("./linear");
+      return new LinearConnector(config, projectId, connectorId);
+    }
+    case "notion": {
+      const { NotionConnector } = await import("./notion");
+      return new NotionConnector(config, projectId, connectorId);
+    }
+    case "google-sheets": {
+      const { GoogleSheetsConnector } = await import("./google-sheets");
+      return new GoogleSheetsConnector(config, projectId, connectorId);
+    }
+    case "github": {
+      const { GitHubConnector } = await import("./github");
+      return new GitHubConnector(config, projectId, connectorId);
+    }
+    case "figma": {
+      const { FigmaConnector } = await import("./figma");
+      return new FigmaConnector(config, projectId, connectorId);
+    }
+    case "spotify": {
+      const { SpotifyConnector } = await import("./spotify");
+      return new SpotifyConnector(config, projectId, connectorId);
+    }
+    case "gmail": {
+      const { GmailConnector } = await import("./gmail");
+      return new GmailConnector(config, projectId, connectorId);
+    }
+    case "google-calendar": {
+      const { CalendarConnector } = await import("./calendar");
+      return new CalendarConnector(config, projectId, connectorId);
     }
     default:
       throw new Error(`Unknown platform: ${platform}`);

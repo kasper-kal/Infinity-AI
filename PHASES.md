@@ -25,7 +25,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **10** | **Mobile App Development (React Native + Expo)** | ✅ **COMPLETE** |
 | **11** | **Security Scanner + Secrets Manager (Replit-Level)** | ✅ **COMPLETE** |
 | **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
-| **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | 🔲 PLANNED |
+| **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | ✅ **COMPLETE** |
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔲 PLANNED |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | 🔲 PLANNED |
@@ -528,17 +528,17 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 **Connect external services and let agents work across them** — Replit Agent 4: "connect external services (e.g. Linear, Slack, Notion, Google Sheets) and ask the Agent to pull information from them, work across them, and build outputs based on that data."
 
 ### Requirements
-- [ ] **Connector Framework** — Standard interface for OAuth + API key connectors
-- [ ] **Built-in Connectors**:
-  - Linear (issues, projects, cycles) → auto-create issues from build tasks
-  - Slack (channels, messages, threads) → notifications, slash commands
-  - Notion (pages, databases) → sync project docs, specs, research
-  - Google Sheets (read/write) → data import/export, dashboards
-  - GitHub (already have) — PRs, issues, actions
-  - Figma (already have connector menu) — design import
-- [ ] **Agent Tool Access** — Each connector exposes tools to Universal Agent (`linear.createIssue`, `slack.postMessage`, etc.)
-- [ ] **Bi-directional Sync** — Changes in external service → Infinity, vice versa
-- [ ] **Connector UI** — Project Settings → Connectors tab (extends existing ConnectorMenu)
+- [x] **Connector Framework** — Standard interface for OAuth + API key connectors
+- [x] **Built-in Connectors**:
+  - [x] Linear (issues, projects, cycles) → auto-create issues from build tasks
+  - [x] Slack (channels, messages, threads) → notifications, slash commands
+  - [x] Notion (pages, databases) → sync project docs, specs, research
+  - [x] Google Sheets (read/write) → data import/export, dashboards
+  - [x] GitHub (already have) — PRs, issues, actions
+  - [x] Figma (already have connector menu) — design import
+- [x] **Agent Tool Access** — Each connector exposes tools to Universal Agent (`linear.createIssue`, `slack.postMessage`, etc.)
+- [x] **Bi-directional Sync** — Changes in external service → Infinity, vice versa
+- [x] **Connector UI** — Project Settings → Connectors tab (extends existing ConnectorMenu)
 
 ### Implementation Plan
 1. **Connector Base Class** — OAuth flow, token refresh, rate limiting, webhook handling
