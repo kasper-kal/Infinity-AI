@@ -27,8 +27,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
 | **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | ✅ **COMPLETE** |
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
-| **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
-| **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
+| **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | 🔲 PLANNED |
 | **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔲 PLANNED |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | 🔲 PLANNED |
@@ -597,26 +596,25 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 **Customize agents per project/team** — Reusable skill definitions but user-editable, project-scoped, with marketplace for sharing.
 
 ### Requirements
-- [ ] **Skill Definition Format** — YAML/JSON with: instructions, tool preferences, verification rules, conventions, environment, role bindings, inheritance
-- [ ] **Project-Scoped Skills** — Each project has its own skill overrides
-- [ ] **Team/Org Skills** — Shared skills across projects in workspace
-- [ ] **Skill Marketplace** — Local-first package management, $0 budget, install/publish/search
-- [ ] **Custom Instructions** — Free-form text appended to agent system prompt per project
-- [ ] **Skill Inheritance** — Base skill → project skill → task-specific skill
-- [ ] **Skill Analytics** — Which skills used, success rates, token costs
+- [x] **Skill Definition Format** — YAML/JSON with: instructions, tool preferences, verification rules, conventions, environment, role bindings, inheritance
+- [x] **Project-Scoped Skills** — Each project has its own skill overrides
+- [x] **Team/Org Skills** — Shared skills across projects in workspace
+- [x] **Skill Marketplace** — Local-first package management, $0 budget, install/publish/search
+- [x] **Custom Instructions** — Free-form text appended to agent system prompt per project
+- [x] **Skill Inheritance** — Base skill → project skill → task-specific skill
+- [x] **Skill Analytics** — Which skills used, success rates, token costs
 
 ### Implementation Plan
-1. **Skill System Extension** — Add project/team scoping, marketplace, analytics
-2. **Skill Editor UI** — Visual editor in Project Settings → Skills tab
-3. **Marketplace Backend** — GitHub-based package index (free), local cache
-4. **Agent Integration** — Universal Agent loads skills from project context automatically
+1. **Skill System Extension** — Add project/team scoping, marketplace, analytics ✅
+2. **Skill Editor UI** — Visual editor in Project Settings → Skills tab ✅
+3. **Marketplace Backend** — GitHub-based package index (free), local cache ✅
+4. **Agent Integration** — Universal Agent loads skills from project context automatically ✅
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/skills/` (extend existing skills system)
-- `artifacts/api-server/src/routes/Infinity/skills.ts` (extend)
-- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab)
-- `artifacts/Infinity/src/components/skills/SkillEditor.tsx` (new)
-- `artifacts/Infinity/src/components/skills/SkillMarketplace.tsx` (new)
+- `artifacts/api-server/src/lib/build-skills.ts` (existing skills system — 800+ lines) ✅ COMPLETE
+- `artifacts/api-server/src/routes/infinity/skills.ts` (new — 770 lines) ✅ COMPLETE
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab added) ✅ COMPLETE
+- 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/` ✅ COMPLETE
 
 ---
 

@@ -98,10 +98,15 @@ export class FigmaConnector extends BaseConnector {
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as Record<string, unknown>;
 
     if (!response.ok) {
-      throw new Error(`Figma API error (${response.status}): ${data.message || JSON.stringify(data)}`);
+      const errorMessage = data?.message && typeof data.message === 'string'
+        ? data.message
+        : data?.error && typeof data.error === 'object' && 'message' in data.error
+          ? String((data.error as Record<string, unknown>).message)
+          : JSON.stringify(data);
+      throw new Error(`Figma API error (${response.status}): ${errorMessage}`);
     }
 
     return data;

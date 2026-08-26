@@ -98,10 +98,13 @@ export class CalendarConnector extends BaseConnector {
       return this.request(endpoint, options); // Retry once
     }
 
-    const data = await response.json();
+    const data = await response.json() as Record<string, unknown>;
 
     if (!response.ok) {
-      throw new Error(`Calendar API error (${response.status}): ${data.error?.message || JSON.stringify(data)}`);
+      const errorMessage = data?.error && typeof data.error === 'object' && 'message' in data.error
+        ? String((data.error as Record<string, unknown>).message)
+        : JSON.stringify(data);
+      throw new Error(`Calendar API error (${response.status}): ${errorMessage}`);
     }
 
     return data;
@@ -132,16 +135,17 @@ export class CalendarConnector extends BaseConnector {
       body: params,
     });
 
-    const data = await response.json();
+    const data = await response.json() as Record<string, unknown>;
 
     if (!response.ok) {
-      throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
+      const errorDesc = typeof data.error_description === 'string' ? data.error_description : String(data.error);
+      throw new Error(`Token refresh failed: ${errorDesc}`);
     }
 
-    this.config.accessToken = data.access_token;
-    if (data.refresh_token) {
-      this.config.refreshToken = data.refresh_token;
-    }
+    const accessToken = data.access_token as string | undefined;
+    const refreshToken = data.refresh_token as string | undefined;
+    if (accessToken) this.config.accessToken = accessToken;
+    if (refreshToken) this.config.refreshToken = refreshToken;
   }
 
   async validateConfig(): Promise<{ valid: boolean; error?: string }> {

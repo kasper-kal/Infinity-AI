@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 07:30
+LAST_UPDATED: 2026-08-26 08:15
 
 ## Just did (last action)
 - **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation integrated:
@@ -304,9 +304,9 @@ LAST_UPDATED: 2026-08-26 07:30
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 14 — Enterprise Features** ✅ **COMPLETE** — SSO/SAML/OIDC ✅, VPC ✅, Audit Logs ✅, SCIM Provisioning ✅, Observability Export ✅, RBAC ✅, Single Tenant ✅
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
-- **Next Phases:** Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Current Phase:** **Phase 15 — Agent Skills & Custom Instructions Marketplace** ✅ **COMPLETE**
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace)
+- **Next Phases:** **Phase 16 (v0-Level Generative UI Engine)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -341,6 +341,12 @@ LAST_UPDATED: 2026-08-26 07:30
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-26 **Phase 15: Agent Skills & Custom Instructions Marketplace COMPLETE ✅** — Full skills system implemented:
+  - **Skills API Routes** (`artifacts/api-server/src/routes/infinity/skills.ts` — 770 lines): Full CRUD for skill definitions, agent skill bindings (planner/coder/reviewer/fixer/diagnostic), skill application to prompts, custom instructions per project, marketplace endpoints (search, install, publish), templates from built-ins, analytics endpoints
+  - **Skills Backend** (`artifacts/api-server/src/lib/build-skills.ts` — 800+ lines): SkillDefinition schema with instructions, toolPreferences, verificationRules, conventions, environment, roleBindings, extends; SkillRegistry (discovery by category/tag/role, project-scoped filtering, stats); SkillLoader (JSON/YAML loading, inheritance resolution with circular detection, merge logic); AgentSkillBinding (per-project/role assignments with priority); SkillMarketplace (local-first package management, $0 budget, install/publish/search)
+  - **9 Built-in Skills**: base.json, react-engineer.json, debugger.json, ui-designer.json, api-engineer.json, database-engineer.json, devops-engineer.json, security-auditor.json, performance-engineer.json
+  - **Frontend Integration** (`SettingsView.tsx`): Skills tab added to settings sidebar (desktop) and bottom nav (mobile) with SkillsSettingsPanel component
+  - **Enterprise Routes** updated to mount skills router at `/api/infinity/skills`
 - 2026-08-26 **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation:
   - `scim.ts` (970+ lines): SCIMServer with full User CRUD (create, read, list, replace, patch, delete), Groups (501 stubs), ServiceProviderConfig, ResourceTypes, Schemas. Bearer token auth, SCIM filtering (eq, co, sw, ew, pr), pagination, attribute selection, version tracking. Maps users to SSO sessions.
   - SCIMClient for provisioning TO external IdPs.

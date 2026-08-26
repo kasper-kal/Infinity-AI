@@ -72,6 +72,7 @@ import designCanvasRouter from "./design-canvas";
 import mobileAppsRouter from "./mobile-apps";
 import artifactTemplatesRouter from "./artifact-templates";
 import enterpriseRouter from "./enterprise";
+import skillsRouter from "./skills";
 
 const router = Router();
 
@@ -123,6 +124,7 @@ router.use(designCanvasRouter);
 router.use("/mobile-apps", mobileAppsRouter);
 router.use(artifactTemplatesRouter);
 router.use("/enterprise", enterpriseRouter);
+router.use("/skills", skillsRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);
