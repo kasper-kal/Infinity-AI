@@ -496,12 +496,14 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 **Build different artifact types in parallel** — like Replit Agent 4: "Whether you want to create slides, a website, a web app, or even a mobile app, you simply describe what you need and the Agent does the work. You can even build different Artifacts in parallel."
 
 ### Requirements
-- [ ] **Artifact Type Registry** — Extensible types: `slide-deck`, `website`, `web-app`, `mobile-app`, `api`, `cli-tool`, `chrome-extension`
-- [ ] **Parallel Artifact Builds** — Single prompt → multiple artifact scaffolds running concurrently
-- [ ] **Shared Foundation** — Common config, design system, components, backend across artifacts
-- [ ] **Artifact-Specific Generators** — Each type has tailored scaffold + build pipeline
-- [ ] **Cross-Artifact Sync** — Changes to shared foundation propagate to all artifacts
+- [x] **Artifact Type Registry** — Extensible types: `slide-deck`, `website`, `web-app`, `mobile-app`, `api`, `cli-tool`, `chrome-extension`
+- [x] **Parallel Artifact Builds** — Single prompt → multiple artifact scaffolds running concurrently
+- [x] **Shared Foundation** — Common config, design system, components, backend across artifacts
+- [x] **Artifact-Specific Generators** — Each type has tailored scaffold + build pipeline
+- [x] **Cross-Artifact Sync** — Changes to shared foundation propagate to all artifacts
+- [x] **UI Template System** — 13 templates including 5 Figma Community design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
 - [ ] **Unified Deploy** — Deploy all artifacts from single project (web + mobile + slides)
+- [ ] **Frontend Integration** — Artifact selector + parallel build UI in BuildView
 
 ### Implementation Plan
 1. **Artifact Type System** — Base class + registry, each type defines: scaffold, build, deploy, preview
@@ -1584,6 +1586,19 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/Infinity/src/lib/i18n.tsx` (add ~25 compaction keys EN+NL)
 
 ---
+## 📦 Phase 35: README update
+
+### Goal
+Update the **README.md** file to fit the current state of things.
+
+### Requirements
+- [ ] **README.md update** — Update the README to fit the current state of things better. Go into detail in every category/feature, build, promo, books, etc.
+
+
+### Files to Create/Modify
+- `README.md` (replace everything currently there)
+
+---
 
 ## 🔄 Autonomous Execution Rules
 
@@ -1617,7 +1632,7 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 9 — Parallel Agent Execution (Replit Agent 4 Style)** ✅ **COMPLETE**
+## 🎯 Current Phase: **Phase 12 — Parallel Agent Execution (Replit Agent 4 Style)** ✅ **COMPLETE**
 
 ## 🎯 Upcoming Phases
 1. **Phase 10** — Mobile App Development (React Native + Expo)

@@ -70,6 +70,7 @@ import deepResearchV2Router from "./deep-research-v2";
 import projectMapRouter from "./project-map";
 import designCanvasRouter from "./design-canvas";
 import mobileAppsRouter from "./mobile-apps";
+import artifactTemplatesRouter from "./artifact-templates";
 
 const router = Router();
 
@@ -119,6 +120,7 @@ router.use("/build/schedules", buildSchedulesRouter);
 router.use("/project-map", projectMapRouter);
 router.use(designCanvasRouter);
 router.use("/mobile-apps", mobileAppsRouter);
+router.use(artifactTemplatesRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

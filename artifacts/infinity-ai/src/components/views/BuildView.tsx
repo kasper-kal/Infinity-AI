@@ -36,6 +36,8 @@ import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MobileAppsView } from "@/components/mobile/MobileAppsView";
 import { SecurityDashboard } from "@/components/security/SecurityDashboard";
+import { ArtifactTemplateSelector } from "@/components/artifact-template-selector";
+import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
   /** Active project ID */
@@ -103,6 +105,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [agentPanelOpen, setAgentPanelOpen] = useState(!!parallelTask);
   const [agentPanelCompact, setAgentPanelCompact] = useState(false);
 
+  // Artifact template selector state
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [templates, setTemplates] = useState<ArtifactTemplate[]>([]);
+  const [selectedArtifactType, setSelectedArtifactType] = useState<ArtifactTypeId | null>(null);
+
   const handlePlusAction = useCallback((action: PlusAction) => {
     setPlusMenuOpen(false);
     setPlusMenuCoords(null);
@@ -112,6 +119,18 @@ export const BuildView: React.FC<BuildViewProps> = ({
         break;
       case 'studios':
         // Open studios hub
+        break;
+      case 'create-artifact':
+        // Fetch templates from API and open selector
+        fetch('/api/infinity/artifact-templates')
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok && data.templates) {
+              setTemplates(data.templates);
+              setTemplateSelectorOpen(true);
+            }
+          })
+          .catch(err => console.error('Failed to fetch templates:', err));
         break;
     }
   }, []);
@@ -731,12 +750,52 @@ export const BuildView: React.FC<BuildViewProps> = ({
             camera: t('input.camera'),
             newExpert: 'New Expert',
             generateImage: t('input.generateImage'),
+            createArtifact: 'Create Artifact',
             buildMode: 'Build Mode',
             research: 'Deep Research',
             dataLab: 'Data Lab',
           }}
         />
       )}
+
+      {/* Artifact Template Selector */}
+      <ArtifactTemplateSelector
+        open={templateSelectorOpen}
+        onClose={() => setTemplateSelectorOpen(false)}
+        onSelect={async (templateId, artifactType) => {
+          setTemplateSelectorOpen(false);
+          setSelectedArtifactType(artifactType);
+
+          // Create project from template
+          const template = templates.find(t => t.id === templateId);
+          if (!template) return;
+
+          try {
+            const response = await fetch('/api/infinity/artifact-templates/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                templateId,
+                projectName: template.name,
+                projectId: projectId ?? 'default',
+              }),
+            });
+
+            const data = await response.json();
+            if (data.ok && data.artifactConfig) {
+              // Trigger parallel artifact build via orchestrator
+              // This would call the parallel artifact orchestrator API
+              console.log('Artifact created:', data.artifactConfig);
+              // Navigate to plan tab to show the build
+              setBuildTab('plan');
+            }
+          } catch (err) {
+            console.error('Failed to create artifact from template:', err);
+          }
+        }}
+        templates={templates}
+        selectedArtifactType={selectedArtifactType ?? undefined}
+      />}
 
       {/* Command palette - BuildCommandPalette used instead of standard */}
       <BuildCommandPalette

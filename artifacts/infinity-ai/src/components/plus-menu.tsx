@@ -1,13 +1,14 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Paperclip, Camera, Sparkles, ImageIcon, LayoutGrid, Palette, Music2 } from 'lucide-react';
+import { Paperclip, Camera, Sparkles, ImageIcon, LayoutGrid, Palette, Music2, FileCode } from 'lucide-react';
 
 export type PlusAction =
   | 'attach-file' | 'camera' | 'new-expert' | 'generate-image'
   | 'studios' | 'design-studio' | 'music-studio'
   | 'thinking' | 'agent-mode' | 'web-search' | 'screen-share'
-  | 'build-mode' | 'research' | 'data-lab';
+  | 'build-mode' | 'research' | 'data-lab'
+  | 'create-artifact';
 
 /**
  * Viewport-relative {top,left} for the plus menu, anchored to the "+" button.
@@ -44,6 +45,7 @@ interface PlusMenuProps {
     camera: string;
     newExpert: string;
     generateImage: string;
+    createArtifact?: string;
     thinking?: string;
     agentMode?: string;
     webSearch?: string;
@@ -102,7 +104,7 @@ export function PlusMenu({ open, onClose, onAction, coords, labels, query = '' }
     dataLab: labels.dataLab ?? 'Data Lab',
   };
   const showAttach = !isPluginAutocomplete || !normalizedQuery || matches(labels.attachFile) || matches(labels.camera);
-  const showCreate = !isPluginAutocomplete || !normalizedQuery || matches(labels.newExpert) || matches(labels.generateImage);
+  const showCreate = !isPluginAutocomplete || !normalizedQuery || matches(labels.newExpert) || matches(labels.generateImage) || matches(labels.createArtifact ?? 'Create Artifact');
   const showTools = isPluginAutocomplete && Object.values(toolLabels).some(matches);
   const showStudios = !isPluginAutocomplete || !normalizedQuery || ['All Studios', 'Design Studio', 'Music Studio'].some(matches);
   const pluginActions: readonly [string, PlusAction][] = [
@@ -194,6 +196,7 @@ export function PlusMenu({ open, onClose, onAction, coords, labels, query = '' }
                 <p className="px-3 pt-2 pb-0.5 text-[9px] font-mono tracking-widest text-muted-foreground/40 uppercase">Create</p>
                 {matches(labels.newExpert) && <Item icon={Sparkles} label={labels.newExpert} onClick={() => invoke('new-expert')} />}
                 {matches(labels.generateImage) && <Item icon={ImageIcon} label={labels.generateImage} onClick={() => invoke('generate-image')} />}
+                {matches('Create Artifact') && <Item icon={FileCode} label="Create Artifact" onClick={() => invoke('create-artifact')} />}
               </>
             )}
             {showTools && (

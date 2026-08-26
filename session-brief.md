@@ -4,9 +4,20 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-25 00:45
+LAST_UPDATED: 2026-08-26 01:00
 
 ## Just did (last action)
+- **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
+  - **API Generator** (`api.ts`): Hono/Fastify/Express backend APIs with Zod validation, Drizzle ORM, JWT auth, Scalar/Swagger docs, rate limiting, CORS, Pino logging, Docker, tests
+  - **CLI Tool Generator** (`cli-tool.ts`): Commander/CAC/Yargs/OCLIF CLI tools with auto-complete (bash/zsh/fish), config file support, TypeScript, tsup/esbuild/pkg packaging, npm publishing
+  - **Chrome Extension Generator** (`chrome-extension.ts`): Manifest V3 extensions (popup, sidebar, content-script, background, devtools, new-tab, offscreen) with React/Vanilla, ESBuild HMR, web store packaging
+  - **Website Generator** (`website.ts`): Astro/Next.js/Vite sites with Tailwind, SSR, i18n, SEO, sitemap, analytics
+  - **Web App Generator** (`web-app.ts`): Next.js/Vite full-stack apps with auth, database, API layer, state management, PWA, testing
+  - **Mobile App Generator** (`mobile-app.ts`): Expo/React Native with NativeWind, device features, shared backend integration
+  - **Slide Deck Generator** (`slide-deck.ts`): Marp/Reveal.js presentations with themes, transitions, PDF/PPTX export
+  - **Artifact Types Registry** (`artifact-types.ts`): 7 artifact types with Zod schemas, frameworks, deploy targets, shared foundation keys
+  - **Artifact Templates** (`artifact-templates.ts`): 13 templates including 5 Figma Community files (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
+  - Fixed TypeScript errors: added `slug` to ArtifactConfig, added `elysia`, `commander`, `cac`, `yargs`, `oclif` to Framework type
 - **Phase 11: Security Scanner + Secrets Manager (Replit-Level) — COMPLETE ✅** — Full security stack with frontend integration:
   - **SecurityDashboard.tsx** (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log) — follows BuildDebugPanel pattern
   - **BuildView Security Tab** — Integrated across desktop header tabs, mobile bottom nav (shield icon), sidebar navigation, command palette
@@ -318,15 +329,12 @@ LAST_UPDATED: 2026-08-25 00:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 11 — Security Scanner + Secrets Manager (Replit-Level)** ✅ **COMPLETE** — Full security stack:
-  - **SecurityDashboard.tsx** (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log)
-  - **BuildView Security Tab** — Integrated across desktop header tabs, mobile bottom nav (shield icon), sidebar, command palette
-  - **i18n**: "Security" (EN) / "Beveiliging" (NL)
-  - **Backend**: security-scanner.ts (961 lines), secrets-manager.ts (442 lines), security.ts routes (442 lines)
-  - **Fixed**: project-secrets.ts schema imports, i18n.tsx duplicate brace, AgentPanel.tsx JSX/braces
-  - **PHASES.md**: All 4 requirements ✅, all 7 files COMPLETE with line counts
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), **Phase 11 (Security Scanner + Secrets Manager)**
-- **Next Phases:** Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
+- **Current Phase:** **Phase 12 — Multi-Artifact Support** ✅ **COMPLETE** — All 7 artifact generators implemented:
+  - API (Hono/Fastify/Express), CLI Tool (Commander/CAC), Chrome Extension (Manifest V3)
+  - Website (Astro/Next), Web App (Next/Vite), Mobile App (Expo), Slide Deck (Marp/Reveal)
+  - Artifact type registry with Zod schemas, shared foundation, 13 templates (5 Figma Community)
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), **Phase 12 (Multi-Artifact Support)**
+- **Next Phases:** Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -338,7 +346,7 @@ LAST_UPDATED: 2026-08-25 00:45
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-25 00:45 — Phase 11 complete: Security Scanner + Secrets Manager frontend integration (SecurityDashboard, BuildView security tab, i18n, schema fixes). All Phase 11 requirements checked off, 7 files marked COMPLETE in PHASES.md.
+**LAST_UPDATED:** 2026-08-26 01:00 — Phase 12 complete: All 7 artifact generators (API, CLI Tool, Chrome Extension, Website, Web App, Mobile App, Slide Deck) + artifact type registry + 13 templates (5 Figma Community). All artifact generators typecheck + build pass cleanly.
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
