@@ -82,7 +82,7 @@ router.use(apiKeysRouter);
 router.use("/connectors", connectorsRouter);
 router.use("/self-evolution", selfEvolutionRouter);
 router.use(mapsRouter);
-router.use(projectTypesRouter);
+router.use("/project-types", projectTypesRouter);
 router.use(companyToolsRouter);
 router.use(promoRouter);
 router.use(localModelRouter);

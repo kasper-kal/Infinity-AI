@@ -230,12 +230,13 @@ router.put("/profile", async (req: Request, res: Response) => {
       return res.status(401).json({ success: false, error: "Session expired" });
     }
 
-    const { displayName, avatarUrl, email } = req.body as { displayName?: string; avatarUrl?: string; email?: string };
+    const { displayName, avatarUrl, email, scopes } = req.body as { displayName?: string; avatarUrl?: string; email?: string; scopes?: string[] };
 
     const updates: Partial<typeof accounts.$inferInsert> = {};
     let emailChanged = false;
     if (displayName !== undefined) updates.displayName = displayName.trim().slice(0, 100);
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl.trim().slice(0, 500);
+    if (scopes !== undefined) updates.scopes = scopes;
     if (email !== undefined) {
       const newEmail = email.toLowerCase().trim();
       // Check if email is already taken

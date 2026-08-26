@@ -1,0 +1,27 @@
+{
+  "id": "my-custom-type",
+  "name": "My Custom Project Type",
+  "icon": "✨",
+  "description": "A custom project type for my specific workflow",
+  "components": [
+    "CustomComponent1",
+    "CustomComponent2"
+  ],
+  "tools": [
+    "custom.tool1",
+    "custom.tool2"
+  ],
+  "defaultViews": [
+    "custom-view",
+    "chats",
+    "files",
+    "memory"
+  ],
+  "color": "#f59e0b",
+  "tags": [
+    "custom",
+    "workflow"
+  ],
+  "version": "1.0.0",
+  "author": "Your Name"
+}

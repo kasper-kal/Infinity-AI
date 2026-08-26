@@ -465,4 +465,22 @@ router.get('/templates', async (_req: Request, res: Response) => {
   res.json({ templates });
 });
 
+/**
+ * GET /api/infinity/ui-builder/design-tokens
+ * Get the current project's design tokens for the preview
+ */
+router.get('/design-tokens', async (req: Request, res: Response) => {
+  try {
+    const projectId = req.query.projectId as string | undefined;
+    let designSystem = null;
+    if (projectId) {
+      designSystem = await getDesignSystemForProject(projectId);
+    }
+    res.json({ designSystem: designSystem || {} });
+  } catch (error) {
+    console.error('Design tokens fetch error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch design tokens' });
+  }
+});
+
 export default router;

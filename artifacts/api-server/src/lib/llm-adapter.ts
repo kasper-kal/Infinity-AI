@@ -189,6 +189,15 @@ export interface LLMAdapter {
   stream(messages: LLMMessage[], options?: LLMCompletionOptions): AsyncIterable<LLMStreamChunk>;
 
   /**
+   * Generate a structured output matching a JSON schema
+   */
+  generateObject<T extends Record<string, unknown>>(
+    messages: LLMMessage[],
+    schema: Record<string, unknown>,
+    options?: LLMCompletionOptions
+  ): Promise<{ object: T }>;
+
+  /**
    * Health check - returns true if the adapter is available
    */
   isHealthy(): Promise<boolean>;
@@ -368,6 +377,40 @@ export class OpenAICompatibleAdapter implements LLMAdapter {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async generateObject<T extends Record<string, unknown>>(
+    messages: LLMMessage[],
+    schema: Record<string, unknown>,
+    options: LLMCompletionOptions = {}
+  ): Promise<{ object: T }> {
+    const response = await this.client.chat.completions.create({
+      model: this.modelName,
+      messages: messages as any,
+      temperature: options.temperature ?? 0.2,
+      max_tokens: options.maxTokens,
+      stream: false,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "structured_output",
+          strict: true,
+          schema: schema,
+        },
+      },
+    }) as OpenAIChatCompletionResponse;
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    try {
+      return { object: JSON.parse(content) as T };
+    } catch {
+      // Fallback: try to extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return { object: JSON.parse(jsonMatch[0]) as T };
+      }
+      throw new Error("Failed to parse structured output from LLM");
     }
   }
 }

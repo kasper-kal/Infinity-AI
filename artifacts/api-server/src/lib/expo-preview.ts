@@ -12,7 +12,8 @@
 
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { createServer, Server, WebSocketServer, WebSocket } from "node:ws";
+import { createServer, Server } from "node:http";
+import { WebSocketServer, WebSocket } from "ws";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
