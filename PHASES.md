@@ -26,6 +26,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **11** | **Security Scanner + Secrets Manager (Replit-Level)** | ✅ **COMPLETE** |
 | **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
 | **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | ✅ **COMPLETE** |
+| **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔄 **IN PROGRESS** |
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔲 PLANNED |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | 🔲 PLANNED |

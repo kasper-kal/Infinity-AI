@@ -71,6 +71,7 @@ import projectMapRouter from "./project-map";
 import designCanvasRouter from "./design-canvas";
 import mobileAppsRouter from "./mobile-apps";
 import artifactTemplatesRouter from "./artifact-templates";
+import enterpriseRouter from "./enterprise";
 
 const router = Router();
 
@@ -121,6 +122,7 @@ router.use("/project-map", projectMapRouter);
 router.use(designCanvasRouter);
 router.use("/mobile-apps", mobileAppsRouter);
 router.use(artifactTemplatesRouter);
+router.use("/enterprise", enterpriseRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

@@ -4,15 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 04:30
+LAST_UPDATED: 2026-08-26 05:15
 
 ## Just did (last action)
-- **Fixed all TypeScript build errors for connector @ commands in normal chat mode** — All 11 connectors now work in normal chat:
-  - **tool-registry.ts**: Fixed duplicate case clauses by making switch platform-aware (nested switches per platform for Linear, Notion, Google Sheets, Slack, Discord, Telegram, GitHub, Figma, Spotify, Gmail, Google Calendar)
-  - **figma.ts**: Merged duplicate NavigationBar entries in componentKeywords (combined keywords into single entry)
-  - **lib/db/package.json**: Added project-secrets export to package exports
-  - **chat.ts**: Removed duplicate detectGitHubCommand and detectFigmaCommand function declarations
-  - All TypeScript errors resolved, build passes cleanly ✅
+- **Verified all 11 connector @ commands work in normal chat mode** — Build passes cleanly ✅
+  - All 11 connector implementations complete: GitHub, Figma, Linear, Notion, Google Sheets, Slack, Discord, Telegram, Spotify, Gmail, Google Calendar
+  - Detection functions in chat.ts for all 11 @ commands (lines 251-438)
+  - Handler implementations in chat.ts for all 11 @ commands (lines 1820-2385) using executeTool() to call connector tools
+  - Tool registry (tool-registry.ts) registers connector.{platform}.execute for all 11 platforms with platform-aware nested switches
+  - Base connector factory (base.ts) creates all 11 connector types
+  - GitHub connector: analyzeRepo, listIssues, listPRs, getStructure, readFile, search, createIssue
+  - Figma connector: generateDesign with 5 design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
+  - All other connectors implement their platform-specific actions
+  - Commands work in normal chat mode (not Build Mode) via agentMode flag and SSE streaming
 - **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
   - **API Generator** (`api.ts`): Hono/Fastify/Express backend APIs with Zod validation, Drizzle ORM, JWT auth, Scalar/Swagger docs, rate limiting, CORS, Pino logging, Docker, tests
   - **CLI Tool Generator** (`cli-tool.ts`): Commander/CAC/Yargs/OCLIF CLI tools with auto-complete (bash/zsh/fish), config file support, TypeScript, tsup/esbuild/pkg packaging, npm publishing
