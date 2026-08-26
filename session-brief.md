@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 02:30
+LAST_UPDATED: 2026-08-26 02:45
 
 ## Just did (last action)
 - **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
@@ -335,7 +335,7 @@ LAST_UPDATED: 2026-08-26 02:30
   - Artifact type registry with Zod schemas, shared foundation, 13 templates (5 Figma Community)
   - **Frontend Integration COMPLETE**: PlusMenu "Create Artifact" action + ArtifactTemplateSelector modal in BuildView wired to artifact-templates API
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), **Phase 12 (Multi-Artifact Support)**
-- **Next Phases:** Phase 13 (External Service Connectors), Phase 14 (Enterprise Features)
+- **Next Phases:** Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -370,6 +370,7 @@ LAST_UPDATED: 2026-08-26 02:30
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-26 **Phase 36: AI Automation System added to PHASES.md** — Natural language automation parser + runtime with connector integration (Phase 13): cron schedules, webhook triggers (Linear, Slack, Notion, Sheets, GitHub), multi-step workflows with conditions/branching, agent-created automations via tools, multi-channel notifications
 - 2026-08-26 **Phase 12: Multi-Artifact Support — Frontend Integration COMPLETE ✅** — Wired artifact creation into BuildView:
   - Added `create-artifact` action to PlusMenu with FileCode icon in "Create" section
   - Added `ArtifactTemplateSelector` modal component (existing) to BuildView
