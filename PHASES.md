@@ -24,7 +24,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **9** | **Parallel Agent Execution (Replit Agent 4 Style)** | ✅ **COMPLETE** |
 | **10** | **Mobile App Development (React Native + Expo)** | ✅ **COMPLETE** |
 | **11** | **Security Scanner + Secrets Manager (Replit-Level)** | ✅ **COMPLETE** |
-| **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | 🔲 PLANNED |
+| **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
 | **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | 🔲 PLANNED |
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | 🔲 PLANNED |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | 🔲 PLANNED |
@@ -47,8 +47,10 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **32** | **Infinity Self-Management & Live Task Intelligence** | 🔲 PLANNED |
 | **33** | **AI-Managed Roadmap (Build Map Intelligence)** | 🔲 PLANNED |
 | **34** | **Context Auto-Compact & Limit Recognition** | 🔲 PLANNED |
+| **35** | **README update** | 🔲 PLANNED |
+| **36** | **AI Automation System (Natural Language Automations + Connector Integration)** | 🔲 PLANNED |
 
-Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**.
+Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**.
 
 ---
 
@@ -1597,6 +1599,71 @@ Update the **README.md** file to fit the current state of things.
 
 ### Files to Create/Modify
 - `README.md` (replace everything currently there)
+
+---
+
+## 📦 Phase 36: AI Automation System (Natural Language Automations + Connector Integration)
+
+### Goal
+**AI creates and runs automations** — Users describe automations in natural language (e.g., "Every morning at 08:00 check for sales at Amazon for electronics, only notify me when it's above 80%"). Connectors (Phase 13) power these automations: they can trigger on connector events (Linear issue created, Slack message, Notion page updated, Sheets row added), perform connector actions (create issue, post message, update page, append row), and chain across multiple services. The AI agent builds the automation workflow from the natural language description.
+
+### Requirements
+- [ ] **Natural Language Automation Parser** — `artifacts/api-server/src/lib/automation-parser.ts`:
+  - Parse user prompt → structured automation spec (triggers, conditions, actions, schedule)
+  - Support triggers: cron schedule, connector webhooks (Linear, Slack, Notion, Sheets, GitHub, etc.), manual, API call
+  - Support conditions: filters (price > 80%, status = "open"), comparisons, regex, custom JS expressions
+  - Support actions: connector actions, notifications (email, push, Slack, webhook), code execution, LLM calls, data transformation
+  - Support chaining: multi-step workflows with branching, loops, error handling
+- [ ] **Automation Runtime** — `artifacts/api-server/src/lib/automation-runtime.ts`:
+  - Execute automations on schedule (cron) or event (webhook)
+  - Secure sandboxed execution (Denisolate/Node vm2 or similar) for custom code
+  - Connector integration: use Phase 13 connector tools (`linear.createIssue`, `slack.postMessage`, `notion.updatePage`, `sheets.appendRow`, etc.)
+  - State management: persistence, retries, dead letter queue, idempotency keys
+  - Observability: execution logs, metrics, alerting on failures
+- [ ] **Connector Event Integration** — Connectors emit events that can trigger automations:
+  - Linear: issue.created, issue.updated, comment.created, cycle.changed
+  - Slack: message.posted, reaction.added, channel.created
+  - Notion: page.created, page.updated, database.row_added
+  - Google Sheets: row.added, row.updated, cell.changed
+  - GitHub: push, pr.opened, pr.merged, issue.created
+  - Custom webhook: generic HTTP endpoint
+- [ ] **Automation Builder UI** — Visual builder in Infinity (extends BuildView):
+  - Natural language input → parsed preview → edit → save
+  - Visual flowchart of automation (trigger → conditions → actions)
+  - Test run button (dry-run with sample data)
+  - Version history, rollback, enable/disable toggle
+  - Per-project automation list with status (running, paused, error)
+- [ ] **Agent-Created Automations** — Universal Agent can create automations via tools:
+  - `automation.create(spec)`, `automation.update(id, spec)`, `automation.delete(id)`
+  - `automation.enable(id)`, `automation.disable(id)`, `automation.run(id, input?)`
+  - `automation.get(id)`, `automation.list(projectId)`
+  - Agent can propose automations based on observed patterns ("I notice you check X daily — want me to automate it?")
+- [ ] **Notification System** — Multi-channel notifications from automations:
+  - Email (SendGrid/Resend free tier), Push (Web Push API), Slack, Discord, Webhook, In-app
+  - Template engine with variables from automation context
+  - Digest/batch mode for high-frequency events
+
+### Implementation Plan
+1. **Automation Parser** — LLM-based parser with structured output (Zod schema) for natural language → automation spec
+2. **Automation Runtime Engine** — Scheduler (node-cron) + event listener (webhook endpoints) + executor (sandboxed)
+3. **Connector Integration** — Reuse Phase 13 connector tools, add webhook endpoints for trigger events
+4. **Automation Registry** — Database schema (automations, automation_runs, automation_logs), CRUD API
+5. **Builder UI** — Extend BuildView with Automations tab: natural language input, visual preview, test/run controls
+6. **Agent Tools** — Register automation tools in Universal Tool Registry
+7. **Notification Service** — Unified notification dispatcher with provider abstraction
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/automation-parser.ts` (new)
+- `artifacts/api-server/src/lib/automation-runtime.ts` (new)
+- `artifacts/api-server/src/lib/automation-registry.ts` (new)
+- `artifacts/api-server/src/lib/notification-service.ts` (new)
+- `artifacts/api-server/src/db/schema/automations.ts` (new — automations, automation_runs, automation_logs tables)
+- `artifacts/api-server/src/routes/Infinity/automations.ts` (new — CRUD + execute + webhook endpoints)
+- `artifacts/Infinity/src/components/automation/AutomationBuilder.tsx` (new — natural language + visual builder)
+- `artifacts/Infinity/src/components/automation/AutomationFlow.tsx` (new — visual flowchart)
+- `artifacts/Infinity/src/components/automation/AutomationList.tsx` (new — project automations)
+- `artifacts/Infinity/src/components/views/BuildView.tsx` (Automations tab)
+- `artifacts/Infinity/src/lib/i18n.tsx` (add automation keys EN+NL)
 
 ---
 
