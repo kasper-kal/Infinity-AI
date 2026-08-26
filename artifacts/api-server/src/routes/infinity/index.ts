@@ -73,6 +73,7 @@ import mobileAppsRouter from "./mobile-apps";
 import artifactTemplatesRouter from "./artifact-templates";
 import enterpriseRouter from "./enterprise";
 import skillsRouter from "./skills";
+import uiBuilderRouter from "./ui-builder";
 
 const router = Router();
 
@@ -125,6 +126,7 @@ router.use("/mobile-apps", mobileAppsRouter);
 router.use(artifactTemplatesRouter);
 router.use("/enterprise", enterpriseRouter);
 router.use("/skills", skillsRouter);
+router.use("/ui-builder", uiBuilderRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

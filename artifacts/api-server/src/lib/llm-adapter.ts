@@ -456,3 +456,49 @@ export class LLMAdapterError extends Error {
     return new LLMAdapterError("The language model request failed", "UNKNOWN_ERROR", true, err instanceof Error ? err : undefined);
   }
 }
+
+/**
+ * Adapter Factory Implementation
+ * Creates the appropriate LLM adapter based on configuration
+ */
+export class DefaultAdapterFactory implements AdapterFactory {
+  createAdapter(config: AdapterConfig): Promise<LLMAdapter> {
+    const baseUrl = config.baseUrl || process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+    const apiKey = config.apiKey || process.env.OPENROUTER_API_KEY || '';
+    const modelName = config.modelHint || process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+
+    if (!apiKey) {
+      throw new LLMAdapterError("API key not configured", "CONFIG_ERROR", false);
+    }
+
+    const adapter = new OpenAICompatibleAdapter(baseUrl, apiKey, modelName, config.preferredCapabilities);
+    return Promise.resolve(adapter);
+  }
+
+  getAvailableTypes(): string[] {
+    return ['openrouter', 'nvidia', 'openai-compatible'];
+  }
+}
+
+/**
+ * Get the default LLM adapter instance
+ * This is the main entry point for the Infinity agent to access LLM capabilities
+ */
+let _defaultAdapter: LLMAdapter | null = null;
+
+export async function getLLMAdapter(config?: AdapterConfig): Promise<LLMAdapter> {
+  if (_defaultAdapter) {
+    return _defaultAdapter;
+  }
+
+  const factory = new DefaultAdapterFactory();
+  _defaultAdapter = await factory.createAdapter(config || {});
+  return _defaultAdapter;
+}
+
+/**
+ * Reset the default adapter (useful for testing or config changes)
+ */
+export function resetLLMAdapter(): void {
+  _defaultAdapter = null;
+}

@@ -18,6 +18,10 @@ export type { InputProps, TextareaProps, SelectProps } from "./Input";
 export { Dialog, AlertDialog, Drawer } from "./Dialog";
 export type { DialogProps, AlertDialogProps, DrawerProps } from "./Dialog";
 
+// Sheet
+export { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription, SheetTrigger, SheetClose, SheetOverlay, SheetPortal } from "./sheet";
+export type { SheetProps, SheetContentProps, SheetHeaderProps, SheetFooterProps, SheetTitleProps, SheetDescriptionProps, SheetTriggerProps, SheetCloseProps, SheetOverlayProps, SheetPortalProps } from "./sheet";
+
 // Tooltip
 export { Tooltip, Toast, ToastContainer, useToast } from "./Tooltip";
 export type { TooltipProps, ToastProps, ToastContainerProps } from "./Tooltip";
@@ -31,8 +35,12 @@ export { Tree, FileTree } from "./Tree";
 export type { TreeProps, FileTreeProps, TreeNode, FileTreeNode } from "./Tree";
 
 // Tabs
-export { Tabs, SegmentedControl } from "./Tabs";
-export type { TabsProps, SegmentedControlProps } from "./Tabs";
+export { Tabs, SegmentedControl, TabsList, TabsTrigger, TabsContent, TabPanel } from "./Tabs";
+export type { TabsProps, SegmentedControlProps, TabsListProps, TabsTriggerProps, TabsContentProps, TabPanelProps } from "./Tabs";
+
+// Separator
+export { Separator } from "./separator";
+export type { SeparatorProps } from "./separator";
 
 // Code Editor
 export { CodeEditor, DiffEditor, InlineEditor } from "./CodeEditor";

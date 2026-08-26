@@ -4,76 +4,45 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 08:15
+LAST_UPDATED: 2026-08-26 10:45
 
 ## Just did (last action)
+- **Phase 16: v0-Level Generative UI Engine — INFRASTRUCTURE COMPLETE (~85-90%)** ✅ — Core generative UI engine infrastructure built and verified:
+  - **UI Codegen Engine** (`artifacts/api-server/src/lib/ui-codegen.ts` ~19KB): Complete engine with `UICodegenEngine` class featuring `generate()`, `refine()`, `generateFeature()` methods. 50+ shadcn/ui components across 8 categories (form, layout, navigation, data-display, feedback, overlay, advanced, typography) registered. Zod schemas for validation. System prompts with design system awareness. Preview HTML generation with CDN-based React + Tailwind + shadcn/ui.
+  - **UI Builder API Routes** (`artifacts/api-server/src/routes/infinity/ui-builder.ts`): 8 endpoints implemented:
+    - POST `/generate` (SSE streaming) — generates UI from natural language
+    - POST `/refine` — refines existing component based on feedback
+    - POST `/feature` — generates multi-file feature
+    - POST `/preview` — generates preview HTML for components
+    - GET `/components` — returns available shadcn/ui components
+    - POST `/deploy` — deploys to free hosting provider (mock implementation)
+    - GET `/deploy/:id/status` — checks deployment status
+    - POST `/iterate` — iterative refinement with conversation history
+    - GET `/templates` — returns starter templates
+    - All routes require auth + build:write scope, integrate with getProjectDesignSystem()
+  - **LivePreview Component** (`artifacts/infinity-ai/src/components/ui-builder/LivePreview.tsx` ~500 lines): Sandbox iframe with React 18 + Tailwind + shadcn/ui preloaded via CDN. Viewport controls (Mobile 375px, Tablet 768px, Desktop 1440px). Console capture (log/error/warn) via postMessage. Error overlay with retry. Fullscreen mode with Esc to exit. Dark mode toggle. Copy/download HTML. HMR simulation via previewKey increment. Tabs for Preview/Console views.
+  - **ComponentRegistry Component** (`artifacts/infinity-ai/src/components/ui-builder/ComponentRegistry.tsx` ~370 lines): 50+ shadcn/ui components in 8 categories with search/filter. Design tokens display (colors, spacing, typography, radius, shadows). Copy import statements to clipboard. Insert component callback. Custom components support. Visual color swatches for design tokens.
+  - **DeployPanel Component** (`artifacts/infinity-ai/src/components/ui-builder/DeployPanel.tsx` ~440 lines): 4 provider tabs (Vercel, Netlify, Cloudflare Pages, GitHub Pages). Repository linking (GitHub). Custom domain input. Environment variables management (add/remove). Deploy progress with logs (build, deploy steps). Preview/production URLs with copy/open actions. Sheet modal for advanced config.
+  - **ChatView Integration** (`artifacts/infinity-ai/src/components/views/ChatView.tsx`): Added `uiBuilderMode` state. Three-pane layout when in UI Builder mode: Left = Chat sidebar with history + composer, Middle = Component Registry / Live Preview / Code tabs (split view), Right = Deploy Panel. SSE streaming integration for generation. Build mode toggle in chat menu (Visual/Chat/UI Builder).
+  - **BuildView Integration** (`artifacts/infinity-ai/src/components/views/BuildView.tsx`): Added 'ui-builder' tab in header ButtonGroup (9 tabs total). Added 'ui-builder' to sidebar navigation. Mobile bottom nav includes ui-builder tab. Integrates ChatView for UI Builder mode.
+  - **Tabs Compound Components** (`artifacts/infinity-ai/src/components/ui/Tabs.tsx`): Added Radix-style compound components: TabsContext, TabsList, TabsTrigger, TabsContent, TabPanel. Keyboard navigation (arrows, Home, End). Supports both array-prop API and compound component pattern. Variants: line, enclosed, soft, glass. Orientation: horizontal, vertical.
+  - **UI Barrel Exports** (`artifacts/infinity-ai/src/components/ui/index.ts`): Added exports for TabsList, TabsTrigger, TabsContent, TabPanel.
+  - **LLM Adapter Fix** (`artifacts/api-server/src/lib/llm-adapter.ts`): Added `DefaultAdapterFactory` class implementing `AdapterFactory` interface and `getLLMAdapter()` singleton function for default adapter. Uses OpenRouter with Claude 3.5 Sonnet by default.
+  - **Design Canvas Fix** (`artifacts/api-server/src/lib/design-canvas.ts`): Added `getProjectDesignSystem()` function returning canvas design system or default shadcn/ui tokens (colors, spacing, typography, borderRadius, shadows).
+  - **Import Path Fixes**: Fixed case sensitivity for Select/Input → select, Separator → separator, Badge → badge, Sheet → sheet.
+  - **Both builds passing cleanly** ✅ — API server (esbuild) and frontend (vite) builds complete without errors.
+- **Phase 15: Agent Skills & Custom Instructions Marketplace COMPLETE ✅** — Full skills system implemented:
+  - **Skills API Routes** (`artifacts/api-server/src/routes/infinity/skills.ts` — 770 lines): Full CRUD for skill definitions, agent skill bindings (planner/coder/reviewer/fixer/diagnostic), skill application to prompts, custom instructions per project, marketplace endpoints (search, install, publish), templates from built-ins, analytics endpoints
+  - **Skills Backend** (`artifacts/api-server/src/lib/build-skills.ts` — 800+ lines): SkillDefinition schema with instructions, toolPreferences, verificationRules, conventions, environment, roleBindings, extends; SkillRegistry (discovery by category/tag/role, project-scoped filtering, stats); SkillLoader (JSON/YAML loading, inheritance resolution with circular detection, merge logic); AgentSkillBinding (per-project/role assignments with priority); SkillMarketplace (local-first package management, $0 budget, install/publish/search)
+  - **9 Built-in Skills**: base.json, react-engineer.json, debugger.json, ui-designer.json, api-engineer.json, database-engineer.json, devops-engineer.json, security-auditor.json, performance-engineer.json
+  - **Frontend Integration** (`SettingsView.tsx`): Skills tab added to settings sidebar (desktop) and bottom nav (mobile) with SkillsSettingsPanel component
+  - **Enterprise Routes** updated to mount skills router at `/api/infinity/skills`
 - **Phase 14: Enterprise Features — SCIM Provisioning COMPLETE ✅** — Full SCIM 2.0 (RFC 7644) implementation integrated:
   - **SCIM Server** (`scim.ts` — 970+ lines): Complete SCIM 2.0 server with full CRUD for Users (create, read, list, replace, patch, delete), Groups (placeholder endpoints returning 501), ServiceProviderConfig, ResourceTypes, Schemas. Supports Bearer token auth, SCIM filtering (eq, co, sw, ew, pr), pagination (startIndex, count), attribute selection (attributes, excludedAttributes), version/etag tracking. Maps users to SSO sessions via SSOManager.
   - **SCIM Client** (`scim.ts`): SCIMClient class for provisioning TO external IdPs — full CRUD operations against remote SCIM endpoints.
   - **Enterprise Routes** (`enterprise.ts`): Added /scim/configure, /scim/config, /scim/ServiceProviderConfig, /scim/ResourceTypes, /scim/Schemas, /scim/Users (POST, GET, PUT, PATCH, DELETE), /scim/Groups (all 501 stubs). Token validation helper validates Bearer token against config.
   - **Dashboard integration**: Added SCIM section to /dashboard showing configured status, baseUrl, user/group provisioning flags.
   - **Build passes cleanly** ✅
-- **Verified all 11 connector @ commands work in normal chat mode** — Build passes cleanly ✅
-  - All 11 connector implementations complete: GitHub, Figma, Linear, Notion, Google Sheets, Slack, Discord, Telegram, Spotify, Gmail, Google Calendar
-  - Detection functions in chat.ts for all 11 @ commands (lines 251-438)
-  - Handler implementations in chat.ts for all 11 @ commands (lines 1820-2385) using executeTool() to call connector tools
-  - Tool registry (tool-registry.ts) registers connector.{platform}.execute for all 11 platforms with platform-aware nested switches
-  - Base connector factory (base.ts) creates all 11 connector types
-  - GitHub connector: analyzeRepo, listIssues, listPRs, getStructure, readFile, search, createIssue
-  - Figma connector: generateDesign with 5 design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
-  - All other connectors implement their platform-specific actions
-  - Commands work in normal chat mode (not Build Mode) via agentMode flag and SSE streaming
-- **Phase 14: Enterprise Features (SSO, VPC, Audit Logs) — IN PROGRESS** — Core backend infrastructure complete:
-  - **SSO Module** (`sso.ts`): Complete SSOManager class with initiateLogin, handleCallback, logout, validateSession, refreshSession, provisionUser, updateUser, revokeAllSessions. Includes SSOConfig, SessionConfig, ProvisioningConfig, SecurityConfig interfaces. Exports createDefaultSSOConfig, createSSOConfigWithProviders, initializeSSO, getSSOManager.
-  - **Auth Providers** (`auth-providers.ts`): Abstract AuthProvider interface with OktaProvider, EntraIdProvider (Microsoft Entra ID), GoogleWorkspaceProvider, SAMLProvider, GenericOIDCProvider, LocalAuthProvider. AuthProviderRegistry for managing multiple providers.
-  - **VPC/Network Layer** (`vpc.ts`): VPCConfig with subnets, peering, private endpoints, firewall, DNS, flow logs. VPCModuleGenerator generates Terraform for GCP/AWS/Azure. VPCManager for lifecycle operations. createStandardVPCConfig for quick setup.
-  - **Audit Logs** (`audit-logs.ts`): AuditLogger with 7 destination types (Console, File, Webhook, ClickHouse, BigQuery, PostgreSQL, Elasticsearch). AuditEventType enum with 90+ event types. Query, export, stats, test endpoints.
-  - **Enterprise API Routes** (`enterprise.ts`): SSO (/sso/config, /sso/initiate, /sso/callback, /sso/logout, /sso/session/:id, /sso/configure, /sso/configure-quick), VPC (/vpc/generate, /vpc/examples), Audit Logs (/audit-logs, /audit-logs/export, /audit-logs/stats, /audit-logs/test), Dashboard (/dashboard).
-  - **Fixed TypeScript errors**: logger import paths, type assertions, async function fixes, constructor spread issues
-  - **Build passes cleanly** ✅
-- **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
-  - **VPC/Network Layer** (`vpc.ts`): VPCConfig with subnets, peering, private endpoints, firewall, DNS, flow logs. VPCModuleGenerator generates Terraform for GCP/AWS/Azure. VPCManager for lifecycle operations. createStandardVPCConfig for quick setup.
-  - **Audit Logs** (`audit-logs.ts`): AuditLogger with 7 destination types (Console, File, Webhook, ClickHouse, BigQuery, PostgreSQL, Elasticsearch). AuditEventType enum with 90+ event types. Query, export, stats, test endpoints.
-  - **Enterprise API Routes** (`enterprise.ts`): SSO (/sso/config, /sso/initiate, /sso/callback, /sso/logout, /sso/session/:id, /sso/configure, /sso/configure-quick), VPC (/vpc/generate, /vpc/examples), Audit Logs (/audit-logs, /audit-logs/export, /audit-logs/stats, /audit-logs/test), Dashboard (/dashboard).
-  - **Fixed TypeScript errors**: logger import paths, type assertions, async function fixes, constructor spread issues
-  - **Build passes cleanly** ✅
-- **Phase 12: Multi-Artifact Support — COMPLETE ✅** — All 7 artifact types implemented with generators:
-  - **API Generator** (`api.ts`): Hono/Fastify/Express backend APIs with Zod validation, Drizzle ORM, JWT auth, Scalar/Swagger docs, rate limiting, CORS, Pino logging, Docker, tests
-  - **CLI Tool Generator** (`cli-tool.ts`): Commander/CAC/Yargs/OCLIF CLI tools with auto-complete (bash/zsh/fish), config file support, TypeScript, tsup/esbuild/pkg packaging, npm publishing
-  - **Chrome Extension Generator** (`chrome-extension.ts`): Manifest V3 extensions (popup, sidebar, content-script, background, devtools, new-tab, offscreen) with React/Vanilla, ESBuild HMR, web store packaging
-  - **Website Generator** (`website.ts`): Astro/Next.js/Vite sites with Tailwind, SSR, i18n, SEO, sitemap, analytics
-  - **Web App Generator** (`web-app.ts`): Next.js/Vite full-stack apps with auth, database, API layer, state management, PWA, testing
-  - **Mobile App Generator** (`mobile-app.ts`): Expo/React Native with NativeWind, device features, shared backend integration
-  - **Slide Deck Generator** (`slide-deck.ts`): Marp/Reveal.js presentations with themes, transitions, PDF/PPTX export
-  - **Artifact Types Registry** (`artifact-types.ts`): 7 artifact types with Zod schemas, frameworks, deploy targets, shared foundation keys
-  - **Artifact Templates** (`artifact-templates.ts`): 13 templates including 5 Figma Community files (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
-  - Fixed TypeScript errors: added `slug` to ArtifactConfig, added `elysia`, `commander`, `cac`, `yargs`, `oclif` to Framework type
-- **Phase 11: Security Scanner + Secrets Manager (Replit-Level) — COMPLETE ✅** — Full security stack with frontend integration:
-  - **SecurityDashboard.tsx** (600+ lines, 4 tabs: Findings, Secrets, Pre-Deploy Gate, Suppression Log) — follows BuildDebugPanel pattern
-  - **BuildView Security Tab** — Integrated across desktop header tabs, mobile bottom nav (shield icon), sidebar navigation, command palette
-  - **i18n**: "build.tabs.security" = "Security" (EN) / "Beveiliging" (NL)
-  - **Backend already complete**: security-scanner.ts (961 lines), secrets-manager.ts (442 lines), security.ts routes (442 lines)
-  - **Fixed schema imports**: project-secrets.ts added missing `boolean`, `integer`, `index` imports
-  - **Fixed i18n.tsx**: Removed duplicate closing brace (TS1128)
-  - **Fixed AgentPanel.tsx**: Fixed duplicate Progress JSX + missing closing brace
-  - **PHASES.md**: All 4 requirements checked off, all 7 files marked COMPLETE with line counts
-- **Phase 10: Mobile App Development (React Native + Expo) — COMPLETE ✅** — Full mobile app lifecycle from browser:
-  - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
-  - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
-  - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
-  - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
-  - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
-  - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
-  - **i18n**: 100+ mobile.* translation keys in English and Dutch
-  - PHASES.md: Phase 10 marked ✅ COMPLETE, all 10 file tasks checked off
-- **PHASES.md: Added Phase 34: Context Auto-Compact & Limit Recognition** — New final phase for intelligent context management:
-  - Token budget tracking with per-model limits (128K-1M from DESIGN_MODEL_CONFIGS)
-  - 4-level auto-compaction pipeline (Summarize → Compress → Goal+State → Emergency)
-  - Preservation rules for critical info (decisions, fileMap, error patterns, project instructions)
-  - Visibility & control via Debug panel (token gauge, compaction history, manual controls)
-  - Integration points: universal-agent.ts, build-orchestrator.ts, chat.ts, build-context.ts
-  - Persistence in messages table + build checkpoints
-- **PHASES.md: Updated phase table** — Added Phases 32, 33, 34 to overview table
 
 - **Phase 4: Virtual Worktrees + Parallel Agent Execution — COMPLETE** — Built true parallel execution with isolated filesystems per agent:
   - **Virtual Worktree Manager** (`artifacts/api-server/src/lib/virtual-worktree.ts`) — 960+ lines, 4 storage backends:

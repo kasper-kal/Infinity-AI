@@ -24,7 +24,10 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
 import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MoreHorizontal, Layout, Code, Eye, Monitor } from "lucide-react";
+import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw } from "lucide-react";
+import { LivePreview } from "@/components/ui-builder/LivePreview";
+import { ComponentRegistry } from "@/components/ui-builder/ComponentRegistry";
+import { DeployPanel } from "@/components/ui-builder/DeployPanel";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -67,8 +70,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'chat' | 'agent' | 'camera'>('chat');
-  const [buildMode, setBuildMode] = useState<'visual' | 'chat'>('visual');
+  const [buildMode, setBuildMode] = useState<'visual' | 'chat' | 'ui-builder'>('visual');
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [uiBuilderMode, setUiBuilderMode] = useState(false);
+  const [uiComponents, setUiComponents] = useState<Array<{ name: string; code: string; imports?: string[] }>>([]);
+  const [uiGenerating, setUiGenerating] = useState(false);
+  const [uiError, setUiError] = useState<string | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<any>(null);
+  const [deployFiles, setDeployFiles] = useState<Array<{ path: string; content: string }>>([]);
+  const [showDeployPanel, setShowDeployPanel] = useState(false);
+  const [uiChatHistory, setUiChatHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [activeTab, setActiveTab] = useState<'registry' | 'preview' | 'code'>('preview');
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -263,6 +275,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       </svg>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBuildMode('ui-builder'); setUiBuilderMode(true); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      buildMode === 'ui-builder'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="font-medium">{t('build.mode.uiBuilder')}</p>
+                      <p className="text-xs text-muted-foreground/70">{t('build.mode.uiBuilderDesc')}</p>
+                    </div>
+                    {buildMode === 'ui-builder' && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -354,6 +386,198 @@ export const ChatView: React.FC<ChatViewProps> = ({
     </div>
   );
 
+  // UI Builder Mode - Three-pane layout: Chat | Component Registry + Live Preview | Deploy
+  const renderUiBuilder = () => (
+    <div className="flex flex-1 h-full overflow-hidden bg-background">
+      {/* Left Pane: Chat Sidebar / Conversation */}
+      <div className="w-80 flex-shrink-0 border-r border-border flex flex-col bg-card">
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            UI Builder
+          </h3>
+          <Button variant="ghost" size="icon" onClick={() => { setUiBuilderMode(false); setBuildMode('visual'); }}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Chat History */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {uiChatHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm font-medium">Start building</p>
+              <p className="text-xs mt-1">Describe what you want to create</p>
+            </div>
+          ) : (
+            uiChatHistory.map((msg, i) => (
+              <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                <div
+                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground rounded-br-none'
+                      : 'bg-muted text-muted-foreground rounded-bl-none'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Composer */}
+        <div className="p-4 border-t border-border">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Describe changes..."
+              className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              size="sm"
+              onClick={async () => {
+                const text = chatInput.trim();
+                if (!text) return;
+                setChatInput('');
+                setUiChatHistory(prev => [...prev, { role: 'user', content: text }]);
+                setUiGenerating(true);
+                setUiError(null);
+
+                try {
+                  const response = await fetch('/api/infinity/ui-builder/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      prompt: text,
+                      framework: 'nextjs',
+                      conversationHistory: uiChatHistory,
+                    }),
+                  });
+
+                  if (!response.ok) throw new Error('Generation failed');
+
+                  const data = await response.json();
+                  const components = data.components || [];
+                  setUiComponents(components);
+                  setDeployFiles(components.map((c: any) => ({ path: `${c.name}.tsx`, content: c.code })));
+                  setUiChatHistory(prev => [...prev, {
+                    role: 'assistant',
+                    content: `Generated ${components.length} component(s): ${components.map((c: any) => c.name).join(', ')}`
+                  }]);
+                } catch (err) {
+                  setUiError(err instanceof Error ? err.message : 'Generation failed');
+                  setUiChatHistory(prev => [...prev, { role: 'assistant', content: `Error: ${err instanceof Error ? err.message : 'Failed'}` }]);
+                } finally {
+                  setUiGenerating(false);
+                }
+              }}
+              disabled={uiGenerating || !chatInput.trim()}
+              className="px-4"
+            >
+              {uiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
+          {uiError && <p className="text-xs text-destructive mt-2">{uiError}</p>}
+        </div>
+      </div>
+
+      {/* Middle Pane: Component Registry + Live Preview (Split) */}
+      <div className="flex-1 flex flex-col min-w-0 border-r border-border bg-background">
+        {/* Tabs for Registry / Preview / Code */}
+        <div className="flex border-b border-border px-2">
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'registry' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setActiveTab('registry')}
+          >
+            <Box className="w-4 h-4 inline mr-1" /> Components
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'preview' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setActiveTab('preview')}
+          >
+            <Monitor className="w-4 h-4 inline mr-1" /> Preview
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'code' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setActiveTab('code')}
+          >
+            <Code className="w-4 h-4 inline mr-1" /> Code
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'registry' && (
+            <ComponentRegistry
+              onSelectComponent={(comp) => {
+                setSelectedComponent(comp);
+                setActiveTab('code');
+              }}
+            />
+          )}
+
+          {activeTab === 'preview' && (
+            <LivePreview
+              components={uiComponents}
+              framework="nextjs"
+              onError={(err) => setUiError(err.message)}
+            />
+          )}
+
+          {activeTab === 'code' && (
+            <div className="h-full flex flex-col">
+              <div className="p-3 border-b border-border flex items-center justify-between">
+                <select
+                  value={selectedComponent?.name || ''}
+                  onChange={(e) => {
+                    const comp = uiComponents.find(c => c.name === e.target.value);
+                    setSelectedComponent(comp);
+                  }}
+                  className="px-2 py-1 bg-input border border-border rounded text-sm"
+                >
+                  <option value="">Select component...</option>
+                  {uiComponents.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(selectedComponent?.code || '')}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 p-3 overflow-auto font-mono text-xs bg-muted/30">
+                <pre className="whitespace-pre-wrap text-foreground">{selectedComponent?.code || '// Select a component to view code'}</pre>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Pane: Deploy Panel */}
+      <div className="w-80 flex-shrink-0 border-l border-border bg-card">
+        <DeployPanel
+          projectId={activeConversationId || 'ui-builder'}
+          files={deployFiles}
+          onDeployComplete={(result) => {
+            setUiChatHistory(prev => [...prev, {
+              role: 'assistant',
+              content: `Deployed to ${result.provider}! Preview: ${result.previewUrl}`
+            }]);
+          }}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <AppShell
       header={
@@ -372,65 +596,71 @@ export const ChatView: React.FC<ChatViewProps> = ({
       onRightSidebarToggle={setRightSidebarOpen}
     >
       <div className="flex flex-col h-full">
-        {/* Desktop: two-pane — feed + composer stacked vertically */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <div className="w-16 h-16 rounded-full glass-strong flex items-center justify-center">
-                    <span className="text-3xl">∞</span>
+        {uiBuilderMode ? (
+          renderUiBuilder()
+        ) : (
+          <>
+            {/* Desktop: two-pane — feed + composer stacked vertically */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {messages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4 text-center">
+                      <div className="w-16 h-16 rounded-full glass-strong flex items-center justify-center">
+                        <span className="text-3xl">∞</span>
+                      </div>
+                      <div className="text-lg font-medium">{t('chat.empty.title')}</div>
+                      <div className="text-sm text-muted-foreground">{t('chat.empty.description')}</div>
+                    </div>
                   </div>
-                  <div className="text-lg font-medium">{t('chat.empty.title')}</div>
-                  <div className="text-sm text-muted-foreground">{t('chat.empty.description')}</div>
+                ) : (
+                  <ConversationFeed
+                    messages={messages}
+                    isThinking={isBusy}
+                    suggestions={suggestions}
+                    onSuggestionClick={onSuggestionClick}
+                    onDeepResearchExpert={onDeepResearchExpert}
+                  />
+                )}
+              </div>
+
+              {/* Composer */}
+              <div className="border-t border-border-primary/60 bg-bg-elevated/50 backdrop-blur-xl p-3 sm:p-4">
+                <div className="max-w-3xl mx-auto">
+                  <div className="glass rounded-2xl p-1.5 flex items-end gap-2">
+                    <IconButton
+                      onClick={() => setMobileSidebarOpen(true)}
+                      variant="ghost"
+                      size="sm"
+                      className="sm:hidden"
+                      aria-label={t('nav.sidebar')}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </IconButton>
+                    <textarea
+                      ref={textareaRef}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={t('input.placeholder')}
+                      rows={1}
+                      className="flex-1 bg-transparent border-none resize-none outline-none px-2 py-2 text-foreground placeholder:text-muted-foreground text-[15px] leading-relaxed"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSubmit}
+                      disabled={!chatInput.trim() || isBusy}
+                      className="shrink-0 rounded-xl"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                      {t('input.send')}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <ConversationFeed
-                messages={messages}
-                isThinking={isBusy}
-                suggestions={suggestions}
-                onSuggestionClick={onSuggestionClick}
-                onDeepResearchExpert={onDeepResearchExpert}
-              />
-            )}
-          </div>
-
-          {/* Composer */}
-          <div className="border-t border-border-primary/60 bg-bg-elevated/50 backdrop-blur-xl p-3 sm:p-4">
-            <div className="max-w-3xl mx-auto">
-              <div className="glass rounded-2xl p-1.5 flex items-end gap-2">
-                <IconButton
-                  onClick={() => setMobileSidebarOpen(true)}
-                  variant="ghost"
-                  size="sm"
-                  className="sm:hidden"
-                  aria-label={t('nav.sidebar')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                </IconButton>
-                <textarea
-                  ref={textareaRef}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={t('input.placeholder')}
-                  rows={1}
-                  className="flex-1 bg-transparent border-none resize-none outline-none px-2 py-2 text-foreground placeholder:text-muted-foreground text-[15px] leading-relaxed"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSubmit}
-                  disabled={!chatInput.trim() || isBusy}
-                  className="shrink-0 rounded-xl"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-1.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-                  {t('input.send')}
-                </Button>
-              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </AppShell>
   );

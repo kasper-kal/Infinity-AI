@@ -37,6 +37,7 @@ import { haptics } from "@/lib/haptics";
 import { MobileAppsView } from "@/components/mobile/MobileAppsView";
 import { SecurityDashboard } from "@/components/security/SecurityDashboard";
 import { ArtifactTemplateSelector } from "@/components/artifact-template-selector";
+import { ChatView } from "@/components/views/ChatView";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -83,7 +84,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security'>('plan');
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder'>('plan');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -248,6 +249,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
           </svg>
         ),
       },
+      {
+        id: 'ui-builder',
+        label: t('build.tabs.uiBuilder'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+        ),
+      },
     ];
 
     return (
@@ -333,6 +343,18 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'security' && (
             <div className="flex flex-col h-full p-4">
               <SecurityDashboard projectId={projectId ?? ''} />
+            </div>
+          )}
+          {bottomNavTab === 'ui-builder' && (
+            <div className="flex flex-col h-full">
+              <ChatView
+                messages={[]}
+                onSend={() => {}}
+                onNewChat={() => {}}
+                activeConversationId={projectId}
+                onSelectConversation={() => {}}
+                isBusy={false}
+              />
             </div>
           )}
         </div>
@@ -511,7 +533,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ButtonGroup>
-              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security'].map((tab) => (
+              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security', 'ui-builder'].map((tab) => (
                 <Button
                   key={tab}
                   variant={buildTab === tab ? 'primary' : 'ghost'}
@@ -626,6 +648,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onClick={() => setBuildTab('mobile')}
                 active={buildTab === 'mobile'}
               />
+              <AppShellSidebarNavItem
+                label={t('build.tabs.uiBuilder')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>}
+                onClick={() => setBuildTab('ui-builder')}
+                active={buildTab === 'ui-builder'}
+              />
             </div>
           </AppShellSidebarSection>
         </Sidebar>
@@ -709,6 +737,18 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {buildTab === 'security' && (
             <div className="flex flex-col h-full">
               <SecurityDashboard projectId={projectId ?? ''} />
+            </div>
+          )}
+          {buildTab === 'ui-builder' && (
+            <div className="flex flex-col h-full">
+              <ChatView
+                messages={[]}
+                onSend={() => {}}
+                onNewChat={() => {}}
+                activeConversationId={projectId}
+                onSelectConversation={() => {}}
+                isBusy={false}
+              />
             </div>
           )}
         </div>

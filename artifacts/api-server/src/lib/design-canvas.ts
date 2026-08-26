@@ -772,3 +772,69 @@ export function getDesignCanvas(): DesignCanvasEngine {
 export function createDesignCanvas(): DesignCanvasEngine {
   return new DesignCanvasEngine();
 }
+
+/**
+ * Get the project's design system for UI code generation
+ * Returns the current design system from the canvas engine
+ */
+export function getProjectDesignSystem(): DesignSystem {
+  const canvas = getDesignCanvas();
+  const state = canvas.getState();
+
+  // If no design system exists in canvas, return default shadcn/ui design system
+  if (!state.designSystem) {
+    return getDefaultDesignSystem();
+  }
+  return state.designSystem;
+}
+
+/**
+ * Default shadcn/ui design system tokens
+ */
+function getDefaultDesignSystem(): DesignSystem {
+  return {
+    id: 'shadcn-default',
+    name: 'shadcn/ui Default',
+    colors: [
+      { id: 'background', name: 'Background', value: 'hsl(var(--background))', category: 'base' },
+      { id: 'foreground', name: 'Foreground', value: 'hsl(var(--foreground))', category: 'base' },
+      { id: 'primary', name: 'Primary', value: 'hsl(var(--primary))', category: 'primary' },
+      { id: 'primary-foreground', name: 'Primary Foreground', value: 'hsl(var(--primary-foreground))', category: 'primary' },
+      { id: 'secondary', name: 'Secondary', value: 'hsl(var(--secondary))', category: 'secondary' },
+      { id: 'secondary-foreground', name: 'Secondary Foreground', value: 'hsl(var(--secondary-foreground))', category: 'secondary' },
+      { id: 'muted', name: 'Muted', value: 'hsl(var(--muted))', category: 'muted' },
+      { id: 'muted-foreground', name: 'Muted Foreground', value: 'hsl(var(--muted-foreground))', category: 'muted' },
+      { id: 'accent', name: 'Accent', value: 'hsl(var(--accent))', category: 'accent' },
+      { id: 'accent-foreground', name: 'Accent Foreground', value: 'hsl(var(--accent-foreground))', category: 'accent' },
+      { id: 'destructive', name: 'Destructive', value: 'hsl(var(--destructive))', category: 'destructive' },
+      { id: 'destructive-foreground', name: 'Destructive Foreground', value: 'hsl(var(--destructive-foreground))', category: 'destructive' },
+      { id: 'border', name: 'Border', value: 'hsl(var(--border))', category: 'border' },
+      { id: 'input', name: 'Input', value: 'hsl(var(--input))', category: 'input' },
+      { id: 'ring', name: 'Ring', value: 'hsl(var(--ring))', category: 'ring' },
+    ],
+    typography: [
+      { id: 'sans', name: 'Sans', value: { fontFamily: 'var(--font-sans), system-ui, sans-serif', fontSize: 14, fontWeight: 400, lineHeight: 1.5 }, category: 'font' },
+      { id: 'mono', name: 'Mono', value: { fontFamily: 'var(--font-mono), monospace', fontSize: 13, fontWeight: 400, lineHeight: 1.6 }, category: 'font' },
+    ],
+    spacing: [
+      { id: 'space-1', name: 'Space 1', value: 4, category: 'spacing' },
+      { id: 'space-2', name: 'Space 2', value: 8, category: 'spacing' },
+      { id: 'space-3', name: 'Space 3', value: 12, category: 'spacing' },
+      { id: 'space-4', name: 'Space 4', value: 16, category: 'spacing' },
+      { id: 'space-6', name: 'Space 6', value: 24, category: 'spacing' },
+      { id: 'space-8', name: 'Space 8', value: 32, category: 'spacing' },
+    ],
+    components: [],
+    borderRadius: [
+      { id: 'radius-sm', name: 'Radius SM', value: 2, category: 'radius' },
+      { id: 'radius-md', name: 'Radius MD', value: 6, category: 'radius' },
+      { id: 'radius-lg', name: 'Radius LG', value: 8, category: 'radius' },
+      { id: 'radius-full', name: 'Radius Full', value: 9999, category: 'radius' },
+    ],
+    shadows: [
+      { id: 'shadow-sm', name: 'Shadow SM', value: '0 1px 2px 0 rgb(0 0 0 / 0.05)', category: 'shadow' },
+      { id: 'shadow-md', name: 'Shadow MD', value: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', category: 'shadow' },
+      { id: 'shadow-lg', name: 'Shadow LG', value: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', category: 'shadow' },
+    ],
+  };
+}

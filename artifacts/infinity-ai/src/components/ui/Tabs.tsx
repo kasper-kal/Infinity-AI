@@ -1,8 +1,9 @@
 /**
  * Tabs Component — Liquid Glass Design System
+ * Supports both array-prop API and Radix-style compound components
  */
 
-import React, { useState, useRef, useEffect, useId, ReactNode, KeyboardEvent } from "react";
+import React, { useState, useRef, useEffect, useId, ReactNode, KeyboardEvent, createContext, useContext } from "react";
 import "./Tabs.css";
 
 export interface Tab {
@@ -25,7 +26,27 @@ export interface TabsProps {
   fullWidth?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  children?: ReactNode;
 }
+
+/** Radix-style Tabs Context */
+interface TabsContextValue {
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
+  variant: "line" | "enclosed" | "soft" | "glass";
+  orientation: "horizontal" | "vertical";
+  tabsId: string;
+}
+
+const TabsContext = createContext<TabsContextValue | null>(null);
+
+const useTabsContext = () => {
+  const context = useContext(TabsContext);
+  if (!context) {
+    throw new Error("Tabs compound components must be used within a Tabs provider");
+  }
+  return context;
+};
 
 export const Tabs: React.FC<TabsProps> = ({
   tabs,
@@ -170,6 +191,126 @@ export const TabPanel: React.FC<TabPanelProps> = ({ tabId, children, className =
   // This is a placeholder for compound component pattern
   // Actual implementation would use context
   return <div className={`tabs__panel ${className}`} data-tab-id={tabId}>{children}</div>;
+};
+
+/** Radix-style TabsList Component */
+export interface TabsListProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const TabsList: React.FC<TabsListProps> = ({ children, className = "" }) => {
+  const { orientation, variant, tabsId } = useTabsContext();
+  return (
+    <div
+      role="tablist"
+      aria-orientation={orientation}
+      className={`tabs__list ${className}`}
+    >
+      {children}
+      {variant === "line" && (
+        <div className="tabs__indicator" aria-hidden="true" />
+      )}
+    </div>
+  );
+};
+
+/** Radix-style TabsTrigger Component */
+export interface TabsTriggerProps {
+  value: string;
+  children: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}
+
+export const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, disabled = false, className = "" }) => {
+  const { activeTab, onTabChange, orientation, tabsId, variant } = useTabsContext();
+  const isActive = activeTab === value;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isActive && triggerRef.current) {
+      triggerRef.current.focus();
+    }
+  }, [isActive]);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const tabsList = triggerRef.current?.parentElement;
+    if (!tabsList) return;
+    const triggers = Array.from(tabsList.querySelectorAll('[role="tab"]:not(:disabled)')) as HTMLButtonElement[];
+    const currentIndex = triggers.findIndex(t => t === triggerRef.current);
+    if (currentIndex === -1) return;
+
+    let nextIndex = currentIndex;
+    const isHorizontal = orientation === "horizontal";
+    const isRTL = document.dir === "rtl";
+
+    switch (e.key) {
+      case isHorizontal ? (isRTL ? "ArrowRight" : "ArrowLeft") : "ArrowUp":
+        e.preventDefault();
+        nextIndex = (currentIndex - 1 + triggers.length) % triggers.length;
+        break;
+      case isHorizontal ? (isRTL ? "ArrowLeft" : "ArrowRight") : "ArrowDown":
+        e.preventDefault();
+        nextIndex = (currentIndex + 1) % triggers.length;
+        break;
+      case "Home":
+        e.preventDefault();
+        nextIndex = 0;
+        break;
+      case "End":
+        e.preventDefault();
+        nextIndex = triggers.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    triggers[nextIndex]?.focus();
+    triggers[nextIndex]?.click();
+  };
+
+  return (
+    <button
+      ref={triggerRef}
+      id={`${tabsId}-tab-${value}`}
+      role="tab"
+      aria-selected={isActive}
+      aria-controls={`${tabsId}-panel-${value}`}
+      tabIndex={isActive ? 0 : -1}
+      disabled={disabled}
+      className={`tabs__tab ${isActive ? "tabs__tab--active" : ""} ${disabled ? "tabs__tab--disabled" : ""} ${className}`}
+      onClick={() => !disabled && onTabChange(value)}
+      onKeyDown={handleKeyDown}
+    >
+      {children}
+    </button>
+  );
+};
+
+/** Radix-style TabsContent Component */
+export interface TabsContentProps {
+  value: string;
+  children: ReactNode;
+  className?: string;
+}
+
+export const TabsContent: React.FC<TabsContentProps> = ({ value, children, className = "" }) => {
+  const { activeTab, tabsId, orientation } = useTabsContext();
+  const isActive = activeTab === value;
+
+  return (
+    <div
+      id={`${tabsId}-panel-${value}`}
+      role="tabpanel"
+      aria-labelledby={`${tabsId}-tab-${value}`}
+      hidden={!isActive}
+      className={`tabs__panel ${className}`}
+      tabIndex={0}
+    >
+      {isActive && children}
+    </div>
+  );
 };
 
 /** Segmented Control — for mutually exclusive options */
