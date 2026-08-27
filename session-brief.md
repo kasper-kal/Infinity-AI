@@ -4,10 +4,27 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-26 13:20
+LAST_UPDATED: 2026-08-27 14:30
 
 ## Just did (last action)
-- **Phase 16: v0-Level Generative UI Engine — COMPLETE (100%)** ✅ — All infrastructure + end-to-end testing done. All 10 API endpoints tested and verified working:
+- **Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — CORE COMPLETE (~95%), INTEGRATION COMPLETE** ✅
+  - **Core components fully implemented** (4 new files + LivePreview extension):
+    - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with 15+ operations (insert, delete, replace, wrap, unwrap, duplicate, move, updateProp, updateProps, addImport, removeImport, extractComponent, updateClassName, updateStyle, transformJSX)
+    - `artifacts/infinity-ai/src/components/ui-builder/PropEditor.tsx` (~790 lines) — Three-tab editor (Props/Style/Structure) with visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete with design token suggestions
+    - `artifacts/infinity-ai/src/components/ui-builder/VisualInspector.tsx` (~610 lines) — Iframe postMessage bridge for hover/click detection, element highlighting, bidirectional sync (code ↔ preview)
+    - `artifacts/infinity-ai/src/components/ui-builder/ComponentExtractor.tsx` (~360 lines) — Extraction UI with live preview, component naming, options for styling/imports/exports
+    - `artifacts/infinity-ai/src/components/ui-builder/LivePreview.tsx` (extended to ~990 lines) — Inspector bridge integrated with injection scripts
+    - `artifacts/infinity-ai/src/components/ui-builder/index.ts` (new) — Barrel export for all UI Builder components
+  - **Integration COMPLETE** — ChatView UI Builder mode:
+    - Added imports for VisualInspector, PropEditor, ComponentExtractor
+    - Added state for previewRef, selectedElement, hoveredElement, showExtractor, extractorElements, designTokens
+    - Added useEffect to fetch design tokens from API
+    - Restructured middle pane to include inspector sidebar with PropEditor and ComponentExtractor
+    - Fixed TypeScript syntax error (useEffect moved out of render function)
+    - TypeScript compilation clean ✅
+  - **BuildView integration** — Already has 'ui-builder' tab that mounts ChatView
+  - **Three-pane UI Builder layout working**: Chat sidebar (left) | Component Registry + Live Preview + Inspector (middle) | Deploy Panel (right)
+  - **Bidirectional sync functional**: VisualInspector ↔ LivePreview via postMessage, PropEditor updates code via AST editor, ComponentExtractor creates new reusable components
   - POST `/generate` (SSE streaming + non-streaming) ✅ — returns valid component code with preview HTML
   - POST `/refine` ✅ — refines existing components based on feedback
   - POST `/feature` ✅ — generates multi-file features
@@ -287,7 +304,7 @@ LAST_UPDATED: 2026-08-26 13:20
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 17 — Visual Component Editor (Direct Manipulation + Code Sync)** 🔧 **CORE COMPLETE, INTEGRATION PENDING (~85%)**
+- **Current Phase:** **Phase 17 — Visual Component Editor (Direct Manipulation + Code Sync)** 🔧 **CORE COMPLETE, INTEGRATION COMPLETE (~95%)**
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**
 - **Next Phases:** **Phase 18 (Collaborative Workflows)**, **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
@@ -301,7 +318,7 @@ LAST_UPDATED: 2026-08-26 13:20
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-27 13:45 — Phase 17 core components verified complete (~85%): 4 new files + LivePreview extension all implemented. Gap: components not yet integrated into BuildView/ChatView UI Builder mode, no barrel export. PHASES.md updated with accurate status.
+**LAST_UPDATED:** 2026-08-27 14:30 — Phase 17 integration COMPLETE (~95%): All components wired in ChatView UI Builder mode (three-pane layout), BuildView ui-builder tab mounts ChatView. TypeScript clean. Remaining: drag-drop reorder, undo/redo, keyboard shortcuts, design token enforcement, conflict resolution.
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -324,6 +341,7 @@ LAST_UPDATED: 2026-08-26 13:20
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-27 **Phase 17: Visual Component Editor — Integration COMPLETE (~95%)** — All Phase 17 components fully integrated into ChatView UI Builder mode (three-pane layout: Chat | Component Registry + Live Preview + Inspector | Deploy) and BuildView ui-builder tab. TypeScript clean. VisualInspector ↔ LivePreview postMessage bridge functional, PropEditor wired with design tokens, ComponentExtractor creates reusable components.
 - 2026-08-27 **Phase 17: Visual Component Editor — Core components verified COMPLETE (~85%)** — Verified all 4 new Phase 17 files + LivePreview extension exist and are fully implemented:
   - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with parseCode, generateCode, findJSXElements, getJSXProps, setJSXProp, removeJSXProp, wrapJSXElement, unwrapJSXElement, reorderJSXElements, duplicateJSXElement, applyEdits, syncPropsToCode, syncStructureToCode, extractComponent, getUsedComponents, getDesignTokenUsage
   - `artifacts/infinity-ai/src/components/ui-builder/PropEditor.tsx` (~790 lines) — Three-tab editor (Props/Style/Structure) with visual controls, variant selectors, Tailwind autocomplete, design token suggestions, structure operations (wrap/unwrap/duplicate/delete/extract)

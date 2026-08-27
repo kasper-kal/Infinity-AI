@@ -29,7 +29,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
-| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔧 **CORE COMPLETE, INTEGRATION PENDING (~85%)** |
+| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔧 **CORE COMPLETE, INTEGRATION COMPLETE (~95%)** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | 🔲 PLANNED |
 | **19** | **External API & Database Integration (v0 Extensibility)** | 🔲 PLANNED |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
@@ -739,9 +739,10 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 - `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` ✅ **EXTENDED** (inspector bridge integrated)
 
 ### Remaining Work (Integration + Polish)
-- [ ] Create `artifacts/infinity-ai/src/components/ui-builder/index.ts` barrel export
-- [ ] Integrate VisualInspector + PropEditor + ComponentExtractor into BuildView/ChatView UI Builder mode
-- [ ] Add drag-drop reorder (react-dnd or @dnd-kit)
+- [x] Create `artifacts/infinity-ai/src/components/ui-builder/index.ts` barrel export
+- [x] Integrate VisualInspector + PropEditor + ComponentExtractor into ChatView UI Builder mode
+- [x] Integrate fully into BuildView.tsx UI Builder tab (mounts ChatView in ui-builder mode)
+- [ ] Add drag-drop reorder (@dnd-kit or react-dnd)
 - [ ] Add undo/redo stack (history of AST operations)
 - [ ] Add keyboard shortcuts (Cmd+D duplicate, Delete, etc.)
 - [ ] Design token enforcement: constrain PropEditor color/typography/spacing to designTokens

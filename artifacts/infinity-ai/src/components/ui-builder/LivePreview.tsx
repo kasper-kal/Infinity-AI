@@ -30,6 +30,8 @@ interface LivePreviewProps {
   onError?: (error: Error) => void;
   /** Class name for container */
   className?: string;
+  /** Ref to the iframe element */
+  ref?: React.Ref<HTMLIFrameElement>;
 }
 
 const VIEWPORTS = {
@@ -158,14 +160,14 @@ const CSS_VARIABLES = `
   </style>
 `;
 
-export const LivePreview: React.FC<LivePreviewProps> = ({
+export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>(({
   components,
   framework = 'nextjs',
   initialViewport = 'desktop',
   onUpdate,
   onError,
   className,
-}) => {
+}, forwardedRef) => {
   const [viewport, setViewport] = useState<ViewportKey>(initialViewport);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
@@ -183,6 +185,9 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const viewportConfig = VIEWPORTS[viewport];
+
+  // Forward ref to iframe
+  React.useImperativeHandle(forwardedRef, () => iframeRef.current!, []);
 
   // Generate preview HTML
   const generatePreviewHTML = useCallback(() => {
@@ -401,6 +406,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({
 
   // Visual Inspector Types (local to avoid circular deps)
 interface SelectedElement {
+  id?: string;
   selector: string;
   tagName: string;
   className: string;
@@ -986,6 +992,6 @@ const ConsoleIcons = ({
       )}
     </div>
   );
-};
+});
 
 export default LivePreview;

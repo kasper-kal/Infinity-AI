@@ -24,10 +24,13 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
 import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw } from "lucide-react";
+import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw, Copy } from "lucide-react";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { ComponentRegistry } from "@/components/ui-builder/ComponentRegistry";
 import { DeployPanel } from "@/components/ui-builder/DeployPanel";
+import { VisualInspector } from "@/components/ui-builder/VisualInspector";
+import { PropEditor } from "@/components/ui-builder/PropEditor";
+import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -82,6 +85,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [uiChatHistory, setUiChatHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [activeTab, setActiveTab] = useState<'registry' | 'preview' | 'code'>('preview');
 
+  // Visual Inspector state
+  const [previewRef, setPreviewRef] = useState<HTMLIFrameElement | null>(null);
+  const [selectedElement, setSelectedElement] = useState<any>(null);
+  const [hoveredElement, setHoveredElement] = useState<any>(null);
+  const [showExtractor, setShowExtractor] = useState(false);
+  const [extractorElements, setExtractorElements] = useState<any[]>([]);
+  const [designTokens, setDesignTokens] = useState<any>({});
+
+  // Fetch design tokens on mount
+  useEffect(() => {
+    fetch('/api/infinity/ui-builder/design-tokens')
+      .then(res => res.json())
+      .then(data => setDesignTokens(data.designSystem || {}))
+      .catch(() => setDesignTokens({}));
+  }, []);
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Auto-grow textarea
@@ -100,7 +119,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     onSend(text);
   }, [chatInput, onSend]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -286,8 +305,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   >
                     <Sparkles className="w-4 h-4 flex-shrink-0" />
                     <div className="flex-1 text-left">
-                      <p className="font-medium">{t('build.mode.uiBuilder')}</p>
-                      <p className="text-xs text-muted-foreground/70">{t('build.mode.uiBuilderDesc')}</p>
+                      <p className="font-medium">UI Builder</p>
+                      <p className="text-xs text-muted-foreground/70">Visual component editor with code sync</p>
                     </div>
                     {buildMode === 'ui-builder' && (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
@@ -387,20 +406,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
   );
 
   // UI Builder Mode - Three-pane layout: Chat | Component Registry + Live Preview | Deploy
-  const renderUiBuilder = () => (
-    <div className="flex flex-1 h-full overflow-hidden bg-background">
-      {/* Left Pane: Chat Sidebar / Conversation */}
-      <div className="w-80 flex-shrink-0 border-r border-border flex flex-col bg-card">
-        {/* Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            UI Builder
-          </h3>
-          <Button variant="ghost" size="icon" onClick={() => { setUiBuilderMode(false); setBuildMode('visual'); }}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        </div>
+  const renderUiBuilder = () => {
+    return (
+      <div className="flex flex-1 h-full overflow-hidden bg-background">
+        {/* Left Pane: Chat Sidebar / Conversation */}
+        <div className="w-80 flex-shrink-0 border-r border-border flex flex-col bg-card">
+          {/* Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              UI Builder
+            </h3>
+            <Button variant="ghost" size="icon" onClick={() => { setUiBuilderMode(false); setBuildMode('visual'); }}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          </div>
 
         {/* Chat History */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -486,9 +506,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       </div>
 
-      {/* Middle Pane: Component Registry + Live Preview (Split) */}
+      {/* Middle Pane: Component Registry + Live Preview + Visual Editor */}
       <div className="flex-1 flex flex-col min-w-0 border-r border-border bg-background">
-        {/* Tabs for Registry / Preview / Code */}
+        {/* Tabs for Registry / Preview / Code / Inspector */}
         <div className="flex border-b border-border px-2">
           <button
             className={`px-3 py-2 text-sm font-medium transition-colors ${
@@ -527,11 +547,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
           )}
 
           {activeTab === 'preview' && (
-            <LivePreview
-              components={uiComponents}
-              framework="nextjs"
-              onError={(err) => setUiError(err.message)}
-            />
+            <div className="h-full flex flex-col">
+              <LivePreview
+                components={uiComponents}
+                framework="nextjs"
+                onError={(err) => setUiError(err.message)}
+                ref={(el) => setPreviewRef(el)}
+              />
+              {/* Visual Inspector - always active in preview tab */}
+              {previewRef && (
+                <VisualInspector
+                  iframeRef={{ current: previewRef }}
+                  onSelectElement={setSelectedElement}
+                  codeSelectedElement={selectedElement}
+                  enabled={true}
+                  showHoverPreview={true}
+                />
+              )}
+            </div>
           )}
 
           {activeTab === 'code' && (
@@ -560,6 +593,46 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
           )}
         </div>
+
+        {/* Right Sidebar within Middle Pane: PropEditor + ComponentExtractor */}
+        {((activeTab === 'preview' || activeTab === 'code') && (selectedElement || showExtractor)) && (
+          <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col">
+            {/* Prop Editor */}
+            {selectedElement && !showExtractor && (
+              <PropEditor
+                selectedElement={selectedElement}
+                designTokens={designTokens}
+                availableComponents={uiComponents.map(c => c.name)}
+                onPropChange={(selector, propName, value) => {
+                  // TODO: Wire to AST editor for code sync
+                  console.log('Prop change:', selector, propName, value);
+                }}
+                onStructureChange={(selector, operation, options) => {
+                  console.log('Structure change:', selector, operation, options);
+                }}
+                onExtractComponent={(selector, name) => {
+                  setExtractorElements([selectedElement]);
+                  setShowExtractor(true);
+                }}
+                onDeselect={() => setSelectedElement(null)}
+              />
+            )}
+
+            {/* Component Extractor */}
+            {showExtractor && (
+              <ComponentExtractor
+                selectedElements={extractorElements}
+                availableComponents={uiComponents.map(c => c.name)}
+                onExtract={(componentName, code, options) => {
+                  setUiComponents(prev => [...prev, { name: componentName, code, imports: [] }]);
+                  setShowExtractor(false);
+                  setExtractorElements([]);
+                }}
+                onClose={() => setShowExtractor(false)}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right Pane: Deploy Panel */}
@@ -577,6 +650,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
     </div>
   );
+};
 
   return (
     <AppShell
