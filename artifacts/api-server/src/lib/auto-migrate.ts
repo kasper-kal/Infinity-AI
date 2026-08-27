@@ -429,6 +429,75 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+
+  // ── Phase 18: Preview Sharing & Collaboration ─────────────────
+  `CREATE TABLE IF NOT EXISTS "preview_shares" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "component_id" uuid REFERENCES "build_apps"("id") ON DELETE SET NULL,
+    "preview_url" text NOT NULL,
+    "title" text NOT NULL,
+    "description" text,
+    "share_token" text NOT NULL UNIQUE,
+    "access_level" text NOT NULL DEFAULT 'public' CHECK ("access_level" IN ('public', 'private', 'password')),
+    "password_hash" text,
+    "expires_at" timestamp,
+    "allowed_emails" jsonb DEFAULT '[]',
+    "allowed_domains" jsonb DEFAULT '[]',
+    "enable_comments" boolean NOT NULL DEFAULT true,
+    "enable_reactions" boolean NOT NULL DEFAULT true,
+    "notify_on_comment" boolean NOT NULL DEFAULT true,
+    "view_count" integer NOT NULL DEFAULT 0,
+    "comment_count" integer NOT NULL DEFAULT 0,
+    "created_by" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "preview_shares_project_idx" ON "preview_shares" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "preview_shares_expires_idx" ON "preview_shares" ("expires_at")`,
+
+  `CREATE TABLE IF NOT EXISTS "preview_share_access" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "share_id" uuid NOT NULL REFERENCES "preview_shares"("id") ON DELETE CASCADE,
+    "email" text,
+    "ip" text,
+    "user_agent" text,
+    "accessed_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "preview_share_access_share_idx" ON "preview_share_access" ("share_id")`,
+  `CREATE INDEX IF NOT EXISTS "preview_share_access_accessed_idx" ON "preview_share_access" ("accessed_at")`,
+
+  `CREATE TABLE IF NOT EXISTS "preview_comments" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "share_id" uuid NOT NULL REFERENCES "preview_shares"("id") ON DELETE CASCADE,
+    "parent_id" uuid REFERENCES "preview_comments"("id") ON DELETE CASCADE,
+    "element_selector" text,
+    "element_data" jsonb,
+    "author_name" text NOT NULL,
+    "author_email" text,
+    "author_avatar" text,
+    "content" text NOT NULL,
+    "is_resolved" boolean NOT NULL DEFAULT false,
+    "resolved_by" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
+    "resolved_at" timestamp,
+    "reactions" jsonb DEFAULT '{}',
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "preview_comments_share_idx" ON "preview_comments" ("share_id")`,
+  `CREATE INDEX IF NOT EXISTS "preview_comments_parent_idx" ON "preview_comments" ("parent_id")`,
+  `CREATE INDEX IF NOT EXISTS "preview_comments_element_idx" ON "preview_comments" ("element_selector")`,
+  `CREATE INDEX IF NOT EXISTS "preview_comments_created_idx" ON "preview_comments" ("created_at")`,
+
+  `CREATE TABLE IF NOT EXISTS "preview_comment_mentions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "comment_id" uuid NOT NULL REFERENCES "preview_comments"("id") ON DELETE CASCADE,
+    "mentioned_email" text NOT NULL,
+    "notified" boolean NOT NULL DEFAULT false,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "preview_comment_mentions_comment_idx" ON "preview_comment_mentions" ("comment_id")`,
+  `CREATE INDEX IF NOT EXISTS "preview_comment_mentions_email_idx" ON "preview_comment_mentions" ("mentioned_email")`,
 ];
 
 /**

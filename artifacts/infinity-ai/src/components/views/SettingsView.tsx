@@ -19,6 +19,7 @@ import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MCPConfigPanel } from "@/components/settings/MCPConfigPanel";
+import { ReviewPanel, type ReviewRequest } from "@/components/ui-builder/ReviewPanel";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -293,7 +294,7 @@ export interface SettingsViewProps {
   projectId?: string;
 }
 
-type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills';
+type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills' | 'collaboration';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -364,6 +365,17 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.skills',
+  },
+  collaboration: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    labelKey: 'settings.collaboration',
   },
 };
 
@@ -504,6 +516,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         return (
           <SkillsSettingsPanel projectId={projectId || ''} />
         );
+      case 'collaboration':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Collaboration & Review</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage shareable preview links, review workflows, and element-level comments.
+            </p>
+            <ReviewPanel
+              projectId={projectId || 'default'}
+              reviewRequests={[]}
+              isLoading={false}
+              currentVersion="main"
+              previousVersion="develop"
+              onRequestReview={async () => {
+                console.log('Request review clicked');
+              }}
+              onApprove={async () => {
+                console.log('Approve clicked');
+              }}
+              onRequestChanges={async () => {
+                console.log('Request changes clicked');
+              }}
+              onLoadHistory={async () => {
+                console.log('Load history clicked');
+              }}
+              onSelectVersion={() => {}}
+              currentUser={{ name: 'Current User', email: 'user@example.com', avatar: undefined }}
+            />
+          </div>
+        );
     }
   };
 
@@ -547,6 +589,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'skills',
       label: t('settings.skills'),
       icon: SECTION_CONFIG.skills.icon,
+    },
+    {
+      id: 'collaboration',
+      label: t('settings.collaboration'),
+      icon: SECTION_CONFIG.collaboration.icon,
     },
   ];
 

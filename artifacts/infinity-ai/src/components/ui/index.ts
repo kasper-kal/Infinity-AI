@@ -7,6 +7,10 @@
 export { Button, IconButton, ButtonGroup } from "./Button";
 export type { ButtonProps, IconButtonProps, ButtonGroupProps } from "./Button";
 
+// Avatar
+export { Avatar, AvatarFallback, AvatarImage } from "./avatar";
+export type { AvatarProps, AvatarFallbackProps, AvatarImageProps } from "./avatar";
+
 // Card
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from "./card";
 

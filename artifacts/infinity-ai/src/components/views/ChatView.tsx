@@ -31,6 +31,7 @@ import { DeployPanel } from "@/components/ui-builder/DeployPanel";
 import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
+import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
 import { useConflictResolution, useAstHistory } from "@/hooks";
 
 export interface ChatViewProps {
@@ -93,6 +94,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [showExtractor, setShowExtractor] = useState(false);
   const [extractorElements, setExtractorElements] = useState<any[]>([]);
   const [designTokens, setDesignTokens] = useState<any>({});
+
+  // Phase 18: Collaboration state
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [commentFilter, setCommentFilter] = useState<CommentFilter>({
+    showResolved: true,
+    sortBy: 'newest',
+  });
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentTotalCount, setCommentTotalCount] = useState(0);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [currentUser] = useState({ name: 'Current User', email: 'user@example.com', avatar: undefined });
 
   // AST History for undo/redo on component code
   const {
@@ -647,6 +661,92 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 framework="nextjs"
                 onError={(err) => setUiError(err.message)}
                 ref={(el) => setPreviewRef(el)}
+                // Phase 18: Comment overlay props
+                shareToken={shareToken}
+                comments={comments}
+                selectedCommentId={selectedCommentId}
+                onSelectComment={setSelectedCommentId}
+                onAddComment={async (selector, elementData, content, mentions) => {
+                  try {
+                    const response = await fetch('/api/infinity/ui-collab/comments', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        shareToken,
+                        parentId: undefined,
+                        elementSelector: selector,
+                        elementData,
+                        content,
+                        mentions,
+                      }),
+                    });
+                    if (!response.ok) throw new Error('Failed to add comment');
+                    const newComment = await response.json();
+                    setComments(prev => [...prev, newComment]);
+                  } catch (err) {
+                    console.error('Add comment failed:', err);
+                  }
+                }}
+                onReply={async (parentId, content, mentions) => {
+                  try {
+                    const response = await fetch('/api/infinity/ui-collab/comments', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        shareToken,
+                        parentId,
+                        content,
+                        mentions,
+                      }),
+                    });
+                    if (!response.ok) throw new Error('Failed to reply');
+                    const newComment = await response.json();
+                    setComments(prev => [...prev, newComment]);
+                  } catch (err) {
+                    console.error('Reply failed:', err);
+                  }
+                }}
+                onResolve={async (commentId, resolved) => {
+                  try {
+                    const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ isResolved: resolved }),
+                    });
+                    if (!response.ok) throw new Error('Failed to resolve');
+                    setComments(prev => prev.map(c => c.id === commentId ? { ...c, isResolved: resolved, resolvedAt: new Date(), resolvedBy: currentUser.name } : c));
+                  } catch (err) {
+                    console.error('Resolve failed:', err);
+                  }
+                }}
+                onReact={async (commentId, emoji) => {
+                  try {
+                    const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}/reactions`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ emoji }),
+                    });
+                    if (!response.ok) throw new Error('Failed to react');
+                    const updated = await response.json();
+                    setComments(prev => prev.map(c => c.id === commentId ? updated : c));
+                  } catch (err) {
+                    console.error('React failed:', err);
+                  }
+                }}
+                onDelete={async (commentId) => {
+                  try {
+                    const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}`, {
+                      method: 'DELETE',
+                    });
+                    if (!response.ok) throw new Error('Failed to delete');
+                    setComments(prev => prev.filter(c => c.id !== commentId));
+                  } catch (err) {
+                    console.error('Delete failed:', err);
+                  }
+                }}
+                currentUser={currentUser}
+                iframeRef={previewRef}
+                commentOverlayEnabled={!!shareToken}
               />
               {/* Visual Inspector - always active in preview tab */}
               {previewRef && (
@@ -906,6 +1006,104 @@ export const ChatView: React.FC<ChatViewProps> = ({
             )}
           </div>
         )}
+
+        {/* Phase 18: Comment Sidebar - shown in preview tab when shareToken exists */}
+        {activeTab === 'preview' && shareToken && (
+          <div className="w-96 flex-shrink-0 border-l border-border bg-card flex flex-col">
+            <CommentSidebar
+              shareToken={shareToken}
+              comments={comments}
+              isLoading={commentLoading}
+              totalCount={commentTotalCount}
+              unresolvedCount={unresolvedCount}
+              onLoadMore={async () => {
+                // TODO: Implement pagination
+              }}
+              onAddComment={async () => {
+                // Handled by CommentOverlay in LivePreview
+              }}
+              onReply={async (parentId, content, mentions) => {
+                try {
+                  const response = await fetch('/api/infinity/ui-collab/comments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shareToken, parentId, content, mentions }),
+                  });
+                  if (!response.ok) throw new Error('Failed to reply');
+                  const newComment = await response.json();
+                  setComments(prev => [...prev, newComment]);
+                } catch (err) {
+                  console.error('Reply failed:', err);
+                }
+              }}
+              onResolve={async (commentId, resolved) => {
+                try {
+                  const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isResolved: resolved }),
+                  });
+                  if (!response.ok) throw new Error('Failed to resolve');
+                  setComments(prev => prev.map(c => c.id === commentId ? { ...c, isResolved: resolved, resolvedAt: new Date(), resolvedBy: currentUser.name } : c));
+                } catch (err) {
+                  console.error('Resolve failed:', err);
+                }
+              }}
+              onReact={async (commentId, emoji) => {
+                try {
+                  const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}/reactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emoji }),
+                  });
+                  if (!response.ok) throw new Error('Failed to react');
+                  const updated = await response.json();
+                  setComments(prev => prev.map(c => c.id === commentId ? updated : c));
+                } catch (err) {
+                  console.error('React failed:', err);
+                }
+              }}
+              onDelete={async (commentId) => {
+                try {
+                  const response = await fetch(`/api/infinity/ui-collab/comments/${commentId}`, {
+                    method: 'DELETE',
+                  });
+                  if (!response.ok) throw new Error('Failed to delete');
+                  setComments(prev => prev.filter(c => c.id !== commentId));
+                } catch (err) {
+                  console.error('Delete failed:', err);
+                }
+              }}
+              onHighlightElement={(selector) => {
+                if (previewRef.current?.contentWindow) {
+                  previewRef.current.contentWindow.postMessage({
+                    type: 'highlight-element',
+                    payload: { selector, action: 'select' },
+                  }, '*');
+                }
+              }}
+              onSearch={async (query) => {
+                setCommentLoading(true);
+                try {
+                  const response = await fetch(`/api/infinity/ui-collab/comments?shareToken=${shareToken}&search=${encodeURIComponent(query)}`);
+                  if (!response.ok) throw new Error('Search failed');
+                  const data = await response.json();
+                  setComments(data.comments || []);
+                  setCommentTotalCount(data.total || 0);
+                  setUnresolvedCount(data.unresolved || 0);
+                } catch (err) {
+                  console.error('Search failed:', err);
+                } finally {
+                  setCommentLoading(false);
+                }
+              }}
+              onFilterChange={setCommentFilter}
+              currentUser={currentUser}
+              iframeRef={previewRef}
+            />
+          </div>
+        )}
+
       </div>
 
       {/* Right Pane: Deploy Panel */}

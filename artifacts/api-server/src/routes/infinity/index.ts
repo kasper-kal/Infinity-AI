@@ -74,6 +74,7 @@ import artifactTemplatesRouter from "./artifact-templates";
 import enterpriseRouter from "./enterprise";
 import skillsRouter from "./skills";
 import uiBuilderRouter from "./ui-builder";
+import uiCollabRouter from "./ui-collab";
 
 const router = Router();
 
@@ -127,6 +128,7 @@ router.use(artifactTemplatesRouter);
 router.use("/enterprise", enterpriseRouter);
 router.use("/skills", skillsRouter);
 router.use("/ui-builder", uiBuilderRouter);
+router.use("/ui-collab", uiCollabRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

@@ -3,15 +3,17 @@
  *
  * Sandbox iframe with React 18 + Tailwind + shadcn/ui preloaded.
  * Features: HMR, console/error overlay, responsive viewport controls, code/preview split view.
+ * Phase 18: CommentOverlay integration for element-level commenting.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Separator, Badge } from '@/components/ui';
 import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown } from 'lucide-react';
+import { CommentOverlay, type Comment, type CommentElementData } from './CommentOverlay';
 
 interface LivePreviewProps {
   /** Generated components to preview */
@@ -32,6 +34,18 @@ interface LivePreviewProps {
   className?: string;
   /** Ref to the iframe element */
   ref?: React.Ref<HTMLIFrameElement>;
+  /** Phase 18: Comment overlay props */
+  shareToken?: string;
+  comments?: Comment[];
+  selectedCommentId?: string;
+  onSelectComment?: (commentId: string) => void;
+  onAddComment?: (selector: string, elementData: CommentElementData, content: string, mentions?: string[]) => Promise<void>;
+  onReply?: (parentId: string, content: string, mentions?: string[]) => Promise<void>;
+  onResolve?: (commentId: string, resolved: boolean) => Promise<void>;
+  onReact?: (commentId: string, emoji: string) => Promise<void>;
+  onDelete?: (commentId: string) => Promise<void>;
+  currentUser?: { name: string; email: string; avatar?: string };
+  commentOverlayEnabled?: boolean;
 }
 
 const VIEWPORTS = {
@@ -167,6 +181,18 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   onUpdate,
   onError,
   className,
+  // Phase 18: Comment overlay props
+  shareToken,
+  comments = [],
+  selectedCommentId,
+  onSelectComment,
+  onAddComment,
+  onReply,
+  onResolve,
+  onReact,
+  onDelete,
+  currentUser,
+  commentOverlayEnabled = true,
 }, forwardedRef) => {
   const [viewport, setViewport] = useState<ViewportKey>(initialViewport);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -809,6 +835,24 @@ const ConsoleIcons = ({
             sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
             title="Live Preview"
           />
+
+          {/* Phase 18: Comment Overlay - renders markers and threads on top of preview */}
+          {commentOverlayEnabled && shareToken && comments.length > 0 && (
+            <CommentOverlay
+              shareToken={shareToken}
+              comments={comments}
+              selectedCommentId={selectedCommentId}
+              onSelectComment={onSelectComment}
+              onAddComment={onAddComment}
+              onReply={onReply}
+              onResolve={onResolve}
+              onReact={onReact}
+              onDelete={onDelete}
+              currentUser={currentUser}
+              iframeRef={iframeRef}
+              enabled={commentOverlayEnabled}
+            />
+          )}
 
           {previewError && !isLoading && (
             <div className="absolute inset-0 flex items-center justify-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg z-10">
