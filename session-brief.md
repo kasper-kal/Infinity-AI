@@ -287,9 +287,9 @@ LAST_UPDATED: 2026-08-26 13:20
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 16 — v0-Level Generative UI Engine** ✅ **COMPLETE (100%)**
+- **Current Phase:** **Phase 17 — Visual Component Editor (Direct Manipulation + Code Sync)** 🔧 **CORE COMPLETE, INTEGRATION PENDING (~85%)**
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**
-- **Next Phases:** **Phase 17 (Visual Component Editor)**, **Phase 18 (Collaborative Workflows)**, **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Next Phases:** **Phase 18 (Collaborative Workflows)**, **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -301,7 +301,7 @@ LAST_UPDATED: 2026-08-26 13:20
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
 
-**LAST_UPDATED:** 2026-08-26 02:30 — Phase 12 complete: All 7 artifact generators + artifact type registry + 13 templates (5 Figma Community) + **Frontend Integration** (PlusMenu Create Artifact → Template Selector → API create → Build tab). All typecheck + build pass.
+**LAST_UPDATED:** 2026-08-27 13:45 — Phase 17 core components verified complete (~85%): 4 new files + LivePreview extension all implemented. Gap: components not yet integrated into BuildView/ChatView UI Builder mode, no barrel export. PHASES.md updated with accurate status.
 
 - **UI Overhaul (infinity-ai → Infinity):** COMPLETE — All "infinity-ai" branding replaced with "Infinity" across entire codebase (i18n.tsx, 24 component files, hooks, lib). Legacy home.tsx deleted (source of old modes: voice/agent/camera, PipBrowserWindow). AppShellRouter is now the ONLY entry point at `/`. Typecheck + build pass ✅
 - **UI cleanup work:** core chat-shell cleanup implemented and verified across toolbar, sidebar, Projects, conversation feed, and composer; remaining hardcoded light/dark colors converted to theme tokens.
@@ -324,6 +324,14 @@ LAST_UPDATED: 2026-08-26 13:20
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-27 **Phase 17: Visual Component Editor — Core components verified COMPLETE (~85%)** — Verified all 4 new Phase 17 files + LivePreview extension exist and are fully implemented:
+  - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with parseCode, generateCode, findJSXElements, getJSXProps, setJSXProp, removeJSXProp, wrapJSXElement, unwrapJSXElement, reorderJSXElements, duplicateJSXElement, applyEdits, syncPropsToCode, syncStructureToCode, extractComponent, getUsedComponents, getDesignTokenUsage
+  - `artifacts/infinity-ai/src/components/ui-builder/PropEditor.tsx` (~790 lines) — Three-tab editor (Props/Style/Structure) with visual controls, variant selectors, Tailwind autocomplete, design token suggestions, structure operations (wrap/unwrap/duplicate/delete/extract)
+  - `artifacts/infinity-ai/src/components/ui-builder/VisualInspector.tsx` (~610 lines) — Iframe postMessage bridge, element hover/click detection, highlight overlays, breadcrumb navigation, start/stop inspecting, keyboard hints
+  - `artifacts/infinity-ai/src/components/ui-builder/ComponentExtractor.tsx` (~360 lines) — Extraction UI with name/location/options, live preview, copy/download, generates component code with props interface and optional Storybook story
+  - `artifacts/infinity-ai/src/components/ui-builder/LivePreview.tsx` (EXTENDED, ~990 lines) — Integrated inspector bridge with element-hover/click/selected/unselected message handling, injectInspectionScripts, start/stop inspecting, element stack navigation
+  - Identified gap: components not integrated into BuildView/ChatView UI Builder mode, no barrel export (index.ts) in ui-builder directory
+  - Updated PHASES.md to mark actual completion status with [x] completed items and remaining integration tasks
 - 2026-08-26 **Phase 16: v0-Level Generative UI Engine marked COMPLETE (100%) in PHASES.md + session-brief.md** — Corrected roadmap to match actual implementation. All 10 API endpoints tested and verified working end-to-end. Infrastructure complete with mock deploy fallbacks handling OpenRouter quota limits.
 - 2026-08-26 **Phase 15: Agent Skills & Custom Instructions Marketplace COMPLETE ✅** — Full skills system implemented:
   - **Skills API Routes** (`artifacts/api-server/src/routes/infinity/skills.ts` — 770 lines): Full CRUD for skill definitions, agent skill bindings (planner/coder/reviewer/fixer/diagnostic), skill application to prompts, custom instructions per project, marketplace endpoints (search, install, publish), templates from built-ins, analytics endpoints

@@ -6,9 +6,12 @@ packages:
 
 allowBuilds:
   bcrypt: false
+  canvas: true
   core-js: false
   esbuild: true
+  keytar: true
   leveldown: false
+  node-pty: true
   protobufjs: true
   puppeteer: true
 

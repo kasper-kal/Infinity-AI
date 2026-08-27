@@ -29,7 +29,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
-| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔲 PLANNED |
+| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔧 **CORE COMPLETE, INTEGRATION PENDING (~85%)** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | 🔲 PLANNED |
 | **19** | **External API & Database Integration (v0 Extensibility)** | 🔲 PLANNED |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
@@ -704,36 +704,48 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 **Direct manipulation of generated UI** — click any element in preview to edit props, styles, structure. Changes sync bidirectionally to code. Like v0's visual editing but fully code-connected.
 
 ### Requirements
-- [ ] **Visual Element Inspector** — Hover/click in preview → highlight corresponding JSX in code editor
-- [ ] **Prop Editor Panel** — Sidebar showing selected element's props (variant, size, className, children)
+- [x] **Visual Element Inspector** — Hover/click in preview → highlight corresponding JSX in code editor (LivePreview + VisualInspector)
+- [x] **Prop Editor Panel** — Sidebar showing selected element's props (variant, size, className, children)
   - Visual controls: color picker, spacing slider, typography selector
   - shadcn/ui variant selectors (button variants, alert variants, etc.)
   - Tailwind class autocomplete with design token suggestions
 - [ ] **Structure Manipulation** — Drag-drop to reorder, wrap/unwrap elements, delete, duplicate
-  - Keyboard shortcuts for power users
-  - Undo/redo stack synced with code history
-- [ ] **Bidirectional Sync** — Code edits → preview updates instantly; visual edits → code updates instantly
-  - AST-based code modification (preserve formatting, comments)
-  - Conflict resolution when both change simultaneously
+  - [x] Wrap/unwrap, delete, duplicate (PropEditor Structure tab + ComponentExtractor)
+  - [ ] Drag-drop reorder
+  - [ ] Keyboard shortcuts for power users
+  - [ ] Undo/redo stack synced with code history
+- [x] **Bidirectional Sync (Core)** — Code edits → preview updates instantly; visual edits → code updates instantly
+  - [x] AST-based code modification (preserve formatting, comments) — ast-editor.ts complete
+  - [x] Preview-code bridge via postMessage — LivePreview + VisualInspector
+  - [ ] Conflict resolution when both change simultaneously
 - [ ] **Design System Enforcement** — Visual edits constrained to design tokens
-  - Can't pick arbitrary colors — only design system palette
-  - Spacing/sizing snaps to token scale
-  - Typography limited to defined scales
-- [ ] **Component Extraction** — Select multiple elements → "Extract as Component" → creates new reusable component file
+  - [ ] Can't pick arbitrary colors — only design system palette
+  - [ ] Spacing/sizing snaps to token scale
+  - [ ] Typography limited to defined scales
+- [x] **Component Extraction** — Select multiple elements → "Extract as Component" → creates new reusable component file (ComponentExtractor.tsx complete)
 
 ### Implementation Plan
-1. **Preview-Code Bridge** — `postMessage` API between sandbox iframe and parent for selection sync
-2. **AST Editor** — Use babel/recast for precise code modifications
-3. **Prop Editor UI** — New component in UI Builder sidebar
-4. **Design Token Integration** — Connect to project's design system (Phase 8)
-5. **Extract Component Refactoring** — AST transform to create new component file + imports
+1. **Preview-Code Bridge** — `postMessage` API between sandbox iframe and parent for selection sync ✅ (LivePreview + VisualInspector)
+2. **AST Editor** — Use babel/recast for precise code modifications ✅ (ast-editor.ts complete)
+3. **Prop Editor UI** — New component in UI Builder sidebar ✅ (PropEditor.tsx complete with Props/Style/Structure tabs)
+4. **Design Token Integration** — Connect to project's design system (Phase 8) — partial (PropEditor accepts designTokens prop)
+5. **Extract Component Refactoring** — AST transform to create new component file + imports ✅ (ComponentExtractor.tsx complete)
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/ast-editor.ts` (new)
-- `artifacts/Infinity/src/components/ui-builder/PropEditor.tsx` (new)
-- `artifacts/Infinity/src/components/ui-builder/VisualInspector.tsx` (new)
-- `artifacts/Infinity/src/components/ui-builder/ComponentExtractor.tsx` (new)
-- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` (extend — selection bridge)
+- `artifacts/api-server/src/lib/ast-editor.ts` ✅ **COMPLETE** (~670 lines)
+- `artifacts/Infinity/src/components/ui-builder/PropEditor.tsx` ✅ **COMPLETE** (~790 lines)
+- `artifacts/Infinity/src/components/ui-builder/VisualInspector.tsx` ✅ **COMPLETE** (~610 lines)
+- `artifacts/Infinity/src/components/ui-builder/ComponentExtractor.tsx` ✅ **COMPLETE** (~360 lines)
+- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` ✅ **EXTENDED** (inspector bridge integrated)
+
+### Remaining Work (Integration + Polish)
+- [ ] Create `artifacts/infinity-ai/src/components/ui-builder/index.ts` barrel export
+- [ ] Integrate VisualInspector + PropEditor + ComponentExtractor into BuildView/ChatView UI Builder mode
+- [ ] Add drag-drop reorder (react-dnd or @dnd-kit)
+- [ ] Add undo/redo stack (history of AST operations)
+- [ ] Add keyboard shortcuts (Cmd+D duplicate, Delete, etc.)
+- [ ] Design token enforcement: constrain PropEditor color/typography/spacing to designTokens
+- [ ] Conflict resolution for simultaneous code + visual edits
 
 ---
 
