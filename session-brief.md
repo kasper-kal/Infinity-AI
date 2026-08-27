@@ -16,8 +16,9 @@ LAST_UPDATED: 2026-08-27 15:45
   - **Keyboard shortcuts integrated** — Cmd+D duplicate, Delete/Backspace, Escape, Arrow navigation
   - **Design token enforcement** — PropEditor accepts `enforceDesignTokens` prop, constrains colors/typography/spacing
   - **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
+  - **useAstHistory integrated into ChatView** — undo/redo now wired to component code state
   - TypeScript compilation clean ✅
-  - Remaining: drag-drop reorder (@dnd-kit), integrate useAstHistory into code state, end-to-end test
+  - Remaining: drag-drop reorder (@dnd-kit), end-to-end test
   - **Core components fully implemented** (4 new files + LivePreview extension):
     - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with 15+ operations (insert, delete, replace, wrap, unwrap, duplicate, move, updateProp, updateProps, addImport, removeImport, extractComponent, updateClassName, updateStyle, transformJSX)
     - `artifacts/infinity-ai/src/components/ui-builder/PropEditor.tsx` (~790 lines) — Three-tab editor (Props/Style/Structure) with visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete with design token suggestions
