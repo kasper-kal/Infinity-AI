@@ -62,6 +62,8 @@ interface VisualInspectorProps {
   enabled?: boolean;
   /** Show hover preview without selecting */
   showHoverPreview?: boolean;
+  /** Callback when elements are reordered via drag-drop */
+  onReorderElements?: (fromIndex: number, toIndex: number, elementStack: SelectedElement[]) => void;
   className?: string;
 }
 
@@ -79,6 +81,7 @@ export const VisualInspector: React.FC<VisualInspectorProps> = ({
   codeSelectedElement,
   enabled = true,
   showHoverPreview = true,
+  onReorderElements,
   className,
 }) => {
   const [hoveredElement, setHoveredElement] = useState<SelectedElement | null>(null);
@@ -485,9 +488,12 @@ export const VisualInspector: React.FC<VisualInspectorProps> = ({
             payload: { fromIndex: oldIndex, toIndex: newIndex },
           }, '*');
         }
+
+        // Notify parent for code sync
+        onReorderElements?.(oldIndex, newIndex, newStack);
       }
     }
-  }, [elementStack, iframeRef]);
+  }, [elementStack, iframeRef, onReorderElements]);
 
   const SortableItem = ({ element, index }: { element: SelectedElement; index: number }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: element.selector });

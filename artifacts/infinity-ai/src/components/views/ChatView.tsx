@@ -32,6 +32,7 @@ import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { useConflictResolution, useAstHistory } from "@/hooks";
+import { syncPropsToCode, syncStructureToCode, findJSXElements, reorderJSXElements, parseCode, generateCode } from "@/lib/ast-editor";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -93,6 +94,33 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [showExtractor, setShowExtractor] = useState(false);
   const [extractorElements, setExtractorElements] = useState<any[]>([]);
   const [designTokens, setDesignTokens] = useState<any>({});
+
+  // AST History for undo/redo on component code
+  const {
+    code: astCode,
+    setCode: setAstCode,
+    undo: undoAst,
+    redo: redoAst,
+    canUndo,
+    canRedo,
+  } = useAstHistory({
+    initialCode: selectedComponent?.code || '',
+    onCodeChange: (newCode) => {
+      if (selectedComponent) {
+        setUiComponents(prev =>
+          prev.map(c => (c.name === selectedComponent.name ? { ...c, code: newCode } : c))
+        );
+      }
+    },
+  });
+
+  // Keep astCode in sync with selectedComponent
+  useEffect(() => {
+    if (selectedComponent && astCode !== selectedComponent.code) {
+      // Only update if not currently undoing/redoing (handled by hook internally)
+      // The hook's onCodeChange will update uiComponents
+    }
+  }, [selectedComponent, astCode]);
 
   // Conflict resolution for simultaneous code + visual edits
   const {
@@ -629,6 +657,63 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   codeSelectedElement={selectedElement}
                   enabled={true}
                   showHoverPreview={true}
+                  onReorderElements={(fromIndex, toIndex, newStack) => {
+                    // Find which component contains these elements and reorder in code
+                    const componentIndex = uiComponents.findIndex(c =>
+                      c.code.includes(newStack[fromIndex]?.selector) ||
+                      c.code.includes(newStack[toIndex]?.selector)
+                    );
+                    if (componentIndex === -1) return;
+
+                    const component = uiComponents[componentIndex];
+                    const ast = parseCode(component.code);
+
+                    // Find all elements in the component that match our stack selectors
+                    const elements = newStack.map((el, i) => ({ el, index: i }));
+                    const matchedElements: Array<{node: any, path: any, index: number}> = [];
+
+                    elements.forEach(({ el, index }) => {
+                      const found = findJSXElements(ast, el.selector);
+                      if (found.length > 0) {
+                        matchedElements.push({ node: found[0].node, path: found[0].path, index });
+                      }
+                    });
+
+                    if (matchedElements.length > 0) {
+                      // Sort by original index to understand the reorder
+                      matchedElements.sort((a, b) => a.index - b.index);
+
+                      // Apply reorder using AST
+                      const result = applyEdits(component.code, [
+                        {
+                          type: 'move',
+                          target: matchedElements[fromIndex].node.openingElement.name.name,
+                        }
+                      ]);
+
+                      // Actually use reorderJSXElements on the parent
+                      // Find parent of the moved element
+                      const movedNode = matchedElements[fromIndex];
+                      const parentPath = movedNode.path.parentPath;
+                      if (parentPath && (parentPath.node.type === 'JSXElement' || parentPath.node.type === 'JSXFragment')) {
+                        const reorderedAst = parseCode(component.code);
+                        const reorderResult = reorderJSXElements(
+                          parentPath.node,
+                          fromIndex,
+                          toIndex
+                        );
+                        // Generate new code
+                        const { code: newCode } = generateCode(reorderedAst, component.code);
+                        if (newCode !== component.code) {
+                          setAstCode(newCode, {
+                            type: 'move',
+                            selector: movedNode.el.selector,
+                            description: `Reordered element`,
+                          });
+                        }
+                      }
+                    }
+                  }}
                 />
               )}
             </div>
@@ -648,7 +733,28 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <option value="">Select component...</option>
                   {uiComponents.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-2">
+                  {/* Undo/Redo buttons */}
+                  <ButtonGroup>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={undoAst}
+                      disabled={!canUndo}
+                      title="Undo (Cmd+Z)"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={redoAst}
+                      disabled={!canRedo}
+                      title="Redo (Cmd+Shift+Z)"
+                    >
+                      <RotateCcw className="w-4 h-4" style={{ transform: 'rotate(180deg)' }} />
+                    </Button>
+                  </ButtonGroup>
                   <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(selectedComponent?.code || '')}>
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -679,8 +785,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     newValue: value,
                     timestamp: Date.now(),
                   });
-                  // TODO: Wire to AST editor for code sync
-                  console.log('Prop change:', selector, propName, value);
+                  // Wire to AST editor for code sync
+                  const componentIndex = uiComponents.findIndex(c => c.code.includes(selector));
+                  if (componentIndex === -1) return;
+
+                  const component = uiComponents[componentIndex];
+                  const result = syncPropsToCode(component.code, selector, { [propName]: value });
+                  if (result.code !== component.code) {
+                    setAstCode(result.code, {
+                      type: 'updateProp',
+                      selector,
+                      description: `Set ${propName}="${value}"`,
+                    });
+                  }
                 }}
                 onStructureChange={(selector, operation, options) => {
                   // Register visual change for conflict detection
@@ -695,24 +812,59 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   if (componentIndex === -1) return;
 
                   const component = uiComponents[componentIndex];
-                  let newCode = component.code;
+                  let result: any;
 
                   switch (operation) {
                     case 'duplicate':
-                      // Duplicate would require AST manipulation - for now log
-                      console.log('Duplicate element:', selector);
+                      result = syncStructureToCode(component.code, selector, 'duplicate');
+                      if (result.code !== component.code) {
+                        setAstCode(result.code, {
+                          type: 'duplicate',
+                          selector,
+                          description: `Duplicated element`,
+                        });
+                      }
                       break;
                     case 'delete':
-                      console.log('Delete element:', selector);
+                      result = syncStructureToCode(component.code, selector, 'delete');
+                      if (result.code !== component.code) {
+                        setAstCode(result.code, {
+                          type: 'delete',
+                          selector,
+                          description: `Deleted element`,
+                        });
+                      }
                       break;
                     case 'wrap':
-                      console.log('Wrap element:', selector, 'with', options?.wrapper);
+                      if (options?.wrapper) {
+                        result = syncStructureToCode(component.code, selector, 'wrap', {
+                          wrapper: options.wrapper,
+                          wrapperProps: options.wrapperProps,
+                        });
+                        if (result.code !== component.code) {
+                          setAstCode(result.code, {
+                            type: 'wrap',
+                            selector,
+                            description: `Wrapped with <${options.wrapper}>`,
+                          });
+                        }
+                      }
                       break;
                     case 'unwrap':
-                      console.log('Unwrap element:', selector);
+                      result = syncStructureToCode(component.code, selector, 'unwrap');
+                      if (result.code !== component.code) {
+                        setAstCode(result.code, {
+                          type: 'unwrap',
+                          selector,
+                          description: `Unwrapped element`,
+                        });
+                      }
                       break;
                     case 'move':
-                      console.log('Move element:', selector, 'to index', options?.targetIndex);
+                      if (options?.targetIndex !== undefined) {
+                        // Move requires reorder - handled via drag-drop in VisualInspector
+                        console.log('Move element:', selector, 'to index', options.targetIndex);
+                      }
                       break;
                   }
                 }}

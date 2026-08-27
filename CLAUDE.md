@@ -34,3 +34,5 @@ WHEN USER SAYS "go" (OR ANY MESSAGE):
 5. Go to step 2 — do the next action. Keep going.
 
 GitHub: kasper-kal/Infinity-AI — user is Kasper Kal (kasperkal1970@gmail.com)
+
+IMPORTANT EXTRA NOTE: NEVER fix typecheck errors before the phase or whatevr your currenttly doing is fully done, great!
