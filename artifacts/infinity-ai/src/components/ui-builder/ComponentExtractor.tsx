@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { Badge, Tabs, TabsList, TabsTrigger, TabsContent, Separator } from '@/components/ui';
+import { Plus } from 'lucide-react';
 import {
   FileCode,
   Plus,
@@ -173,11 +174,18 @@ export const ComponentExtractor: React.FC<ComponentExtractorProps> = ({
         {/* Export Location */}
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Export Location</label>
-          <Select value={exportLocation} onValueChange={setExportLocation}>
-            {[DEFAULT_EXPORT_LOCATION, '@/components', '@/components/shared', '@/components/extracted', '@/ui'].map(loc => (
-              <Select.Item key={loc} value={loc}>{loc}</Select.Item>
-            ))}
-          </Select>
+          <Select
+            value={exportLocation}
+            onValueChange={setExportLocation}
+            options={[
+              DEFAULT_EXPORT_LOCATION,
+              '@/components',
+              '@/components/shared',
+              '@/components/extracted',
+              '@/ui',
+            ].map(loc => ({ value: loc, label: loc }))}
+            placeholder="Select export location"
+          />
         </div>
 
         {/* Options */}

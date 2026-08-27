@@ -31,7 +31,7 @@ import { DeployPanel } from "@/components/ui-builder/DeployPanel";
 import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
-import { useConflictResolution } from "@/hooks";
+import { useConflictResolution, useAstHistory } from "@/hooks";
 
 export interface ChatViewProps {
   messages: ChatMessage[];

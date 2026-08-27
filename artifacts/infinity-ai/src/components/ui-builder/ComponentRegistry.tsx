@@ -49,67 +49,67 @@ interface ComponentRegistryProps {
 // Default shadcn/ui components
 const SHADCN_COMPONENTS: ComponentInfo[] = [
   // Form
-  { name: 'button', category: 'form', imports: ['@/components/ui/button'], variants: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'], description: 'Clickable button with multiple variants' },
-  { name: 'input', category: 'form', imports: ['@/components/ui/input'], description: 'Text input field' },
-  { name: 'textarea', category: 'form', imports: ['@/components/ui/textarea'], description: 'Multi-line text input' },
-  { name: 'select', category: 'form', imports: ['@/components/ui/select'], description: 'Dropdown select' },
-  { name: 'checkbox', category: 'form', imports: ['@/components/ui/checkbox'], description: 'Checkbox input' },
-  { name: 'radio-group', category: 'form', imports: ['@/components/ui/radio-group'], description: 'Radio button group' },
-  { name: 'switch', category: 'form', imports: ['@/components/ui/switch'], description: 'Toggle switch' },
-  { name: 'slider', category: 'form', imports: ['@/components/ui/slider'], description: 'Range slider' },
-  { name: 'form', category: 'form', imports: ['@/components/ui/form'], description: 'Form wrapper with validation' },
-  { name: 'label', category: 'form', imports: ['@/components/ui/label'], description: 'Form label' },
+  { name: 'button', category: 'form', imports: ['@/components/ui/button'], variants: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'], description: 'Clickable button with multiple variants', shadcn: true },
+  { name: 'input', category: 'form', imports: ['@/components/ui/input'], description: 'Text input field', shadcn: true },
+  { name: 'textarea', category: 'form', imports: ['@/components/ui/textarea'], description: 'Multi-line text input', shadcn: true },
+  { name: 'select', category: 'form', imports: ['@/components/ui/select'], description: 'Dropdown select', shadcn: true },
+  { name: 'checkbox', category: 'form', imports: ['@/components/ui/checkbox'], description: 'Checkbox input', shadcn: true },
+  { name: 'radio-group', category: 'form', imports: ['@/components/ui/radio-group'], description: 'Radio button group', shadcn: true },
+  { name: 'switch', category: 'form', imports: ['@/components/ui/switch'], description: 'Toggle switch', shadcn: true },
+  { name: 'slider', category: 'form', imports: ['@/components/ui/slider'], description: 'Range slider', shadcn: true },
+  { name: 'form', category: 'form', imports: ['@/components/ui/form'], description: 'Form wrapper with validation', shadcn: true },
+  { name: 'label', category: 'form', imports: ['@/components/ui/label'], description: 'Form label', shadcn: true },
 
   // Layout
-  { name: 'card', category: 'layout', imports: ['@/components/ui/card'], variants: ['default', 'header', 'content', 'footer'], description: 'Card container' },
-  { name: 'separator', category: 'layout', imports: ['@/components/ui/separator'], description: 'Visual separator' },
-  { name: 'aspect-ratio', category: 'layout', imports: ['@/components/ui/aspect-ratio'], description: 'Aspect ratio container' },
-  { name: 'container', category: 'layout', imports: ['@/components/ui/container'], description: 'Centered container' },
+  { name: 'card', category: 'layout', imports: ['@/components/ui/card'], variants: ['default', 'header', 'content', 'footer'], description: 'Card container', shadcn: true },
+  { name: 'separator', category: 'layout', imports: ['@/components/ui/separator'], description: 'Visual separator', shadcn: true },
+  { name: 'aspect-ratio', category: 'layout', imports: ['@/components/ui/aspect-ratio'], description: 'Aspect ratio container', shadcn: true },
+  { name: 'container', category: 'layout', imports: ['@/components/ui/container'], description: 'Centered container', shadcn: true },
 
   // Navigation
-  { name: 'navigation-menu', category: 'navigation', imports: ['@/components/ui/navigation-menu'], description: 'Navigation menu' },
-  { name: 'breadcrumb', category: 'navigation', imports: ['@/components/ui/breadcrumb'], description: 'Breadcrumb trail' },
-  { name: 'pagination', category: 'navigation', imports: ['@/components/ui/pagination'], description: 'Pagination controls' },
-  { name: 'tabs', category: 'navigation', imports: ['@/components/ui/tabs'], description: 'Tabbed interface' },
-  { name: 'sidebar', category: 'navigation', imports: ['@/components/ui/sidebar'], description: 'Sidebar navigation' },
+  { name: 'navigation-menu', category: 'navigation', imports: ['@/components/ui/navigation-menu'], description: 'Navigation menu', shadcn: true },
+  { name: 'breadcrumb', category: 'navigation', imports: ['@/components/ui/breadcrumb'], description: 'Breadcrumb trail', shadcn: true },
+  { name: 'pagination', category: 'navigation', imports: ['@/components/ui/pagination'], description: 'Pagination controls', shadcn: true },
+  { name: 'tabs', category: 'navigation', imports: ['@/components/ui/tabs'], description: 'Tabbed interface', shadcn: true },
+  { name: 'sidebar', category: 'navigation', imports: ['@/components/ui/sidebar'], description: 'Sidebar navigation', shadcn: true },
 
   // Data Display
-  { name: 'table', category: 'data-display', imports: ['@/components/ui/table'], description: 'Data table' },
-  { name: 'badge', category: 'data-display', imports: ['@/components/ui/badge'], variants: ['default', 'secondary', 'destructive', 'outline'], description: 'Status badge' },
-  { name: 'avatar', category: 'data-display', imports: ['@/components/ui/avatar'], description: 'User avatar' },
-  { name: 'progress', category: 'data-display', imports: ['@/components/ui/progress'], description: 'Progress bar' },
-  { name: 'skeleton', category: 'data-display', imports: ['@/components/ui/skeleton'], description: 'Loading skeleton' },
-  { name: 'tooltip', category: 'data-display', imports: ['@/components/ui/tooltip'], description: 'Hover tooltip' },
-  { name: 'popover', category: 'data-display', imports: ['@/components/ui/popover'], description: 'Popover panel' },
-  { name: 'hover-card', category: 'data-display', imports: ['@/components/ui/hover-card'], description: 'Hover card' },
+  { name: 'table', category: 'data-display', imports: ['@/components/ui/table'], description: 'Data table', shadcn: true },
+  { name: 'badge', category: 'data-display', imports: ['@/components/ui/badge'], variants: ['default', 'secondary', 'destructive', 'outline'], description: 'Status badge', shadcn: true },
+  { name: 'avatar', category: 'data-display', imports: ['@/components/ui/avatar'], description: 'User avatar', shadcn: true },
+  { name: 'progress', category: 'data-display', imports: ['@/components/ui/progress'], description: 'Progress bar', shadcn: true },
+  { name: 'skeleton', category: 'data-display', imports: ['@/components/ui/skeleton'], description: 'Loading skeleton', shadcn: true },
+  { name: 'tooltip', category: 'data-display', imports: ['@/components/ui/tooltip'], description: 'Hover tooltip', shadcn: true },
+  { name: 'popover', category: 'data-display', imports: ['@/components/ui/popover'], description: 'Popover panel', shadcn: true },
+  { name: 'hover-card', category: 'data-display', imports: ['@/components/ui/hover-card'], description: 'Hover card', shadcn: true },
 
   // Feedback
-  { name: 'alert', category: 'feedback', imports: ['@/components/ui/alert'], variants: ['default', 'destructive'], description: 'Alert message' },
-  { name: 'alert-dialog', category: 'feedback', imports: ['@/components/ui/alert-dialog'], description: 'Confirmation dialog' },
-  { name: 'dialog', category: 'feedback', imports: ['@/components/ui/dialog'], description: 'Modal dialog' },
-  { name: 'drawer', category: 'feedback', imports: ['@/components/ui/drawer'], description: 'Bottom sheet drawer' },
-  { name: 'sheet', category: 'feedback', imports: ['@/components/ui/sheet'], description: 'Side sheet' },
-  { name: 'toast', category: 'feedback', imports: ['@/components/ui/toast'], hooks: ['useToast'], description: 'Toast notification' },
-  { name: 'sonner', category: 'feedback', imports: ['sonner'], external: true, description: 'Toast library' },
+  { name: 'alert', category: 'feedback', imports: ['@/components/ui/alert'], variants: ['default', 'destructive'], description: 'Alert message', shadcn: true },
+  { name: 'alert-dialog', category: 'feedback', imports: ['@/components/ui/alert-dialog'], description: 'Confirmation dialog', shadcn: true },
+  { name: 'dialog', category: 'feedback', imports: ['@/components/ui/dialog'], description: 'Modal dialog', shadcn: true },
+  { name: 'drawer', category: 'feedback', imports: ['@/components/ui/drawer'], description: 'Bottom sheet drawer', shadcn: true },
+  { name: 'sheet', category: 'feedback', imports: ['@/components/ui/sheet'], description: 'Side sheet', shadcn: true },
+  { name: 'toast', category: 'feedback', imports: ['@/components/ui/toast'], description: 'Toast notification', shadcn: true },
+  { name: 'sonner', category: 'feedback', imports: ['sonner'], description: 'Toast library', shadcn: true },
 
   // Overlay
-  { name: 'dropdown-menu', category: 'overlay', imports: ['@/components/ui/dropdown-menu'], description: 'Dropdown menu' },
-  { name: 'context-menu', category: 'overlay', imports: ['@/components/ui/context-menu'], description: 'Context menu' },
-  { name: 'menubar', category: 'overlay', imports: ['@/components/ui/menubar'], description: 'Menu bar' },
-  { name: 'combobox', category: 'overlay', imports: ['@/components/ui/combobox'], description: 'Searchable select' },
-  { name: 'command', category: 'overlay', imports: ['@/components/ui/command'], description: 'Command palette' },
+  { name: 'dropdown-menu', category: 'overlay', imports: ['@/components/ui/dropdown-menu'], description: 'Dropdown menu', shadcn: true },
+  { name: 'context-menu', category: 'overlay', imports: ['@/components/ui/context-menu'], description: 'Context menu', shadcn: true },
+  { name: 'menubar', category: 'overlay', imports: ['@/components/ui/menubar'], description: 'Menu bar', shadcn: true },
+  { name: 'combobox', category: 'overlay', imports: ['@/components/ui/combobox'], description: 'Searchable select', shadcn: true },
+  { name: 'command', category: 'overlay', imports: ['@/components/ui/command'], description: 'Command palette', shadcn: true },
 
   // Advanced
-  { name: 'accordion', category: 'advanced', imports: ['@/components/ui/accordion'], description: 'Collapsible accordion' },
-  { name: 'collapsible', category: 'advanced', imports: ['@/components/ui/collapsible'], description: 'Collapsible panel' },
-  { name: 'resizable', category: 'advanced', imports: ['@/components/ui/resizable'], description: 'Resizable panels' },
-  { name: 'scroll-area', category: 'advanced', imports: ['@/components/ui/scroll-area'], description: 'Custom scroll area' },
-  { name: 'carousel', category: 'advanced', imports: ['@/components/ui/carousel'], description: 'Image carousel' },
-  { name: 'calendar', category: 'advanced', imports: ['@/components/ui/calendar'], description: 'Date calendar' },
-  { name: 'date-picker', category: 'advanced', imports: ['@/components/ui/date-picker'], description: 'Date picker' },
+  { name: 'accordion', category: 'advanced', imports: ['@/components/ui/accordion'], description: 'Collapsible accordion', shadcn: true },
+  { name: 'collapsible', category: 'advanced', imports: ['@/components/ui/collapsible'], description: 'Collapsible panel', shadcn: true },
+  { name: 'resizable', category: 'advanced', imports: ['@/components/ui/resizable'], description: 'Resizable panels', shadcn: true },
+  { name: 'scroll-area', category: 'advanced', imports: ['@/components/ui/scroll-area'], description: 'Custom scroll area', shadcn: true },
+  { name: 'carousel', category: 'advanced', imports: ['@/components/ui/carousel'], description: 'Image carousel', shadcn: true },
+  { name: 'calendar', category: 'advanced', imports: ['@/components/ui/calendar'], description: 'Date calendar', shadcn: true },
+  { name: 'date-picker', category: 'advanced', imports: ['@/components/ui/date-picker'], description: 'Date picker', shadcn: true },
 
   // Typography
-  { name: 'typography', category: 'typography', imports: ['@/components/ui/typography'], description: 'Typography styles' },
+  { name: 'typography', category: 'typography', imports: ['@/components/ui/typography'], description: 'Typography styles', shadcn: true },
 ];
 
 const CATEGORY_LABELS: Record<ComponentInfo['category'], string> = {
@@ -246,7 +246,7 @@ export const ComponentRegistry: React.FC<ComponentRegistryProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <code className="text-sm font-mono text-foreground">{component.name}</code>
-                          {!component.shadcn && component.shadcn !== undefined && (
+                          {!component.shadcn && (
                             <Badge variant="outline" className="text-xs">Custom</Badge>
                           )}
                           {component.variants && (
