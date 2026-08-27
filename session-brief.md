@@ -4,19 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-27 15:45
+LAST_UPDATED: 2026-08-27 16:15
 
 ## Just did (last action)
 - **Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — CORE COMPLETE (~100%), INTEGRATION COMPLETE (~95%)** ✅
   - All 4 core components fully implemented + LivePreview extension + barrel export
   - ChatView UI Builder mode: Three-pane layout fully wired (Chat | Registry+Preview+Inspector | Deploy)
   - BuildView ui-builder tab mounts ChatView in UI Builder mode
-  - **useAstHistory hook created** — undo/redo stack with keyboard shortcuts (Cmd+Z, Cmd+Shift+Z, Cmd+Y)
-  - **useConflictResolution hook created** — 500ms window, auto-resolve strategies, pending conflict UI
+  - **useAstHistory hook created & integrated** — undo/redo stack with keyboard shortcuts (Cmd+Z, Cmd+Shift+Z, Cmd+Y) — wired to component code state via setAstCode/onCodeChange
+  - **useConflictResolution hook created & integrated** — 500ms window, auto-resolve strategies, pending conflict UI with visual/code wins/ignore buttons
   - **Keyboard shortcuts integrated** — Cmd+D duplicate, Delete/Backspace, Escape, Arrow navigation
   - **Design token enforcement** — PropEditor accepts `enforceDesignTokens` prop, constrains colors/typography/spacing
   - **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
-  - **useAstHistory integrated into ChatView** — undo/redo now wired to component code state
   - TypeScript compilation clean ✅
   - Remaining: drag-drop reorder (@dnd-kit), end-to-end test
   - **Core components fully implemented** (4 new files + LivePreview extension):
