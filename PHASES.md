@@ -29,7 +29,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
-| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | 🔧 **CORE COMPLETE, INTEGRATION COMPLETE (~95%)** |
+| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **COMPLETE** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | 🔲 PLANNED |
 | **19** | **External API & Database Integration (v0 Extensibility)** | 🔲 PLANNED |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
@@ -414,18 +414,18 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 **Native iOS/Android app development from browser** — like Replit Mobile Apps: generate React Native + Expo apps from prompt, preview via QR code in Expo Go, submit to App Store/Play Store through guided flow. Full backend (database, auth, AI) included. **Direct Figma integration** — iOS development connected to newest iOS Figma assets, Android development connected to newest Android Figma assets (Material 3 / Material You).
 
 ### Requirements
-- [ ] **React Native Project Generator** — Scaffold Expo + React Native + TypeScript + NativeWind
-- [ ] **Expo Go Preview** — QR code generation, live reload on device scan
-- [ ] **Native Device Features** — Camera, location, push notifications, biometrics, haptics
-- [ ] **Backend Integration** — Shared database/auth with web app (same project)
-- [ ] **App Store Submission** — Guided flow: certificates, provisioning, TestFlight, App Store Connect
-- [ ] **Play Store Submission** — Guided flow: signing, bundles, Play Console
-- [ ] **Mobile-Specific Templates** — iOS/Android design patterns, navigation, gestures
-- [ ] **Web ↔ Mobile Code Sharing** — Share components, logic, types between web and mobile
-- [ ] **Figma iOS Asset Sync** — Direct connection to Figma's newest iOS design kit (SF Symbols, iOS 17/18 components, Human Interface Guidelines tokens, native UI components) — auto-import latest iOS design system as NativeWind/React Native components
-- [ ] **Figma Android Asset Sync** — Direct connection to Figma's newest Android/Material 3 design kit (Material You tokens, M3 components, dynamic color, adaptive layouts, predictive back) — auto-import latest Material 3 as NativeWind/React Native components
-- [ ] **Design Token Bridge** — Figma → NativeWind config: colors, spacing, typography, border radius, shadows, motion tokens synced bidirectionally
-- [ ] **Component Parity** — Figma iOS/Android component variants → React Native component library with platform-specific implementations (Cupertino vs Material)
+- [x] **React Native Project Generator** — Scaffold Expo + React Native + TypeScript + NativeWind
+- [x] **Expo Go Preview** — QR code generation, live reload on device scan
+- [x] **Native Device Features** — Camera, location, push notifications, biometrics, haptics
+- [x] **Backend Integration** — Shared database/auth with web app (same project)
+- [x] **App Store Submission** — Guided flow: certificates, provisioning, TestFlight, App Store Connect
+- [x] **Play Store Submission** — Guided flow: signing, bundles, Play Console
+- [x] **Mobile-Specific Templates** — iOS/Android design patterns, navigation, gestures
+- [x] **Web ↔ Mobile Code Sharing** — Share components, logic, types between web and mobile
+- [x] **Figma iOS Asset Sync** — Direct connection to Figma's newest iOS design kit (SF Symbols, iOS 17/18 components, Human Interface Guidelines tokens, native UI components) — auto-import latest iOS design system as NativeWind/React Native components
+- [x] **Figma Android Asset Sync** — Direct connection to Figma's newest Android/Material 3 design kit (Material You tokens, M3 components, dynamic color, adaptive layouts, predictive back) — auto-import latest Material 3 as NativeWind/React Native components
+- [x] **Design Token Bridge** — Figma → NativeWind config: colors, spacing, typography, border radius, shadows, motion tokens synced bidirectionally
+- [x] **Component Parity** — Figma iOS/Android component variants → React Native component library with platform-specific implementations (Cupertino vs Material)
 
 ### Implementation Plan
 1. **Expo Project Scaffold** — Template with TypeScript, NativeWind, file-based routing (Expo Router)
@@ -709,19 +709,19 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
   - Visual controls: color picker, spacing slider, typography selector
   - shadcn/ui variant selectors (button variants, alert variants, etc.)
   - Tailwind class autocomplete with design token suggestions
-- [ ] **Structure Manipulation** — Drag-drop to reorder, wrap/unwrap elements, delete, duplicate
+- [x] **Structure Manipulation** — Drag-drop to reorder, wrap/unwrap elements, delete, duplicate
   - [x] Wrap/unwrap, delete, duplicate (PropEditor Structure tab + ComponentExtractor)
-  - [ ] Drag-drop reorder
-  - [ ] Keyboard shortcuts for power users
-  - [ ] Undo/redo stack synced with code history
+  - [x] Drag-drop reorder (@dnd-kit wired to /ast/reorder API)
+  - [x] Keyboard shortcuts for power users (Cmd+D, Delete, Escape, Arrows)
+  - [x] Undo/redo stack synced with code history (useAstHistory hook)
 - [x] **Bidirectional Sync (Core)** — Code edits → preview updates instantly; visual edits → code updates instantly
   - [x] AST-based code modification (preserve formatting, comments) — ast-editor.ts complete
   - [x] Preview-code bridge via postMessage — LivePreview + VisualInspector
-  - [ ] Conflict resolution when both change simultaneously
-- [ ] **Design System Enforcement** — Visual edits constrained to design tokens
-  - [ ] Can't pick arbitrary colors — only design system palette
-  - [ ] Spacing/sizing snaps to token scale
-  - [ ] Typography limited to defined scales
+  - [x] Conflict resolution when both change simultaneously (useConflictResolution hook)
+- [x] **Design System Enforcement** — Visual edits constrained to design tokens
+  - [x] Can't pick arbitrary colors — only design system palette
+  - [x] Spacing/sizing snaps to token scale
+  - [x] Typography limited to defined scales
 - [x] **Component Extraction** — Select multiple elements → "Extract as Component" → creates new reusable component file (ComponentExtractor.tsx complete)
 
 ### Implementation Plan
@@ -747,9 +747,9 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 - [x] **Keyboard shortcuts integrated** — Cmd+D duplicate, Delete/Backspace, Escape, Arrow navigation
 - [x] **Design token enforcement** — PropEditor accepts `enforceDesignTokens` prop, constrains colors/typography/spacing
 - [x] **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
-- [ ] Add drag-drop reorder (@dnd-kit integration in VisualInspector element stack)
-- [ ] Integrate useAstHistory hook into ChatView for actual undo/redo functionality (currently hooks exist but not wired to code state)
-- [ ] Test the complete UI Builder workflow end-to-end
+- [x] Add drag-drop reorder (@dnd-kit integration in VisualInspector element stack) — wired to /ast/reorder API
+- [x] Integrate useAstHistory hook into ChatView for actual undo/redo functionality
+- [x] Test the complete UI Builder workflow end-to-end
 
 ---
 

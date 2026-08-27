@@ -9,6 +9,20 @@ import { z } from 'zod';
 import { requireAuth, requireScope, AuthenticatedRequest } from '../../middleware/auth-middleware.js';
 import { getUICodegenEngine, UIGenerationRequestSchema, UIGenerationResponseSchema, UICodegenEngine } from '../../lib/ui-codegen.js';
 import { getProjectDesignSystem } from '../../lib/design-canvas.js';
+import {
+  parseCode,
+  generateCode,
+  findJSXElements,
+  syncPropsToCode,
+  syncStructureToCode,
+  reorderJSXElements,
+  applyEdits,
+  extractComponent,
+  getUsedComponents,
+  getDesignTokenUsage,
+} from '../../lib/ast-editor.js';
+import * as t from '@babel/types';
+import * as recast from 'recast';
 
 const router = Router();
 
@@ -480,6 +494,197 @@ router.get('/design-tokens', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Design tokens fetch error:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch design tokens' });
+  }
+});
+
+// ============================================================================
+// AST Sync Routes (for bidirectional code/preview sync)
+// ============================================================================
+
+/**
+ * POST /api/infinity/ui-builder/ast/sync-props
+ * Sync props from visual editor to code
+ */
+router.post('/ast/sync-props', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      selector: z.string(),
+      props: z.record(z.any()),
+    }).parse(req.body);
+
+    const result = syncPropsToCode(validated.code, validated.selector, validated.props);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST sync props error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST sync failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/sync-structure
+ * Sync structure changes (wrap, unwrap, duplicate, delete) from visual editor to code
+ */
+router.post('/ast/sync-structure', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      selector: z.string(),
+      operation: z.enum(['wrap', 'unwrap', 'duplicate', 'delete', 'move']),
+      options: z.object({
+        wrapper: z.string().optional(),
+        wrapperProps: z.record(z.any()).optional(),
+        targetIndex: z.number().optional(),
+      }).optional(),
+    }).parse(req.body);
+
+    const result = syncStructureToCode(
+      validated.code,
+      validated.selector,
+      validated.operation,
+      validated.options || {}
+    );
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST sync structure error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST sync failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/reorder
+ * Reorder elements in code
+ */
+router.post('/ast/reorder', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      selector: z.string(),
+      fromIndex: z.number(),
+      toIndex: z.number(),
+    }).parse(req.body);
+
+    const ast = parseCode(validated.code);
+    const elements = findJSXElements(ast, validated.selector);
+
+    if (elements.length === 0) {
+      return res.status(404).json({ error: 'Element not found' });
+    }
+
+    const { node, path } = elements[0];
+    const parentPath = path.parentPath;
+    if (!parentPath || !(parentPath.node.type === 'JSXElement' || parentPath.node.type === 'JSXFragment')) {
+      return res.status(400).json({ error: 'Cannot reorder - parent not found' });
+    }
+
+    const reorderedParent = reorderJSXElements(parentPath.node, validated.fromIndex, validated.toIndex);
+    parentPath.replace(reorderedParent);
+
+    const { code: newCode } = generateCode(ast, validated.code);
+    res.json({ code: newCode });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST reorder error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST reorder failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/extract
+ * Extract selected elements as a new component
+ */
+router.post('/ast/extract', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      selector: z.string(),
+      componentName: z.string(),
+      propsInterface: z.string().optional(),
+    }).parse(req.body);
+
+    const result = extractComponent(
+      validated.code,
+      validated.selector,
+      validated.componentName,
+      validated.propsInterface
+    );
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST extract error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST extract failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/analyze
+ * Analyze code for used components and design token usage
+ */
+router.post('/ast/analyze', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      designTokens: z.record(z.record(z.string())).optional(),
+    }).parse(req.body);
+
+    const usedComponents = getUsedComponents(validated.code);
+    const designTokenUsage = validated.designTokens
+      ? getDesignTokenUsage(validated.code, validated.designTokens)
+      : [];
+
+    res.json({ usedComponents, designTokenUsage });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST analyze error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST analyze failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/parse
+ * Parse code and return AST info
+ */
+router.post('/ast/parse', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+    }).parse(req.body);
+
+    const ast = parseCode(validated.code);
+    const elements = findJSXElements(ast, '*');
+
+    const elementInfo = elements.map(({ node, path }) => {
+      let selector = '';
+      if (t.isJSXIdentifier(node.openingElement.name)) {
+        selector = node.openingElement.name.name;
+      }
+      return {
+        selector,
+        tagName: t.isJSXIdentifier(node.openingElement.name) ? node.openingElement.name.name : 'Fragment',
+        props: getJSXProps(node),
+        depth: path.stack.filter(p => t.isJSXElement(p.node) || t.isJSXFragment(p.node)).length,
+      };
+    });
+
+    res.json({ elements: elementInfo });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST parse error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST parse failed' });
   }
 });
 

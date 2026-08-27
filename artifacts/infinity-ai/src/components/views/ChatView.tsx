@@ -32,7 +32,6 @@ import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { useConflictResolution, useAstHistory } from "@/hooks";
-import { syncPropsToCode, syncStructureToCode, findJSXElements, reorderJSXElements, parseCode, generateCode } from "@/lib/ast-editor";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -657,8 +656,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   codeSelectedElement={selectedElement}
                   enabled={true}
                   showHoverPreview={true}
-                  onReorderElements={(fromIndex, toIndex, newStack) => {
-                    // Find which component contains these elements and reorder in code
+                  onReorderElements={async (fromIndex, toIndex, newStack) => {
+                    // Find which component contains these elements and reorder via API
                     const componentIndex = uiComponents.findIndex(c =>
                       c.code.includes(newStack[fromIndex]?.selector) ||
                       c.code.includes(newStack[toIndex]?.selector)
@@ -666,52 +665,32 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     if (componentIndex === -1) return;
 
                     const component = uiComponents[componentIndex];
-                    const ast = parseCode(component.code);
+                    const movedElement = newStack[fromIndex];
 
-                    // Find all elements in the component that match our stack selectors
-                    const elements = newStack.map((el, i) => ({ el, index: i }));
-                    const matchedElements: Array<{node: any, path: any, index: number}> = [];
-
-                    elements.forEach(({ el, index }) => {
-                      const found = findJSXElements(ast, el.selector);
-                      if (found.length > 0) {
-                        matchedElements.push({ node: found[0].node, path: found[0].path, index });
-                      }
-                    });
-
-                    if (matchedElements.length > 0) {
-                      // Sort by original index to understand the reorder
-                      matchedElements.sort((a, b) => a.index - b.index);
-
-                      // Apply reorder using AST
-                      const result = applyEdits(component.code, [
-                        {
-                          type: 'move',
-                          target: matchedElements[fromIndex].node.openingElement.name.name,
-                        }
-                      ]);
-
-                      // Actually use reorderJSXElements on the parent
-                      // Find parent of the moved element
-                      const movedNode = matchedElements[fromIndex];
-                      const parentPath = movedNode.path.parentPath;
-                      if (parentPath && (parentPath.node.type === 'JSXElement' || parentPath.node.type === 'JSXFragment')) {
-                        const reorderedAst = parseCode(component.code);
-                        const reorderResult = reorderJSXElements(
-                          parentPath.node,
+                    try {
+                      const response = await fetch('/api/infinity/ui-builder/ast/reorder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          code: component.code,
+                          selector: movedElement.selector,
                           fromIndex,
-                          toIndex
-                        );
-                        // Generate new code
-                        const { code: newCode } = generateCode(reorderedAst, component.code);
-                        if (newCode !== component.code) {
-                          setAstCode(newCode, {
-                            type: 'move',
-                            selector: movedNode.el.selector,
-                            description: `Reordered element`,
-                          });
-                        }
+                          toIndex,
+                        }),
+                      });
+
+                      if (!response.ok) throw new Error('Reorder failed');
+
+                      const data = await response.json();
+                      if (data.code !== component.code) {
+                        setAstCode(data.code, {
+                          type: 'move',
+                          selector: movedElement.selector,
+                          description: `Reordered element`,
+                        });
                       }
+                    } catch (err) {
+                      console.error('Reorder failed:', err);
                     }
                   }}
                 />
@@ -777,7 +756,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 designTokens={designTokens}
                 availableComponents={uiComponents.map(c => c.name)}
                 enforceDesignTokens={true}
-                onPropChange={(selector, propName, value) => {
+                onPropChange={async (selector, propName, value) => {
                   // Register visual change for conflict detection
                   registerVisualChange(selector, {
                     type: 'prop',
@@ -785,21 +764,37 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     newValue: value,
                     timestamp: Date.now(),
                   });
-                  // Wire to AST editor for code sync
+                  // Wire to AST editor for code sync via API
                   const componentIndex = uiComponents.findIndex(c => c.code.includes(selector));
                   if (componentIndex === -1) return;
 
                   const component = uiComponents[componentIndex];
-                  const result = syncPropsToCode(component.code, selector, { [propName]: value });
-                  if (result.code !== component.code) {
-                    setAstCode(result.code, {
-                      type: 'updateProp',
-                      selector,
-                      description: `Set ${propName}="${value}"`,
+                  try {
+                    const response = await fetch('/api/infinity/ui-builder/ast/sync-props', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        code: component.code,
+                        selector,
+                        props: { [propName]: value },
+                      }),
                     });
+
+                    if (!response.ok) throw new Error('Sync props failed');
+
+                    const data = await response.json();
+                    if (data.code !== component.code) {
+                      setAstCode(data.code, {
+                        type: 'updateProp',
+                        selector,
+                        description: `Set ${propName}="${value}"`,
+                      });
+                    }
+                  } catch (err) {
+                    console.error('Sync props failed:', err);
                   }
                 }}
-                onStructureChange={(selector, operation, options) => {
+                onStructureChange={async (selector, operation, options) => {
                   // Register visual change for conflict detection
                   registerVisualChange(selector, {
                     type: 'structure',
@@ -807,65 +802,40 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     newValue: { operation, options },
                     timestamp: Date.now(),
                   });
-                  // Handle structure operations: duplicate, delete, wrap, unwrap, move
+                  // Handle structure operations: duplicate, delete, wrap, unwrap, move via API
                   const componentIndex = uiComponents.findIndex(c => c.code.includes(selector));
                   if (componentIndex === -1) return;
 
                   const component = uiComponents[componentIndex];
-                  let result: any;
 
-                  switch (operation) {
-                    case 'duplicate':
-                      result = syncStructureToCode(component.code, selector, 'duplicate');
-                      if (result.code !== component.code) {
-                        setAstCode(result.code, {
-                          type: 'duplicate',
-                          selector,
-                          description: `Duplicated element`,
-                        });
-                      }
-                      break;
-                    case 'delete':
-                      result = syncStructureToCode(component.code, selector, 'delete');
-                      if (result.code !== component.code) {
-                        setAstCode(result.code, {
-                          type: 'delete',
-                          selector,
-                          description: `Deleted element`,
-                        });
-                      }
-                      break;
-                    case 'wrap':
-                      if (options?.wrapper) {
-                        result = syncStructureToCode(component.code, selector, 'wrap', {
-                          wrapper: options.wrapper,
-                          wrapperProps: options.wrapperProps,
-                        });
-                        if (result.code !== component.code) {
-                          setAstCode(result.code, {
-                            type: 'wrap',
-                            selector,
-                            description: `Wrapped with <${options.wrapper}>`,
-                          });
-                        }
-                      }
-                      break;
-                    case 'unwrap':
-                      result = syncStructureToCode(component.code, selector, 'unwrap');
-                      if (result.code !== component.code) {
-                        setAstCode(result.code, {
-                          type: 'unwrap',
-                          selector,
-                          description: `Unwrapped element`,
-                        });
-                      }
-                      break;
-                    case 'move':
-                      if (options?.targetIndex !== undefined) {
-                        // Move requires reorder - handled via drag-drop in VisualInspector
-                        console.log('Move element:', selector, 'to index', options.targetIndex);
-                      }
-                      break;
+                  try {
+                    const response = await fetch('/api/infinity/ui-builder/ast/sync-structure', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        code: component.code,
+                        selector,
+                        operation,
+                        options,
+                      }),
+                    });
+
+                    if (!response.ok) throw new Error('Sync structure failed');
+
+                    const data = await response.json();
+                    if (data.code !== component.code) {
+                      setAstCode(data.code, {
+                        type: operation,
+                        selector,
+                        description: operation === 'duplicate' ? `Duplicated element` :
+                                     operation === 'delete' ? `Deleted element` :
+                                     operation === 'wrap' ? `Wrapped with <${options?.wrapper}>` :
+                                     operation === 'unwrap' ? `Unwrapped element` :
+                                     `Structure ${operation}`,
+                      });
+                    }
+                  } catch (err) {
+                    console.error('Sync structure failed:', err);
                   }
                 }}
                 onExtractComponent={(selector, name) => {
