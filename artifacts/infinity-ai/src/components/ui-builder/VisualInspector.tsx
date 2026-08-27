@@ -21,7 +21,23 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  GripVertical,
 } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SelectedElement {
   selector: string;
@@ -32,6 +48,7 @@ interface SelectedElement {
   depth: number;
   xpath: string;
   bounds?: DOMRect;
+  id?: string;
 }
 
 interface VisualInspectorProps {
@@ -444,6 +461,74 @@ export const VisualInspector: React.FC<VisualInspectorProps> = ({
     }
   }, [elementStack, onSelectElement, iframeRef]);
 
+  // Drag-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = elementStack.findIndex(el => el.selector === active.id);
+      const newIndex = elementStack.findIndex(el => el.selector === over?.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newStack = [...elementStack];
+        const [moved] = newStack.splice(oldIndex, 1);
+        newStack.splice(newIndex, 0, moved);
+        setElementStack(newStack);
+
+        // Notify iframe to reorder elements
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({
+            type: 'reorder-elements',
+            payload: { fromIndex: oldIndex, toIndex: newIndex },
+          }, '*');
+        }
+      }
+    }
+  }, [elementStack, iframeRef]);
+
+  const SortableItem = ({ element, index }: { element: SelectedElement; index: number }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: element.selector });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          'p-2 rounded border border-border bg-muted/30 flex items-center gap-2 cursor-grab active:cursor-grabbing',
+          index === elementStack.length - 1 && 'ring-1 ring-primary',
+          isDragging && 'shadow-lg ring-2 ring-primary'
+        )}
+      >
+        <button {...attributes} {...listeners} className="p-1 text-muted-foreground hover:text-foreground" aria-label="Drag to reorder">
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <code className="text-sm font-mono text-foreground flex-1">{element.tagName}</code>
+        {element.className && (
+          <Badge variant="secondary" className="text-xs font-mono">
+            .{element.className.split(' ').join(' .')}
+          </Badge>
+        )}
+        {element.id && (
+          <Badge variant="outline" className="text-xs font-mono">
+            #{element.id}
+          </Badge>
+        )}
+        <span className="text-xs text-muted-foreground">
+          Depth: {element.depth}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className={cn('p-3 border-b border-border bg-background/95 backdrop-blur', className)}>
       {/* Inspector Toolbar */}
@@ -506,19 +591,45 @@ export const VisualInspector: React.FC<VisualInspectorProps> = ({
             )}
           </div>
 
-          <div className="flex flex-wrap gap-1">
-            {elementStack.map((el, i) => (
-              <Badge
-                key={i}
-                variant={i === elementStack.length - 1 ? 'default' : 'outline'}
-                className="text-xs font-mono px-2 py-0.5 cursor-pointer hover:bg-muted"
-                onClick={() => handleNavigateStack(i === elementStack.length - 1 ? 'up' : 'down')}
-              >
-                {el.tagName}
-                {el.className && <span className="ml-1 opacity-70">.{el.className.split(' ')[0]}</span>}
-                {el.id && <span className="ml-1 opacity-70">#{el.id}</span>}
-              </Badge>
-            ))}
+          <div className="space-y-1">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={elementStack.map(el => el.selector)} strategy={verticalListSortingStrategy}>
+                {elementStack.map((el, i) => (
+                  <SortableItem key={el.selector} element={el} index={i} />
+                ))}
+              </SortableContext>
+              <DragOverlay>
+                {(({ activatorEvent, active }: any) => {
+                  if (!activatorEvent || !active) return null;
+                  const element = elementStack.find(el => el.selector === active.id);
+                  if (!element) return null;
+                  const transform = activatorEvent?.transform
+                    ? CSS.Transform.toString(activatorEvent.transform)
+                    : undefined;
+                  return (
+                    <div
+                      style={{
+                        transform,
+                        opacity: 0.9,
+                      }}
+                      className="p-2 rounded border border-primary bg-primary/10 shadow-lg flex items-center gap-2 cursor-grabbing z-50"
+                    >
+                      <GripVertical className="w-4 h-4 text-primary" />
+                      <code className="text-sm font-mono text-foreground">{element.tagName}</code>
+                      {element.className && (
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          .{element.className.split(' ').join(' .')}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                }) as any}
+              </DragOverlay>
+            </DndContext>
             {hoveredElement && elementStack.length === 0 && (
               <Badge variant="secondary" className="text-xs font-mono px-2 py-0.5 opacity-60">
                 {hoveredElement.tagName}

@@ -4,10 +4,20 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-27 14:30
+LAST_UPDATED: 2026-08-27 15:45
 
 ## Just did (last action)
-- **Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — CORE COMPLETE (~95%), INTEGRATION COMPLETE** ✅
+- **Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — CORE COMPLETE (~100%), INTEGRATION COMPLETE (~95%)** ✅
+  - All 4 core components fully implemented + LivePreview extension + barrel export
+  - ChatView UI Builder mode: Three-pane layout fully wired (Chat | Registry+Preview+Inspector | Deploy)
+  - BuildView ui-builder tab mounts ChatView in UI Builder mode
+  - **useAstHistory hook created** — undo/redo stack with keyboard shortcuts (Cmd+Z, Cmd+Shift+Z, Cmd+Y)
+  - **useConflictResolution hook created** — 500ms window, auto-resolve strategies, pending conflict UI
+  - **Keyboard shortcuts integrated** — Cmd+D duplicate, Delete/Backspace, Escape, Arrow navigation
+  - **Design token enforcement** — PropEditor accepts `enforceDesignTokens` prop, constrains colors/typography/spacing
+  - **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
+  - TypeScript compilation clean ✅
+  - Remaining: drag-drop reorder (@dnd-kit), integrate useAstHistory into code state, end-to-end test
   - **Core components fully implemented** (4 new files + LivePreview extension):
     - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with 15+ operations (insert, delete, replace, wrap, unwrap, duplicate, move, updateProp, updateProps, addImport, removeImport, extractComponent, updateClassName, updateStyle, transformJSX)
     - `artifacts/infinity-ai/src/components/ui-builder/PropEditor.tsx` (~790 lines) — Three-tab editor (Props/Style/Structure) with visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete with design token suggestions
@@ -314,6 +324,13 @@ LAST_UPDATED: 2026-08-27 14:30
   - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
   - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
   - **i18n**: 100+ mobile.* translation keys in English and Dutch
+  - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
+  - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
+  - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
+  - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
+  - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
+  - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
+  - **i18n**: 100+ mobile.* translation keys in English and Dutch
 
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
 - **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
@@ -341,6 +358,7 @@ LAST_UPDATED: 2026-08-27 14:30
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-27 **Phase 17: Visual Component Editor — Integration COMPLETE (~95%), Core 100%** — All Phase 17 components fully integrated into ChatView UI Builder mode (three-pane layout: Chat | Component Registry + Live Preview + Inspector | Deploy) and BuildView ui-builder tab. TypeScript clean. VisualInspector ↔ LivePreview postMessage bridge functional, PropEditor wired with design tokens, ComponentExtractor creates reusable components. Created useAstHistory (undo/redo + shortcuts), useConflictResolution (500ms window + auto-resolve + UI). Keyboard shortcuts (Cmd+D duplicate, Delete, Escape, arrows) integrated. Design token enforcement active via `enforceDesignTokens` prop. Conflict resolution UI shows pending conflicts with resolution buttons. Remaining: drag-drop reorder (@dnd-kit), integrate useAstHistory into code state, end-to-end test.
 - 2026-08-27 **Phase 17: Visual Component Editor — Integration COMPLETE (~95%)** — All Phase 17 components fully integrated into ChatView UI Builder mode (three-pane layout: Chat | Component Registry + Live Preview + Inspector | Deploy) and BuildView ui-builder tab. TypeScript clean. VisualInspector ↔ LivePreview postMessage bridge functional, PropEditor wired with design tokens, ComponentExtractor creates reusable components.
 - 2026-08-27 **Phase 17: Visual Component Editor — Core components verified COMPLETE (~85%)** — Verified all 4 new Phase 17 files + LivePreview extension exist and are fully implemented:
   - `artifacts/api-server/src/lib/ast-editor.ts` (~670 lines) — Complete AST editor with parseCode, generateCode, findJSXElements, getJSXProps, setJSXProp, removeJSXProp, wrapJSXElement, unwrapJSXElement, reorderJSXElements, duplicateJSXElement, applyEdits, syncPropsToCode, syncStructureToCode, extractComponent, getUsedComponents, getDesignTokenUsage

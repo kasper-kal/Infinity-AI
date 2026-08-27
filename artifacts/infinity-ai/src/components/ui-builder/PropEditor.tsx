@@ -6,11 +6,12 @@
  * and Tailwind class autocomplete with design token suggestions.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { Input, Select } from '@/components/ui/Input';
-import { Slider } from '@/components/ui/Slider';
+import { Input } from '@/components/ui/Input';
+import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Badge, Tabs, TabsList, TabsTrigger, TabsContent, Separator } from '@/components/ui';
 import {
   Palette,
@@ -26,6 +27,8 @@ import {
   ChevronRight,
   Copy,
   Check,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
 
 interface PropInfo {
@@ -34,6 +37,9 @@ interface PropInfo {
   type: 'string' | 'number' | 'boolean' | 'color' | 'enum' | 'object' | 'expression';
   options?: string[];
   suggestions?: string[];
+  // Design token enforcement
+  isDesignToken?: boolean;
+  allowedValues?: string[];
 }
 
 interface DesignTokens {
@@ -72,6 +78,8 @@ interface PropEditorProps {
   onExtractComponent?: (selector: string, name: string) => void;
   /** Callback when element deselected */
   onDeselect?: () => void;
+  /** Enforce design tokens only (no custom values) */
+  enforceDesignTokens?: boolean;
   className?: string;
 }
 
@@ -87,6 +95,23 @@ const FONT_WEIGHTS = ['thin', 'light', 'normal', 'medium', 'semibold', 'bold', '
 const TEXT_COLORS = ['foreground', 'muted-foreground', 'primary', 'secondary', 'destructive', 'accent'];
 const BG_COLORS = ['background', 'card', 'muted', 'popover', 'primary', 'secondary', 'accent', 'destructive'];
 
+// Helper to get design token values
+function getDesignTokenValues(tokens: DesignTokens | undefined, category: keyof DesignTokens): string[] {
+  if (!tokens || !tokens[category]) return [];
+  return Object.entries(tokens[category] as Record<string, string>)
+    .map(([key, value]) => `${key} (${value})`);
+}
+
+function getDesignTokenValue(tokens: DesignTokens | undefined, category: keyof DesignTokens, key: string): string | undefined {
+  if (!tokens || !tokens[category]) return undefined;
+  return (tokens[category] as Record<string, string>)[key];
+}
+
+function isValidDesignToken(tokens: DesignTokens | undefined, category: keyof DesignTokens, value: string): boolean {
+  if (!tokens || !tokens[category]) return false;
+  return Object.values(tokens[category] as Record<string, string>).includes(value);
+}
+
 export const PropEditor: React.FC<PropEditorProps> = ({
   selectedElement,
   designTokens,
@@ -95,6 +120,7 @@ export const PropEditor: React.FC<PropEditorProps> = ({
   onStructureChange,
   onExtractComponent,
   onDeselect,
+  enforceDesignTokens = true,
   className,
 }) => {
   const [activeTab, setActiveTab] = useState<'props' | 'style' | 'structure'>('props');
@@ -253,13 +279,17 @@ export const PropEditor: React.FC<PropEditorProps> = ({
           )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full">
-            <TabsTrigger value="props" className="flex-1 text-xs">Props</TabsTrigger>
-            <TabsTrigger value="style" className="flex-1 text-xs">Style</TabsTrigger>
-            <TabsTrigger value="structure" className="flex-1 text-xs">Structure</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <Tabs
+          tabs={[
+            { id: 'props', label: 'Props', content: <div /> },
+            { id: 'style', label: 'Style', content: <div /> },
+            { id: 'structure', label: 'Structure', content: <div /> },
+          ]}
+          controlledTab={activeTab}
+          onChange={(tabId: "props" | "style" | "structure") => setActiveTab(tabId)}
+          variant="line"
+          fullWidth
+        />
       </div>
 
       {/* Content */}
@@ -281,6 +311,7 @@ export const PropEditor: React.FC<PropEditorProps> = ({
                   onPropChange={handlePropChange}
                   onCopy={handleCopyProp}
                   copied={copiedProp === prop.name}
+                  enforceDesignTokens={enforceDesignTokens}
                 />
               ))}
             </PropSection>
@@ -300,6 +331,7 @@ export const PropEditor: React.FC<PropEditorProps> = ({
                   onPropChange={handlePropChange}
                   onCopy={handleCopyProp}
                   copied={copiedProp === prop.name}
+                  enforceDesignTokens={enforceDesignTokens}
                 />
               ))}
             </PropSection>
@@ -319,6 +351,7 @@ export const PropEditor: React.FC<PropEditorProps> = ({
                   onPropChange={handlePropChange}
                   onCopy={handleCopyProp}
                   copied={copiedProp === prop.name}
+                  enforceDesignTokens={enforceDesignTokens}
                 />
               ))}
             </PropSection>
@@ -338,6 +371,7 @@ export const PropEditor: React.FC<PropEditorProps> = ({
                   onPropChange={handlePropChange}
                   onCopy={handleCopyProp}
                   copied={copiedProp === prop.name}
+                  enforceDesignTokens={enforceDesignTokens}
                 />
               ))}
 
@@ -418,7 +452,7 @@ const PropSection: React.FC<{
 };
 
 /**
- * PropControl - individual prop editor
+ * PropControl - individual prop editor with design token enforcement
  */
 const PropControl: React.FC<{
   prop: PropInfo;
@@ -426,22 +460,50 @@ const PropControl: React.FC<{
   onPropChange: (prop: PropInfo, value: any) => void;
   onCopy: (prop: PropInfo) => void;
   copied: boolean;
-}> = ({ prop, designTokens, onPropChange, onCopy, copied }) => {
+  enforceDesignTokens?: boolean;
+}> = ({ prop, designTokens, onPropChange, onCopy, copied, enforceDesignTokens }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showTokenWarning, setShowTokenWarning] = useState(false);
+
+  // Check if value is a valid design token
+  const isTokenValue = (value: string, category: keyof DesignTokens) => {
+    return isValidDesignToken(designTokens, category, value);
+  };
+
+  // Get design token suggestions for a category
+  const getTokenSuggestions = (category: keyof DesignTokens) => {
+    if (!designTokens || !designTokens[category]) return [];
+    return Object.entries(designTokens[category] as Record<string, string>)
+      .map(([key, val]) => `${key} (${val})`);
+  };
+
+  const handleValueChange = (newValue: any) => {
+    // If enforcing design tokens, validate the value
+    if (enforceDesignTokens && prop.isDesignToken && prop.allowedValues) {
+      const isValid = prop.allowedValues.includes(newValue);
+      if (!isValid && newValue !== '') {
+        setShowTokenWarning(true);
+        setTimeout(() => setShowTokenWarning(false), 3000);
+        return; // Reject invalid value
+      }
+    }
+    onPropChange(prop, newValue);
+  };
 
   return (
     <div className="flex items-center gap-2">
       <code className="text-xs font-mono text-muted-foreground w-24 truncate flex-shrink-0" title={prop.name}>
         {prop.name.replace(/^class:/, '')}
+        {prop.isDesignToken && enforceDesignTokens && <Lock className="w-3 h-3 ml-1 text-primary" aria-label="Design token enforced" />}
       </code>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative">
         {prop.type === 'boolean' && (
           <Button
             variant={prop.value ? 'default' : 'outline'}
             size="sm"
             className="w-full justify-start text-xs"
-            onClick={() => onPropChange(prop, !prop.value)}
+            onClick={() => handleValueChange(!prop.value)}
           >
             {prop.value ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
             {prop.value ? 'true' : 'false'}
@@ -452,16 +514,21 @@ const PropControl: React.FC<{
           <Input
             type="number"
             value={prop.value}
-            onChange={e => onPropChange(prop, Number(e.target.value))}
+            onChange={e => handleValueChange(Number(e.target.value))}
             className="text-xs"
           />
         )}
 
         {prop.type === 'enum' && (
-          <Select value={prop.value} onValueChange={v => onPropChange(prop, v)} className="text-xs">
-            {(prop.options || []).map(opt => (
-              <Select.Item key={opt} value={opt}>{opt}</Select.Item>
-            ))}
+          <Select value={prop.value} onValueChange={v => handleValueChange(v)}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue placeholder={prop.value || 'Select...'} />
+            </SelectTrigger>
+            <SelectContent>
+              {(prop.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         )}
 
@@ -492,18 +559,25 @@ const PropControl: React.FC<{
                       style={{ backgroundColor: value }}
                       title={name}
                       onClick={() => {
-                        onPropChange(prop, value);
+                        handleValueChange(value);
                         setShowColorPicker(false);
                       }}
                     />
                   ))}
                 </div>
-                <Input
-                  type="color"
-                  value={typeof prop.value === 'string' && prop.value.startsWith('#') ? prop.value : '#3b82f6'}
-                  onChange={e => onPropChange(prop, e.target.value)}
-                  className="w-full h-8"
-                />
+                {!enforceDesignTokens && (
+                  <Input
+                    type="color"
+                    value={typeof prop.value === 'string' && prop.value.startsWith('#') ? prop.value : '#3b82f6'}
+                    onChange={e => handleValueChange(e.target.value)}
+                    className="w-full h-8"
+                  />
+                )}
+                {enforceDesignTokens && (
+                  <div className="text-xs text-muted-foreground text-center py-1">
+                    Custom colors disabled
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -513,9 +587,10 @@ const PropControl: React.FC<{
           <div className="relative">
             <Input
               value={prop.value}
-              onChange={e => onPropChange(prop, e.target.value)}
+              onChange={e => handleValueChange(e.target.value)}
               className="text-xs font-mono"
               placeholder={prop.type === 'expression' ? 'expression' : 'string'}
+              disabled={enforceDesignTokens && prop.isDesignToken}
             />
             {prop.suggestions && prop.suggestions.length > 0 && (
               <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
@@ -523,11 +598,24 @@ const PropControl: React.FC<{
                   <button
                     key={suggestion}
                     className="block w-full text-left px-2 py-1 text-xs font-mono hover:bg-muted"
-                    onClick={() => onPropChange(prop, suggestion)}
+                    onClick={() => handleValueChange(suggestion)}
                   >
                     {suggestion}
                   </button>
                 ))}
+                {enforceDesignTokens && prop.isDesignToken && prop.allowedValues && (
+                  <div className="border-t border-border p-1">
+                    {prop.allowedValues.map(v => (
+                      <button
+                        key={v}
+                        className="block w-full text-left px-2 py-1 text-xs font-mono hover:bg-muted text-primary"
+                        onClick={() => handleValueChange(v)}
+                      >
+                        {v} (token)
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -536,6 +624,16 @@ const PropControl: React.FC<{
         {prop.type === 'object' && (
           <div className="text-xs font-mono text-muted-foreground p-1 bg-muted rounded">
             {JSON.stringify(prop.value)}
+          </div>
+        )}
+
+        {/* Design token warning */}
+        {showTokenWarning && (
+          <div className="absolute -top-6 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="flex items-center gap-1 bg-destructive/90 text-destructive-foreground text-xs px-2 py-1 rounded shadow-lg animate-slide-down">
+              <AlertTriangle className="w-3 h-3" />
+              <span>Value must be a design token</span>
+            </div>
           </div>
         )}
       </div>
@@ -605,9 +703,14 @@ const StyleEditor: React.FC<{
           setFontSize(v);
           onPropChange({ name: `class:text-${fontSize}`, value: `text-${fontSize}`, type: 'string' }, `text-${v}`);
         }}>
-          {FONT_SIZES.map(size => (
-            <Select.Item key={size} value={size}>{size}</Select.Item>
-          ))}
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FONT_SIZES.map(size => (
+              <SelectItem key={size} value={size}>{size}</SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
@@ -720,16 +823,21 @@ const StructureEditor: React.FC<{
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Wrap with</label>
           <Select onValueChange={wrapper => onStructureChange(selectedElement.selector, 'wrap', { wrapper })}>
-            {availableComponents.map(comp => (
-              <Select.Item key={comp} value={comp}>{comp}</Select.Item>
-            ))}
-            <Select.Item value="div">div</Select.Item>
-            <Select.Item value="section">section</Select.Item>
-            <Select.Item value="article">article</Select.Item>
-            <Select.Item value="main">main</Select.Item>
-            <Select.Item value="aside">aside</Select.Item>
-            <Select.Item value="header">header</Select.Item>
-            <Select.Item value="footer">footer</Select.Item>
+            <SelectTrigger>
+              <SelectValue placeholder="Select wrapper" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableComponents.map(comp => (
+                <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+              ))}
+              <SelectItem value="div">div</SelectItem>
+              <SelectItem value="section">section</SelectItem>
+              <SelectItem value="article">article</SelectItem>
+              <SelectItem value="main">main</SelectItem>
+              <SelectItem value="aside">aside</SelectItem>
+              <SelectItem value="header">header</SelectItem>
+              <SelectItem value="footer">footer</SelectItem>
+            </SelectContent>
           </Select>
         </div>
 

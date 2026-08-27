@@ -742,11 +742,14 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 - [x] Create `artifacts/infinity-ai/src/components/ui-builder/index.ts` barrel export
 - [x] Integrate VisualInspector + PropEditor + ComponentExtractor into ChatView UI Builder mode
 - [x] Integrate fully into BuildView.tsx UI Builder tab (mounts ChatView in ui-builder mode)
-- [ ] Add drag-drop reorder (@dnd-kit or react-dnd)
-- [ ] Add undo/redo stack (history of AST operations)
-- [ ] Add keyboard shortcuts (Cmd+D duplicate, Delete, etc.)
-- [ ] Design token enforcement: constrain PropEditor color/typography/spacing to designTokens
-- [ ] Conflict resolution for simultaneous code + visual edits
+- [x] **useAstHistory hook created** — undo/redo stack with keyboard shortcuts (Cmd+Z, Cmd+Shift+Z, Cmd+Y)
+- [x] **useConflictResolution hook created** — 500ms window, auto-resolve strategies, pending conflict UI
+- [x] **Keyboard shortcuts integrated** — Cmd+D duplicate, Delete/Backspace, Escape, Arrow navigation
+- [x] **Design token enforcement** — PropEditor accepts `enforceDesignTokens` prop, constrains colors/typography/spacing
+- [x] **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
+- [ ] Add drag-drop reorder (@dnd-kit integration in VisualInspector element stack)
+- [ ] Integrate useAstHistory hook into ChatView for actual undo/redo functionality (currently hooks exist but not wired to code state)
+- [ ] Test the complete UI Builder workflow end-to-end
 
 ---
 

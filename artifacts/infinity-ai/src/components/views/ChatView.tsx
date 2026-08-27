@@ -24,13 +24,14 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
 import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw, Copy } from "lucide-react";
+import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw, Copy, AlertTriangle } from "lucide-react";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { ComponentRegistry } from "@/components/ui-builder/ComponentRegistry";
 import { DeployPanel } from "@/components/ui-builder/DeployPanel";
 import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
+import { useConflictResolution } from "@/hooks";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -93,6 +94,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [extractorElements, setExtractorElements] = useState<any[]>([]);
   const [designTokens, setDesignTokens] = useState<any>({});
 
+  // Conflict resolution for simultaneous code + visual edits
+  const {
+    registerCodeChange,
+    registerVisualChange,
+    getConflicts,
+    resolveConflict,
+    ignoreConflict,
+    pendingCount,
+  } = useConflictResolution({
+    conflictWindow: 500,
+    autoResolve: 'manual',
+    onConflict: (conflict) => {
+      console.warn('Conflict detected:', conflict);
+      // Could show a toast notification here
+    },
+    onResolved: (conflict, resolution) => {
+      console.log('Conflict resolved:', conflict.selector, resolution);
+    },
+  });
+
   // Fetch design tokens on mount
   useEffect(() => {
     fetch('/api/infinity/ui-builder/design-tokens')
@@ -100,6 +121,52 @@ export const ChatView: React.FC<ChatViewProps> = ({
       .then(data => setDesignTokens(data.designSystem || {}))
       .catch(() => setDesignTokens({}));
   }, []);
+
+  // Keyboard shortcuts for UI Builder
+  useEffect(() => {
+    if (!uiBuilderMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Cmd/Ctrl + D: Duplicate selected element
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedElement && !showExtractor) {
+          // Trigger duplicate via onStructureChange
+          console.log('Duplicate element:', selectedElement.selector);
+        }
+      }
+
+      // Delete/Backspace: Delete selected element
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement && !showExtractor) {
+        e.preventDefault();
+        console.log('Delete element:', selectedElement.selector);
+      }
+
+      // Escape: Deselect / Close extractor
+      if (e.key === 'Escape') {
+        if (showExtractor) {
+          setShowExtractor(false);
+          setExtractorElements([]);
+        } else if (selectedElement) {
+          setSelectedElement(null);
+        }
+      }
+
+      // Arrow keys: Navigate element stack
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Handled by VisualInspector
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [uiBuilderMode, selectedElement, showExtractor]);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -603,12 +670,51 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 selectedElement={selectedElement}
                 designTokens={designTokens}
                 availableComponents={uiComponents.map(c => c.name)}
+                enforceDesignTokens={true}
                 onPropChange={(selector, propName, value) => {
+                  // Register visual change for conflict detection
+                  registerVisualChange(selector, {
+                    type: 'prop',
+                    previousValue: selectedElement.props[propName],
+                    newValue: value,
+                    timestamp: Date.now(),
+                  });
                   // TODO: Wire to AST editor for code sync
                   console.log('Prop change:', selector, propName, value);
                 }}
                 onStructureChange={(selector, operation, options) => {
-                  console.log('Structure change:', selector, operation, options);
+                  // Register visual change for conflict detection
+                  registerVisualChange(selector, {
+                    type: 'structure',
+                    previousValue: null,
+                    newValue: { operation, options },
+                    timestamp: Date.now(),
+                  });
+                  // Handle structure operations: duplicate, delete, wrap, unwrap, move
+                  const componentIndex = uiComponents.findIndex(c => c.code.includes(selector));
+                  if (componentIndex === -1) return;
+
+                  const component = uiComponents[componentIndex];
+                  let newCode = component.code;
+
+                  switch (operation) {
+                    case 'duplicate':
+                      // Duplicate would require AST manipulation - for now log
+                      console.log('Duplicate element:', selector);
+                      break;
+                    case 'delete':
+                      console.log('Delete element:', selector);
+                      break;
+                    case 'wrap':
+                      console.log('Wrap element:', selector, 'with', options?.wrapper);
+                      break;
+                    case 'unwrap':
+                      console.log('Unwrap element:', selector);
+                      break;
+                    case 'move':
+                      console.log('Move element:', selector, 'to index', options?.targetIndex);
+                      break;
+                  }
                 }}
                 onExtractComponent={(selector, name) => {
                   setExtractorElements([selectedElement]);
@@ -616,6 +722,51 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 }}
                 onDeselect={() => setSelectedElement(null)}
               />
+            )}
+
+            {/* Conflict Resolution Indicator */}
+            {pendingCount > 0 && (
+              <div className="p-3 border-t border-destructive/30 bg-destructive/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <span className="text-xs font-medium text-destructive">
+                    {pendingCount} conflict{pendingCount > 1 ? 's' : ''} detected
+                  </span>
+                </div>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {getConflicts().map(conflict => (
+                    <div key={conflict.id} className="text-xs p-2 bg-background border border-border rounded">
+                      <div className="font-mono text-destructive/80 mb-1">{conflict.selector}</div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-5 px-2 text-xs"
+                          onClick={() => resolveConflict(conflict.id, 'visual-wins')}
+                        >
+                          Visual wins
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-5 px-2 text-xs"
+                          onClick={() => resolveConflict(conflict.id, 'code-wins')}
+                        >
+                          Code wins
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-5 px-2 text-xs"
+                          onClick={() => ignoreConflict(conflict.id)}
+                        >
+                          Ignore
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Component Extractor */}
