@@ -132,6 +132,20 @@ export class PreviewSharingService {
   }
 
   /**
+   * Get share by ID
+   */
+  async getShareById(id: string): Promise<PreviewShare | null> {
+    const [share] = await db
+      .select()
+      .from(previewShares)
+      .where(eq(previewShares.id, id))
+      .limit(1);
+
+    if (!share) return null;
+    return this.mapRowToShare(share);
+  }
+
+  /**
    * Get shares for a project
    */
   async getSharesByProject(projectId: string): Promise<PreviewShare[]> {

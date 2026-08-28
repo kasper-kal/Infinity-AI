@@ -476,6 +476,28 @@ export class UICommentsEngine {
     return mentions;
   }
 
+  /**
+   * Get a single comment by ID
+   */
+  async getCommentById(commentId: string): Promise<Comment | null> {
+    const [row] = await db
+      .select()
+      .from(previewComments)
+      .where(eq(previewComments.id, commentId))
+      .limit(1);
+
+    if (!row) return null;
+
+    const mentions = await db
+      .select()
+      .from(previewCommentMentions)
+      .where(eq(previewCommentMentions.commentId, commentId));
+
+    const replyCounts = await this.getReplyCounts([commentId]);
+
+    return this.mapRowToComment(row, mentions.map(m => m.mentionedEmail), replyCounts.get(commentId) || 0);
+  }
+
   private async getReplyCounts(commentIds: string[]): Promise<Map<string, number>> {
     if (commentIds.length === 0) return new Map();
 

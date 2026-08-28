@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, jsonb, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, jsonb, integer, index, uniqueIndex, foreignKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const previewShares = pgTable(
@@ -53,7 +53,7 @@ export const previewComments = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     shareId: uuid("share_id").notNull().references(() => previewShares.id, { onDelete: "cascade" }),
-    parentId: uuid("parent_id").references(() => previewComments.id, { onDelete: "cascade" }),
+    parentId: uuid("parent_id"),
     elementSelector: text("element_selector"),
     elementData: jsonb("element_data").$type<{
       tagName: string;
@@ -75,6 +75,11 @@ export const previewComments = pgTable(
   (table) => ({
     shareIdx: index("preview_comments_share_idx").on(table.shareId),
     parentIdx: index("preview_comments_parent_idx").on(table.parentId),
+    parentFk: foreignKey({
+      columns: [table.parentId],
+      foreignColumns: [table.id],
+      name: "preview_comments_parent_fk",
+    }),
     elementIdx: index("preview_comments_element_idx").on(table.elementSelector),
     createdIdx: index("preview_comments_created_idx").on(table.createdAt),
   })

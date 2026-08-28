@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Separator, Badge } from '@/components/ui';
-import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus } from 'lucide-react';
 import { CommentOverlay, type Comment, type CommentElementData } from './CommentOverlay';
 
 interface LivePreviewProps {
@@ -46,6 +46,22 @@ interface LivePreviewProps {
   onDelete?: (commentId: string) => Promise<void>;
   currentUser?: { name: string; email: string; avatar?: string };
   commentOverlayEnabled?: boolean;
+  /** Phase 18: Presence cursor props */
+  presenceEnabled?: boolean;
+  onCursorUpdate?: (x: number, y: number, selector?: string, elementData?: { tagName: string; className?: string }) => Promise<void>;
+  onSelectionUpdate?: (selector: string, elementData?: { tagName: string; className?: string; bounds?: DOMRect }) => Promise<void>;
+  presenceUsers?: PresenceUser[];
+}
+
+// Phase 18: Presence cursor types
+export interface PresenceUser {
+  email: string;
+  name: string;
+  avatar?: string;
+  cursor?: { x: number; y: number; selector?: string };
+  selection?: { selector: string; elementData?: { tagName: string; className?: string; bounds?: DOMRect } };
+  lastActive: Date;
+  isCurrentUser?: boolean;
 }
 
 const VIEWPORTS = {
@@ -193,6 +209,11 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   onDelete,
   currentUser,
   commentOverlayEnabled = true,
+  // Phase 18: Presence cursor props
+  presenceEnabled = false,
+  onCursorUpdate,
+  onSelectionUpdate,
+  presenceUsers = [],
 }, forwardedRef) => {
   const [viewport, setViewport] = useState<ViewportKey>(initialViewport);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -209,6 +230,12 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   const [hoveredElement, setHoveredElement] = useState<SelectedElement | null>(null);
   const [selectedElements, setSelectedElements] = useState<SelectedElement[]>([]);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Phase 18: Presence SSE State
+  const [presenceEventSource, setPresenceEventSource] = useRef<EventSource | null>(null);
+  const [commentEventSource, setCommentEventSource] = useRef<EventSource | null>(null);
+  const [remoteCursors, setRemoteCursors] = useState<Map<string, PresenceUser>>(new Map());
+  const cursorThrottleRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const viewportConfig = VIEWPORTS[viewport];
 
@@ -409,6 +436,169 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
     }
     return () => { document.body.style.overflow = ''; };
   }, [isFullscreen]);
+
+  // Phase 18: Presence SSE Connection
+  useEffect(() => {
+    if (!presenceEnabled || !shareToken || !currentUser) return;
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const presenceUrl = `${baseUrl}/api/infinity/ui-collab/shares/${shareToken}/presence/stream?email=${encodeURIComponent(currentUser.email)}&name=${encodeURIComponent(currentUser.name)}&avatar=${encodeURIComponent(currentUser.avatar || '')}`;
+    const commentUrl = `${baseUrl}/api/infinity/ui-collab/shares/${shareToken}/comments/stream?email=${encodeURIComponent(currentUser.email)}&name=${encodeURIComponent(currentUser.name)}&avatar=${encodeURIComponent(currentUser.avatar || '')}`;
+
+    // Presence SSE for cursors and selections
+    const presenceSource = new EventSource(presenceUrl);
+    presenceEventSource.current = presenceSource;
+
+    presenceSource.addEventListener('connected', () => {
+      console.log('Presence SSE connected');
+    });
+
+    presenceSource.addEventListener('presence:join', (event) => {
+      const data = JSON.parse(event.data);
+      setRemoteCursors(prev => {
+        const next = new Map(prev);
+        next.set(data.userEmail, {
+          email: data.userEmail,
+          name: data.userName,
+          avatar: data.userAvatar,
+          lastActive: new Date(data.timestamp),
+          isCurrentUser: data.userEmail === currentUser.email,
+        });
+        return next;
+      });
+    });
+
+    presenceSource.addEventListener('presence:leave', (event) => {
+      const data = JSON.parse(event.data);
+      setRemoteCursors(prev => {
+        const next = new Map(prev);
+        next.delete(data.userEmail);
+        return next;
+      });
+    });
+
+    presenceSource.addEventListener('presence:cursor', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.userEmail === currentUser.email) return; // Don't show own cursor
+
+      setRemoteCursors(prev => {
+        const next = new Map(prev);
+        const existing = next.get(data.userEmail);
+        next.set(data.userEmail, {
+          ...existing,
+          email: data.userEmail,
+          name: data.userName,
+          avatar: data.userAvatar,
+          cursor: { x: data.x, y: data.y, selector: data.selector },
+          lastActive: new Date(data.timestamp),
+          isCurrentUser: false,
+        });
+        return next;
+      });
+    });
+
+    presenceSource.addEventListener('presence:selection', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.userEmail === currentUser.email) return;
+
+      setRemoteCursors(prev => {
+        const next = new Map(prev);
+        const existing = next.get(data.userEmail);
+        next.set(data.userEmail, {
+          ...existing,
+          email: data.userEmail,
+          name: data.userName,
+          avatar: data.userAvatar,
+          selection: { selector: data.selector, elementData: data.elementData },
+          lastActive: new Date(data.timestamp),
+          isCurrentUser: false,
+        });
+        return next;
+      });
+    });
+
+    presenceSource.onerror = () => {
+      console.warn('Presence SSE error, will reconnect...');
+    };
+
+    // Comment SSE for real-time comment updates
+    const commentSource = new EventSource(commentUrl);
+    commentEventSource.current = commentSource;
+
+    commentSource.addEventListener('comment:created', (event) => {
+      const data = JSON.parse(event.data);
+      // Comments are fetched via parent component - could trigger refetch here
+      console.log('New comment:', data.comment);
+    });
+
+    commentSource.addEventListener('comment:updated', (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Comment updated:', data.comment);
+    });
+
+    commentSource.addEventListener('comment:deleted', (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Comment deleted:', data.commentId);
+    });
+
+    commentSource.addEventListener('comment:resolved', (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Comment resolved:', data.comment);
+    });
+
+    commentSource.addEventListener('comment:reaction', (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Comment reaction:', data);
+    });
+
+    commentSource.onerror = () => {
+      console.warn('Comment SSE error, will reconnect...');
+    };
+
+    return () => {
+      presenceSource.close();
+      commentSource.close();
+    };
+  }, [presenceEnabled, shareToken, currentUser]);
+
+  // Phase 18: Send cursor position to backend (throttled)
+  const sendCursorUpdate = useCallback((x: number, y: number, selector?: string, elementData?: { tagName: string; className?: string }) => {
+    if (!presenceEnabled || !shareToken || !currentUser || !onCursorUpdate) return;
+
+    const key = currentUser.email;
+    const existingTimeout = cursorThrottleRef.current.get(key);
+    if (existingTimeout) clearTimeout(existingTimeout);
+
+    const timeout = setTimeout(() => {
+      onCursorUpdate(x, y, selector, elementData);
+      cursorThrottleRef.current.delete(key);
+    }, 50); // 50ms throttle
+
+    cursorThrottleRef.current.set(key, timeout);
+  }, [presenceEnabled, shareToken, currentUser, onCursorUpdate]);
+
+  // Phase 18: Send selection update to backend
+  const sendSelectionUpdate = useCallback((selector: string, elementData?: { tagName: string; className?: string; bounds?: DOMRect }) => {
+    if (!presenceEnabled || !shareToken || !currentUser || !onSelectionUpdate) return;
+    onSelectionUpdate(selector, elementData);
+  }, [presenceEnabled, shareToken, currentUser, onSelectionUpdate]);
+
+  // Handle mouse move in iframe for cursor tracking
+  useEffect(() => {
+    if (!presenceEnabled || !iframeRef.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (e.target === iframeRef.current) {
+        const rect = iframeRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        sendCursorUpdate(x, y);
+      }
+    };
+
+    iframeRef.current.addEventListener('mousemove', handleMouseMove);
+    return () => iframeRef.current?.removeEventListener('mousemove', handleMouseMove);
+  }, [presenceEnabled, sendCursorUpdate]);
 
   const handleRefresh = useCallback(() => {
     previewKey.current += 1;
@@ -854,6 +1044,16 @@ const ConsoleIcons = ({
             />
           )}
 
+          {/* Phase 18: Presence Cursors - render remote user cursors */}
+          {presenceEnabled && remoteCursors.size > 0 && (
+            <PresenceCursors
+              cursors={remoteCursors}
+              iframeRef={iframeRef}
+              viewportConfig={viewportConfig}
+              isFullscreen={isFullscreen}
+            />
+          )}
+
           {previewError && !isLoading && (
             <div className="absolute inset-0 flex items-center justify-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg z-10">
               <div className="text-center max-w-md">
@@ -1037,5 +1237,110 @@ const ConsoleIcons = ({
     </div>
   );
 });
+
+// Phase 18: Presence Cursors Component
+interface PresenceCursorsProps {
+  cursors: Map<string, PresenceUser>;
+  iframeRef: React.RefObject<HTMLIFrameElement>;
+  viewportConfig: typeof VIEWPORTS[keyof typeof VIEWPORTS];
+  isFullscreen: boolean;
+}
+
+const PresenceCursors: React.FC<PresenceCursorsProps> = ({ cursors, iframeRef, viewportConfig, isFullscreen }) => {
+  const cursorColors = [
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-orange-500',
+    'bg-pink-500',
+    'bg-cyan-500',
+    'bg-amber-500',
+    'bg-rose-500',
+  ];
+
+  const getColorForUser = (email: string) => {
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+      hash = email.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return cursorColors[Math.abs(hash) % cursorColors.length];
+  };
+
+  return (
+    <>
+      {Array.from(cursors.values()).map((user) => {
+        if (user.isCurrentUser) return null;
+        if (!user.cursor && !user.selection) return null;
+
+        const colorClass = getColorForUser(user.email);
+        const iframeRect = iframeRef.current?.getBoundingClientRect();
+
+        // Render cursor
+        const cursorElements = user.cursor ? (
+          <>
+            <div
+              className={`fixed z-40 pointer-events-none transition-all duration-75 ${colorClass}`}
+              style={{
+                left: iframeRect ? iframeRect.left + user.cursor!.x + window.scrollX : user.cursor!.x,
+                top: iframeRect ? iframeRect.top + user.cursor!.y + window.scrollY : user.cursor!.y,
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                border: '2px solid white',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+            {/* User label */}
+            <div
+              className="fixed z-40 pointer-events-none text-xs font-medium text-white"
+              style={{
+                left: iframeRect ? iframeRect.left + user.cursor!.x + 12 + window.scrollX : user.cursor!.x + 12,
+                top: iframeRect ? iframeRect.top + user.cursor!.y - 20 + window.scrollY : user.cursor!.y - 20,
+                backgroundColor: colorClass.replace('bg-', 'bg-').replace('500', '600'),
+                padding: '2px 6px',
+                borderRadius: '4px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              }}
+            >
+              {user.name}
+            </div>
+          </>
+        ) : null;
+
+        // Render selection highlight
+        const selectionElements = user.selection?.elementData?.bounds ? (
+          <>
+            <div
+              className="fixed z-30 pointer-events-none"
+              style={{
+                left: iframeRect
+                  ? iframeRect.left + user.selection!.elementData!.bounds!.x + window.scrollX
+                  : user.selection!.elementData!.bounds!.x,
+                top: iframeRect
+                  ? iframeRect.top + user.selection!.elementData!.bounds!.y + window.scrollY
+                  : user.selection!.elementData!.bounds!.y,
+                width: user.selection!.elementData!.bounds!.width,
+                height: user.selection!.elementData!.bounds!.height,
+                border: `2px dashed ${colorClass.replace('bg-', '').replace('500', '500')}`,
+                backgroundColor: colorClass.replace('bg-', 'bg-').replace('500', '100'),
+                borderRadius: '4px',
+                boxShadow: `0 0 0 9999px ${colorClass.replace('bg-', 'bg-').replace('500', '100')}`,
+              }}
+            />
+          </>
+        ) : null;
+
+        return (
+          <React.Fragment key={user.email}>
+            {cursorElements}
+            {selectionElements}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+};
 
 export default LivePreview;
