@@ -76,6 +76,7 @@ import enterpriseRouter from "./enterprise";
 import skillsRouter from "./skills";
 import uiBuilderRouter from "./ui-builder";
 import uiCollabRouter from "./ui-collab";
+import frameworksRouter from "./frameworks";
 
 const router = Router();
 
@@ -130,6 +131,7 @@ router.use("/enterprise", enterpriseRouter);
 router.use("/skills", skillsRouter);
 router.use("/ui-builder", uiBuilderRouter);
 router.use("/ui-collab", uiCollabRouter);
+router.use("/frameworks", frameworksRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);

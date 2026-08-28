@@ -24,6 +24,7 @@ const ALLOWED_KEYS = [
   "web_search_enabled",
   "google_calendar_enabled",
   "user_profile",
+  "default_framework",
 ] as const;
 type SettingKey = (typeof ALLOWED_KEYS)[number];
 

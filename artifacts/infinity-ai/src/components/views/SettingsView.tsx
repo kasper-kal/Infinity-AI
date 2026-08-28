@@ -21,6 +21,7 @@ import { ReviewPanel, type ReviewRequest } from "@/components/ui-builder/ReviewP
 import { APIWizard } from "@/components/ui-builder/APIWizard";
 import { DatabasePanel } from "@/components/ui-builder/DatabasePanel";
 import { AuthPanel } from "@/components/ui-builder/AuthPanel";
+import { FrameworkSelector, type SupportedFrameworkId, FRAMEWORKS } from "@/components/ui-builder/FrameworkSelector";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -408,6 +409,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [debugMode, setDebugMode] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [selectedFramework, setSelectedFramework] = useState<SupportedFrameworkId>('nextjs');
 
   const handleThemeChange = useCallback((mode: 'light' | 'dark' | 'auto') => {
     setThemeMode(mode);
@@ -561,10 +563,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('settings.integrations')}</h3>
             <p className="text-sm text-muted-foreground">
-              Connect external APIs, databases, and authentication providers to your generated UI.
+              Connect external APIs, databases, authentication providers, and choose your target framework.
             </p>
             <Tabs defaultValue="api" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="api">
                   <span>API</span>
                 </TabsTrigger>
@@ -573,6 +575,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </TabsTrigger>
                 <TabsTrigger value="auth">
                   <span>Auth</span>
+                </TabsTrigger>
+                <TabsTrigger value="framework">
+                  <span>Framework</span>
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="api" className="mt-4">
@@ -583,6 +588,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </TabsContent>
               <TabsContent value="auth" className="mt-4">
                 <AuthPanel projectId={projectId || ''} />
+              </TabsContent>
+              <TabsContent value="framework" className="mt-4">
+                <FrameworkSelector
+                  value={selectedFramework}
+                  onChange={setSelectedFramework}
+                  variant="cards"
+                  showCategories={true}
+                />
               </TabsContent>
             </Tabs>
           </div>

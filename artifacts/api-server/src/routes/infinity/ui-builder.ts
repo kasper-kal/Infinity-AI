@@ -37,7 +37,7 @@ router.use(requireScope('build:write'));
 const GenerateRequestSchema = z.object({
   prompt: z.string().min(1).max(10000),
   projectId: z.string().optional(),
-  framework: z.enum(['nextjs', 'vite', 'astro', 'remix']).default('nextjs'),
+  framework: z.enum(['nextjs', 'vite-react', 'astro', 'remix', 'sveltekit', 'vue-nuxt', 'solidstart']).default('nextjs'),
   options: z.object({
     streaming: z.boolean().default(true),
     includeTypes: z.boolean().default(true),
@@ -71,7 +71,7 @@ const PreviewRequestSchema = z.object({
     code: z.string(),
     imports: z.array(z.string()).optional(),
   })),
-  framework: z.enum(['nextjs', 'vite', 'astro', 'remix']).default('nextjs'),
+  framework: z.enum(['nextjs', 'vite-react', 'astro', 'remix', 'sveltekit', 'vue-nuxt', 'solidstart']).default('nextjs'),
 });
 
 // ============================================================================
@@ -367,7 +367,7 @@ router.post('/iterate', async (req: Request, res: Response) => {
       prompt: z.string(),
       previousResult: UIGenerationResponseSchema.optional(),
       projectId: z.string().optional(),
-      framework: z.enum(['nextjs', 'vite', 'astro', 'remix']).default('nextjs'),
+      framework: z.enum(['nextjs', 'vite-react', 'astro', 'remix', 'sveltekit', 'vue-nuxt', 'solidstart']).default('nextjs'),
     }).parse(req.body);
 
     const engine = getUICodegenEngine();

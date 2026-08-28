@@ -1506,6 +1506,17 @@ const en = {
   "shortcuts.switchViews": "Switch views (Chat, Build, Terminal, Projects, Settings)",
   "shortcuts.closeDialogs": "Close dialogs/panels",
   "shortcuts.focusTerminal": "Focus terminal input (Terminal view)",
+
+  /* UI Builder - Framework Selector */
+  "uiBuilder.frameworkCategories.all": "All",
+  "uiBuilder.frameworkCategories.fullstack": "Full-Stack",
+  "uiBuilder.frameworkCategories.web": "Web App",
+  "uiBuilder.frameworkCategories.static": "Static Site",
+  "uiBuilder.frameworkCategories.mobile": "Mobile",
+  "uiBuilder.frameworkCategories.label": "Framework categories",
+  "uiBuilder.frameworkRecommended": "Recommended",
+  "uiBuilder.currentFramework": "Current Framework:",
+  "uiBuilder.frameworkWillApply": "Will apply to generated components and project scaffold",
 } as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -2737,6 +2748,17 @@ const nl: Record<keyof typeof en, string> = {
   "shortcuts.switchViews": "Wissel weergaven (Chat, Build, Terminal, Projecten, Instellingen)",
   "shortcuts.closeDialogs": "Dialogen/panelen sluiten",
   "shortcuts.focusTerminal": "Focus terminal invoer (Terminal-weergave)",
+
+  /* UI Builder - Framework Selector */
+  "uiBuilder.frameworkCategories.all": "Alles",
+  "uiBuilder.frameworkCategories.fullstack": "Full-Stack",
+  "uiBuilder.frameworkCategories.web": "Web App",
+  "uiBuilder.frameworkCategories.static": "Statische Site",
+  "uiBuilder.frameworkCategories.mobile": "Mobiel",
+  "uiBuilder.frameworkCategories.label": "Framework categorieën",
+  "uiBuilder.frameworkRecommended": "Aanbevolen",
+  "uiBuilder.currentFramework": "Huidig Framework:",
+  "uiBuilder.frameworkWillApply": "Wordt toegepast op gegenereerde componenten en project scaffold",
 
   /* Build Studio - Phase 2.1 Diff Preview (NL) */
   "studio.build.progressFilesGenerated": "{n} voorgestelde bestand(en) gegenereerd voor beoordeling.",

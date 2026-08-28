@@ -4,9 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-28 10:45
+LAST_UPDATED: 2026-08-28 10:55
 
 ## Just did (last action)
+- **Phase 20: Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) — COMPLETE (100%)** ✅
+  - **Framework Adapters**: 7 complete framework adapters (Next.js, Vite+React, Astro, Remix, SvelteKit, Nuxt/Vue, SolidStart) with scaffold generation, component transpilation, routing, styling, deployment config
+  - **Component IR System**: Universal ComponentIR schema, builder, parser, and transpiler supporting 7 target frameworks
+  - **Design Token Pipeline**: Complete token system with 7 output formats (CSS vars, Tailwind, UnoCSS, native, JSON, SCSS, JS modules)
+  - **Migration Tools**: AST-based migration engine for framework-to-framework conversion
+  - **Cross-Framework Components**: shadcn/ui equivalents for Solid, Svelte, Vue with shared design tokens
+  - **Frontend FrameworkSelector**: Complete UI component for framework selection with categories, features, recommendations
+  - **API Routes**: 8 endpoints for framework listing, scaffold generation, component transpilation, parsing, design tokens, detection, migration
+  - Both builds passing successfully ✅
 - **Phase 19: External API & Database Integration (v0 Extensibility) — COMPLETE (100%)** ✅
   - **Frontend UI COMPLETE (100%)**: Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth)
   - **Backend API Routes COMPLETE**: Created consolidated route file `artifacts/api-server/src/routes/infinity/api-integration.ts` with all endpoints for API, Database, and Auth integration panels
@@ -100,10 +109,10 @@ LAST_UPDATED: 2026-08-28 10:45
   - **Import Path Fixes**: Fixed case sensitivity for Select/Input → select, Separator → separator, Badge → badge, Sheet → sheet.
   - **Both builds passing cleanly** ✅ — API server (esbuild) and frontend (vite) builds complete without errors.
 - **Next Actions (ready for next session):**
-  - Phase 20: Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) — PLANNED
   - Phase 21: AI-Powered Design Iteration (Variations, A/B, Analytics) — PLANNED
   - Phase 22: Component Marketplace & Template Library (v0 Community) — PLANNED
   - Phase 23: v0-Level Polish (Performance, Accessibility, DX) — PLANNED
+  - Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — PLANNED
 
 - **Build Status:**
   - API Server: **BUILD PASSES** ✅ (esbuild - produces dist/index.mjs ~14MB)
@@ -352,9 +361,9 @@ LAST_UPDATED: 2026-08-28 10:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 19 — External API & Database Integration (v0 Extensibility)** 🔄 **IN PROGRESS** — Frontend UI complete (APIWizard, DatabasePanel, AuthPanel wired into SettingsView with "Integrations" tab and three sub-tabs), i18n keys added. Build passing. Backend API routes pending.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**
-- **Next Phases:** **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Current Phase:** **Phase 20 — Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) ✅ COMPLETE** — All infrastructure, API routes, and frontend FrameworkSelector component complete. Both builds passing.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**
+- **Next Phases:** **Phase 21 (AI-Powered Design Iteration)**, **Phase 22 (Component Marketplace & Template Library)**, **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -396,6 +405,15 @@ LAST_UPDATED: 2026-08-28 10:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-28 **Phase 20: Multi-Framework Support — COMPLETE (100%)** ✅ — Full multi-framework infrastructure complete:
+  - 7 framework adapters (Next.js, Vite+React, Astro, Remix, SvelteKit, Nuxt/Vue, SolidStart) with scaffold generation, component transpilation, routing, styling, deployment config
+  - Component IR system (schema, builder, parser, transpiler for 7 target frameworks)
+  - Design Token Pipeline with 7 output formats (CSS vars, Tailwind, UnoCSS, native, JSON, SCSS, JS modules)
+  - Migration tools (AST-based framework-to-framework conversion engine)
+  - Cross-framework component library (shadcn-svelte, shadcn-vue, shadcn-solid with shared design tokens)
+  - Frontend FrameworkSelector component with categories, features, recommendations, compact mode
+  - API routes: 8 endpoints for framework listing, scaffold, transpile, parse, design-tokens, detect, migrate
+  - Both builds passing successfully ✅
 - 2026-08-28 **Phase 19: External API & Database Integration — Frontend UI COMPLETE + API Server DB Imports Fixed** — Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth):
   - Added i18n translation keys for English and Dutch (settings.section.integrations, settings.integrations, settings.integrationsDesc)
   - SettingsView: Added Tabs compound components import, added 'integrations' to SettingsSection type and SECTION_CONFIG, added renderSectionContent case with three TabsContent panels

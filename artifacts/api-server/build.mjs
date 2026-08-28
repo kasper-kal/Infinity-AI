@@ -100,6 +100,11 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "solid-js",
+      "solid-js/*",
+      "tailwind-variants",
+      "*.svelte",
+      "*.vue",
     ],
     sourcemap: "linked",
     plugins: [
