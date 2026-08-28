@@ -373,6 +373,13 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
             clearTimeout(hoverTimeoutRef.current!);
             hoverTimeoutRef.current = setTimeout(() => {
               setHoveredElement(payload);
+              // Send cursor position to backend for presence
+              if (presenceEnabled && payload.bounds) {
+                sendCursorUpdate(payload.bounds.x + payload.bounds.width / 2, payload.bounds.y + payload.bounds.height / 2, payload.selector, {
+                  tagName: payload.tagName,
+                  className: payload.className,
+                });
+              }
             }, 50);
           }
           break;
@@ -394,6 +401,12 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
               type: 'highlight-element',
               payload: { selector: payload.selector, action: 'select' },
             }, '*');
+            // Send selection to backend for presence
+            sendSelectionUpdate(payload.selector, {
+              tagName: payload.tagName,
+              className: payload.className,
+              bounds: payload.bounds,
+            });
           }
           break;
 
@@ -562,26 +575,59 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   }, [presenceEnabled, shareToken, currentUser]);
 
   // Phase 18: Send cursor position to backend (throttled)
-  const sendCursorUpdate = useCallback((x: number, y: number, selector?: string, elementData?: { tagName: string; className?: string }) => {
-    if (!presenceEnabled || !shareToken || !currentUser || !onCursorUpdate) return;
+  const sendCursorUpdate = useCallback(async (x: number, y: number, selector?: string, elementData?: { tagName: string; className?: string }) => {
+    if (!presenceEnabled || !shareToken || !currentUser) return;
 
     const key = currentUser.email;
     const existingTimeout = cursorThrottleRef.current.get(key);
     if (existingTimeout) clearTimeout(existingTimeout);
 
-    const timeout = setTimeout(() => {
-      onCursorUpdate(x, y, selector, elementData);
+    const timeout = setTimeout(async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        await fetch(`${baseUrl}/api/infinity/ui-collab/shares/${shareToken}/presence/cursor`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userEmail: currentUser.email,
+            userName: currentUser.name,
+            userAvatar: currentUser.avatar,
+            x,
+            y,
+            selector,
+            elementData,
+          }),
+        });
+      } catch (error) {
+        console.warn('Failed to send cursor update:', error);
+      }
       cursorThrottleRef.current.delete(key);
     }, 50); // 50ms throttle
 
     cursorThrottleRef.current.set(key, timeout);
-  }, [presenceEnabled, shareToken, currentUser, onCursorUpdate]);
+  }, [presenceEnabled, shareToken, currentUser]);
 
   // Phase 18: Send selection update to backend
-  const sendSelectionUpdate = useCallback((selector: string, elementData?: { tagName: string; className?: string; bounds?: DOMRect }) => {
-    if (!presenceEnabled || !shareToken || !currentUser || !onSelectionUpdate) return;
-    onSelectionUpdate(selector, elementData);
-  }, [presenceEnabled, shareToken, currentUser, onSelectionUpdate]);
+  const sendSelectionUpdate = useCallback(async (selector: string, elementData?: { tagName: string; className?: string; bounds?: DOMRect }) => {
+    if (!presenceEnabled || !shareToken || !currentUser) return;
+
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      await fetch(`${baseUrl}/api/infinity/ui-collab/shares/${shareToken}/presence/selection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: currentUser.email,
+          userName: currentUser.name,
+          userAvatar: currentUser.avatar,
+          selector,
+          elementData,
+        }),
+      });
+    } catch (error) {
+      console.warn('Failed to send selection update:', error);
+    }
+  }, [presenceEnabled, shareToken, currentUser]);
 
   // Handle mouse move in iframe for cursor tracking
   useEffect(() => {

@@ -4,9 +4,26 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-27 16:50
+LAST_UPDATED: 2026-08-28 10:30
 
 ## Just did (last action)
+- **Phase 18: v0-Style Collaborative Workflows (Team, Comments, Reviews) — COMPLETE (100%)** ✅
+  - **SSE endpoints implemented** for real-time comment updates and presence cursors:
+    - `GET /shares/:shareToken/comments/stream` — SSE stream for comment events (created, updated, deleted, resolved, reactions)
+    - `GET /shares/:shareToken/presence/stream` — SSE stream for presence events (join, leave, cursor, selection)
+    - `POST /shares/:shareToken/presence/cursor` — Update cursor position (throttled 50ms)
+    - `POST /shares/:shareToken/presence/selection` — Update element selection
+  - **LivePreview.tsx extended** with presence cursor support:
+    - `PresenceUser` interface with cursor/selection state and unique color per user
+    - `EventSource` connections for both comment and presence SSE streams
+    - `sendCursorUpdate()` and `sendSelectionUpdate()` callbacks with fetch to backend
+    - `PresenceCursors` component rendering remote user cursors/selections with names and colors
+    - Integration with VisualInspector element-hover and element-selected events
+  - **ui-collab.ts routes extended** with SSE client storage (commentSSEClients, presenceSSEClients Maps) and broadcast functions
+  - **preview-sharing.ts** added `getShareById()` method for SSE endpoint share lookup
+  - **ui-comments.ts** added `getCommentById()` method for delete route to get shareId
+  - **All comment mutation routes broadcast SSE events**: POST (create), PATCH (update), DELETE, reactions (add/remove), resolve
+  - Core collaborative workflow infrastructure complete: preview sharing, element-level comments, review workflows, real-time SSE updates, presence cursors
 - **Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — CORE COMPLETE (~100%), INTEGRATION COMPLETE (~95%)** ✅
   - All 4 core components fully implemented + LivePreview extension + barrel export
   - ChatView UI Builder mode: Three-pane layout fully wired (Chat | Registry+Preview+Inspector | Deploy)
@@ -314,9 +331,9 @@ LAST_UPDATED: 2026-08-27 16:50
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 18 — v0-Style Collaborative Workflows (Team, Comments, Reviews)** 🔄 **IN PROGRESS (~85%)**
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**
-- **Next Phases:** **Phase 18 (Collaborative Workflows - SSE endpoints remaining)**, **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
+- **Current Phase:** **Phase 19 — External API & Database Integration (v0 Extensibility)** 🔄 **PLANNED**
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**
+- **Next Phases:** **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -358,6 +375,23 @@ LAST_UPDATED: 2026-08-27 16:50
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-28 **Phase 18: v0-Style Collaborative Workflows — 100% COMPLETE ✅** — All core collaborative workflow infrastructure done:
+  - **SSE endpoints implemented** for real-time comment updates and presence cursors:
+    - `GET /shares/:shareToken/comments/stream` — SSE stream for comment events (created, updated, deleted, resolved, reactions)
+    - `GET /shares/:shareToken/presence/stream` — SSE stream for presence events (join, leave, cursor, selection)
+    - `POST /shares/:shareToken/presence/cursor` — Update cursor position (throttled 50ms)
+    - `POST /shares/:shareToken/presence/selection` — Update element selection
+  - **LivePreview.tsx extended** with presence cursor support:
+    - `PresenceUser` interface with cursor/selection state and unique color per user
+    - `EventSource` connections for both comment and presence SSE streams
+    - `sendCursorUpdate()` and `sendSelectionUpdate()` callbacks with fetch to backend
+    - `PresenceCursors` component rendering remote user cursors/selections with names and colors
+    - Integration with VisualInspector element-hover and element-selected events
+  - **ui-collab.ts routes extended** with SSE client storage (commentSSEClients, presenceSSEClients Maps) and broadcast functions
+  - **preview-sharing.ts** added `getShareById()` method for SSE endpoint share lookup
+  - **ui-comments.ts** added `getCommentById()` method for delete route to get shareId
+  - **All comment mutation routes broadcast SSE events**: POST (create), PATCH (update), DELETE, reactions (add/remove), resolve
+  - **PHASES.md updated** to mark Phase 18 as 100% COMPLETE
 - 2026-08-27 **Phase 18: Collaborative Workflows — ~85% COMPLETE** — Core infrastructure fully implemented and integrated:
   - **Backend**: `preview-sharing.ts` (PreviewSharingService - share links with public/private/password access, analytics), `ui-comments.ts` (UICommentsEngine - threading, reactions, mentions, resolution), `ui-collab.ts` routes (shares + comments CRUD, public preview access), Drizzle schema for preview_shares, preview_share_access, preview_comments, preview_comment_mentions tables
   - **Frontend**: `CommentOverlay.tsx` (element-level markers/threads in LivePreview), `CommentSidebar.tsx` (thread sidebar in ChatView), `ReviewPanel.tsx` (visual/code diff, approve/request changes in SettingsView)

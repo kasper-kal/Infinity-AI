@@ -736,7 +736,7 @@ router.get('/comments/search', async (req: Request, res: Response) => {
 // ============================================================================
 
 /**
- * GET /api/infinity/ui-collab/shares/:shareId/comments/stream
+ * GET /api/infinity/ui-collab/shares/:shareToken/comments/stream
  * SSE stream for real-time comment updates
  *
  * Events:
@@ -747,25 +747,27 @@ router.get('/comments/search', async (req: Request, res: Response) => {
  * - comment:reaction - reaction added/removed
  * - ping - heartbeat
  */
-router.get('/shares/:shareId/comments/stream', async (req: Request, res: Response) => {
+router.get('/shares/:shareToken/comments/stream', async (req: Request, res: Response) => {
   try {
-    const { shareId } = req.params;
+    const { shareToken } = req.params;
     const authReq = req as AuthenticatedRequest;
     const userEmail = authReq.account?.email || req.query.email as string || 'anonymous';
     const userName = authReq.account?.name || req.query.name as string || 'Anonymous';
     const userAvatar = authReq.account?.avatar || req.query.avatar as string | undefined;
 
     // Verify share exists and user has access
-    const share = await previewSharingService.getShareById(shareId);
+    const share = await previewSharingService.getShareByToken(shareToken);
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
     }
 
     // Check access
-    const accessResult = await previewSharingService.checkAccess(share.shareToken, { email: userEmail });
+    const accessResult = await previewSharingService.checkAccess(shareToken, { email: userEmail });
     if (!accessResult.allowed) {
       return res.status(403).json({ error: 'Access denied to this share' });
     }
+
+    const shareId = share.id;
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -775,7 +777,7 @@ router.get('/shares/:shareId/comments/stream', async (req: Request, res: Respons
     res.flushHeaders();
 
     // Send initial connection event
-    res.write(`event: connected\ndata: ${JSON.stringify({ shareId, timestamp: new Date().toISOString() })}\n\n`);
+    res.write(`event: connected\ndata: ${JSON.stringify({ shareId, shareToken, timestamp: new Date().toISOString() })}\n\n`);
 
     // Create client
     const client: SSEClient = {
@@ -814,7 +816,7 @@ router.get('/shares/:shareId/comments/stream', async (req: Request, res: Respons
 });
 
 /**
- * GET /api/infinity/ui-collab/shares/:shareId/presence/stream
+ * GET /api/infinity/ui-collab/shares/:shareToken/presence/stream
  * SSE stream for real-time presence cursors
  *
  * Events:
@@ -824,25 +826,27 @@ router.get('/shares/:shareId/comments/stream', async (req: Request, res: Respons
  * - presence:selection - element selection update
  * - ping - heartbeat
  */
-router.get('/shares/:shareId/presence/stream', async (req: Request, res: Response) => {
+router.get('/shares/:shareToken/presence/stream', async (req: Request, res: Response) => {
   try {
-    const { shareId } = req.params;
+    const { shareToken } = req.params;
     const authReq = req as AuthenticatedRequest;
     const userEmail = authReq.account?.email || req.query.email as string || 'anonymous';
     const userName = authReq.account?.name || req.query.name as string || 'Anonymous';
     const userAvatar = authReq.account?.avatar || req.query.avatar as string | undefined;
 
     // Verify share exists and user has access
-    const share = await previewSharingService.getShareById(shareId);
+    const share = await previewSharingService.getShareByToken(shareToken);
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
     }
 
     // Check access
-    const accessResult = await previewSharingService.checkAccess(share.shareToken, { email: userEmail });
+    const accessResult = await previewSharingService.checkAccess(shareToken, { email: userEmail });
     if (!accessResult.allowed) {
       return res.status(403).json({ error: 'Access denied to this share' });
     }
+
+    const shareId = share.id;
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -852,7 +856,7 @@ router.get('/shares/:shareId/presence/stream', async (req: Request, res: Respons
     res.flushHeaders();
 
     // Send initial connection event
-    res.write(`event: connected\ndata: ${JSON.stringify({ shareId, timestamp: new Date().toISOString() })}\n\n`);
+    res.write(`event: connected\ndata: ${JSON.stringify({ shareId, shareToken, timestamp: new Date().toISOString() })}\n\n`);
 
     // Create client
     const client: PresenceClient = {
@@ -910,7 +914,7 @@ router.get('/shares/:shareId/presence/stream', async (req: Request, res: Respons
 });
 
 /**
- * POST /api/infinity/ui-collab/shares/:shareId/presence/cursor
+ * POST /api/infinity/ui-collab/shares/:shareToken/presence/cursor
  * Update cursor position for presence
  */
 const CursorUpdateSchema = z.object({
@@ -926,16 +930,18 @@ const CursorUpdateSchema = z.object({
   }).optional(),
 });
 
-router.post('/shares/:shareId/presence/cursor', async (req: Request, res: Response) => {
+router.post('/shares/:shareToken/presence/cursor', async (req: Request, res: Response) => {
   try {
-    const { shareId } = req.params;
+    const { shareToken } = req.params;
     const validated = CursorUpdateSchema.parse(req.body);
 
     // Verify share exists
-    const share = await previewSharingService.getShareById(shareId);
+    const share = await previewSharingService.getShareByToken(shareToken);
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
     }
+
+    const shareId = share.id;
 
     // Broadcast cursor update to all other clients
     broadcastPresenceUpdate(shareId, 'presence:cursor', {
@@ -960,7 +966,7 @@ router.post('/shares/:shareId/presence/cursor', async (req: Request, res: Respon
 });
 
 /**
- * POST /api/infinity/ui-collab/shares/:shareId/presence/selection
+ * POST /api/infinity/ui-collab/shares/:shareToken/presence/selection
  * Update element selection for presence
  */
 const SelectionUpdateSchema = z.object({
@@ -980,16 +986,18 @@ const SelectionUpdateSchema = z.object({
   }).optional(),
 });
 
-router.post('/shares/:shareId/presence/selection', async (req: Request, res: Response) => {
+router.post('/shares/:shareToken/presence/selection', async (req: Request, res: Response) => {
   try {
-    const { shareId } = req.params;
+    const { shareToken } = req.params;
     const validated = SelectionUpdateSchema.parse(req.body);
 
     // Verify share exists
-    const share = await previewSharingService.getShareById(shareId);
+    const share = await previewSharingService.getShareByToken(shareToken);
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
     }
+
+    const shareId = share.id;
 
     // Broadcast selection update to all other clients
     broadcastPresenceUpdate(shareId, 'presence:selection', {

@@ -30,7 +30,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
 | **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **COMPLETE** |
-| **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | 🔄 IN PROGRESS (~85%) |
+| **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | ✅ **COMPLETE** |
 | **19** | **External API & Database Integration (v0 Extensibility)** | 🔲 PLANNED |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
 | **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | 🔲 PLANNED |
@@ -762,7 +762,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 - [x] **Shareable Preview Links** — Public/private links to live preview with commenting enabled
   - [x] No auth required for viewers (optional password)
   - [x] Comments anchored to specific elements (via data attributes)
-  - [ ] Real-time comment updates (SSE) — *pending*
+  - [x] Real-time comment updates (SSE) — **COMPLETE**
 - [x] **Element-Level Comments** — Click any element in preview → add comment → appears in chat + preview
   - [x] Threaded replies, reactions, resolve/unresolve
   - [x] @mentions notify team members
@@ -779,18 +779,17 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 2. **Comment Engine** — element anchoring, threading, real-time ✅ COMPLETE (`ui-comments.ts`)
 3. **Review Workflow** — Extend project settings with review rules, notifications ✅ COMPLETE (`ReviewPanel.tsx`)
 4. **Frontend Comment UI** — Overlay in LivePreview, comment sidebar in ChatView ✅ COMPLETE (`CommentOverlay.tsx`, `CommentSidebar.tsx`)
-5. **Real-time Sync** — SSE for comments, presence cursors ⏳ PENDING
+5. **Real-time Sync** — SSE for comments, presence cursors ✅ **COMPLETE**
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/preview-sharing.ts` ✅ COMPLETE
 - `artifacts/api-server/src/lib/ui-comments.ts` ✅ COMPLETE
-- `artifacts/api-server/src/routes/Infinity/ui-collab.ts` ✅ COMPLETE
+- `artifacts/api-server/src/routes/Infinity/ui-collab.ts` ✅ COMPLETE (SSE endpoints added)
 - `artifacts/Infinity/src/components/ui-builder/CommentOverlay.tsx` ✅ COMPLETE
 - `artifacts/Infinity/src/components/ui-builder/CommentSidebar.tsx` ✅ COMPLETE
 - `artifacts/Infinity/src/components/ui-builder/ReviewPanel.tsx` ✅ COMPLETE
 - `artifacts/Infinity/src/components/views/SettingsView.tsx` (collaboration tab) ✅ COMPLETE
-- `artifacts/api-server/src/routes/Infinity/ui-collab.ts` — Add SSE endpoints for real-time ⏳ PENDING
-- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` — Add presence cursors ⏳ PENDING
+- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` ✅ **EXTENDED** (presence cursors + SSE integration complete)
 
 ---
 
