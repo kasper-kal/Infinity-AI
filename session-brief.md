@@ -383,13 +383,14 @@ LAST_UPDATED: 2026-08-28 10:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
-- 2026-08-28 **Phase 19: External API & Database Integration — Frontend UI COMPLETE** — Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth):
+- 2026-08-28 **Phase 19: External API & Database Integration — Frontend UI COMPLETE + API Server DB Imports Fixed** — Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth):
   - Added i18n translation keys for English and Dutch (settings.section.integrations, settings.integrations, settings.integrationsDesc)
   - SettingsView: Added Tabs compound components import, added 'integrations' to SettingsSection type and SECTION_CONFIG, added renderSectionContent case with three TabsContent panels
   - Fixed AuthPanel.tsx JSX rendering issues (lines 358, 397, 595) - extracted icon component before rendering
   - Fixed case-sensitive imports across 8 ui-builder components (Avatar, Card, Badge, Button) - corrected to lowercase barrel exports
   - Fixed barrel export in ui/index.ts - added ScrollArea, Radix Select components (RadixSelect prefix), Checkbox, Label, Alert; removed duplicate Dialog/Sheet exports
   - Build now passes successfully ✅
+  - **API Server fix**: Changed relative db imports to use @workspace/db package exports in preview-sharing.ts, ui-comments.ts, db-integration.ts; added preview-shares.js and project-databases.js to lib/db package.json exports
 - 2026-08-28 **Phase 18: v0-Style Collaborative Workflows — 100% COMPLETE ✅** — All core collaborative workflow infrastructure done:
   - **SSE endpoints implemented** for real-time comment updates and presence cursors:
     - `GET /shares/:shareToken/comments/stream` — SSE stream for comment events (created, updated, deleted, resolved, reactions)
