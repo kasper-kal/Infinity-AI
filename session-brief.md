@@ -105,6 +105,11 @@ LAST_UPDATED: 2026-08-28 10:45
   - Phase 22: Component Marketplace & Template Library (v0 Community) — PLANNED
   - Phase 23: v0-Level Polish (Performance, Accessibility, DX) — PLANNED
 
+- **Build Status:**
+  - API Server: **BUILD PASSES** ✅ (esbuild - produces dist/index.mjs ~14MB)
+  - Frontend: **BUILD PASSES** ✅ (vite - all chunks under 500kb gzipped)
+  - Typecheck: Pre-existing TS errors in ast-editor.ts, adapter-factory.ts, api-integration.ts (babel/ast-types version conflicts) — not blocking builds
+
 - **Phase 15: Agent Skills & Custom Instructions Marketplace COMPLETE ✅** — Full skills system implemented:
   - **Skills API Routes** (`artifacts/api-server/src/routes/infinity/skills.ts` — 770 lines): Full CRUD for skill definitions, agent skill bindings (planner/coder/reviewer/fixer/diagnostic), skill application to prompts, custom instructions per project, marketplace endpoints (search, install, publish), templates from built-ins, analytics endpoints
   - **Skills Backend** (`artifacts/api-server/src/lib/build-skills.ts` — 800+ lines): SkillDefinition schema with instructions, toolPreferences, verificationRules, conventions, environment, roleBindings, extends; SkillRegistry (discovery by category/tag/role, project-scoped filtering, stats); SkillLoader (JSON/YAML loading, inheritance resolution with circular detection, merge logic); AgentSkillBinding (per-project/role assignments with priority); SkillMarketplace (local-first package management, $0 budget, install/publish/search)
