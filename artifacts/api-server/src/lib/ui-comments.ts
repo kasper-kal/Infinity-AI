@@ -5,12 +5,7 @@
  * mentions, and resolution workflow.
  */
 
-import { db } from '../db/index.js';
-import {
-  previewComments,
-  previewCommentMentions,
-  previewShares,
-} from '../db/schema/preview-shares.js';
+import { db, previewComments, previewCommentMentions, previewShares } from '@workspace/db';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

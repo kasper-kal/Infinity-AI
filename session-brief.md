@@ -4,9 +4,17 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-28 10:30
+LAST_UPDATED: 2026-08-28 10:45
 
 ## Just did (last action)
+- **Phase 19: External API & Database Integration (v0 Extensibility) — Frontend UI COMPLETE (100%)** ✅
+  - Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth)
+  - Added i18n translation keys for English and Dutch (settings.section.integrations, settings.integrations, settings.integrationsDesc)
+  - SettingsView: Added Tabs compound components import, added 'integrations' to SettingsSection type and SECTION_CONFIG, added renderSectionContent case with three TabsContent panels
+  - Fixed AuthPanel.tsx JSX rendering issues (lines 358, 397, 595) - extracted icon component before rendering
+  - Fixed case-sensitive imports across 8 ui-builder components (Avatar, Card, Badge, Button) - corrected to lowercase barrel exports
+  - Fixed barrel export in ui/index.ts - added ScrollArea, Radix Select components (RadixSelect prefix), Checkbox, Label, Alert; removed duplicate Dialog/Sheet exports
+  - Build now passes successfully ✅
 - **Phase 18: v0-Style Collaborative Workflows (Team, Comments, Reviews) — COMPLETE (100%)** ✅
   - **SSE endpoints implemented** for real-time comment updates and presence cursors:
     - `GET /shares/:shareToken/comments/stream` — SSE stream for comment events (created, updated, deleted, resolved, reactions)
@@ -826,15 +834,20 @@ LAST_UPDATED: 2026-08-28 10:30
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 17: Visual Component Editor** — **PLANNED**: Visual element inspector (hover/click in preview → highlight JSX), prop editor panel (color picker, spacing slider, variant selectors), structure manipulation (drag-drop, wrap/unwrap), bidirectional sync (AST-based), design system enforcement, component extraction. Includes: component composition suggestions (autocomplete in chat), real deploy integrations (replace mock with Vercel/Netlify/Cloudflare Pages APIs), true streaming token-by-token in /generate endpoint using LLM adapter streaming.
-2. **Phase 18: v0-Style Collaborative Workflows** — **PLANNED**: Shareable preview links with commenting, element-level comments anchored to components, review workflow (request review → approve/request changes), role-based access, activity feed.
-3. **Phase 19: External API & Database Integration** — **PLANNED**: API integration wizard (OpenAPI/GraphQL/tRPC → typed hooks), database integration (Supabase/Firebase/Neon → typed client + CRUD components), auth integration (Clerk/Auth.js/Supabase), serverless function generation, environment management.
-4. **Phase 20: Multi-Framework Support** — **PLANNED**: Framework adapters (Next.js, Astro, Remix, Vite, Svelte, Vue, Solid), scaffold generators, component transpiler (IR → framework-specific), design token pipeline, migration assistant, monorepo support.
-5. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings (accent, avatar, density, notifications, editor), Secrets Manager, Live Dynamic Island (10 task categories), AI-Managed Roadmap (11 tools, node ops, deps, structural, status, versioned persistence).
-6. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools (create/update/get/list/connect/split/merge/reorder/delete/bulk/status/version), visual graph + activity feed, BuildView integration.
-7. **Phase 34: Context Auto-Compact & Limit Recognition** — **PLANNED**: Token budget tracking, 4-level auto-compaction, preservation rules, visibility/control via Debug panel, integration points.
-8. **Phases 21–23: v0 Competitive Parity Roadmap** — **PLANNED**: AI Design Iteration (21), Component Marketplace (22), v0-Level Polish (23).
-9. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31).
+1. **Phase 19: External API & Database Integration (Backend)** — **IN PROGRESS**: Implement API routes for managing integrations:
+   - `/api/infinity/api-integration/*` — API schema parsing (OpenAPI/GraphQL/tRPC), hook generation
+   - `/api/infinity/db-integration/*` — Database introspection (Supabase/Firebase/Neon/PlanetScale/Turso/SQLite), typed client generation
+   - `/api/infinity/auth-integration/*` — Auth adapters (Clerk, Auth.js, Supabase Auth, Firebase Auth, custom JWT), guard/component generation
+   - `/api/infinity/function-generator/*` — Serverless function generation (Next.js API routes, Edge Functions, Cloudflare Workers) with Zod validation
+   - Environment Manager — Per-project env vars, secrets, preview/production environments UI in Settings
+2. **Phase 20: Multi-Framework Support** — **PLANNED**: Framework adapters (Next.js, Astro, Remix, Vite, Svelte, Vue, Solid), scaffold generators, component transpiler (IR → framework-specific), design token pipeline, migration assistant, monorepo support.
+3. **Phase 21: AI-Powered Design Iteration** — **PLANNED**: Auto-variation generation, A/B preview mode, design analytics, smart suggestions from analytics.
+4. **Phase 22: Component Marketplace & Template Library** — **PLANNED**: Component package format, local-first registry (GitHub-based), template library, marketplace UI.
+5. **Phase 23: v0-Level Polish** — **PLANNED**: Preview performance (<500ms cold start), accessibility by default (axe-core), error experience, keyboard-first DX, offline-first (Service Worker).
+6. **Phases 24–31: Cursor Competitive Parity Roadmap** — **PLANNED**: Cursor Code Intelligence (24), Codebase Indexing @codebase (25), Rules/Notepads/Customization (26), Shadow Workspaces + Agent Review (27), Design Mode + Visual Editing (28), IDE Integrations + CLI (29), Advanced Agent Capabilities (30), Cursor-Level Performance & Polish (31).
+7. **Phase 32: Infinity Self-Management & Live Task Intelligence** — **PLANNED**: Self-Settings, Secrets Manager, Live Dynamic Island, AI-Managed Roadmap.
+8. **Phase 33: AI-Managed Roadmap (Build Map Intelligence)** — **PLANNED**: Dedicated agent tools, visual graph + activity feed, BuildView integration.
+9. **Phase 34: Context Auto-Compact & Limit Recognition** — **PLANNED**: Token budget tracking, 4-level auto-compaction, preservation rules, Debug panel integration.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

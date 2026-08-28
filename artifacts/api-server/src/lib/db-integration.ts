@@ -12,9 +12,9 @@
 
 import { z } from 'zod';
 import { createHash, randomBytes } from 'crypto';
-import { db } from '../db/index.js';
+import { db } from '@workspace/db';
 import { eq, and } from 'drizzle-orm';
-import { projectDatabases } from '../db/schema/project-databases.js';
+import { projectDatabases } from '@workspace/db/schema/project-databases.js';
 
 // ============================================================================
 // Database Connection Types

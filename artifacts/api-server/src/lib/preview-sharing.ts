@@ -6,8 +6,7 @@
  */
 
 import { randomBytes, createHash } from 'crypto';
-import { db } from '../db/index.js';
-import { previewShares, previewShareAccess } from '../db/schema/preview-shares.js';
+import { db, previewShares, previewShareAccess } from '@workspace/db';
 import { eq, and, gt, lt, desc, sql } from 'drizzle-orm';
 
 export interface PreviewShareConfig {
