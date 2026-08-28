@@ -7,11 +7,11 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Search, Filter, X, MessageSquare, ChevronRight, ChevronDown, ThumbsUp, Flag, AtSign, MoreHorizontal, Bell, BellOff, Loader2 } from 'lucide-react';
-import { Button, IconButton } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Avatar } from '@/components/ui/Avatar';
-import { Tooltip } from '@/components/ui/Tooltip';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button, IconButton } from '@/components/ui';
+import { Input } from '@/components/ui';
+import { Avatar } from '@/components/ui';
+import { Tooltip } from '@/components/ui';
+import { ScrollArea } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface CommentElementData {

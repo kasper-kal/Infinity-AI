@@ -7,6 +7,7 @@ export * from "./project-tasks";
 export * from "./project-activity";
 export * from "./project-research";
 export * from "./project-agent";
+export * from "./project-databases";
 export * from "./gmail";
 export * from "./spotify";
 export * from "./research";

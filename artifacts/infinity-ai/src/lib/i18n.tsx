@@ -187,6 +187,9 @@ const en = {
   "settings.helpCenter": "Help Center",
   "settings.about": "About",
   "settings.signOut": "Sign Out",
+  "settings.section.integrations": "Integrations",
+  "settings.integrations": "Integrations",
+  "settings.integrationsDesc": "Connect external APIs, databases, and authentication providers to your generated UI",
 
   /* Settings, ChatGPT-style extras */
   "settings.accentColor": "Accent Color",
@@ -1981,6 +1984,9 @@ const nl: Record<keyof typeof en, string> = {
   "settings.helpCenter": "Helpcentrum",
   "settings.about": "Over",
   "settings.signOut": "Afmelden",
+  "settings.section.integrations": "Integraties",
+  "settings.integrations": "Integraties",
+  "settings.integrationsDesc": "Koppel externe API's, databases en authenticatieproviders aan je gegenereerde UI",
 
   /* Settings, ChatGPT-style extras */
   "settings.accentColor": "Accentkleur",

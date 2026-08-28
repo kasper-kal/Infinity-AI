@@ -7,8 +7,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui';
+import { Input } from '@/components/ui';
 import { Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { Search, Plus, Copy, Check, Palette, Box, FileCode } from 'lucide-react';
 

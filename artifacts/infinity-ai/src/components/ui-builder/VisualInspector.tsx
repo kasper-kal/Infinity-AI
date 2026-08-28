@@ -8,8 +8,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui';
+import { Input } from '@/components/ui';
 import { Badge, Separator } from '@/components/ui';
 import {
   MousePointer,

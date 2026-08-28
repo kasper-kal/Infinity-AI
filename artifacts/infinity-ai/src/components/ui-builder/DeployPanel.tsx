@@ -7,8 +7,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui';
+import { Input } from '@/components/ui';
 import { Badge, Tabs, TabsList, TabsTrigger, TabsContent, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Sheet, SheetContent, SheetHeader, SheetTitle, Select, Separator } from '@/components/ui';
 import { Loader2, Rocket, ExternalLink, Copy, Check, Globe, GitBranch, Settings, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 

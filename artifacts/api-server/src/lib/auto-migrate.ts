@@ -498,6 +498,26 @@ const CREATE_TABLES = [
   )`,
   `CREATE INDEX IF NOT EXISTS "preview_comment_mentions_comment_idx" ON "preview_comment_mentions" ("comment_id")`,
   `CREATE INDEX IF NOT EXISTS "preview_comment_mentions_email_idx" ON "preview_comment_mentions" ("mentioned_email")`,
+
+  // ── Phase 19: External Database Connections ───────────────────────
+  `CREATE TABLE IF NOT EXISTS "project_databases" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "name" text NOT NULL,
+    "provider" text NOT NULL CHECK ("provider" IN ('supabase', 'firebase', 'neon', 'planetscale', 'turso', 'sqlite', 'postgres', 'mysql')),
+    "connection_string" text NOT NULL,
+    "host" text,
+    "port" text,
+    "database" text,
+    "username" text,
+    "password" text,
+    "ssl" boolean NOT NULL DEFAULT true,
+    "options" jsonb DEFAULT '{}',
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "project_databases_project_idx" ON "project_databases" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "project_databases_provider_idx" ON "project_databases" ("provider")`,
 ];
 
 /**

@@ -18,6 +18,30 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 export { Input, Textarea, Select } from "./Input";
 export type { InputProps, TextareaProps, SelectProps } from "./Input";
 
+// Select (Radix UI Select components) - exported with RadixSelect prefix to avoid conflict
+export {
+  Select as RadixSelect,
+  SelectGroup as RadixSelectGroup,
+  SelectValue as RadixSelectValue,
+  SelectTrigger as RadixSelectTrigger,
+  SelectContent as RadixSelectContent,
+  SelectLabel as RadixSelectLabel,
+  SelectItem as RadixSelectItem,
+  SelectSeparator as RadixSelectSeparator,
+  SelectScrollUpButton as RadixSelectScrollUpButton,
+  SelectScrollDownButton as RadixSelectScrollDownButton,
+} from "./select";
+export type {
+  SelectProps as RadixSelectProps,
+  SelectGroupProps as RadixSelectGroupProps,
+  SelectValueProps as RadixSelectValueProps,
+  SelectTriggerProps as RadixSelectTriggerProps,
+  SelectContentProps as RadixSelectContentProps,
+  SelectLabelProps as RadixSelectLabelProps,
+  SelectItemProps as RadixSelectItemProps,
+  SelectSeparatorProps as RadixSelectSeparatorProps,
+} from "./select";
+
 // Dialog
 export { Dialog, AlertDialog, Drawer } from "./Dialog";
 export type { DialogProps, AlertDialogProps, DrawerProps } from "./Dialog";
@@ -46,6 +70,10 @@ export type { TabsProps, SegmentedControlProps, TabsListProps, TabsTriggerProps,
 export { Separator } from "./separator";
 export type { SeparatorProps } from "./separator";
 
+// ScrollArea
+export { ScrollArea } from "./scroll-area";
+export type { ScrollAreaProps } from "./scroll-area";
+
 // Code Editor
 export { CodeEditor, DiffEditor, InlineEditor } from "./CodeEditor";
 export type { CodeEditorProps, DiffEditorProps, InlineEditorProps } from "./CodeEditor";
@@ -65,6 +93,18 @@ export type { MarkdownRendererProps, MarkdownEditorProps } from "./MarkdownRende
 // Badge
 export { Badge } from "./badge";
 export type { BadgeProps } from "./badge";
+
+// Checkbox
+export { Checkbox } from "./checkbox";
+export type { CheckboxProps } from "./checkbox";
+
+// Label
+export { Label } from "./label";
+export type { LabelProps } from "./label";
+
+// Alert
+export { Alert, AlertTitle, AlertDescription } from "./alert";
+export type { AlertProps, AlertTitleProps, AlertDescriptionProps } from "./alert";
 
 // Mobile Components (re-export for convenience)
 export {

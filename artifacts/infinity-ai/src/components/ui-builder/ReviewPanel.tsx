@@ -7,12 +7,12 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { GitCompare, Check, X, Eye, Code2, ArrowLeft, ArrowRight, MessageSquare, Loader2, ShieldCheck, AlertTriangle, Clock } from 'lucide-react';
-import { Button, IconButton } from '@/components/ui/Button';
-import { Input, Textarea } from '@/components/ui/Input';
-import { Avatar } from '@/components/ui/Avatar';
-import { Tooltip } from '@/components/ui/Tooltip';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/Badge';
+import { Button, IconButton } from '@/components/ui';
+import { Input, Textarea } from '@/components/ui';
+import { Avatar } from '@/components/ui';
+import { Tooltip } from '@/components/ui';
+import { ScrollArea } from '@/components/ui';
+import { Badge } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface ReviewRequest {

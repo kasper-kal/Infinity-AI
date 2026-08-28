@@ -8,9 +8,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui';
+import { Input } from '@/components/ui';
+import { RadixSelect, RadixSelectItem, RadixSelectContent, RadixSelectTrigger, RadixSelectValue } from '@/components/ui';
 import { Slider } from '@/components/ui/slider';
 import { Badge, Tabs, TabsList, TabsTrigger, TabsContent, Separator } from '@/components/ui';
 import {
@@ -520,16 +520,16 @@ const PropControl: React.FC<{
         )}
 
         {prop.type === 'enum' && (
-          <Select value={prop.value} onValueChange={v => handleValueChange(v)}>
-            <SelectTrigger className="h-7 text-xs">
-              <SelectValue placeholder={prop.value || 'Select...'} />
-            </SelectTrigger>
-            <SelectContent>
+          <RadixSelect value={prop.value} onValueChange={v => handleValueChange(v)}>
+            <RadixSelectTrigger className="h-7 text-xs">
+              <RadixSelectValue placeholder={prop.value || 'Select...'} />
+            </RadixSelectTrigger>
+            <RadixSelectContent>
               {(prop.options || []).map(opt => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                <RadixSelectItem key={opt} value={opt}>{opt}</RadixSelectItem>
               ))}
-            </SelectContent>
-          </Select>
+            </RadixSelectContent>
+          </RadixSelect>
         )}
 
         {prop.type === 'color' && (
@@ -699,19 +699,19 @@ const StyleEditor: React.FC<{
       {/* Font Size */}
       <div>
         <label className="text-xs font-medium text-muted-foreground mb-1 block">Font Size</label>
-        <Select value={fontSize} onValueChange={v => {
+        <RadixSelect value={fontSize} onValueChange={v => {
           setFontSize(v);
           onPropChange({ name: `class:text-${fontSize}`, value: `text-${fontSize}`, type: 'string' }, `text-${v}`);
         }}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
+          <RadixSelectTrigger>
+            <RadixSelectValue />
+          </RadixSelectTrigger>
+          <RadixSelectContent>
             {FONT_SIZES.map(size => (
-              <SelectItem key={size} value={size}>{size}</SelectItem>
+              <RadixSelectItem key={size} value={size}>{size}</RadixSelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </RadixSelectContent>
+        </RadixSelect>
       </div>
 
       {/* Border Radius */}
@@ -822,23 +822,23 @@ const StructureEditor: React.FC<{
 
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Wrap with</label>
-          <Select onValueChange={wrapper => onStructureChange(selectedElement.selector, 'wrap', { wrapper })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select wrapper" />
-            </SelectTrigger>
-            <SelectContent>
+          <RadixSelect onValueChange={wrapper => onStructureChange(selectedElement.selector, 'wrap', { wrapper })}>
+            <RadixSelectTrigger>
+              <RadixSelectValue placeholder="Select wrapper" />
+            </RadixSelectTrigger>
+            <RadixSelectContent>
               {availableComponents.map(comp => (
-                <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                <RadixSelectItem key={comp} value={comp}>{comp}</RadixSelectItem>
               ))}
-              <SelectItem value="div">div</SelectItem>
-              <SelectItem value="section">section</SelectItem>
-              <SelectItem value="article">article</SelectItem>
-              <SelectItem value="main">main</SelectItem>
-              <SelectItem value="aside">aside</SelectItem>
-              <SelectItem value="header">header</SelectItem>
-              <SelectItem value="footer">footer</SelectItem>
-            </SelectContent>
-          </Select>
+              <RadixSelectItem value="div">div</RadixSelectItem>
+              <RadixSelectItem value="section">section</RadixSelectItem>
+              <RadixSelectItem value="article">article</RadixSelectItem>
+              <RadixSelectItem value="main">main</RadixSelectItem>
+              <RadixSelectItem value="aside">aside</RadixSelectItem>
+              <RadixSelectItem value="header">header</RadixSelectItem>
+              <RadixSelectItem value="footer">footer</RadixSelectItem>
+            </RadixSelectContent>
+          </RadixSelect>
         </div>
 
         <Button

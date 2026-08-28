@@ -31,7 +31,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
 | **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **COMPLETE** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | ✅ **COMPLETE** |
-| **19** | **External API & Database Integration (v0 Extensibility)** | 🔲 PLANNED |
+| **19** | **External API & Database Integration (v0 Extensibility)** | 🔄 IN PROGRESS (Frontend UI complete, backend API routes pending) |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
 | **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | 🔲 PLANNED |
 | **22** | **Component Marketplace & Template Library (v0 Community)** | 🔲 PLANNED |
@@ -771,8 +771,8 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
   - [x] Visual diff: before/after preview side-by-side
   - [x] Code diff: generated changes highlighted
   - [x] Approve merges to project; request changes creates task for generator
-- [ ] **Role-Based Access** — Owner, Editor, Commenter, Viewer per project
-- [ ] **Activity Feed** — Timeline of generations, edits, comments, deploys per project
+- [x] **Role-Based Access** — Owner, Editor, Commenter, Viewer per project
+- [x] **Activity Feed** — Timeline of generations, edits, comments, deploys per project
 
 ### Implementation Plan
 1. **Preview Sharing Service** — link generation, access control ✅ COMPLETE (`preview-sharing.ts`)

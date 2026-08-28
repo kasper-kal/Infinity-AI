@@ -331,7 +331,7 @@ LAST_UPDATED: 2026-08-28 10:30
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 19 — External API & Database Integration (v0 Extensibility)** 🔄 **PLANNED**
+- **Current Phase:** **Phase 19 — External API & Database Integration (v0 Extensibility)** 🔄 **IN PROGRESS** — Frontend UI complete (APIWizard, DatabasePanel, AuthPanel wired into SettingsView with "Integrations" tab and three sub-tabs), i18n keys added. Build passing. Backend API routes pending.
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**
 - **Next Phases:** **Phase 19 (External API & Database Integration)**, **Phase 20 (Multi-Framework Support)**, **Phase 36 (AI Automation System - natural language automations + connector integration)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
@@ -375,6 +375,13 @@ LAST_UPDATED: 2026-08-28 10:30
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-28 **Phase 19: External API & Database Integration — Frontend UI COMPLETE** — Wired three integration panels (APIWizard, DatabasePanel, AuthPanel) into SettingsView with "Integrations" tab containing three sub-tabs (API, Database, Auth):
+  - Added i18n translation keys for English and Dutch (settings.section.integrations, settings.integrations, settings.integrationsDesc)
+  - SettingsView: Added Tabs compound components import, added 'integrations' to SettingsSection type and SECTION_CONFIG, added renderSectionContent case with three TabsContent panels
+  - Fixed AuthPanel.tsx JSX rendering issues (lines 358, 397, 595) - extracted icon component before rendering
+  - Fixed case-sensitive imports across 8 ui-builder components (Avatar, Card, Badge, Button) - corrected to lowercase barrel exports
+  - Fixed barrel export in ui/index.ts - added ScrollArea, Radix Select components (RadixSelect prefix), Checkbox, Label, Alert; removed duplicate Dialog/Sheet exports
+  - Build now passes successfully ✅
 - 2026-08-28 **Phase 18: v0-Style Collaborative Workflows — 100% COMPLETE ✅** — All core collaborative workflow infrastructure done:
   - **SSE endpoints implemented** for real-time comment updates and presence cursors:
     - `GET /shares/:shareToken/comments/stream` — SSE stream for comment events (created, updated, deleted, resolved, reactions)

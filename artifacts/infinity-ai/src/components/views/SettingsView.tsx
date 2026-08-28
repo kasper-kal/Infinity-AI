@@ -8,9 +8,7 @@
 import React, { useState, useCallback } from "react";
 import { AppShell, AppShellSidebarSection, AppShellHeader } from "@/components/layout/AppShell";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
-import { Input, Textarea, Select } from "@/components/ui/Input";
-import { Dialog, AlertDialog } from "@/components/ui/Dialog";
+import { Button, IconButton, ButtonGroup, Input, Textarea, Select, Dialog, AlertDialog, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { BottomNav, type BottomNavItem } from "@/components/mobile/BottomNav";
 import { SheetModal } from "@/components/mobile/SheetModal";
 import { TouchButton, TouchListItem, TouchIconButton } from "@/components/mobile/TouchTargets";
@@ -20,6 +18,9 @@ import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MCPConfigPanel } from "@/components/settings/MCPConfigPanel";
 import { ReviewPanel, type ReviewRequest } from "@/components/ui-builder/ReviewPanel";
+import { APIWizard } from "@/components/ui-builder/APIWizard";
+import { DatabasePanel } from "@/components/ui-builder/DatabasePanel";
+import { AuthPanel } from "@/components/ui-builder/AuthPanel";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -294,7 +295,7 @@ export interface SettingsViewProps {
   projectId?: string;
 }
 
-type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills' | 'collaboration';
+type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills' | 'collaboration' | 'integrations';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -376,6 +377,15 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.collaboration',
+  },
+  integrations: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M13.5 18H9a6 6 0 0 0-6-5v-1a6 6 0 0 1 6-5h14" />
+        <path d="M10.5 6a4.5 4.5 0 1 1 4.5 4.5H15" />
+      </svg>
+    ),
+    labelKey: 'settings.integrations',
   },
 };
 
@@ -546,6 +556,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             />
           </div>
         );
+      case 'integrations':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">{t('settings.integrations')}</h3>
+            <p className="text-sm text-muted-foreground">
+              Connect external APIs, databases, and authentication providers to your generated UI.
+            </p>
+            <Tabs defaultValue="api" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="api">
+                  <span>API</span>
+                </TabsTrigger>
+                <TabsTrigger value="database">
+                  <span>Database</span>
+                </TabsTrigger>
+                <TabsTrigger value="auth">
+                  <span>Auth</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="api" className="mt-4">
+                <APIWizard projectId={projectId || ''} />
+              </TabsContent>
+              <TabsContent value="database" className="mt-4">
+                <DatabasePanel projectId={projectId || ''} />
+              </TabsContent>
+              <TabsContent value="auth" className="mt-4">
+                <AuthPanel projectId={projectId || ''} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        );
     }
   };
 
@@ -594,6 +635,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'collaboration',
       label: t('settings.collaboration'),
       icon: SECTION_CONFIG.collaboration.icon,
+    },
+    {
+      id: 'integrations',
+      label: t('settings.integrations'),
+      icon: SECTION_CONFIG.integrations.icon,
     },
   ];
 

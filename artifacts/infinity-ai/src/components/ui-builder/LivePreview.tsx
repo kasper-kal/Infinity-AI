@@ -8,9 +8,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Button } from '@/components/ui';
+import { Select } from '@/components/ui';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 import { Separator, Badge } from '@/components/ui';
 import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus } from 'lucide-react';
 import { CommentOverlay, type Comment, type CommentElementData } from './CommentOverlay';
