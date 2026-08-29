@@ -31,8 +31,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
 | **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **COMPLETE** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | ✅ **COMPLETE** |
-| **19** | **External API & Database Integration (v0 Extensibility)** | 🔄 IN PROGRESS (Frontend UI 100% complete, backend API routes pending) |
-| **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | 🔲 PLANNED |
+| **19** | **External API & Database Integration (v0 Extensibility)** | ✅ **COMPLETE** |
+| **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | ✅ **COMPLETE** |
 | **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | 🔲 PLANNED |
 | **22** | **Component Marketplace & Template Library (v0 Community)** | 🔲 PLANNED |
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | 🔲 PLANNED |
