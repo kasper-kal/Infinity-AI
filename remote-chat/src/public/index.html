@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Remote Claude Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; }
+    #sidebar { width: 280px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; }
+    #sidebar h2 { padding: 15px; border-bottom: 1px solid #0f3460; color: #e94560; }
+    #session-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .session-item { padding: 10px; margin: 5px 0; background: #0f3460; cursor: pointer; border-radius: 4px; }
+    .session-item:hover, .session-item.active { background: #e94560; }
+    #main { flex: 1; display: flex; flex-direction: column; }
+    #header { padding: 10px 15px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; }
+    #terminal { flex: 1; padding: 15px; overflow-y: auto; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    #terminal .output { color: #a0a0a0; }
+    #terminal .input { color: #e94560; }
+    #terminal .prompt { color: #4ecdc4; }
+    #input-area { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; }
+    #input-line { display: flex; gap: 10px; }
+    #input-line span { color: #4ecdc4; }
+    #input { flex: 1; background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 14px; outline: none; }
+    #input:focus { border-color: #4ecdc4; }
+    #status { padding: 5px 10px; background: #0f3460; color: #4ecdc4; font-size: 12px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Claude Sessions</h2>
+    <div id="session-list">
+      <div style="padding: 10px; color: #666;">Loading...</div>
+    </div>
+  </div>
+  <div id="main">
+    <div id="header">
+      <span id="current-session">Select a session</span>
+      <span id="status">Disconnected</span>
+    </div>
+    <div id="terminal"></div>
+    <div id="input-area" class="hidden">
+      <div id="input-line">
+        <span>$</span>
+        <input type="text" id="input" placeholder="Type to send input..." autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WS_URL = `ws://${location.hostname}:3002`;
+    let ws = null;
+    let currentSession = null;
+    const terminal = document.getElementById('terminal');
+    const input = document.getElementById('input');
+    const sessionList = document.getElementById('session-list');
+    const currentSessionEl = document.getElementById('current-session');
+    const statusEl = document.getElementById('status');
+    const inputArea = document.getElementById('input-area');
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        statusEl.textContent = 'Connected';
+        statusEl.style.color = '#4ecdc4';
+        ws.send(JSON.stringify({ type: 'list' }));
+      };
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        switch (msg.type) {
+          case 'sessions':
+            renderSessions(msg.payload);
+            break;
+          case 'joined':
+            currentSession = msg.sessionId;
+            currentSessionEl.textContent = msg.sessionId;
+            inputArea.classList.remove('hidden');
+            terminal.innerHTML = '';
+            msg.payload.history.forEach(line => appendOutput(line));
+            break;
+          case 'output':
+            appendOutput(msg.payload);
+            break;
+          case 'pong':
+            break;
+        }
+      };
+      ws.onclose = () => {
+        statusEl.textContent = 'Disconnected - reconnecting...';
+        statusEl.style.color = '#e94560';
+        setTimeout(connect, 3000);
+      };
+      ws.onerror = () => {};
+    }
+
+    function renderSessions(sessions) {
+      sessionList.innerHTML = '';
+      if (sessions.length === 0) {
+        sessionList.innerHTML = '<div style="padding: 10px; color: #666;">No sessions found</div>';
+        return;
+      }
+      sessions.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'session-item';
+        div.textContent = s;
+        div.onclick = () => joinSession(s);
+        sessionList.appendChild(div);
+      });
+    }
+
+    function joinSession(id) {
+      document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+      event.target.classList.add('active');
+      ws.send(JSON.stringify({ type: 'join', sessionId: id }));
+    }
+
+    function appendOutput(text) {
+      const div = document.createElement('div');
+      div.className = 'output';
+      div.textContent = text;
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', payload: input.value }));
+        const div = document.createElement('div');
+        div.className = 'input';
+        div.textContent = '> ' + input.value;
+        terminal.appendChild(div);
+        terminal.scrollTop = terminal.scrollHeight;
+        input.value = '';
+      }
+    });
+
+    connect();
+    setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 30000);
+  </script>
+</body>
+</html>

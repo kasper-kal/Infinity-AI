@@ -24,7 +24,7 @@ import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatComposer } from "@/components/home/chat-composer";
 import { EmptyTitle } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw, Copy, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, Layout, Code, Eye, Monitor, Palette, Box, Sparkles, ChevronRight, ChevronLeft, Send, Loader2, RotateCcw, Copy, AlertTriangle, MessageSquare, Bot, FileCode2, Zap, FileCode } from "lucide-react";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { ComponentRegistry } from "@/components/ui-builder/ComponentRegistry";
 import { DeployPanel } from "@/components/ui-builder/DeployPanel";
@@ -33,6 +33,8 @@ import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
 import { useConflictResolution, useAstHistory } from "@/hooks";
+import { CursorChatSidebar } from "@/components/Cursor/ChatSidebar";
+import { CursorComposer } from "@/components/Cursor/Composer";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -78,6 +80,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [buildMode, setBuildMode] = useState<'visual' | 'chat' | 'ui-builder'>('visual');
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [uiBuilderMode, setUiBuilderMode] = useState(false);
+
+  // Phase 24: Cursor AI features
+  const [cursorChatOpen, setCursorChatOpen] = useState(false);
+  const [cursorComposerOpen, setCursorComposerOpen] = useState(false);
+  const [cursorComposerFiles, setCursorComposerFiles] = useState<Array<{ path: string; content: string }>>([]);
   const [uiComponents, setUiComponents] = useState<Array<{ name: string; code: string; imports?: string[] }>>([]);
   const [uiGenerating, setUiGenerating] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
@@ -208,6 +215,34 @@ export const ChatView: React.FC<ChatViewProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [uiBuilderMode, selectedElement, showExtractor]);
+
+  // Phase 24: Cursor AI keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Cmd/Ctrl + L: Toggle Cursor Chat
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        setCursorChatOpen(!cursorChatOpen);
+      }
+
+      // Cmd/Ctrl + I: Toggle Cursor Composer
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault();
+        setCursorComposerOpen(!cursorComposerOpen);
+      }
+
+      // Cmd/Ctrl + K: Could trigger CmdKEdit (handled in editor component)
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cursorChatOpen, cursorComposerOpen]);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -504,6 +539,47 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
                   )}
                   <span>{t('settings.theme')}</span>
+                </button>
+              </div>
+
+              {/* Phase 24: Cursor AI Features */}
+              <div className="border-t border-border/30 pt-2 mt-2 space-y-1">
+                <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Cursor AI
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setCursorChatOpen(!cursorChatOpen); setChatMenuOpen(false); }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    cursorChatOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                  <span>Cursor Chat (⌘L)</span>
+                  {cursorChatOpen && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary ml-auto">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCursorComposerOpen(!cursorComposerOpen); setChatMenuOpen(false); }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    cursorComposerOpen
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                  }`}
+                >
+                  <FileCode className="w-4 h-4 flex-shrink-0" />
+                  <span>Cursor Composer (⌘I)</span>
+                  {cursorComposerOpen && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary ml-auto">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>

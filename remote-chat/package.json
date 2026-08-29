@@ -1,0 +1,25 @@
+{
+  "name": "infinity-remote-chat",
+  "version": "1.0.0",
+  "description": "Remote access to running Claude Code sessions",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "chokidar": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.12",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "typescript": "^5.5.0",
+    "tsx": "^4.19.0"
+  }
+}

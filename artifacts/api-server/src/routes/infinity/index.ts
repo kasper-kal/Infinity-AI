@@ -49,6 +49,8 @@ import exportRouter from "./export";
 import importRouter from "./import";
 import historyRouter from "./history";
 import mcpServersRouter from "./mcp-servers";
+import codebaseIndexRouter from "./codebase-index";
+import cursorRouter from "./cursor";
 import e2eRouter from "./e2e";
 import performanceRouter from "./performance";
 import securityRouter from "./security";
@@ -160,6 +162,8 @@ router.use(configWizardRouter);
 router.use(migrationsRouter);
 router.use(packageEditorRouter);
 router.use(extensionRouter);
+router.use("/codebase", codebaseIndexRouter);
+router.use("/cursor", cursorRouter);
 
 export { handleExtensionUpgrade };
 export default router;
