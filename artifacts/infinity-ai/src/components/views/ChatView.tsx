@@ -1199,6 +1199,36 @@ export const ChatView: React.FC<ChatViewProps> = ({
   );
 };
 
+  const rightSidebar = (
+    <div className="flex flex-col h-full">
+      {cursorChatOpen && (
+        <div className="flex-1 border-b border-border">
+          <CursorChatSidebar
+            projectId={activeConversationId || 'default'}
+            projectRoot="/workspace"
+            onClose={() => setCursorChatOpen(false)}
+          />
+        </div>
+      )}
+      {cursorComposerOpen && (
+        <div className="flex-1">
+          <CursorComposer
+            projectId={activeConversationId || 'default'}
+            projectRoot="/workspace"
+            files={cursorComposerFiles}
+            onFilesChange={setCursorComposerFiles}
+            onClose={() => setCursorComposerOpen(false)}
+          />
+        </div>
+      )}
+      {!cursorChatOpen && !cursorComposerOpen && (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground/50">
+          <p className="text-sm">Right sidebar — Open Cursor Chat (⌘L) or Composer (⌘I)</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <AppShell
       header={
@@ -1213,7 +1243,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
       collapsed={collapsed}
       onSidebarToggle={setSidebarOpen}
       onCollapseToggle={setCollapsed}
-      rightSidebarOpen={rightSidebarOpen}
+      rightSidebar={rightSidebar}
+      rightSidebarOpen={rightSidebarOpen || cursorChatOpen || cursorComposerOpen}
       onRightSidebarToggle={setRightSidebarOpen}
     >
       <div className="flex flex-col h-full">

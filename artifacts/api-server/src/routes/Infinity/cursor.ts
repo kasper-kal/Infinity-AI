@@ -21,10 +21,10 @@
 
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { createBestAdapter, getLLMAdapter } from "../lib/adapter-factory";
-import { CursorAgent, createCursorAgent, CursorAgentConfig, CursorAgentEvent, CursorAgentResult } from "../lib/cursor-agent";
-import { CursorComposer, createCursorComposer, ComposerRequest, ComposerPlan, ComposerResult } from "../lib/cursor-composer";
-import { CodebaseIndexer, createCodebaseIndexer, IndexConfig, SearchResult } from "../lib/codebase-indexer";
+import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
+import { CursorAgent, createCursorAgent, CursorAgentConfig, CursorAgentEvent, CursorAgentResult } from "../../lib/cursor-agent";
+import { CursorComposer, createCursorComposer, ComposerRequest, ComposerPlan, ComposerResult } from "../../lib/cursor-composer";
+import { CodebaseIndexer, createCodebaseIndexer, IndexConfig, SearchResult } from "../../lib/codebase-indexer";
 import { getTaskPersistenceManager } from "../lib/tool-persistence";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
@@ -154,11 +154,11 @@ const indexSchema = z.object({
 // Helper: Get or create adapter
 // ============================================================================
 
-function getAdapter(model?: string): any {
+function getAdapter(model?: string): Promise<any> {
   if (model) {
-    return createBestAdapter({ preferredProvider: "openrouter", model });
+    return createBestAdapter();
   }
-  return getLLMAdapter();
+  return createManualAdapter();
 }
 
 // ============================================================================
@@ -172,7 +172,7 @@ function getAdapter(model?: string): any {
 router.post("/chat", async (req: Request, res: Response) => {
   try {
     const config = chatSchema.parse(req.body);
-    const adapter = getAdapter(config.model);
+    const adapter = await getAdapter(config.model);
 
     // Initialize agent
     const agent = createCursorAgent(config.projectId, config.projectRoot, adapter, {
@@ -218,7 +218,7 @@ router.post("/chat", async (req: Request, res: Response) => {
 router.post("/chat/stream", async (req: Request, res: Response) => {
   try {
     const config = chatSchema.parse(req.body);
-    const adapter = getAdapter(config.model);
+    const adapter = await getAdapter(config.model);
 
     // Set up SSE
     res.setHeader("Content-Type", "text/event-stream");

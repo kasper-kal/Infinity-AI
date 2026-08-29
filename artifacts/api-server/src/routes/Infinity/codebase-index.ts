@@ -401,9 +401,10 @@ router.post("/parse", async (req: Request, res: Response) => {
 router.get("/languages", async (req: Request, res: Response) => {
   const manager = getTreeSitterManager();
   const languages = manager.getSupportedLanguages();
+  const { SUPPORTED_LANGUAGES } = await import("../../lib/tree-sitter-parsers.js");
 
   const languageDetails = languages.map(lang => {
-    const config = (await import("../../lib/tree-sitter-parsers.js")).SUPPORTED_LANGUAGES[lang];
+    const config = SUPPORTED_LANGUAGES[lang];
     return {
       id: lang,
       name: config.name,
