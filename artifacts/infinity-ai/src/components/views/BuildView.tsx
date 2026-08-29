@@ -40,8 +40,8 @@ import { ArtifactTemplateSelector } from "@/components/artifact-template-selecto
 import { ChatView } from "@/components/views/ChatView";
 import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
-import { CursorChatSidebar } from "@/components/Cursor/ChatSidebar";
-import { CursorComposer } from "@/components/Cursor/Composer";
+import { ChatSidebar as AIChatSidebar } from "@/components/CodeAI/ChatSidebar";
+import { Composer as AIComposer } from "@/components/CodeAI/Composer";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -110,9 +110,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [agentPanelOpen, setAgentPanelOpen] = useState(!!parallelTask);
   const [agentPanelCompact, setAgentPanelCompact] = useState(false);
 
-  // Phase 24: Cursor AI state
-  const [cursorChatOpen, setCursorChatOpen] = useState(false);
-  const [cursorComposerOpen, setCursorComposerOpen] = useState(false);
+  // Phase 24: AI Code Intelligence state
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiComposerOpen, setAiComposerOpen] = useState(false);
 
   // Default project root (can be overridden by parent)
   const projectRoot = useMemo(() => `/workspace/${projectId || 'default'}`, [projectId]);
@@ -581,22 +581,22 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 )}
               </svg>
             </IconButton>
-            {/* Cursor AI Toggles */}
-            <Tooltip content="Cursor Chat (AI with codebase context)">
+            {/* AI Code Intelligence Toggles */}
+            <Tooltip content="AI Chat (with codebase context)">
               <IconButton
-                onClick={() => setCursorChatOpen(!cursorChatOpen)}
-                aria-label="Toggle Cursor Chat"
-                variant={cursorChatOpen ? 'primary' : 'ghost'}
+                onClick={() => setAiChatOpen(!aiChatOpen)}
+                aria-label="Toggle AI Chat"
+                variant={aiChatOpen ? 'primary' : 'ghost'}
                 size="sm"
               >
                 <MessageSquare size={18} />
               </IconButton>
             </Tooltip>
-            <Tooltip content="Cursor Composer (Multi-file edits)">
+            <Tooltip content="Composer (Multi-file edits)">
               <IconButton
-                onClick={() => setCursorComposerOpen(!cursorComposerOpen)}
-                aria-label="Toggle Cursor Composer"
-                variant={cursorComposerOpen ? 'primary' : 'ghost'}
+                onClick={() => setAiComposerOpen(!aiComposerOpen)}
+                aria-label="Toggle Composer"
+                variant={aiComposerOpen ? 'primary' : 'ghost'}
                 size="sm"
               >
                 <GitBranch size={18} />
@@ -924,21 +924,21 @@ export const BuildView: React.FC<BuildViewProps> = ({
         )}
       </Drawer>
 
-      {/* Cursor Chat Sidebar */}
-      <CursorChatSidebar
+      {/* AI Chat Sidebar */}
+      <AIChatSidebar
         projectId={projectId || 'default'}
         projectRoot={projectRoot}
-        isOpen={cursorChatOpen}
-        onClose={() => setCursorChatOpen(false)}
-        onNewConversation={() => setCursorChatOpen(true)}
+        isOpen={aiChatOpen}
+        onClose={() => setAiChatOpen(false)}
+        onNewConversation={() => setAiChatOpen(true)}
       />
 
-      {/* Cursor Composer */}
-      <CursorComposer
+      {/* AI Composer */}
+      <AIComposer
         projectId={projectId || 'default'}
         projectRoot={projectRoot}
-        isOpen={cursorComposerOpen}
-        onClose={() => setCursorComposerOpen(false)}
+        isOpen={aiComposerOpen}
+        onClose={() => setAiComposerOpen(false)}
       />
     </AppShell>
   );

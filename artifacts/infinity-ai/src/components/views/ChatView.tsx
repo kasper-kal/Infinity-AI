@@ -33,8 +33,8 @@ import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
 import { useConflictResolution, useAstHistory } from "@/hooks";
-import { CursorChatSidebar } from "@/components/Cursor/ChatSidebar";
-import { CursorComposer } from "@/components/Cursor/Composer";
+import { ChatSidebar as AIChatSidebar } from "@/components/CodeAI/ChatSidebar";
+import { Composer as AIComposer } from "@/components/CodeAI/Composer";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -81,10 +81,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [uiBuilderMode, setUiBuilderMode] = useState(false);
 
-  // Phase 24: Cursor AI features
-  const [cursorChatOpen, setCursorChatOpen] = useState(false);
-  const [cursorComposerOpen, setCursorComposerOpen] = useState(false);
-  const [cursorComposerFiles, setCursorComposerFiles] = useState<Array<{ path: string; content: string }>>([]);
+  // Phase 24: AI Code Intelligence features
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiComposerOpen, setAiComposerOpen] = useState(false);
+  const [aiComposerFiles, setAiComposerFiles] = useState<Array<{ path: string; content: string }>>([]);
   const [uiComponents, setUiComponents] = useState<Array<{ name: string; code: string; imports?: string[] }>>([]);
   const [uiGenerating, setUiGenerating] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
@@ -216,7 +216,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [uiBuilderMode, selectedElement, showExtractor]);
 
-  // Phase 24: Cursor AI keyboard shortcuts
+  // Phase 24: AI Code Intelligence keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
@@ -225,16 +225,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
         return;
       }
 
-      // Cmd/Ctrl + L: Toggle Cursor Chat
+      // Cmd/Ctrl + L: Toggle AI Chat
       if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
         e.preventDefault();
-        setCursorChatOpen(!cursorChatOpen);
+        setAiChatOpen(!aiChatOpen);
       }
 
-      // Cmd/Ctrl + I: Toggle Cursor Composer
+      // Cmd/Ctrl + I: Toggle AI Composer
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
-        setCursorComposerOpen(!cursorComposerOpen);
+        setAiComposerOpen(!aiComposerOpen);
       }
 
       // Cmd/Ctrl + K: Could trigger CmdKEdit (handled in editor component)
@@ -242,7 +242,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cursorChatOpen, cursorComposerOpen]);
+  }, [aiChatOpen, aiComposerOpen]);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -542,23 +542,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </button>
               </div>
 
-              {/* Phase 24: Cursor AI Features */}
+              {/* Phase 24: AI Code Intelligence Features */}
               <div className="border-t border-border/30 pt-2 mt-2 space-y-1">
                 <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Cursor AI
+                  AI Code Intelligence
                 </p>
                 <button
                   type="button"
-                  onClick={() => { setCursorChatOpen(!cursorChatOpen); setChatMenuOpen(false); }}
+                  onClick={() => { setAiChatOpen(!aiChatOpen); setChatMenuOpen(false); }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    cursorChatOpen
+                    aiChatOpen
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
                   }`}
                 >
                   <MessageSquare className="w-4 h-4 flex-shrink-0" />
-                  <span>Cursor Chat (⌘L)</span>
-                  {cursorChatOpen && (
+                  <span>AI Chat (⌘L)</span>
+                  {aiChatOpen && (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary ml-auto">
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
@@ -566,16 +566,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setCursorComposerOpen(!cursorComposerOpen); setChatMenuOpen(false); }}
+                  onClick={() => { setAiComposerOpen(!aiComposerOpen); setChatMenuOpen(false); }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                    cursorComposerOpen
+                    aiComposerOpen
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
                   }`}
                 >
                   <FileCode className="w-4 h-4 flex-shrink-0" />
-                  <span>Cursor Composer (⌘I)</span>
-                  {cursorComposerOpen && (
+                  <span>Composer (⌘I)</span>
+                  {aiComposerOpen && (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary ml-auto">
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>

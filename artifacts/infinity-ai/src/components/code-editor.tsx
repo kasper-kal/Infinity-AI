@@ -18,6 +18,16 @@ import { languages } from '@codemirror/language-data';
 import { LanguageDescription } from '@codemirror/language';
 import { keymap } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+import { createCursorExtensions } from '@/components/CodeAI/CodeMirrorIntegration';
+
+interface CursorConfig {
+  projectId: string;
+  projectRoot: string;
+  filePath: string;
+  tabAutocompleteEnabled?: boolean;
+  onCmdKAccept?: (newCode: string) => void;
+  onCmdKClose?: () => void;
+}
 
 interface CodeEditorProps {
   value: string;
@@ -25,6 +35,7 @@ interface CodeEditorProps {
   onChange: (value: string) => void;
   onCursorChange?: (line: number, column: number) => void;
   onSave?: () => void;
+  cursorConfig?: CursorConfig;
 }
 
 /**
@@ -85,8 +96,23 @@ export default function CodeEditor({ value, path, onChange, onCursorChange, onSa
     if (sync) list.push(sync());
     if (extraLanguage) list.push(extraLanguage);
     list.push(keymap.of([{ key: 'Mod-s', run: () => { onSave?.(); return true; } }]));
+
+    // Add Cursor AI extensions if configured
+    if (cursorConfig && path) {
+      const language = path.split('.').pop()?.toLowerCase() || 'plaintext';
+      list.push(...createCursorExtensions({
+        projectId: cursorConfig.projectId,
+        projectRoot: cursorConfig.projectRoot,
+        language,
+        filePath: path,
+        tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
+        onCmdKAccept: cursorConfig.onCmdKAccept,
+        onCmdKClose: cursorConfig.onCmdKClose,
+      }));
+    }
+
     return list;
-  }, [extraLanguage, onSave, path]);
+  }, [extraLanguage, onSave, path, cursorConfig]);
 
   return (
     <CodeMirror
