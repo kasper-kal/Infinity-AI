@@ -447,25 +447,41 @@ const en = {
   "build.title": "Infinity Build",
   "build.terminalHint": "Linux sandbox, ask Infinity to build something",
 
-  /* Build Mode Toggle */
-  "build.mode.title": "Build Mode",
-  "build.mode.visual": "Visual (Replit-style)",
-  "build.mode.visualDesc": "Visual editor with live preview, file tree, and sandbox",
-  "build.mode.chat": "Chat Style",
-  "build.mode.chatDesc": "Build happens inline in chat, no pop-ups",
-  "build.mode.preview": "Preview",
-  "build.mode.code": "Code Viewer",
+  /* Mode Selection */
+  "mode.chat": "Chat Mode",
+  "mode.chatDesc": "Chat with @Maps, @Image, @Browse, @DeepResearch widgets",
+  "mode.build": "Build Mode",
+  "mode.buildDesc": "Infinity Build — code generation, preview, deploy, security (auto codebase context)",
 
-  /* Build View */
-  "build.tabs.plan": "Plan",
-  "build.tabs.transcript": "Transcript",
-  "build.tabs.diff": "Diff",
-  "build.tabs.debug": "Debug",
-  "build.tabs.terminal": "Terminal",
-  "build.tabs.agents": "Agents",
-  "build.tabs.chat": "Chat",
-  "build.tabs.build": "Build",
-  "build.tabs.security": "Security",
+  /* Build View — Two Tabs Only */
+  "build.tabs.preview": "Preview",
+  "build.tabs.overview": "Overview",
+
+  /* Overview Sub-tabs */
+  "overview.tabs.progress": "Progress",
+  "overview.tabs.plan": "Plan",
+  "overview.tabs.transcript": "Transcript",
+  "overview.tabs.terminal": "Terminal",
+  "overview.tabs.security": "Security",
+  "overview.tabs.deploy": "Deploy",
+  "overview.tabs.agents": "Agents",
+
+  /* Deploy Visual Panel */
+  "deploy.pipeline": "Deployment Pipeline",
+  "deploy.stages.build": "Build",
+  "deploy.stages.test": "Test",
+  "deploy.stages.security": "Security",
+  "deploy.stages.deploy": "Deploy",
+  "deploy.status.pending": "Pending",
+  "deploy.status.running": "Running",
+  "deploy.status.complete": "Complete",
+  "deploy.logs": "Deploy Logs",
+  "deploy.start": "Start Deploy",
+  "deploy.redeploy": "Redeploy",
+  "deploy.retry": "Retry",
+  "deploy.running": "Deploying...",
+  "deploy.openSite": "Open Site",
+  "deploy.noLogs": "No logs yet — start a deployment to see output",
   "build.sidebar.sections.project": "Project",
   "build.sidebar.sections.history": "History",
   "build.sidebar.sections.tools": "Tools",
@@ -2262,7 +2278,43 @@ const nl: Record<keyof typeof en, string> = {
   "build.mode.preview": "Preview",
   "build.mode.code": "Codeviewer",
 
-  /* Build View */
+  /* Mode Selection */
+  "mode.chat": "Chat Modus",
+  "mode.chatDesc": "Chat met @Maps, @Image, @Browse, @DeepResearch widgets",
+  "mode.build": "Build Modus",
+  "mode.buildDesc": "Infinity Build — code generatie, preview, deploy, beveiliging (auto codebase context)",
+
+  /* Build View — Two Tabs Only */
+  "build.tabs.preview": "Preview",
+  "build.tabs.overview": "Overzicht",
+
+  /* Overview Sub-tabs */
+  "overview.tabs.progress": "Voortgang",
+  "overview.tabs.plan": "Plan",
+  "overview.tabs.transcript": "Transcript",
+  "overview.tabs.terminal": "Terminal",
+  "overview.tabs.security": "Beveiliging",
+  "overview.tabs.deploy": "Deploy",
+  "overview.tabs.agents": "Agents",
+
+  /* Deploy Visual Panel */
+  "deploy.pipeline": "Deploy Pipeline",
+  "deploy.stages.build": "Bouwen",
+  "deploy.stages.test": "Testen",
+  "deploy.stages.security": "Beveiliging",
+  "deploy.stages.deploy": "Deployen",
+  "deploy.status.pending": "Wachtend",
+  "deploy.status.running": "Bezig",
+  "deploy.status.complete": "Klaar",
+  "deploy.logs": "Deploy Logs",
+  "deploy.start": "Start Deploy",
+  "deploy.redeploy": "Opnieuw Deployen",
+  "deploy.retry": "Opnieuw Proberen",
+  "deploy.running": "Deployen...",
+  "deploy.openSite": "Site Openen",
+  "deploy.noLogs": "Nog geen logs — start een deployment om output te zien",
+
+  /* Build View (legacy keys kept for compatibility) */
   "build.tabs.plan": "Plan",
   "build.tabs.transcript": "Transcript",
   "build.tabs.diff": "Diff",

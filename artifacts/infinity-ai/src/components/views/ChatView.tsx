@@ -77,7 +77,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'chat' | 'agent' | 'camera'>('chat');
-  const [buildMode, setBuildMode] = useState<'visual' | 'chat' | 'ui-builder'>('visual');
+  const [appMode, setAppMode] = useState<'chat' | 'build'>('chat');
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [uiBuilderMode, setUiBuilderMode] = useState(false);
 
@@ -376,7 +376,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </Tooltip>
       )}
 
-      {/* Chat Menu with Build Mode Toggle */}
+      {/* Chat Menu - Mode Toggle + Tools */}
       <div className="relative">
         <IconButton
           onClick={() => setChatMenuOpen(!chatMenuOpen)}
@@ -391,67 +391,47 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <>
             <div className="fixed inset-0 z-40" onClick={() => setChatMenuOpen(false)} aria-hidden="true" />
             <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-border/60 bg-card/95 p-2 shadow-apple-xl backdrop-blur-xl">
-              {/* Build Mode Section */}
+              {/* Mode Selection Section */}
               <div className="border-b border-border/30 pb-2 mb-2">
                 <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {t('build.mode.title')}
+                  Mode
                 </p>
                 <div className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => { setBuildMode('visual'); setChatMenuOpen(false); }}
+                    onClick={() => { setAppMode('chat'); setChatMenuOpen(false); }}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                      buildMode === 'visual'
+                      appMode === 'chat'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="font-medium">{t('mode.chat')}</p>
+                      <p className="text-xs text-muted-foreground/70">{t('mode.chatDesc')}</p>
+                    </div>
+                    {appMode === 'chat' && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAppMode('build'); setChatMenuOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      appMode === 'build'
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
                     }`}
                   >
                     <Layout className="w-4 h-4 flex-shrink-0" />
                     <div className="flex-1 text-left">
-                      <p className="font-medium">{t('build.mode.visual')}</p>
-                      <p className="text-xs text-muted-foreground/70">{t('build.mode.visualDesc')}</p>
+                      <p className="font-medium">{t('mode.build')}</p>
+                      <p className="text-xs text-muted-foreground/70">{t('mode.buildDesc')}</p>
                     </div>
-                    {buildMode === 'visual' && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setBuildMode('chat'); setChatMenuOpen(false); }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                      buildMode === 'chat'
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
-                    }`}
-                  >
-                    <Code className="w-4 h-4 flex-shrink-0" />
-                    <div className="flex-1 text-left">
-                      <p className="font-medium">{t('build.mode.chat')}</p>
-                      <p className="text-xs text-muted-foreground/70">{t('build.mode.chatDesc')}</p>
-                    </div>
-                    {buildMode === 'chat' && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setBuildMode('ui-builder'); setUiBuilderMode(true); setChatMenuOpen(false); }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                      buildMode === 'ui-builder'
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 flex-shrink-0" />
-                    <div className="flex-1 text-left">
-                      <p className="font-medium">UI Builder</p>
-                      <p className="text-xs text-muted-foreground/70">Visual component editor with code sync</p>
-                    </div>
-                    {buildMode === 'ui-builder' && (
+                    {appMode === 'build' && (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
                         <polyline points="20 6 9 17 4 12"/>
                       </svg>
@@ -459,33 +439,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   </button>
                 </div>
               </div>
-
-              {/* Build Visual Tools (only shown in visual mode) */}
-              {buildMode === 'visual' && (
-                <div className="border-b border-border/30 pb-2 mb-2">
-                  <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    {t('build.mode.title')} Tools
-                  </p>
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => { setChatMenuOpen(false); }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground"
-                    >
-                      <Eye className="w-4 h-4 flex-shrink-0" />
-                      <span>{t('build.mode.preview')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setChatMenuOpen(false); }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-muted-foreground transition hover:bg-secondary/70 hover:text-foreground"
-                    >
-                      <Code className="w-4 h-4 flex-shrink-0" />
-                      <span>{t('build.mode.code')}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <div className="space-y-1">
                 {onToggleThinking && (

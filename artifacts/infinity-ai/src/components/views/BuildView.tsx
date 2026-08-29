@@ -1,6 +1,7 @@
 /**
- * Build View — Liquid Glass Design System
- * Main build studio interface with plan, transcript, diff preview, and debug panel
+ * Build View — iOS-like UX: Preview + Overview tabs only
+ * Preview: Live preview with iPhone 16 Pro frame, Desktop frame, Freeform mode
+ * Overview: Build progress, transcript, plan, terminal, security, deploy - all visual
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
@@ -9,8 +10,8 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Panel, PanelGroup, SplitPanel } from "@/components/layout/Panel";
 import { Tabs, type Tab } from "@/components/ui/Tabs";
 import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Input";
-import { Terminal, TerminalSession } from "@/components/ui/Terminal";
+import { Input } from "@/components/ui/Input";
+import { Terminal } from "@/components/ui/Terminal";
 import { CodeEditor, DiffEditor } from "@/components/ui/CodeEditor";
 import { DiffView, InlineDiff, FileDiff } from "@/components/ui/DiffView";
 import { Table, VirtualizedTable, Column } from "@/components/ui/Table";
@@ -18,7 +19,6 @@ import { Tree, FileTree } from "@/components/ui/Tree";
 import { Dialog, AlertDialog, Drawer } from "@/components/ui/Dialog";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
-import { BuildStudio } from "@/components/build-studio";
 import { BuildPlanView } from "@/components/build-plan-view";
 import { BuildTranscript } from "@/components/build-transcript";
 import { BuildDiffPreview } from "@/components/build-diff-preview";
@@ -40,9 +40,8 @@ import { ArtifactTemplateSelector } from "@/components/artifact-template-selecto
 import { ChatView } from "@/components/views/ChatView";
 import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
-import { CursorChatSidebar } from "@/components/Cursor/ChatSidebar";
-import { CursorComposer } from "@/components/Cursor/Composer";
-import { GitBranch, MessageSquare } from "lucide-react";
+import { LivePreview } from "@/components/ui-builder/LivePreview";
+import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -89,7 +88,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder' | 'analytics' | 'cursor-chat' | 'cursor-composer' | 'cursor-agent'>('plan');
+
+  // ONLY 2 TABS: Preview + Overview
+  const [buildTab, setBuildTab] = useState<'preview' | 'overview'>('preview');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -101,8 +102,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutput, setTerminalOutput] = useState<{ command: string; stdout: string; stderr: string; exitCode: number; timedOut?: boolean } | null>(null);
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
-  // Mobile state
-  const [bottomNavTab, setBottomNavTab] = useState<'terminal' | 'history' | 'agents' | 'tools' | 'security'>('terminal');
+  // Mobile state - simplified
+  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview'>('preview');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -111,25 +112,22 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [agentPanelOpen, setAgentPanelOpen] = useState(!!parallelTask);
   const [agentPanelCompact, setAgentPanelCompact] = useState(false);
 
-// Phase 24: Cursor AI state
-  const [cursorChatOpen, setCursorChatOpen] = useState(false);
-  const [cursorComposerOpen, setCursorComposerOpen] = useState(false);
-  const [cursorAgentOpen, setCursorAgentOpen] = useState(false);
-
-  // Default project root (can be overridden by parent)
-  const projectRoot = useMemo(() => `/workspace/${projectId || 'default'}`, [projectId]);
-
   // Artifact template selector state
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [templates, setTemplates] = useState<ArtifactTemplate[]>([]);
   const [selectedArtifactType, setSelectedArtifactType] = useState<ArtifactTypeId | null>(null);
+
+  // Preview URL from backend
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewRunning, setPreviewRunning] = useState(false);
+  const [previewPort, setPreviewPort] = useState(4173);
 
   const handlePlusAction = useCallback((action: PlusAction) => {
     setPlusMenuOpen(false);
     setPlusMenuCoords(null);
     switch (action) {
       case 'build-mode':
-        setBuildTab('plan');
+        setBuildTab('overview');
         break;
       case 'studios':
         // Open studios hub
@@ -218,56 +216,23 @@ export const BuildView: React.FC<BuildViewProps> = ({
   if (isMobile) {
     const bottomNavItems: BottomNavItem[] = [
       {
-        id: 'terminal',
-        label: t('build.tabs.terminal'),
+        id: 'preview',
+        label: t('build.tabs.preview'),
         icon: (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
           </svg>
         ),
       },
       {
-        id: 'history',
-        label: t('build.sidebar.recentBuilds'),
+        id: 'overview',
+        label: t('build.tabs.overview'),
         icon: (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-          </svg>
-        ),
-      },
-      {
-        id: 'agents',
-        label: t('build.tabs.agents'),
-        icon: (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        ),
-      },
-      {
-        id: 'security',
-        label: t('build.tabs.security'),
-        icon: (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" />
-          </svg>
-        ),
-      },
-      {
-        id: 'tools',
-        label: t('build.sidebar.sections.tools'),
-        icon: (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14.7 6.3a4 4 0 0 0 5.4 5.4L21 11M3 21l5.7-5.7M9 9l-6 6M14 4l6 6" />
-          </svg>
-        ),
-      },
-      {
-        id: 'ui-builder',
-        label: t('build.tabs.uiBuilder'),
-        icon: (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
         ),
       },
@@ -321,55 +286,36 @@ export const BuildView: React.FC<BuildViewProps> = ({
 
         {/* Build tab content */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {bottomNavTab === 'terminal' && (
+          {bottomNavTab === 'preview' && (
             <div className="flex flex-col h-full">
-              <Terminal
-                theme={resolved as 'light' | 'dark'}
-                onReady={(term) => {
-                  if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
-                }}
+              <LivePreview
+                projectId={projectId ?? ''}
+                initialUrl={previewUrl}
+                onUrlChange={setPreviewUrl}
+                onPreviewStart={() => setPreviewRunning(true)}
+                onPreviewStop={() => setPreviewRunning(false)}
               />
             </div>
           )}
-          {bottomNavTab === 'history' && (
+          {bottomNavTab === 'overview' && (
             <div className="flex flex-col h-full">
-              <BuildTranscript toolCalls={[]} autoScroll />
-            </div>
-          )}
-          {bottomNavTab === 'agents' && parallelTask && (
-            <div className="flex flex-col h-full p-4">
-              <AgentPanel
-                task={parallelTask}
+              <BuildOverviewPanel
+                projectId={projectId ?? ''}
+                initialPrompt={initialPrompt}
+                buildRunKey={buildRunKey}
+                parallelTask={parallelTask}
                 onProgressEvent={onProgressEvent}
-                onCancel={onCancelParallel}
+                onStartParallel={onStartParallel}
+                onCancelParallel={onCancelParallel}
                 onCreateCheckpoint={onCreateCheckpoint}
                 onRollback={onRollback}
-                compact={true}
-              />
-            </div>
-          )}
-          {bottomNavTab === 'tools' && (
-            <div className="flex flex-col h-full p-4 space-y-4">
-              <BuildDebugPanel workspaceId={projectId ?? ''} />
-            </div>
-          )}
-          {bottomNavTab === 'security' && (
-            <div className="flex flex-col h-full p-4">
-              <SecurityDashboard projectId={projectId ?? ''} />
-            </div>
-          )}
-          {bottomNavTab === 'ui-builder' && (
-            <div className="flex flex-col h-full">
-              <UIBuilderView
-                projectId={projectId ?? ''}
-                initialFramework="nextjs"
               />
             </div>
           )}
         </div>
 
         {/* Command input bar for terminal */}
-        {bottomNavTab === 'terminal' && (
+        {bottomNavTab === 'overview' && (
           <div className="shrink-0 border-t border-border-primary bg-bg-elevated/50 backdrop-blur-xl p-3 safe-area-inset-bottom">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-sm font-mono">$</span>
@@ -426,7 +372,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
                   onClick={() => {
                     setCommandInput(cmd);
                     setHistoryOpen(false);
-                    setBottomNavTab('terminal');
+                    setBottomNavTab('overview');
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated font-mono text-sm"
                 >
@@ -435,45 +381,6 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 </button>
               ))
             )}
-          </div>
-        </SheetModal>
-
-        {/* Tools sheet */}
-        <SheetModal
-          open={toolsOpen}
-          onOpenChange={setToolsOpen}
-          title={t('build.sidebar.sections.tools')}
-          defaultSnapPoint="half"
-        >
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                setBuildTab('plan');
-                setToolsOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
-            >
-              {t('build.sidebar.plan')}
-            </button>
-            <button
-              onClick={() => {
-                setBuildTab('terminal');
-                setToolsOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
-            >
-              {t('build.sidebar.terminal')}
-            </button>
-            <button
-              onClick={() => {
-                setBuildTab('agents');
-                setToolsOpen(false);
-                setAgentPanelOpen(true);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg bg-bg-elevated/50 hover:bg-bg-elevated"
-            >
-              {t('build.sidebar.agents')}
-            </button>
           </div>
         </SheetModal>
 
@@ -541,18 +448,17 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <h1 className="text-xl font-semibold text-foreground">{t('build.title')}</h1>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <ButtonGroup>
-              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security', 'ui-builder', 'analytics'].map((tab) => (
-                <Button
-                  key={tab}
-                  variant={buildTab === tab ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setBuildTab(tab as typeof buildTab)}
-                >
-                  {(t(`build.tabs.${tab}` as TranslationKey) || tab)}
-                </Button>
-              ))}
-            </ButtonGroup>
+            {/* ONLY 2 TABS: Preview + Overview */}
+            <Tabs
+              tabs={[
+                { id: 'preview', label: t('build.tabs.preview'), icon: <Monitor className="w-4 h-4" /> },
+                { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" /> },
+              ]}
+              activeTab={buildTab}
+              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview')}
+              variant="pills"
+              className="max-w-md"
+            />
             <IconButton
               ref={handleOpenPlusMenu as any}
               onClick={() => setPlusMenuOpen(!plusMenuOpen)}
@@ -583,27 +489,6 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 )}
               </svg>
             </IconButton>
-            {/* AI Code Intelligence Toggles */}
-            <Tooltip content="AI Chat (with codebase context)">
-              <IconButton
-                onClick={() => setAiChatOpen(!aiChatOpen)}
-                aria-label="Toggle AI Chat"
-                variant={aiChatOpen ? 'primary' : 'ghost'}
-                size="sm"
-              >
-                <MessageSquare size={18} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip content="Composer (Multi-file edits)">
-              <IconButton
-                onClick={() => setAiComposerOpen(!aiComposerOpen)}
-                aria-label="Toggle Composer"
-                variant={aiComposerOpen ? 'primary' : 'ghost'}
-                size="sm"
-              >
-                <GitBranch size={18} />
-              </IconButton>
-            </Tooltip>
           </div>
         </div>
       }
@@ -632,13 +517,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
               <AppShellSidebarNavItem
                 label={t('build.sidebar.recentBuilds')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}
-                onClick={() => setBuildTab('transcript')}
-                active={buildTab === 'transcript'}
-              />
-              <AppShellSidebarNavItem
-                label={t('build.sidebar.snapshots')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
-                onClick={() => setBuildTab('debug')}
+                onClick={() => setBuildTab('overview')}
+                active={buildTab === 'overview'}
               />
             </div>
           </AppShellSidebarSection>
@@ -646,70 +526,28 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <AppShellSidebarSection title={t('build.sidebar.sections.tools')}>
             <div className="space-y-1">
               <AppShellSidebarNavItem
-                label={t('build.sidebar.plan')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>}
-                onClick={() => setBuildTab('plan')}
-                active={buildTab === 'plan'}
+                label={t('build.tabs.preview')}
+                icon={<Monitor className="w-4 h-4" />}
+                onClick={() => setBuildTab('preview')}
+                active={buildTab === 'preview'}
               />
               <AppShellSidebarNavItem
-                label={t('build.sidebar.terminal')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>}
-                onClick={() => setBuildTab('terminal')}
-                active={buildTab === 'terminal'}
+                label={t('build.tabs.overview')}
+                icon={<LayoutDashboard className="w-4 h-4" />}
+                onClick={() => setBuildTab('overview')}
+                active={buildTab === 'overview'}
               />
               <AppShellSidebarNavItem
-                label={t('build.sidebar.agents')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-                onClick={() => {
-                  setBuildTab('agents');
-                  setAgentPanelOpen(true);
-                }}
-                active={buildTab === 'agents'}
-              />
-              <AppShellSidebarNavItem
-                label={t('build.tabs.security')}
+                label={t('overview.tabs.security')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>}
-                onClick={() => setBuildTab('security')}
-                active={buildTab === 'security'}
+                onClick={() => { setBuildTab('overview'); }}
+                active={false}
               />
               <AppShellSidebarNavItem
                 label={t('mobile.title')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>}
-                onClick={() => setBuildTab('mobile')}
-                active={buildTab === 'mobile'}
-              />
-              <AppShellSidebarNavItem
-                label={t('build.tabs.uiBuilder')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>}
-                onClick={() => setBuildTab('ui-builder')}
-                active={buildTab === 'ui-builder'}
-              />
-              <AppShellSidebarNavItem
-                label={t('build.tabs.analytics')}
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>}
-                onClick={() => setBuildTab('analytics')}
-                active={buildTab === 'analytics'}
-              />
-              <AppShellSidebarNavItem
-                label="Cursor Chat"
-                icon={<MessageSquare size={16} />}
-                onClick={() => setBuildTab('cursor-chat')}
-                active={buildTab === 'cursor-chat'}
-              />
-              <AppShellSidebarNavItem
-                label="Cursor Composer"
-                icon={<GitBranch size={16} />}
-                onClick={() => setBuildTab('cursor-composer')}
-                active={buildTab === 'cursor-composer'}
-              />
-              <AppShellSidebarNavItem
-                label="Cursor Agent"
-                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}
-                onClick={() => {
-                  setBuildTab('cursor-agent');
-                  setCursorAgentOpen(true);
-                }}
-                active={buildTab === 'cursor-agent'}
+                icon={<Smartphone className="w-4 h-4" />}
+                onClick={() => { setBuildTab('overview'); }}
+                active={false}
               />
             </div>
           </AppShellSidebarSection>
@@ -734,38 +572,6 @@ export const BuildView: React.FC<BuildViewProps> = ({
               />
             </AppShellSidebarSection>
           )}
-          {cursorAgentOpen && (
-            <AppShellSidebarSection title="Cursor Agent">
-              <div className="p-4">
-                <div className="space-y-4">
-                  <div className="p-3 bg-brand-500/10 rounded-lg border border-brand-500/20">
-                    <h4 className="font-semibold text-brand-400 mb-2">Agent Mode Active</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Autonomous coding agent with explore→plan→implement→test→verify loop
-                    </p>
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div>• File operations: read, write, edit, glob, grep</div>
-                      <div>• Terminal execution</div>
-                      <div>• Git operations</div>
-                      <div>• Web search & browser automation</div>
-                      <div>• Checkpointing & rollback</div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setCursorAgentOpen(false);
-                      setBuildTab('plan');
-                    }}
-                  >
-                    Close Agent Panel
-                  </Button>
-                </div>
-              </div>
-            </AppShellSidebarSection>
-          )}
         </Sidebar>
       }
       sidebarOpen={sidebarOpen}
@@ -778,107 +584,32 @@ export const BuildView: React.FC<BuildViewProps> = ({
       <div className="flex flex-col h-full">
         {/* Tab content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {buildTab === 'plan' && (
-            <BuildStudio
-              open={true}
-              onClose={onBack ?? (() => {})}
-              title={t('build.title')}
-              initialCommands={[]}
-              initialPrompt={initialPrompt}
-              runKey={buildRunKey}
+          {buildTab === 'preview' && (
+            <LivePreview
+              projectId={projectId ?? ''}
+              initialUrl={previewUrl}
+              onUrlChange={setPreviewUrl}
+              onPreviewStart={() => setPreviewRunning(true)}
+              onPreviewStop={() => setPreviewRunning(false)}
             />
           )}
-          {buildTab === 'transcript' && (
-            <BuildTranscript toolCalls={[]} autoScroll />
-          )}
-          {buildTab === 'diff' && (
-            <BuildDiffPreview diffs={[]} open={true} onClose={() => {}} />
-          )}
-          {buildTab === 'debug' && (
-            <BuildDebugPanel workspaceId={projectId ?? ''} />
-          )}
-          {buildTab === 'terminal' && (
-            <div className="flex flex-col h-full">
-              <Terminal
-                theme={resolved as 'light' | 'dark'}
-                onReady={(term) => {
-                  if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
-                }}
-              />
-            </div>
-          )}
-          {buildTab === 'agents' && parallelTask && (
-            <div className="flex flex-col h-full p-4">
-              <AgentPanel
-                task={parallelTask}
-                onProgressEvent={onProgressEvent}
-                onCancel={onCancelParallel}
-                onCreateCheckpoint={onCreateCheckpoint}
-                onRollback={onRollback}
-              />
-            </div>
-          )}
-          {buildTab === 'mobile' && (
-            <div className="flex flex-col h-full">
-              <MobileAppsView projectId={projectId} onProjectChange={onProjectChange} />
-            </div>
-          )}
-          {buildTab === 'security' && (
-            <div className="flex flex-col h-full">
-              <SecurityDashboard projectId={projectId ?? ''} />
-            </div>
-          )}
-          {buildTab === 'ui-builder' && (
-            <div className="flex flex-col h-full">
-              <UIBuilderView
-                projectId={projectId ?? ''}
-                initialFramework="nextjs"
-              />
-            </div>
-          )}
-          {buildTab === 'analytics' && (
-            <div className="flex flex-col h-full">
-              <AnalyticsDashboard projectId={projectId ?? ''} />
-            </div>
-          )}
-          {buildTab === 'cursor-chat' && (
-            <div className="flex flex-col h-full p-4">
-              <CursorChatSidebar
-                projectId={projectId || 'default'}
-                projectRoot={projectRoot}
-                isOpen={true}
-                onClose={() => setBuildTab('plan')}
-                onNewConversation={() => {}}
-              />
-            </div>
-          )}
-          {buildTab === 'cursor-composer' && (
-            <div className="flex flex-col h-full p-4">
-              <CursorComposer
-                projectId={projectId || 'default'}
-                projectRoot={projectRoot}
-                isOpen={true}
-                onClose={() => setBuildTab('plan')}
-              />
-            </div>
-          )}
-          {buildTab === 'cursor-agent' && (
-            <div className="flex flex-col h-full p-4">
-              <div className="flex flex-col h-full">
-                <div className="mb-4 p-4 bg-brand-500/10 rounded-lg border border-brand-500/20">
-                  <h3 className="text-lg font-semibold text-brand-400 mb-2">Cursor Agent (Autonomous Coding)</h3>
-                  <p className="text-muted-foreground">
-                    Autonomous explore→plan→implement→test→verify loop with tool use.
-                    <br />Coming soon: full Agent panel integration.
-                  </p>
-                </div>
-              </div>
-            </div>
+          {buildTab === 'overview' && (
+            <BuildOverviewPanel
+              projectId={projectId ?? ''}
+              initialPrompt={initialPrompt}
+              buildRunKey={buildRunKey}
+              parallelTask={parallelTask}
+              onProgressEvent={onProgressEvent}
+              onStartParallel={onStartParallel}
+              onCancelParallel={onCancelParallel}
+              onCreateCheckpoint={onCreateCheckpoint}
+              onRollback={onRollback}
+            />
           )}
         </div>
 
-        {/* Command input bar for terminal */}
-        {buildTab === 'terminal' && (
+        {/* Command input bar for terminal (only in overview tab) */}
+        {buildTab === 'overview' && (
           <div className="border-t border-border-primary bg-bg-elevated/50 backdrop-blur-sm p-3">
             <div className="flex items-center gap-2 max-w-4xl mx-auto">
               <span className="text-muted-foreground text-sm font-mono">$</span>
@@ -915,7 +646,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
             newExpert: 'New Expert',
             generateImage: t('input.generateImage'),
             createArtifact: 'Create Artifact',
-            buildMode: 'Build Mode',
+            buildMode: t('mode.build'),
             research: 'Deep Research',
             dataLab: 'Data Lab',
           }}
@@ -948,10 +679,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
             const data = await response.json();
             if (data.ok && data.artifactConfig) {
               // Trigger parallel artifact build via orchestrator
-              // This would call the parallel artifact orchestrator API
               console.log('Artifact created:', data.artifactConfig);
-              // Navigate to plan tab to show the build
-              setBuildTab('plan');
+              // Navigate to overview tab to show the build
+              setBuildTab('overview');
             }
           } catch (err) {
             console.error('Failed to create artifact from template:', err);
@@ -966,14 +696,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         items={[
-          { id: 'plan', label: t('build.sidebar.plan'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, action: () => setBuildTab('plan') },
-          { id: 'transcript', label: t('build.sidebar.recentBuilds'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>, action: () => setBuildTab('transcript') },
-          { id: 'terminal', label: t('build.sidebar.terminal'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>, action: () => setBuildTab('terminal') },
-          { id: 'security', label: t('build.tabs.security'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>, action: () => setBuildTab('security') },
-          { id: 'mobile', label: t('mobile.title'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>, action: () => setBuildTab('mobile') },
-          { id: 'cursor-chat', label: 'Cursor Chat (⌘L)', icon: <MessageSquare size={16} />, action: () => setBuildTab('cursor-chat') },
-          { id: 'cursor-composer', label: 'Cursor Composer (⌘I)', icon: <GitBranch size={16} />, action: () => setBuildTab('cursor-composer') },
-          { id: 'cursor-agent', label: 'Cursor Agent', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, action: () => { setBuildTab('cursor-agent'); setCursorAgentOpen(true); } },
+          { id: 'preview', label: t('build.tabs.preview'), icon: <Monitor className="w-4 h-4" />, action: () => setBuildTab('preview') },
+          { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" />, action: () => setBuildTab('overview') },
+          { id: 'terminal', label: t('overview.tabs.terminal'), icon: <TerminalIcon className="w-4 h-4" />, action: () => setBuildTab('overview') },
+          { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" />, action: () => setBuildTab('overview') },
+          { id: 'mobile', label: t('mobile.title'), icon: <Smartphone className="w-4 h-4" />, action: () => setBuildTab('overview') },
         ]}
       />
 
@@ -1015,25 +742,261 @@ export const BuildView: React.FC<BuildViewProps> = ({
           </div>
         )}
       </Drawer>
-
-      {/* AI Chat Sidebar */}
-      <AIChatSidebar
-        projectId={projectId || 'default'}
-        projectRoot={projectRoot}
-        isOpen={aiChatOpen}
-        onClose={() => setAiChatOpen(false)}
-        onNewConversation={() => setAiChatOpen(true)}
-      />
-
-      {/* AI Composer */}
-      <AIComposer
-        projectId={projectId || 'default'}
-        projectRoot={projectRoot}
-        isOpen={aiComposerOpen}
-        onClose={() => setAiComposerOpen(false)}
-      />
     </AppShell>
   );
 };
 
 export default BuildView;
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Build Overview Panel — Everything visual: progress, transcript, plan, terminal, security, deploy
+ * ────────────────────────────────────────────────────────────────────────── */
+
+interface BuildOverviewPanelProps {
+  projectId: string;
+  initialPrompt?: string;
+  buildRunKey?: number;
+  parallelTask?: ParallelTask | null;
+  onProgressEvent?: (event: AgentProgressEvent) => void;
+  onStartParallel?: (goal: string) => void;
+  onCancelParallel?: () => void;
+  onCreateCheckpoint?: (workstreamId: string, description: string) => void;
+  onRollback?: (checkpointId: string) => void;
+}
+
+const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
+  projectId,
+  initialPrompt,
+  buildRunKey,
+  parallelTask,
+  onProgressEvent,
+  onStartParallel,
+  onCancelParallel,
+  onCreateCheckpoint,
+  onRollback,
+}) => {
+  const { t } = useI18n();
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents'>('progress');
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Overview sub-tabs - visual, horizontal */}
+      <div className="shrink-0 border-b border-border-primary bg-bg-elevated/50 backdrop-blur-sm">
+        <Tabs
+          tabs={[
+            { id: 'progress', label: t('overview.tabs.progress'), icon: <Zap className="w-4 h-4" /> },
+            { id: 'plan', label: t('overview.tabs.plan'), icon: <GitBranch className="w-4 h-4" /> },
+            { id: 'transcript', label: t('overview.tabs.transcript'), icon: <MessageSquare className="w-4 h-4" /> },
+            { id: 'terminal', label: t('overview.tabs.terminal'), icon: <TerminalIcon className="w-4 h-4" /> },
+            { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" /> },
+            { id: 'deploy', label: t('overview.tabs.deploy'), icon: <Globe className="w-4 h-4" /> },
+            { id: 'agents', label: t('overview.tabs.agents'), icon: <Wrench className="w-4 h-4" /> },
+          ]}
+          activeTab={overviewTab}
+          onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
+          variant="pills"
+          className="mx-auto max-w-5xl px-4 py-2"
+        />
+      </div>
+
+      {/* Overview tab content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {overviewTab === 'progress' && (
+          <BuildProgressPanel
+            workspaceId={projectId}
+            initialPrompt={initialPrompt}
+            buildRunKey={buildRunKey}
+            onStartParallel={onStartParallel}
+            onCancelParallel={onCancelParallel}
+          />
+        )}
+        {overviewTab === 'plan' && (
+          <BuildPlanView
+            workspaceId={projectId}
+            initialPrompt={initialPrompt}
+            buildRunKey={buildRunKey}
+            onStartParallel={onStartParallel}
+          />
+        )}
+        {overviewTab === 'transcript' && (
+          <BuildTranscript toolCalls={[]} autoScroll />
+        )}
+        {overviewTab === 'terminal' && (
+          <div className="flex flex-col h-full">
+            <Terminal
+              theme={resolved as 'light' | 'dark'}
+              onReady={(term) => {
+                if (initialPrompt) term.writeln(`$ ${initialPrompt}`);
+              }}
+            />
+          </div>
+        )}
+        {overviewTab === 'security' && (
+          <div className="flex flex-col h-full">
+            <SecurityDashboard projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'deploy' && (
+          <div className="flex flex-col h-full p-4">
+            <DeployVisualPanel projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'agents' && parallelTask && (
+          <div className="flex flex-col h-full p-4">
+            <AgentPanel
+              task={parallelTask}
+              onProgressEvent={onProgressEvent}
+              onCancel={onCancelParallel}
+              onCreateCheckpoint={onCreateCheckpoint}
+              onRollback={onRollback}
+            />
+          </div>
+        )}
+        {overviewTab === 'agents' && !parallelTask && (
+          <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
+            <p className="text-center">{t('build.agentPanel.noTask')}</p>
+            <p className="text-sm text-center mt-2">{t('build.agentPanel.startBuildToSeeAgents')}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Deploy Visual Panel — Visual pipeline/steps for deployment
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const DeployVisualPanel: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const { t } = useI18n();
+  const [deployStage, setDeployStage] = useState<'idle' | 'building' | 'testing' | 'security' | 'deploying' | 'complete' | 'failed'>('idle');
+  const [deployLogs, setDeployLogs] = useState<string[]>([]);
+  const [deployUrl, setDeployUrl] = useState<string | null>(null);
+
+  const stages = [
+    { id: 'building', label: t('deploy.stages.build'), icon: <Wrench className="w-5 h-5" /> },
+    { id: 'testing', label: t('deploy.stages.test'), icon: <TerminalIcon className="w-5 h-5" /> },
+    { id: 'security', label: t('deploy.stages.security'), icon: <Shield className="w-5 h-5" /> },
+    { id: 'deploying', label: t('deploy.stages.deploy'), icon: <Globe className="w-5 h-5" /> },
+  ];
+
+  const runDeploy = async () => {
+    setDeployStage('building');
+    setDeployLogs([]);
+    const log = (msg: string) => setDeployLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+
+    log('Starting deployment pipeline...');
+
+    try {
+      // Stage 1: Build
+      log('Building project...');
+      setDeployStage('building');
+      await new Promise(r => setTimeout(r, 1500));
+      log('Build complete ✓');
+
+      // Stage 2: Test
+      log('Running tests...');
+      setDeployStage('testing');
+      await new Promise(r => setTimeout(r, 1000));
+      log('All tests passed ✓');
+
+      // Stage 3: Security
+      log('Running security scan...');
+      setDeployStage('security');
+      await new Promise(r => setTimeout(r, 1000));
+      log('Security scan passed ✓');
+
+      // Stage 4: Deploy
+      log('Deploying to production...');
+      setDeployStage('deploying');
+      await new Promise(r => setTimeout(r, 1500));
+
+      const url = `https://${projectId}.infinity.ai`;
+      setDeployUrl(url);
+      log(`Deployment complete! Live at ${url}`);
+      setDeployStage('complete');
+    } catch (err) {
+      log(`Deployment failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setDeployStage('failed');
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col space-y-6 p-4">
+      {/* Pipeline visualization */}
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold">{t('deploy.pipeline')}</h2>
+
+        <div className="relative">
+          {/* Connecting line */}
+          <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-border-primary/30" />
+
+          <div className="space-y-4">
+            {stages.map((stage, index) => (
+              <div key={stage.id} className="relative flex items-start gap-4">
+                <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
+                  deployStage === stage.id ? 'bg-brand-500 text-white ring-4 ring-brand-500/30' :
+                  ['complete'].includes(deployStage) || stages.slice(0, index).some(s => s.id === deployStage) ? 'bg-green-500 text-white' :
+                  'bg-muted text-muted-foreground'
+                }`}>
+                  {stage.icon}
+                  {deployStage === stage.id && (
+                    <div className="absolute -inset-1 rounded-full bg-brand-500/30 animate-ping" />
+                  )}
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className={`font-medium transition-colors ${
+                    deployStage === stage.id ? 'text-brand-400' : 'text-foreground'
+                  }`}>
+                    {stage.label}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {deployStage === stage.id ? t('deploy.status.running') :
+                    ['complete'].includes(deployStage) || stages.slice(0, index).some(s => s.id === deployStage) ? t('deploy.status.complete') :
+                    t('deploy.status.pending')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Logs */}
+      <div className="flex-1 min-h-0 bg-black/20 rounded-lg border border-border-primary overflow-hidden">
+        <div className="p-3 border-b border-border-primary flex items-center justify-between">
+          <h3 className="font-medium">{t('deploy.logs')}</h3>
+          {deployStage === 'complete' && deployUrl && (
+            <a href={deployUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:underline flex items-center gap-1">
+              <Globe className="w-4 h-4" />
+              {t('deploy.openSite')}
+            </a>
+          )}
+        </div>
+        <div className="flex-1 overflow-auto p-3 font-mono text-sm text-green-300">
+          {deployLogs.map((log, i) => (
+            <div key={i} className="whitespace-pre-wrap">{log}</div>
+          ))}
+          {deployLogs.length === 0 && (
+            <p className="text-muted-foreground text-center py-8">{t('deploy.noLogs')}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Action button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={runDeploy}
+          disabled={deployStage !== 'idle' && deployStage !== 'complete' && deployStage !== 'failed'}
+          variant={deployStage === 'complete' ? 'secondary' : 'primary'}
+          size="lg"
+        >
+          {deployStage === 'idle' ? t('deploy.start') :
+           deployStage === 'complete' ? t('deploy.redeploy') :
+           deployStage === 'failed' ? t('deploy.retry') :
+           t('deploy.running')}
+        </Button>
+      </div>
+    </div>
+  );
+};

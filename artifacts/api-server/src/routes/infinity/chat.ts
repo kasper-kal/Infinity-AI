@@ -1235,6 +1235,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     keyId?: string;
   };
 
+  // Helper: check if we're in Build Mode (infinity Build)
+  const isBuildMode = allowBuildMode === 'true';
+
   if (!userMessage || typeof userMessage !== "string") {
     res.status(400).json({ error: "userMessage is required" });
     return;
@@ -1511,8 +1514,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     res.flushHeaders();
 
     // ── @Browse command: Tavily web search with live text streaming ──────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const browseCheck = detectBrowseCommand(sanitizedMessage);
-    if (browseCheck.isBrowse) {
+    if (!isBuildMode && browseCheck.isBrowse) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1572,8 +1576,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Agent command: Live browser agent with Puppeteer widget ──────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const agentCheckCmd = detectAgentCommand(sanitizedMessage);
-    if (agentCheckCmd.isAgent) {
+    if (!isBuildMode && agentCheckCmd.isAgent) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1594,8 +1599,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Promo command: Promo video generation ───────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const promoCheck = detectPromoCommand(sanitizedMessage);
-    if (promoCheck.isPromo) {
+    if (!isBuildMode && promoCheck.isPromo) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1641,8 +1647,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @DeepResearch command: Deep Research v2 ─────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const deepResearchCheck = detectDeepResearchCommand(sanitizedMessage);
-    if (deepResearchCheck.isDeepResearch) {
+    if (!isBuildMode && deepResearchCheck.isDeepResearch) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1686,8 +1693,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Book command: Create a book project ─────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const bookCheck = detectBookCommand(sanitizedMessage);
-    if (bookCheck.isBook) {
+    if (!isBuildMode && bookCheck.isBook) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1729,8 +1737,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Image command: AI image generation ─────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const imageCmdCheck = detectImageCommand(sanitizedMessage);
-    if (imageCmdCheck.isImage) {
+    if (!isBuildMode && imageCmdCheck.isImage) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1749,8 +1758,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Screen command: Screen sharing control ──────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const screenCmdCheck = detectScreenCommand(sanitizedMessage);
-    if (screenCmdCheck.isScreen) {
+    if (!isBuildMode && screenCmdCheck.isScreen) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1776,8 +1786,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @ProjectName command: Reference another project ──────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const projectTagCheck = detectProjectTagCommand(sanitizedMessage);
-    if (projectTagCheck.isProjectTag) {
+    if (!isBuildMode && projectTagCheck.isProjectTag) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1818,8 +1829,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @GitHub command: Repository analysis and operations ──────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const githubCheck = detectGitHubCommand(sanitizedMessage);
-    if (githubCheck.isGitHub) {
+    if (!isBuildMode && githubCheck.isGitHub) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1909,8 +1921,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Figma command: Design generation using design kits ──────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const figmaCheck = detectFigmaCommand(sanitizedMessage);
-    if (figmaCheck.isFigma) {
+    if (!isBuildMode && figmaCheck.isFigma) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -1962,8 +1975,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Linear command: Linear issue/project management ────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const linearCheck = detectLinearCommand(sanitizedMessage);
-    if (linearCheck.isLinear) {
+    if (!isBuildMode && linearCheck.isLinear) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2009,8 +2023,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Notion command: Notion pages/databases ─────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const notionCheck = detectNotionCommand(sanitizedMessage);
-    if (notionCheck.isNotion) {
+    if (!isBuildMode && notionCheck.isNotion) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2056,8 +2071,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Sheets command: Google Sheets operations ───────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const sheetsCheck = detectSheetsCommand(sanitizedMessage);
-    if (sheetsCheck.isSheets) {
+    if (!isBuildMode && sheetsCheck.isSheets) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2103,8 +2119,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Slack command: Slack operations ────────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const slackCheck = detectSlackCommand(sanitizedMessage);
-    if (slackCheck.isSlack) {
+    if (!isBuildMode && slackCheck.isSlack) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2150,8 +2167,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Discord command: Discord operations ────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const discordCheck = detectDiscordCommand(sanitizedMessage);
-    if (discordCheck.isDiscord) {
+    if (!isBuildMode && discordCheck.isDiscord) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2197,8 +2215,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Telegram command: Telegram operations ──────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const telegramCheck = detectTelegramCommand(sanitizedMessage);
-    if (telegramCheck.isTelegram) {
+    if (!isBuildMode && telegramCheck.isTelegram) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2244,8 +2263,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Spotify command: Spotify operations ────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const spotifyCheck = detectSpotifyCommand(sanitizedMessage);
-    if (spotifyCheck.isSpotify) {
+    if (!isBuildMode && spotifyCheck.isSpotify) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2291,8 +2311,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Gmail command: Gmail operations ────────────────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const gmailCheck = detectGmailCommand(sanitizedMessage);
-    if (gmailCheck.isGmail) {
+    if (!isBuildMode && gmailCheck.isGmail) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2338,8 +2359,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     }
 
     // ── @Calendar command: Google Calendar operations ────────────────
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const calendarCheck = detectCalendarCommand(sanitizedMessage);
-    if (calendarCheck.isCalendar) {
+    if (!isBuildMode && calendarCheck.isCalendar) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2388,8 +2410,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     // Voice mode: "infinity, search for X" opens the PiP browser agent loop.
     // Chat mode: the request flows through the normal LLM path (agent mode
     // is handled via the agentMode flag), no browser theater, real answers.
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const agentCheck = detectAgentBrowserRequest(sanitizedMessage);
-    if (agentCheck.isAgentRequest && (responseStyle ?? 'voice') === 'voice') {
+    if (!isBuildMode && agentCheck.isAgentRequest && (responseStyle ?? 'voice') === 'voice') {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2406,7 +2429,8 @@ router.post("/chat", requireAuth, async (req, res) => {
 
     // ── Screen sharing auto-detect ─────────────────────────────────
     // If the user is asking to start screen sharing, send a confirmation event.
-    if (detectScreenShareRequest(sanitizedMessage)) {
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
+    if (!isBuildMode && detectScreenShareRequest(sanitizedMessage)) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2423,8 +2447,9 @@ router.post("/chat", requireAuth, async (req, res) => {
 
     // ── Maps auto-detect (explicit @Maps or natural language location queries) ────────
     // Detects @Maps command or queries like "where should I eat", "coffee near me", "pizza places nearby"
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const mapsCheck = await detectMapsCommand(sanitizedMessage);
-    if (mapsCheck.shouldTrigger && mapsCheck.widget) {
+    if (!isBuildMode && mapsCheck.shouldTrigger && mapsCheck.widget) {
       await db.insert(messages).values({
         conversationId: convId,
         role: "user",
@@ -2461,8 +2486,9 @@ router.post("/chat", requireAuth, async (req, res) => {
     // ── Image generation auto-detect ─────────────────────────────────
     // If the user is asking to generate/draw/create an image, send a
     // confirmation prompt instead of going to the LLM.
+    // @ commands (widgets) only work in Chat Mode, NOT in Build Mode
     const imageCheck = detectImageRequest(sanitizedMessage);
-    if (imageCheck.isImageRequest) {
+    if (!isBuildMode && imageCheck.isImageRequest) {
       // Save the user message to DB
       await db.insert(messages).values({
         conversationId: convId,

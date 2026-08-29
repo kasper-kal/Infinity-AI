@@ -6,6 +6,7 @@ packages:
 
 allowBuilds:
   bcrypt: false
+  better-sqlite3: false
   canvas: true
   core-js: false
   esbuild: true
@@ -14,6 +15,7 @@ allowBuilds:
   node-pty: true
   protobufjs: true
   puppeteer: true
+  sharp: false
 
 autoInstallPeers: false
 

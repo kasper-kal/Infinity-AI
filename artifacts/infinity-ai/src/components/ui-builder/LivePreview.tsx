@@ -9,11 +9,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import { Select } from '@/components/ui';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
+import { Select, SelectItem, SelectTrigger, SelectContent, SelectValue } from '@/components/ui/select';
+import { Tabs } from '@/components/ui/Tabs';
 import { Separator, Badge } from '@/components/ui';
-import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus } from 'lucide-react';
+import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus, Grip, PanelLeft, PanelRight, Maximize } from 'lucide-react';
 import { CommentOverlay, type Comment, type CommentElementData } from './CommentOverlay';
+import { DeviceFrame, type DeviceKind } from './DeviceFrame';
 
 interface LivePreviewProps {
   /** Generated components to preview */
@@ -64,13 +65,35 @@ export interface PresenceUser {
   isCurrentUser?: boolean;
 }
 
-const VIEWPORTS = {
-  mobile: { width: 375, height: 667, label: 'Mobile', icon: Smartphone },
-  tablet: { width: 768, height: 1024, label: 'Tablet', icon: Tablet },
-  desktop: { width: 1440, height: 900, label: 'Desktop', icon: Monitor },
+// Device Preview Modes
+const DEVICE_MODES = {
+  'iphone-16-pro': {
+    width: 393,
+    height: 852,
+    label: 'iPhone 16 Pro',
+    icon: Smartphone,
+    kind: 'iphone-16-pro' as DeviceKind,
+    showChrome: true,
+  },
+  desktop: {
+    width: 1440,
+    height: 900,
+    label: 'Desktop',
+    icon: Monitor,
+    kind: 'desktop' as DeviceKind,
+    showChrome: true,
+  },
+  freeform: {
+    width: 393,
+    height: 852,
+    label: 'Freeform',
+    icon: Maximize,
+    kind: 'bare' as DeviceKind,
+    showChrome: false,
+  },
 } as const;
 
-type ViewportKey = keyof typeof VIEWPORTS;
+type DeviceModeKey = keyof typeof DEVICE_MODES;
 
 const TAILWIND_CDN = `
   <script src="https://cdn.tailwindcss.com"></script>
@@ -215,13 +238,20 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   onSelectionUpdate,
   presenceUsers = [],
 }, forwardedRef) => {
-  const [viewport, setViewport] = useState<ViewportKey>(initialViewport);
+  const [deviceMode, setDeviceMode] = useState<DeviceModeKey>(initialViewport as DeviceModeKey);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<Array<{ type: 'log' | 'error' | 'warn'; message: string; timestamp: Date }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'console'>('preview');
+  const [activeTab, setActiveTabState] = useState<'preview' | 'console'>('preview');
+const setActiveTab = (tabId: string) => {
+  if (tabId === 'preview' || tabId === 'console') {
+    setActiveTabState(tabId);
+  }
+};
+  const [freeformScale, setFreeformScale] = useState(0.5);
+  const [freeformPosition, setFreeformPosition] = useState({ x: 0, y: 0 });
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const previewKey = useRef(0);
 
@@ -232,15 +262,15 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Phase 18: Presence SSE State
-  const [presenceEventSource, setPresenceEventSource] = useRef<EventSource | null>(null);
-  const [commentEventSource, setCommentEventSource] = useRef<EventSource | null>(null);
+  const presenceEventSource = useRef<EventSource | null>(null);
+  const commentEventSource = useRef<EventSource | null>(null);
   const [remoteCursors, setRemoteCursors] = useState<Map<string, PresenceUser>>(new Map());
   const cursorThrottleRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const viewportConfig = VIEWPORTS[viewport];
+  const deviceConfig = DEVICE_MODES[deviceMode];
 
   // Forward ref to iframe
-  React.useImperativeHandle(forwardedRef, () => iframeRef.current!, []);
+  React.useImperativeHandle(forwardedRef, () => iframeRef.current as HTMLIFrameElement, []);
 
   // Generate preview HTML
   const generatePreviewHTML = useCallback(() => {
@@ -351,7 +381,7 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
 
         case 'console':
           setConsoleLogs(prev => [...prev, {
-            type: payload.type,
+            type: payload.type as 'log' | 'error' | 'warn',
             message: payload.message,
             timestamp: new Date(),
           }].slice(-100));
@@ -360,7 +390,7 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
         case 'error':
           setPreviewError(payload.message);
           setConsoleLogs(prev => [...prev, {
-            type: 'error',
+            type: 'error' as const,
             message: payload.message,
             timestamp: new Date(),
           }].slice(-100));
@@ -632,18 +662,19 @@ export const LivePreview = React.forwardRef<HTMLIFrameElement, LivePreviewProps>
   // Handle mouse move in iframe for cursor tracking
   useEffect(() => {
     if (!presenceEnabled || !iframeRef.current) return;
+    const iframe = iframeRef.current;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (e.target === iframeRef.current) {
-        const rect = iframeRef.current.getBoundingClientRect();
+      if (e.target === iframe) {
+        const rect = iframe.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         sendCursorUpdate(x, y);
       }
     };
 
-    iframeRef.current.addEventListener('mousemove', handleMouseMove);
-    return () => iframeRef.current?.removeEventListener('mousemove', handleMouseMove);
+    iframe.addEventListener('mousemove', handleMouseMove);
+    return () => iframe.removeEventListener('mousemove', handleMouseMove);
   }, [presenceEnabled, sendCursorUpdate]);
 
   const handleRefresh = useCallback(() => {
@@ -957,34 +988,59 @@ const ConsoleIcons = ({
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b border-border">
         <div className="flex items-center gap-1">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden sm:flex">
-            <TabsList className="bg-transparent p-0">
-              <TabsTrigger value="preview" className="px-3 py-1.5 text-sm">
-                Preview
-              </TabsTrigger>
-              <TabsTrigger value="console" className="px-3 py-1.5 text-sm">
-                Console {consoleLogs.filter(l => l.type === 'error').length > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-4 px-1.5 text-xs">
-                    {consoleLogs.filter(l => l.type === 'error').length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <Tabs
+            tabs={[
+              { id: 'preview', label: 'Preview', content: null },
+              { id: 'console', label: consoleLogs.filter(l => l.type === 'error').length > 0 ? (
+                <>Console <Badge variant="destructive" className="ml-1 h-4 px-1.5 text-xs">{consoleLogs.filter(l => l.type === 'error').length}</Badge></>
+              ) : 'Console', content: null },
+            ]}
+            controlledTab={activeTab}
+            onChange={setActiveTab}
+            variant="line"
+            className="hidden sm:flex"
+          />
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
-          {/* Viewport Selector */}
-          <Select value={viewport} onValueChange={setViewport as (v: ViewportKey) => void} className="w-40">
-            {Object.entries(VIEWPORTS).map(([key, config]) => (
-              <Select.Item key={key} value={key as ViewportKey} className="flex items-center gap-2">
-                <config.icon className="w-4 h-4" />
-                <span>{config.label}</span>
-              </Select.Item>
-            ))}
+          {/* Device Mode Selector */}
+          <Select value={deviceMode} onValueChange={setDeviceMode as (v: DeviceModeKey) => void}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Select device" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DEVICE_MODES).map(([key, config]) => (
+                <SelectItem key={key} value={key as DeviceModeKey} className="flex items-center gap-2">
+                  <config.icon className="w-4 h-4" />
+                  <span>{config.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
 
           <Separator orientation="vertical" className="h-6 mx-1" />
+
+          {/* Freeform scale control */}
+          {deviceMode === 'freeform' && (
+            <>
+              <div className="flex items-center gap-2 px-2">
+                <span className="text-xs text-muted-foreground">Scale:</span>
+                <input
+                  type="range"
+                  min="0.25"
+                  max="1.5"
+                  step="0.05"
+                  value={freeformScale}
+                  onChange={(e) => setFreeformScale(parseFloat(e.target.value))}
+                  className="w-32 h-1"
+                />
+                <span className="text-xs text-muted-foreground w-10 text-right">
+                  {Math.round(freeformScale * 100)}%
+                </span>
+              </div>
+              <Separator orientation="vertical" className="h-6 mx-1" />
+            </>
+          )}
 
           {/* Dark mode toggle */}
           <Button
@@ -1055,52 +1111,64 @@ const ConsoleIcons = ({
         <div
           className={cn(
             'relative w-full h-full transition-all duration-300',
-            isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''
+            isFullscreen ? 'fixed inset-0 z-50 rounded-none' : '',
+            deviceMode === 'freeform' && 'p-4'
           )}
           style={{
-            width: isFullscreen ? '100vw' : viewportConfig.width,
-            height: isFullscreen ? '100vh' : viewportConfig.height,
+            width: isFullscreen ? '100vw' : '100%',
+            height: isFullscreen ? '100vh' : '100%',
             maxWidth: isFullscreen ? 'none' : '100%',
           }}
         >
-          <iframe
-            ref={iframeRef}
-            key={previewKey.current}
-            srcDoc={generatePreviewHTML()}
-            className="w-full h-full border-0 rounded-lg shadow-lg bg-white dark:bg-gray-900"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-            title="Live Preview"
-          />
-
-          {/* Phase 18: Comment Overlay - renders markers and threads on top of preview */}
-          {commentOverlayEnabled && shareToken && comments.length > 0 && (
-            <CommentOverlay
-              shareToken={shareToken}
-              comments={comments}
-              selectedCommentId={selectedCommentId}
-              onSelectComment={onSelectComment}
-              onAddComment={onAddComment}
-              onReply={onReply}
-              onResolve={onResolve}
-              onReact={onReact}
-              onDelete={onDelete}
-              currentUser={currentUser}
-              iframeRef={iframeRef}
-              enabled={commentOverlayEnabled}
-            />
+          {deviceMode === 'freeform' ? (
+            // Freeform mode: draggable, resizable frames
+            <div
+              className="relative w-full h-full"
+              style={{
+                transform: `scale(${freeformScale})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              <FreeformFrames
+                iframeRef={iframeRef}
+                previewKey={previewKey.current}
+                generatePreviewHTML={generatePreviewHTML}
+                onDrag={setFreeformPosition}
+                position={freeformPosition}
+                commentOverlayEnabled={commentOverlayEnabled}
+                shareToken={shareToken}
+                comments={comments}
+                selectedCommentId={selectedCommentId}
+                onSelectComment={onSelectComment!}
+                onAddComment={onAddComment!}
+                onReply={onReply!}
+                onResolve={onResolve!}
+                onReact={onReact!}
+                onDelete={onDelete!}
+                currentUser={currentUser}
+                presenceEnabled={presenceEnabled}
+                remoteCursors={remoteCursors}
+                previewError={previewError}
+                handleRefresh={handleRefresh}
+              />
+            </div>
+          ) : (
+            // Single device frame mode
+            <div className="flex items-center justify-center min-h-[calc(100%-2rem)]">
+              <DeviceFrame
+                ref={iframeRef}
+                kind={DEVICE_MODES[deviceMode].kind}
+                width={DEVICE_MODES[deviceMode].width}
+                height={DEVICE_MODES[deviceMode].height}
+                scale={isFullscreen ? Math.min(window.innerWidth / (DEVICE_MODES[deviceMode].width + 46), window.innerHeight / (DEVICE_MODES[deviceMode].height + 76)) : 1}
+                srcDoc={generatePreviewHTML()}
+                showChrome={DEVICE_MODES[deviceMode].showChrome}
+                key={previewKey.current}
+              />
+            </div>
           )}
 
-          {/* Phase 18: Presence Cursors - render remote user cursors */}
-          {presenceEnabled && remoteCursors.size > 0 && (
-            <PresenceCursors
-              cursors={remoteCursors}
-              iframeRef={iframeRef}
-              viewportConfig={viewportConfig}
-              isFullscreen={isFullscreen}
-            />
-          )}
-
-          {previewError && !isLoading && (
+          {previewError && !isLoading && deviceMode !== 'freeform' && (
             <div className="absolute inset-0 flex items-center justify-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg z-10">
               <div className="text-center max-w-md">
                 <Bug className="w-12 h-12 text-destructive mx-auto mb-3" />
@@ -1112,10 +1180,10 @@ const ConsoleIcons = ({
           )}
         </div>
 
-        {/* Viewport label when not fullscreen */}
-        {!isFullscreen && (
+        {/* Viewport label when not fullscreen and not freeform */}
+        {!isFullscreen && deviceMode !== 'freeform' && (
           <div className="absolute bottom-2 right-2 bg-background/90 backdrop-blur px-2 py-1 rounded text-xs text-muted-foreground">
-            {viewportConfig.width} × {viewportConfig.height}
+            {DEVICE_MODES[deviceMode].width} × {DEVICE_MODES[deviceMode].height}
           </div>
         )}
       </div>
@@ -1287,10 +1355,156 @@ const ConsoleIcons = ({
 // Phase 18: Presence Cursors Component
 interface PresenceCursorsProps {
   cursors: Map<string, PresenceUser>;
-  iframeRef: React.RefObject<HTMLIFrameElement>;
-  viewportConfig: typeof VIEWPORTS[keyof typeof VIEWPORTS];
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  viewportConfig: { width: number; height: number; label: string; icon: any };
   isFullscreen: boolean;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * FreeformFrames — draggable/resizable iPhone + Desktop frames side by side
+ * ────────────────────────────────────────────────────────────────────────── */
+interface FreeformFramesProps {
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  previewKey: number;
+  generatePreviewHTML: () => string;
+  onDrag: (pos: { x: number; y: number }) => void;
+  position: { x: number; y: number };
+  commentOverlayEnabled: boolean;
+  shareToken?: string;
+  comments?: Comment[];
+  selectedCommentId?: string;
+  onSelectComment: (commentId: string) => void;
+  onAddComment: (selector: string, elementData: CommentElementData, content: string, mentions?: string[]) => Promise<void>;
+  onReply: (parentId: string, content: string, mentions?: string[]) => Promise<void>;
+  onResolve: (commentId: string, resolved: boolean) => Promise<void>;
+  onReact: (commentId: string, emoji: string) => Promise<void>;
+  onDelete: (commentId: string) => Promise<void>;
+  currentUser?: { name: string; email: string; avatar?: string };
+  presenceEnabled?: boolean;
+  remoteCursors?: Map<string, PresenceUser>;
+  previewError?: string | null;
+  handleRefresh?: () => void;
+}
+
+const FreeformFrames: React.FC<FreeformFramesProps> = ({
+  iframeRef,
+  previewKey,
+  generatePreviewHTML,
+  onDrag,
+  position,
+  commentOverlayEnabled,
+  shareToken,
+  comments = [],
+  selectedCommentId,
+  onSelectComment,
+  onAddComment,
+  onReply,
+  onResolve,
+  onReact,
+  onDelete,
+  currentUser,
+  presenceEnabled = false,
+  remoteCursors = new Map(),
+  previewError,
+  handleRefresh,
+}) => {
+  // We need two iframes - one for iPhone, one for Desktop
+  // Use separate refs for each
+  const iphoneRef = useRef<HTMLIFrameElement>(null);
+  const desktopRef = useRef<HTMLIFrameElement>(null);
+
+  // For simplicity, render two DeviceFrames side by side
+  return (
+    <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
+      {/* iPhone 16 Pro Frame */}
+      <div className="relative shrink-0">
+        <DeviceFrame
+          ref={iphoneRef}
+          kind="iphone-16-pro"
+          width={393}
+          height={852}
+          scale={1}
+          srcDoc={generatePreviewHTML()}
+          showChrome={true}
+          key={previewKey}
+        />
+        {commentOverlayEnabled && shareToken && comments.length > 0 && onSelectComment && onAddComment && onReply && onResolve && onReact && onDelete && (
+          <CommentOverlay
+            shareToken={shareToken}
+            comments={comments}
+            selectedCommentId={selectedCommentId}
+            onSelectComment={onSelectComment}
+            onAddComment={onAddComment}
+            onReply={onReply}
+            onResolve={onResolve}
+            onReact={onReact}
+            onDelete={onDelete}
+            currentUser={currentUser}
+            iframeRef={iphoneRef as React.RefObject<HTMLIFrameElement>}
+            enabled={commentOverlayEnabled}
+          />
+        )}
+        {presenceEnabled && remoteCursors.size > 0 && (
+          <PresenceCursors
+            cursors={remoteCursors}
+            iframeRef={iphoneRef as React.RefObject<HTMLIFrameElement>}
+            viewportConfig={{ width: 393, height: 852, label: '', icon: null }}
+            isFullscreen={false}
+          />
+        )}
+      </div>
+
+      {/* Desktop Frame */}
+      <div className="relative shrink-0">
+        <DeviceFrame
+          ref={desktopRef}
+          kind="desktop"
+          width={1440}
+          height={900}
+          scale={0.5}
+          srcDoc={generatePreviewHTML()}
+          showChrome={true}
+          key={previewKey + 1}
+        />
+        {commentOverlayEnabled && shareToken && comments.length > 0 && onSelectComment && onAddComment && onReply && onResolve && onReact && onDelete && (
+          <CommentOverlay
+            shareToken={shareToken}
+            comments={comments}
+            selectedCommentId={selectedCommentId}
+            onSelectComment={onSelectComment}
+            onAddComment={onAddComment}
+            onReply={onReply}
+            onResolve={onResolve}
+            onReact={onReact}
+            onDelete={onDelete}
+            currentUser={currentUser}
+            iframeRef={desktopRef as React.RefObject<HTMLIFrameElement>}
+            enabled={commentOverlayEnabled}
+          />
+        )}
+        {presenceEnabled && remoteCursors.size > 0 && (
+          <PresenceCursors
+            cursors={remoteCursors}
+            iframeRef={desktopRef as React.RefObject<HTMLIFrameElement>}
+            viewportConfig={{ width: 1440, height: 900, label: '', icon: null }}
+            isFullscreen={false}
+          />
+        )}
+      </div>
+
+      {previewError && (
+        <div className="absolute inset-0 flex items-center justify-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg z-10">
+          <div className="text-center max-w-md">
+            <Bug className="w-12 h-12 text-destructive mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-destructive mb-2">Preview Error</h3>
+            <p className="text-sm text-muted-foreground mb-4">{previewError}</p>
+            <Button onClick={handleRefresh} size="sm">Try Again</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PresenceCursors: React.FC<PresenceCursorsProps> = ({ cursors, iframeRef, viewportConfig, isFullscreen }) => {
   const cursorColors = [
