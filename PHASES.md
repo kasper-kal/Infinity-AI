@@ -1567,6 +1567,549 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
+## 📦 Phase 34: AI Self-Management (Secrets, Settings, API Keys)
+
+### Goal
+**Infinity manages its own secrets and settings autonomously** — Infinity Build can create, rotate, and manage its own LLM API keys, change its own settings (accent color, profile picture, theme, etc.) with user confirmation, and maintain its own configuration without manual intervention. All changes require explicit user confirmation via a confirmation dialog.
+
+### Requirements
+- [ ] **Secret Manager** — `artifacts/api-server/src/lib/secret-manager.ts`:
+  - Secure storage for LLM API keys (OpenRouter, Anthropic, OpenAI, Google, etc.) — encrypted at rest
+  - Key rotation: generate new keys, test them, swap atomically
+  - Per-model key overrides (different keys for different models/providers)
+  - Key health monitoring: track usage, rate limits, errors, auto-rotate on 401/429
+  - Audit log: every key operation logged with timestamp, actor (user/agent), reason
+  - Export/import for backup (encrypted)
+- [ ] **Settings Manager** — `artifacts/api-server/src/lib/settings-manager.ts`:
+  - Accent color: Infinity can propose/switch accent colors with user confirmation
+  - Profile picture: Upload/generate avatar, update with confirmation
+  - Theme preferences: light/dark/system, custom CSS variables
+  - UI density: compact/normal/comfortable
+  - Language/locale: EN, NL, etc.
+  - Notification preferences: in-app, email, push, webhook
+  - All changes require `confirmSettingChange(setting, newValue, reason)` → user dialog
+- [ ] **AI-Initiated Changes** — Universal Agent can propose changes:
+  - Tool: `settings.propose(key, value, reason)` → creates pending change
+  - Tool: `settings.confirm(changeId)` / `settings.reject(changeId)` — user action
+  - Tool: `secrets.rotate(provider, reason)` — proposes new key, tests, confirms
+  - Agent explains WHY it wants the change (e.g., "Current key hitting rate limits, rotating to backup")
+- [ ] **Frontend UI** — SettingsView integration:
+  - "AI Management" tab showing pending AI-proposed changes
+  - Secret health dashboard (green/yellow/red per provider)
+  - Accent color preview with "Let Infinity choose" button
+  - Profile picture with "Generate with AI" option
+  - Confirmation dialogs for all AI-proposed changes
+- [ ] **Security** — Zero-trust approach:
+  - Keys never exposed to frontend (only health status)
+  - Rotation happens server-side, tested before swap
+  - User must confirm every change (no silent updates)
+  - Rate limit: max 3 AI-proposed changes per hour per setting category
+
+### Implementation Plan
+1. **Secret Manager Core** — Encrypted storage, rotation logic, health monitoring
+2. **Settings Manager Core** — CRUD for settings, confirmation workflow, audit log
+3. **Agent Tools** — Register `settings.propose/confirm/reject`, `secrets.rotate` in Universal Tool Registry
+4. **Database Schema** — `secrets` table (encrypted), `settings` table, `setting_changes` audit log
+5. **API Routes** — CRUD for settings, secret health, pending changes, confirm/reject
+6. **Frontend** — SettingsView "AI Management" tab, confirmation dialogs, health dashboard
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/secret-manager.ts` (new)
+- `artifacts/api-server/src/lib/settings-manager.ts` (new)
+- `artifacts/api-server/src/db/schema/secrets.ts` (new)
+- `artifacts/api-server/src/db/schema/settings.ts` (new)
+- `artifacts/api-server/src/routes/infinity/ai-management.ts` (new)
+- `artifacts/infinity-ai/src/components/settings/AIManagementTab.tsx` (new)
+- `artifacts/infinity-ai/src/components/settings/SecretHealthDashboard.tsx` (new)
+- `artifacts/infinity-ai/src/components/settings/ConfirmationDialog.tsx` (new)
+- `artifacts/infinity-ai/src/components/views/SettingsView.tsx` (integrate AI Management tab)
+
+---
+
+## 📦 Phase 35: Dynamic Island / Live Task Display
+
+### Goal
+**Persistent live dashboard showing ALL concurrent Infinity activities** — A Dynamic Island style UI element (top-center or floating) that shows every active task: building website, deep research, writing book, running automations, agent loops, deployments, etc. Real-time updates via SSE, clickable to jump to relevant view, collapsible/expandable.
+
+### Requirements
+- [ ] **Task Registry** — `artifacts/api-server/src/lib/task-registry.ts`:
+  - Central registry of all active tasks across the system
+  - Task types: `build`, `research`, `write`, `automation`, `agent-loop`, `deploy`, `chat`, `migration`, `sync`
+  - Each task: `id`, `type`, `title`, `description`, `progress` (0-100), `status` (pending/running/complete/error/paused), `startedAt`, `eta`, `metadata` (flexible JSON)
+  - Parent/child relationships (build task → sub-tasks: scaffold, generate, deploy)
+  - SSE broadcast on any task update (`task:update`, `task:created`, `task:completed`)
+- [ ] **Dynamic Island Component** — `artifacts/infinity-ai/src/components/dynamic-island/DynamicIsland.tsx`:
+  - Collapsed state: Small pill showing active task count + primary task progress ring
+  - Expanded state: Vertical list of all tasks with progress bars, status icons, time elapsed
+  - Click task → navigate to relevant view (BuildView, ResearchView, ChatView, etc.)
+  - Drag to reposition (top-center, top-left, top-right, floating)
+  - Auto-expand on new critical task (error, deployment complete, user action needed)
+  - Keyboard accessible (Tab to focus, Enter to expand, arrows to navigate)
+  - Respects reduced motion preference
+- [ ] **Task Providers** — Each subsystem registers tasks:
+  - Build Orchestrator: registers build phases as sub-tasks
+  - Deep Research: registers research steps (search, extract, synthesize)
+  - Universal Agent: registers agent loop iterations
+  - Automation Runtime: registers running automations
+  - Deploy Panel: registers deployment stages
+  - Chat: registers long-running generations
+  - File Operations: registers large file ops
+- [ ] **Persistence** — Task state survives refresh:
+  - Store in IndexedDB (frontend) + database (backend)
+  - Restore on page load, reconnect SSE
+  - Cleanup completed tasks after 1 hour (configurable)
+- [ ] **Integration** — Always visible:
+  - Mounted at app root level (above routes)
+  - Z-index above modals but below critical dialogs
+  - Works in all views (Build, Chat, Terminal, Settings, Projects)
+
+### Implementation Plan
+1. **Task Registry Backend** — In-memory + SSE broadcast, persistence to DB
+2. **Task Registry Frontend** — IndexedDB cache, SSE listener, React context provider
+3. **Dynamic Island UI** — Collapsed/expanded states, drag, keyboard, animations
+4. **Provider Integration** — Wire Build Orchestrator, Research, Agent, Automation, Deploy, Chat
+5. **App Shell Integration** — Mount at root, global styles, z-index management
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/task-registry.ts` (new)
+- `artifacts/api-server/src/routes/infinity/tasks.ts` (new — SSE + CRUD)
+- `artifacts/infinity-ai/src/lib/task-registry.ts` (new — frontend registry + SSE)
+- `artifacts/infinity-ai/src/components/dynamic-island/DynamicIsland.tsx` (new)
+- `artifacts/infinity-ai/src/components/dynamic-island/DynamicIslandItem.tsx` (new)
+- `artifacts/infinity-ai/src/components/dynamic-island/ProgressRing.tsx` (new)
+- `artifacts/infinity-ai/src/hooks/useDynamicIsland.ts` (new)
+- `artifacts/infinity-ai/src/App.tsx` (mount DynamicIsland at root)
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (register build tasks)
+- `artifacts/infinity-ai/src/components/views/ChatView.tsx` (register chat tasks)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Dynamic Island keys EN+NL)
+
+---
+
+## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap)
+
+### Goal
+**Interactive visual graph of the entire project** — Independent from PHASES.md, Infinity Build maintains its own living roadmap as a node-based graph: nodes = features, components, pages, APIs, integrations, tests, docs; edges = dependencies, data flow, user flows, architectural relationships. AI updates it autonomously as it works. Fully interactive: zoom, pan, filter, search, click to navigate to code.
+
+### Requirements
+- [ ] **Graph Data Model** — `artifacts/api-server/src/lib/build-map.ts`:
+  - Node types: `feature`, `component`, `page`, `api`, `integration`, `test`, `doc`, `database`, `model`, `config`, `deployment`
+  - Node properties: `id`, `type`, `title`, `description`, `status` (planned/in-progress/review/done/blocked), `priority`, `assignee` (human/agent), `files[]`, `tags[]`, `estimate`, `actualTime`, `dependencies[]` (node IDs), `dependents[]`
+  - Edge types: `depends-on`, `data-flow`, `user-flow`, `parent-child`, `related-to`, `blocks`
+  - Graph metadata: `version`, `lastUpdatedBy` (agent/user), `projectId`, `layout` (positions)
+  - AI can: add nodes, update status, add edges, reorganize, suggest priorities
+- [ ] **AI Roadmap Agent** — Specialized subagent that maintains the map:
+  - Runs after each build step: analyzes changes, updates relevant nodes
+  - Reads git diff, new files, modified files → infers node updates
+  - Proposes new nodes for detected gaps ("Missing test for X", "No API for Y")
+  - Suggests dependency edges from imports, data flow, routing
+  - Weekly: proposes reorganization, identifies bottlenecks, suggests next priorities
+  - Tool: `buildmap.update(nodes[], edges[])`, `buildmap.analyze()`, `buildmap.suggest()`
+- [ ] **Graph Visualization** — `artifacts/infinity-ai/src/components/build-map/BuildMap.tsx`:
+  - React Flow / Cytoscape.js / custom Canvas/WebGL renderer
+  - Zoom/pan (mouse wheel, pinch, touch), minimap overview
+  - Filter by: node type, status, assignee, tag, search query
+  - Layout algorithms: hierarchical (top-down), force-directed, circular, manual
+  - Click node → side panel with details, actions (open file, run test, view diff)
+  - Click edge → show relationship type, navigate between nodes
+  - Color coding: status (green=done, blue=in-progress, yellow=planned, red=blocked, gray=archived)
+  - Node size = priority/estimate, border = assignee (human=solid, agent=dashed)
+  - Export: PNG, SVG, JSON, Mermaid diagram
+- [ ] **Side Panel** — Node/edge details and actions:
+  - Node: title, description, status dropdown, priority, tags, files (click to open), dependencies list, dependents list, activity log
+  - Edge: type, source/target, description
+  - Actions: "Open in Editor", "Run Tests", "View Git History", "Create Task", "Assign to Agent"
+  - AI suggestions badge: "AI suggests: add test node", "AI suggests: depends on Auth API"
+- [ ] **AI Autonomy** — Map updates without human prompting:
+  - On build complete: mark feature nodes done, create test nodes if missing
+  - On new component: add component node, link to parent page/feature
+  - On API change: update API node, check dependent nodes for impact
+  - On error: mark node blocked, create "fix" child node
+  - User can approve/reject AI proposals via side panel
+- [ ] **Integration** — Accessible from BuildView and Dynamic Island:
+  - BuildView: "Visual Map" tab (alongside Terminal, History, Tools)
+  - Dynamic Island: Click "View Map" on build task
+  - Command Palette: "Open Build Map" (Cmd+K → Build Map)
+
+### Implementation Plan
+1. **Graph Data Model + Persistence** — Database schema, CRUD API, versioning
+2. **AI Roadmap Agent** — Subagent with graph analysis tools, scheduled runs
+3. **Graph Visualization Frontend** — React Flow integration, interactions, layouts
+4. **Side Panel + Actions** — Detail view, file navigation, AI suggestions
+5. **Integration** — BuildView tab, Dynamic Island link, Command Palette
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/build-map.ts` (new)
+- `artifacts/api-server/src/lib/build-map-agent.ts` (new — AI agent)
+- `artifacts/api-server/src/db/schema/build-map.ts` (new — nodes, edges, versions)
+- `artifacts/api-server/src/routes/infinity/build-map.ts` (new — CRUD, SSE, analyze)
+- `artifacts/infinity-ai/src/components/build-map/BuildMap.tsx` (new)
+- `artifacts/infinity-ai/src/components/build-map/BuildMapNode.tsx` (new)
+- `artifacts/infinity-ai/src/components/build-map/BuildMapEdge.tsx` (new)
+- `artifacts/infinity-ai/src/components/build-map/BuildMapSidePanel.tsx` (new)
+- `artifacts/infinity-ai/src/components/build-map/BuildMapToolbar.tsx` (new)
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (Build Map tab)
+- `artifacts/infinity-ai/src/hooks/useBuildMap.ts` (new)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Build Map keys EN+NL)
+
+---
+
+## 📦 Phase 37: Fully Automated End-to-End Workflow (NL → Deployed Product)
+
+### Goal
+**One command: natural language goal → fully deployed product** — User describes what they want ("Build a SaaS for freelancers to track time and invoice clients with Stripe payments, React + Next.js + PostgreSQL, deploy to Vercel"). Infinity handles everything: planning, scaffolding, code generation, database setup, auth, payments, testing, deployment, DNS, monitoring. Zero manual steps unless user intervenes.
+
+### Requirements
+- [ ] **Workflow Orchestrator** — `artifacts/api-server/src/lib/workflow-orchestrator.ts`:
+  - Input: natural language goal + optional constraints (framework, budget, timeline)
+  - Output: complete execution plan with phases, steps, dependencies, estimates
+  - Phases: `discover` (clarify requirements) → `plan` (architecture, tech stack) → `scaffold` (repo, config) → `generate` (code, database, auth, integrations) → `test` (unit, e2e, a11y) → `deploy` (infra, DNS, SSL, monitoring) → `verify` (smoke tests, health checks)
+  - Each phase: sub-agents with isolated worktrees (Phase 4), quality gates (Phase 2)
+  - Checkpointing: save state at each phase for resume/rollback
+  - Human-in-the-loop: approval gates at `plan`, `deploy`, and any high-risk step
+- [ ] **Requirement Clarification** — Interactive discovery:
+  - AI asks targeted questions to reduce ambiguity (max 5 questions)
+  - Uses `@Question` tool to present options (radio, multi-select, text)
+  - Generates PRD (Product Requirements Document) from answers
+  - User approves PRD before planning begins
+- [ ] **Tech Stack Selector** — AI recommends + user confirms:
+  - Framework: Next.js, Astro, Remix, Vite+React, SvelteKit, Nuxt, SolidStart
+  - Database: PostgreSQL (Supabase/Neon), SQLite (Turso), MongoDB, Firebase
+  - Auth: Clerk, Auth.js, Supabase Auth, custom JWT
+  - Payments: Stripe, Lemon Squeezy, Paddle
+  - Hosting: Vercel, Netlify, Cloudflare Pages, Railway, Fly.io
+  - AI scores each option, presents top 3 with rationale
+- [ ] **Code Generation Pipeline** — Leverages all existing systems:
+  - UI Codegen (Phase 16) for frontend components
+  - API Generation (Phase 13) for backend routes
+  - Database Integration (Phase 19) for schema + migrations
+  - Auth Integration (Phase 19) for auth setup
+  - Component IR (Phase 20) for cross-framework components
+  - Design Tokens (Phase 20) for consistent styling
+- [ ] **Testing & Quality** — Automated verification:
+  - Unit tests: Vitest/Jest generated per component/API
+  - E2E tests: Playwright for critical user flows
+  - A11y: axe-core scan (Phase 23)
+  - Typecheck: TypeScript strict mode
+  - Lint: ESLint + Prettier
+  - Build verification: `npm run build` must pass
+- [ ] **Deployment Automation** — Zero-config deploy:
+  - Detects framework, generates appropriate config (vercel.json, netlify.toml, wrangler.toml)
+  - Sets up environment variables (secrets from Secret Manager)
+  - Configures custom domain (if provided) + SSL
+  - Sets up preview deployments for PRs
+  - Health checks post-deploy (HTTP 200, key endpoints respond)
+  - Rollback on failure (previous deployment)
+- [ ] **Monitoring & Handoff** — Post-deploy:
+  - Error tracking (Sentry free tier)
+  - Analytics (Plausible/Umami self-hosted)
+  - Uptime monitoring (UptimeRobot free)
+  - Generates `HANDOFF.md` with: architecture, credentials (encrypted), runbook, scaling notes
+  - Optionally creates GitHub repo with CI/CD pipeline
+
+### Implementation Plan
+1. **Workflow Orchestrator Core** — Phase definitions, agent spawning, checkpointing
+2. **Requirement Clarification UI** — Question flow, PRD generation, approval
+3. **Tech Stack Selector** — Scoring engine, recommendation UI
+4. **Code Generation Pipeline** — Wire existing generators into phased execution
+5. **Testing Pipeline** — Auto-generate + run tests, quality gates
+6. **Deployment Engine** — Multi-provider deploy, domain, SSL, health checks
+7. **Monitoring Setup** — Free tier integrations, HANDOFF.md generation
+8. **Frontend Wizard** — Step-by-step UI in BuildView "Automate" tab
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/workflow-orchestrator.ts` (new)
+- `artifacts/api-server/src/lib/requirement-clarifier.ts` (new)
+- `artifacts/api-server/src/lib/tech-stack-selector.ts` (new)
+- `artifacts/api-server/src/lib/deployment-engine.ts` (new)
+- `artifacts/api-server/src/lib/monitoring-setup.ts` (new)
+- `artifacts/api-server/src/routes/infinity/workflow.ts` (new — orchestrate, status, approve)
+- `artifacts/infinity-ai/src/components/workflow/WorkflowWizard.tsx` (new)
+- `artifacts/infinity-ai/src/components/workflow/WorkflowPhase.tsx` (new)
+- `artifacts/infinity-ai/src/components/workflow/RequirementClarifier.tsx` (new)
+- `artifacts/infinity-ai/src/components/workflow/TechStackSelector.tsx` (new)
+- `artifacts/infinity-ai/src/components/workflow/DeploymentStatus.tsx` (new)
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (Automate tab)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Workflow keys EN+NL)
+
+---
+
+## 📦 Phase 38: Local AI Safety Watcher (Push Notifications)
+
+### Goal
+**Local AI monitor that watches for safety issues and errors** — A background AI process (running locally or in a sidecar) that monitors all Infinity activity: agent loops, builds, deployments, automations, browser actions. Detects: runaway loops, excessive token usage, security violations, failed deployments, error patterns, policy violations. Sends push notifications (Web Push, email, Slack, Discord) to user. Runs on $0 budget (local model or free tier).
+
+### Requirements
+- [ ] **Watcher Agent** — `artifacts/api-server/src/lib/safety-watcher.ts`:
+  - Subscribes to all system events: agent loops, build steps, deployments, browser actions, automations
+  - Runs local model (Ollama, llama.cpp, or small hosted free tier) for analysis
+  - Detection rules (configurable, extensible):
+    - **Runaway Loop**: Agent > 50 iterations without progress, token budget > 80%
+    - **Token Burn**: Single operation > $5 estimated cost (based on token counts)
+    - **Security Violation**: Browser accessing sensitive domain (Phase 5 policy), secret in code, PII in logs
+    - **Deployment Failure**: Deploy fails, health check fails, rollback triggered
+    - **Error Pattern**: Same error > 3 times in 10 minutes across any subsystem
+    - **Policy Violation**: Agent attempts denied action, accesses forbidden path
+    - **Resource Exhaustion**: Memory > 90%, disk > 90%, CPU sustained > 80%
+    - **Stalled Task**: Task no progress > 10 minutes (build, research, automation)
+  - Severity levels: `info`, `warning`, `critical`, `emergency`
+  - Action: notify, pause agent, rollback, request human intervention
+- [ ] **Notification Dispatcher** — Multi-channel, $0 budget:
+  - **Web Push API** — Service Worker push (Phase 23 SW), VAPID keys, works offline
+  - **Email** — Resend free tier (3000 emails/month) or SendGrid free (100/day)
+  - **Slack/Discord** — Incoming webhooks (user configures)
+  - **In-app** — Toast + notification center (persistent)
+  - **Desktop** — Electron `Notification` API (if desktop wrapper)
+  - Template engine: `{{severity}} {{type}}: {{summary}} — {{action}}`
+  - Batching: group similar notifications within 5 min
+  - Quiet hours: user-configurable (default 22:00-08:00 local)
+- [ ] **Configuration UI** — SettingsView "Safety Watcher" tab:
+  - Enable/disable watcher
+  - Severity thresholds per rule (when to notify)
+  - Notification channels (enable/disable each)
+  - Quiet hours schedule
+  - Test notification button
+  - View notification history (last 100)
+  - "Snooze" button on notifications (15m, 1h, 1d)
+- [ ] **Local Model Integration** — Zero-cost inference:
+  - Prefer Ollama (local) if available → `llama3.2:1b` or `qwen2.5:0.5b`
+  - Fallback: Transformers.js (WASM) in browser for simple checks
+  - Fallback: Free tier API (Groq, Together AI free credits)
+  - Model only analyzes event summaries (few KB), not full context
+  - Caches recent decisions to avoid re-analysis
+- [ ] **Integration Points**:
+  - Universal Agent: emits `agent:iteration`, `agent:tool-call`, `agent:complete`
+  - Build Orchestrator: emits `build:phase-start`, `build:phase-complete`, `build:error`
+  - Deployment Engine: emits `deploy:started`, `deploy:completed`, `deploy:failed`
+  - Browser Pool: emits `browser:navigate`, `browser:action`, `browser:policy-violation`
+  - Automation Runtime: emits `automation:started`, `automation:completed`, `automation:error`
+  - Task Registry (Phase 35): emits `task:stalled`, `task:failed`
+
+### Implementation Plan
+1. **Watcher Core** — Event subscription, rule engine, local model interface
+2. **Detection Rules** — Implement all 8 rule categories with configurable thresholds
+3. **Notification Dispatcher** — Web Push + Email + Webhook + In-app
+4. **Configuration UI** — Settings tab with all controls
+5. **Integration** — Wire event emitters across all subsystems
+6. **Local Model Setup** — Ollama detection, Transformers.js fallback, model prompts
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/safety-watcher.ts` (new)
+- `artifacts/api-server/src/lib/notification-dispatcher.ts` (new)
+- `artifacts/api-server/src/routes/infinity/safety-watcher.ts` (new — config, history, test)
+- `artifacts/infinity-ai/src/components/settings/SafetyWatcherTab.tsx` (new)
+- `artifacts/infinity-ai/src/components/settings/NotificationHistory.tsx` (new)
+- `artifacts/infinity-ai/src/components/settings/NotificationChannelConfig.tsx` (new)
+- `artifacts/infinity-ai/src/lib/transformers-watcher.ts` (new — WASM fallback)
+- `artifacts/infinity-ai/public/sw.js` (extend — push notification handling)
+- `artifacts/infinity-ai/src/hooks/useNotifications.ts` (new)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Safety Watcher keys EN+NL)
+
+---
+
+## 📦 Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
+
+### Goal
+**Sophisticated LLM key management with per-task model selection** — Users configure multiple API keys per provider, assign them to task categories (chat, coding, research, planning, review, vision, embedding), and define build modes (Speed, Balanced, Quality, Max) that automatically select the optimal model/key combination. Visual model picker with benchmarks, cost estimates, and capabilities.
+
+### Requirements
+- [ ] **Key Manager Enhancement** — Extend Secret Manager (Phase 34):
+  - Multiple keys per provider (primary, backup, specialized)
+  - Key metadata: `label`, `modelAccess[]` (which models this key unlocks), `rateLimit`, `monthlyBudget`, `currentSpend`, `enabled`
+  - Key validation: test all models on key add, periodic re-validation
+  - Automatic failover: primary key fails → try backup key seamlessly
+- [ ] **Task Categories** — `artifacts/api-server/src/lib/model-router.ts` (extend):
+  - Categories: `chat`, `coding`, `research`, `planning`, `review`, `vision`, `embedding`, `classification`, `extraction`, `reasoning`
+  - Each category: preferred model(s), fallback model(s), temperature, maxTokens, toolConfig
+  - User can override per project or globally
+  - Agent automatically selects category based on task type
+- [ ] **Build Modes** — Pre-configured model profiles:
+  - **Speed** — Fastest models (Haiku, Flash, 3.5-mini), low temp, short context, parallel execution
+  - **Balanced** — Sonnet, GPT-4o, balanced temp, medium context
+  - **Quality** — Opus, GPT-4o, high temp for creativity, long context, more verification
+  - **Max** — Best available (Opus, GPT-4o, o1), max context, all quality gates, adversarial verify
+  - **Custom** — User-defined profile
+  - Mode affects: model selection, parallel agent count, verification depth, context budget
+- [ ] **Model Picker UI** — `artifacts/infinity-ai/src/components/llm/ModelPicker.tsx`:
+  - Table: Provider | Model | Capabilities (coding, reasoning, vision, 128k/200k/1M context) | Speed | Cost/1M tokens | Your Keys (badges)
+  - Filter by: capability, context window, cost tier, provider
+  - Benchmark scores (from public benchmarks or user's own runs)
+  - "Set as default for [category]" buttons
+  - "Test model" button → runs quick benchmark prompt
+  - Shows which key unlocks which model
+- [ ] **Cost Tracking & Budgets**:
+  - Per-key, per-model, per-project, per-session tracking
+  - Monthly budget per key with alerts at 50%, 80%, 95%
+  - Cost estimation before expensive operations (deep research, large builds)
+  - "Show me the cost" preview in chat/build UI
+- [ ] **Agent Integration** — Universal Agent uses enhanced router:
+  - `router.selectModel(category, mode, constraints?)` → returns `{provider, model, keyId, params}`
+  - Automatic category inference from tool being called
+  - Build mode passed from BuildView → orchestrator → agent
+  - Override via `@Model <model>` command in chat
+
+### Implementation Plan
+1. **Key Manager Enhancement** — Multi-key, metadata, validation, failover
+2. **Model Router Enhancement** — Task categories, build modes, selection logic
+3. **Model Picker UI** — Table, filters, benchmarks, test button
+4. **Cost Tracking** — Database schema, tracking middleware, budget alerts
+5. **Agent Integration** — Wire router into universal-agent, build-orchestrator
+6. **Settings Integration** — Keys tab in SettingsView with model picker
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/model-router.ts` (extend — categories, modes, cost tracking)
+- `artifacts/api-server/src/lib/secret-manager.ts` (extend — multi-key, metadata)
+- `artifacts/api-server/src/db/schema/llm-keys.ts` (extend — metadata columns)
+- `artifacts/api-server/src/routes/infinity/llm-keys.ts` (extend — CRUD, validate, test)
+- `artifacts/infinity-ai/src/components/llm/ModelPicker.tsx` (new)
+- `artifacts/infinity-ai/src/components/llm/ModelPickerRow.tsx` (new)
+- `artifacts/infinity-ai/src/components/llm/BuildModeSelector.tsx` (new)
+- `artifacts/infinity-ai/src/components/llm/CostEstimate.tsx` (new)
+- `artifacts/infinity-ai/src/components/settings/LLMKeysTab.tsx` (extend/redesign)
+- `artifacts/infinity-ai/src/hooks/useModelRouter.ts` (new)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add LLM Keys keys EN+NL)
+
+---
+
+## 📦 Phase 40: Recipe Widget (Standard + Deep Research)
+
+### Goal
+**Reusable "Recipe" components for common AI workflows** — Two variants: **Standard Recipe** (quick, structured prompt → result) and **Deep Research Recipe** (multi-step research → synthesis → deliverable). Recipes are versioned, shareable, parameterized, and composable. Examples: "Competitor Analysis", "Technical Spec Writer", "Blog Post Generator", "API Documentation Generator", "Code Review Checklist", "Security Audit".
+
+### Requirements
+- [ ] **Recipe Engine** — `artifacts/api-server/src/lib/recipe-engine.ts`:
+  - Recipe schema: `id`, `name`, `description`, `version`, `type` (standard|deep-research), `parameters[]` (name, type, required, default, description), `steps[]` (prompt, modelCategory, tools, outputKey), `outputSchema` (Zod), `tags[]`, `author`, `isPublic`
+  - Standard Recipe: Single LLM call with structured prompt + parameters → structured output
+  - Deep Research Recipe: Multi-step — `research` (search + extract) → `synthesize` (LLM) → `format` (output) → `verify` (critic)
+  - Parameter interpolation: `{{paramName}}` in prompts, supports conditionals, loops
+  - Execution: `executeRecipe(recipeId, parameters)` → streams progress, returns result
+  - Versioning: semantic versioning, changelog, rollback to previous version
+- [ ] **Built-in Recipes** (10+ standard, 5+ deep research):
+  - Standard: `code-review`, `write-tests`, `generate-docs`, `refactor`, `explain-code`, `generate-commit`, `create-pr-description`, `summarize-changes`, `translate-code`, `generate-config`
+  - Deep Research: `competitor-analysis`, `technical-spec`, `market-research`, `architecture-decision-record`, `security-audit`, `performance-analysis`, `dependency-audit`, `migration-plan`
+- [ ] **Recipe Builder UI** — `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx`:
+  - Visual builder: add steps, configure parameters, set output schema
+  - Live preview: test recipe with sample parameters
+  - Version history with diff view
+  - Publish to marketplace (local-first, Phase 15 skills marketplace pattern)
+  - Fork/clone existing recipes
+- [ ] **Recipe Runner UI** — `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx`:
+  - Parameter form (auto-generated from schema)
+  - Progress display: step-by-step for deep research, spinner for standard
+  - Streaming output as steps complete
+  - Result viewer: formatted output, download (JSON, MD, PDF), copy, share
+  - Re-run with modified parameters
+  - Save as template for future use
+- [ ] **Recipe Marketplace** — Local-first, shareable:
+  - Import/export `.recipe.json` files
+  - Community recipes via GitHub (public repo of recipes)
+  - Search/filter by tag, type, rating
+  - Install recipe → adds to local registry
+  - Rate/review recipes (local only, no backend needed)
+- [ ] **Agent Integration** — Universal Agent can:
+  - `recipe.list(category?)`, `recipe.get(id)`, `recipe.execute(id, params)`
+  - `recipe.create(spec)`, `recipe.update(id, spec)`, `recipe.fork(id)`
+  - Agent suggests recipes based on context ("You're writing API docs — want the `generate-docs` recipe?")
+
+### Implementation Plan
+1. **Recipe Engine Core** — Schema, executor (standard + deep research), parameter interpolation
+2. **Built-in Recipes** — Create 15+ recipes as JSON files
+3. **Recipe Builder UI** — Visual builder, live preview, versioning
+4. **Recipe Runner UI** — Parameter form, progress, result viewer
+5. **Marketplace** — Import/export, GitHub sync, search
+6. **Agent Tools** — Register recipe tools in Universal Tool Registry
+7. **Integration** — Recipe tab in BuildView/ChatView, Command Palette
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/recipe-engine.ts` (new)
+- `artifacts/api-server/src/db/schema/recipes.ts` (new — recipes, versions, executions)
+- `artifacts/api-server/src/routes/infinity/recipes.ts` (new — CRUD, execute, marketplace)
+- `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx` (new)
+- `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx` (new)
+- `artifacts/infinity-ai/src/components/recipe/RecipeMarketplace.tsx` (new)
+- `artifacts/infinity-ai/src/components/recipe/RecipeParameterForm.tsx` (new)
+- `artifacts/infinity-ai/src/components/recipe/RecipeStepProgress.tsx` (new)
+- `artifacts/infinity-ai/src/components/recipe/RecipeResultViewer.tsx` (new)
+- `artifacts/infinity-ai/src/hooks/useRecipes.ts` (new)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Recipe keys EN+NL)
+
+---
+
+## 📦 Phase 41: File Format Conversion (@File Convert Command)
+
+### Goal
+**Universal file format converter accessible via @File command** — Convert any file to any format: PDF ↔ Markdown, DOCX ↔ HTML, JSON ↔ YAML ↔ TOML, CSV ↔ JSON ↔ Excel, PNG ↔ WebP ↔ AVIF, MP4 ↔ WebM ↔ GIF, and 50+ more formats. Powered by local WASM libraries (no cloud dependency, $0 budget). Accessible via `@File Convert <file> to <format>` in chat, or drag-drop in UI.
+
+### Requirements
+- [ ] **Conversion Engine** — `artifacts/api-server/src/lib/file-converter.ts`:
+  - Format registry: input formats, output formats, conversion methods per pair
+  - Local WASM libraries (no external API):
+    - **Pandoc WASM** — Document formats: PDF, DOCX, ODT, RTF, HTML, Markdown, LaTeX, EPUB, AsciiDoc, Org, MediaWiki, JATS, TEI, etc.
+    - **LibreOffice WASM** — Office formats (headless conversion)
+    - **Sharp WASM** — Images: PNG, JPEG, WebP, AVIF, TIFF, GIF, SVG, HEIC
+    - **FFmpeg WASM** — Audio/Video: MP4, WebM, MOV, AVI, MP3, WAV, OGG, FLAC, GIF
+    - **SheetJS WASM** — Spreadsheets: XLSX, XLS, CSV, ODS, JSON, HTML
+    - **Custom** — JSON ↔ YAML ↔ TOML ↔ XML ↔ CSV (native JS)
+  - Conversion pipeline: detect input → find path → execute → validate output
+  - Streaming for large files (chunked processing)
+  - Progress reporting via SSE
+- [ ] **Format Detection** — Auto-detect input format:
+  - Magic bytes (file signatures)
+  - Extension fallback
+  - Content sniffing (text vs binary, structure)
+  - Returns `{format, confidence, suggestedOutputs[]}`
+- [ ] **@File Command** — Chat integration:
+  - `@File Convert <file> to <format>` — Single file conversion
+  - `@File Batch <files[]> to <format>` — Multiple files same output
+  - `@File Convert <file> to <format> with <options>` — Options: quality, dpi, page range, etc.
+  - `@File Info <file>` — Shows format, size, pages, dimensions, metadata
+  - `@File ListFormats` — Shows all supported conversions
+  - Drag-drop in chat composer → auto-suggests conversions
+- [ ] **Converter UI** — `artifacts/infinity-ai/src/components/file-converter/FileConverter.tsx`:
+  - Drop zone + file picker
+  - Input format detected badge
+  - Output format selector (grouped: Documents, Images, Video, Audio, Data, Code)
+  - Options panel (format-specific: PDF quality, image resize, video codec, etc.)
+  - Preview: before/after (images, PDF pages, text diff)
+  - Batch queue with progress bars
+  - Download single or zip all
+  - History of recent conversions
+- [ ] **Integration Points**:
+  - Chat: `@File` command emits `file:convert` tool call
+  - BuildView: "Convert Files" tool in Tools tab
+  - TerminalView: `infinity convert` CLI command
+  - ProjectsView: Right-click file → "Convert"
+  - Command Palette: "Convert File"
+- [ ] **Performance** — WASM loading optimization:
+  - Lazy load WASM modules on first use
+  - Cache compiled modules in IndexedDB (Phase 23 SW)
+  - Shared memory for large files
+  - Web Worker for conversion (non-blocking UI)
+  - Progress via `postMessage`
+
+### Implementation Plan
+1. **Format Registry + Detection** — Define all supported formats, detection logic
+2. **WASM Module Loader** — Load Pandoc, Sharp, FFmpeg, SheetJS WASM on demand
+3. **Conversion Pipeline** — Path finding, execution, streaming, validation
+4. **@File Command Handler** — Parse command, execute conversion, stream results
+5. **Converter UI** — Drop zone, format selector, options, preview, batch queue
+6. **Integration** — Chat, BuildView, Terminal, ProjectsView, Command Palette
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/file-converter.ts` (new)
+- `artifacts/api-server/src/lib/wasm-modules.ts` (new — WASM loaders for Pandoc, Sharp, FFmpeg, SheetJS)
+- `artifacts/api-server/src/routes/infinity/file-convert.ts` (new — convert, info, list-formats)
+- `artifacts/infinity-ai/src/components/file-converter/FileConverter.tsx` (new)
+- `artifacts/infinity-ai/src/components/file-converter/FormatSelector.tsx` (new)
+- `artifacts/infinity-ai/src/components/file-converter/ConversionOptions.tsx` (new)
+- `artifacts/infinity-ai/src/components/file-converter/ConversionPreview.tsx` (new)
+- `artifacts/infinity-ai/src/components/file-converter/BatchQueue.tsx` (new)
+- `artifacts/infinity-ai/src/hooks/useFileConverter.ts` (new)
+- `artifacts/infinity-ai/src/components/views/ChatView.tsx` (@File command handler)
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (Convert Files tool)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add File Converter keys EN+NL)
+
+---
+
 ## 🔄 Autonomous Execution Rules
 
 ### For the Agent Running This Plan
@@ -1605,6 +2148,14 @@ loop:
 1. **Phase 10** — Mobile App Development (React Native + Expo)
 2. **Phase 11** — Security Scanner + Secrets Manager (Replit-Level)
 3. **Phase 12** — Multi-Artifact Support (Slides, Website, Web App, Mobile)
+4. **Phase 34** — AI Self-Management (Secrets, Settings, API Keys)
+5. **Phase 35** — Dynamic Island / Live Task Display
+6. **Phase 36** — Visual Build Map (AI-Managed Roadmap)
+7. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
+8. **Phase 38** — Local AI Safety Watcher (Push Notifications)
+9. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
+10. **Phase 40** — Recipe Widget (Standard + Deep Research)
+11. **Phase 41** — File Format Conversion (@File Convert Command)
 
 ### Escalation Triggers (Stop and Notify)
 - [ ] 3 consecutive failures on same task

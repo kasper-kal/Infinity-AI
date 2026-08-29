@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-29 21:15
+LAST_UPDATED: 2026-08-29 21:25
 
 ## Just did (last action)
+- **Added 8 new phases (34-41) to PHASES.md** based on user's extensive feature requirements:
+  - Phase 34: AI Self-Management (Secrets, Settings, API Keys)
+  - Phase 35: Dynamic Island / Live Task Display
+  - Phase 36: Visual Build Map (AI-Managed Roadmap)
+  - Phase 37: Fully Automated End-to-End Workflow (NL → Deployed Product)
+  - Phase 38: Local AI Safety Watcher (Push Notifications)
+  - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
+  - Phase 40: Recipe Widget (Standard + Deep Research)
+  - Phase 41: File Format Conversion (@File Convert Command)
+- **Updated session-brief.md** with new phases in Next Actions
 - **Phase 23: v0-Level Polish (Performance, Accessibility, DX) — COMPLETE (100%)** ✅
   - **Sandbox Pool Manager** (`artifacts/api-server/src/lib/sandbox-pool.ts`): Pre-warmed iframe pool for sub-500ms cold start, <100ms HMR
   - **WASM Bundler** (`artifacts/api-server/src/lib/wasm-bundler.ts`): esbuild/SWC compiled to WebAssembly for browser-based incremental compilation with HMR transform
@@ -121,8 +131,16 @@ LAST_UPDATED: 2026-08-29 21:15
 - **Next Actions (ready for next session):**
   - Phase 21: AI-Powered Design Iteration (Variations, A/B, Analytics) — PLANNED
   - Phase 22: Component Marketplace & Template Library (v0 Community) — PLANNED
-  - Phase 23: v0-Level Polish (Performance, Accessibility, DX) — PLANNED
+  - Phase 23: v0-Level Polish (Performance, Accessibility, DX) — **COMPLETE** ✅
   - Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — PLANNED
+  - Phase 34: AI Self-Management (Secrets, Settings, API Keys) — PLANNED
+  - Phase 35: Dynamic Island / Live Task Display — PLANNED
+  - Phase 36: Visual Build Map (AI-Managed Roadmap) — PLANNED
+  - Phase 37: Fully Automated End-to-End Workflow (NL → Deployed Product) — PLANNED
+  - Phase 38: Local AI Safety Watcher (Push Notifications) — PLANNED
+  - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes) — PLANNED
+  - Phase 40: Recipe Widget (Standard + Deep Research) — PLANNED
+  - Phase 41: File Format Conversion (@File Convert Command) — PLANNED
 
 - **Build Status:**
   - API Server: **BUILD PASSES** ✅ (esbuild - produces dist/index.mjs ~14MB)
