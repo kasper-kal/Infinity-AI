@@ -475,11 +475,8 @@ function MessageBubble({ message, isLast, onCopy }: { message: ChatMessage; isLa
   const isAssistant = message.role === "assistant";
   const isTool = message.role === "tool";
 
-  const getAuthorName = () => {
-    if (isUser) return "You";
-    if (isAssistant) return "Cursor";
-    return "Tool";
-  };
+  const authorName = isUser ? "You" : isAssistant ? "Cursor" : "Tool";
+  const authorColor = isUser ? "var(--violet-12)" : "var(--gray-11)";
 
   return (
     <Flex
@@ -522,8 +519,8 @@ function MessageBubble({ message, isLast, onCopy }: { message: ChatMessage; isLa
           <Avatar size="1" radius="full" style={{ background: isUser ? "var(--violet-7)" : "var(--gray-6)" }}>
             {isUser ? <Text size="1" weight="bold" color="var(--violet-12)">U</Text> : <Sparkles size={10} />}
           </Avatar>
-          <Text size="1" weight="medium" color={isUser ? "var(--violet-12)" : "var(--gray-11)">
-            {isUser ? "You" : (isAssistant ? "Cursor" : "Tool")}
+          <Text size="1" weight="medium" color={authorColor}>
+            {authorName}
           </Text>
           <Text size="1" color="var(--gray-10)">{message.timestamp.toLocaleTimeString()}</Text>
         </Flex>

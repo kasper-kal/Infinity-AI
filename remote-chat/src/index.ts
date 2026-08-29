@@ -29,29 +29,36 @@ interface ChatSession {
 
 const sessions = new Map<string, ChatSession>();
 
-function findClaudeSessions(): string[] {
-  const sessions: string[] = [];
+function findClaudeSessions(): Array<{id: string, name: string}> {
+  const sessions: Array<{id: string, name: string}> = [];
   if (fs.existsSync(CLAUDE_SESSIONS_DIR)) {
     for (const file of fs.readdirSync(CLAUDE_SESSIONS_DIR)) {
       if (file.endsWith('.json')) {
-        sessions.push(file.replace('.json', ''));
+        const id = file.replace('.json', '');
+        const filePath = path.join(CLAUDE_SESSIONS_DIR, file);
+        let name = id;
+        try {
+          const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          if (data.name) name = data.name;
+        } catch {}
+        sessions.push({ id, name });
       }
     }
   }
   return sessions;
 }
 
-function loadSessionHistory(sessionId: string): string[] {
+function loadSessionData(sessionId: string): { history: string[], name?: string } {
   const filePath = path.join(CLAUDE_SESSIONS_DIR, `${sessionId}.json`);
   if (fs.existsSync(filePath)) {
     try {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      return data.history || [];
+      return { history: data.history || [], name: data.name };
     } catch {
-      return [];
+      return { history: [] };
     }
   }
-  return [];
+  return { history: [] };
 }
 
 function attachToSession(sessionId: string): ChildProcess | null {
@@ -95,7 +102,7 @@ wss.on('connection', (ws: WebSocket) => {
           let session = sessions.get(sessionId);
 
           if (!session) {
-            const history = loadSessionHistory(sessionId);
+            const { history, name } = loadSessionData(sessionId);
             let proc: ChildProcess | null = null;
 
             try {
@@ -106,7 +113,7 @@ wss.on('connection', (ws: WebSocket) => {
 
             session = {
               id: sessionId,
-              name: sessionId,
+              name: name || sessionId,
               process: proc,
               clients: new Set(),
               history,

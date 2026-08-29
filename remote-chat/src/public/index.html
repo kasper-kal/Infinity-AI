@@ -102,8 +102,11 @@
       sessions.forEach(s => {
         const div = document.createElement('div');
         div.className = 'session-item';
-        div.textContent = s;
-        div.onclick = () => joinSession(s);
+        const name = typeof s === 'string' ? s : (s.name || s.id);
+        const id = typeof s === 'string' ? s : s.id;
+        div.textContent = name;
+        div.title = id;
+        div.onclick = () => joinSession(id);
         sessionList.appendChild(div);
       });
     }
