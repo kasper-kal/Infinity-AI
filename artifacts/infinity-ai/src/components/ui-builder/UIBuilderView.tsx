@@ -62,7 +62,7 @@ import { ABPreview } from './ABPreview';
 import { CommandPalette, type CommandAction, type CommandCategory } from './CommandPalette';
 import { ErrorOverlay, useErrorOverlay, type ErrorDetail } from './ErrorOverlay';
 import { A11yLinter, type A11yViolation } from './A11yLinter';
-import { useOffline, OfflineIndicator, type OfflineState } from '../hooks/useOffline';
+import { useOffline, OfflineIndicator, type OfflineState } from '@/hooks/useOffline';
 
 export interface ComponentIR {
   name: string;

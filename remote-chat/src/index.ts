@@ -17,6 +17,7 @@ const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3002;
 const CLAUDE_SESSIONS_DIR = process.env.CLAUDE_SESSIONS_DIR || path.join(process.env.HOME || '/home/codespace', '.claude', 'sessions');
+const CLAUDE_PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR || path.join(process.env.HOME || '/home/codespace', '.claude', 'projects');
 
 interface ChatSession {
   id: string;
@@ -31,29 +32,98 @@ const sessions = new Map<string, ChatSession>();
 
 function findClaudeSessions(): Array<{id: string, name: string}> {
   const sessions: Array<{id: string, name: string}> = [];
+
+  // First, get all session IDs (PID -> sessionId mapping) and derived names from sessions dir
+  const pidToSessionId = new Map<string, string>();
+  const sessionMeta = new Map<string, string>(); // sessionId -> derived name
   if (fs.existsSync(CLAUDE_SESSIONS_DIR)) {
     for (const file of fs.readdirSync(CLAUDE_SESSIONS_DIR)) {
       if (file.endsWith('.json')) {
-        const id = file.replace('.json', '');
+        const pid = file.replace('.json', '');
         const filePath = path.join(CLAUDE_SESSIONS_DIR, file);
-        let name = id;
         try {
           const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-          if (data.name) name = data.name;
+          const sessionId = data.sessionId || pid;
+          pidToSessionId.set(pid, sessionId);
+          sessionMeta.set(sessionId, data.name || pid);
         } catch {}
-        sessions.push({ id, name });
       }
     }
   }
+
+  // Then, look in projects dir for AI-generated titles (ai-title events)
+  const aiTitles = new Map<string, string>();
+  if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
+    for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
+      const projectPath = path.join(CLAUDE_PROJECTS_DIR, projectDir);
+      if (!fs.statSync(projectPath).isDirectory()) continue;
+
+      for (const file of fs.readdirSync(projectPath)) {
+        if (!file.endsWith('.jsonl')) continue;
+        const sessionId = file.replace('.jsonl', '');
+        const filePath = path.join(projectPath, file);
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          for (const line of content.split('\n')) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.type === 'ai-title' && data.aiTitle) {
+                aiTitles.set(sessionId, data.aiTitle);
+                break;
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // Combine: prefer AI title, then derived name, then PID
+  for (const [pid, sessionId] of pidToSessionId) {
+    const derivedName = sessionMeta.get(sessionId) || pid;
+    const name = aiTitles.get(sessionId) || derivedName;
+    sessions.push({ id: pid, name });
+  }
+
   return sessions;
 }
 
-function loadSessionData(sessionId: string): { history: string[], name?: string } {
-  const filePath = path.join(CLAUDE_SESSIONS_DIR, `${sessionId}.json`);
+function loadSessionData(pid: string): { history: string[], name?: string } {
+  const filePath = path.join(CLAUDE_SESSIONS_DIR, `${pid}.json`);
   if (fs.existsSync(filePath)) {
     try {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      return { history: data.history || [], name: data.name };
+      const sessionId = data.sessionId || pid;
+
+      // Look up AI title from projects dir
+      let aiTitle: string | undefined;
+      if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
+        for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
+          const projectPath = path.join(CLAUDE_PROJECTS_DIR, projectDir);
+          if (!fs.statSync(projectPath).isDirectory()) continue;
+
+          const jsonlFile = path.join(projectPath, `${sessionId}.jsonl`);
+          if (fs.existsSync(jsonlFile)) {
+            try {
+              const content = fs.readFileSync(jsonlFile, 'utf-8');
+              for (const line of content.split('\n')) {
+                if (!line.trim()) continue;
+                try {
+                  const event = JSON.parse(line);
+                  if (event.type === 'ai-title' && event.aiTitle) {
+                    aiTitle = event.aiTitle;
+                    break;
+                  }
+                } catch {}
+              }
+              if (aiTitle) break;
+            } catch {}
+          }
+        }
+      }
+
+      return { history: data.history || [], name: aiTitle || data.name };
     } catch {
       return { history: [] };
     }
