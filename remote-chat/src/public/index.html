@@ -132,10 +132,21 @@
         terminal.scrollTop = terminal.scrollHeight;
         input.value = '';
       }
+      if (e.key === 'Escape' && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', payload: '\x1b' }));
+        e.preventDefault();
+      }
     });
 
     connect();
     setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 30000);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ws?.readyState === WebSocket.OPEN && currentSession) {
+        ws.send(JSON.stringify({ type: 'input', payload: '\x1b' }));
+        e.preventDefault();
+      }
+    });
   </script>
 </body>
 </html>
