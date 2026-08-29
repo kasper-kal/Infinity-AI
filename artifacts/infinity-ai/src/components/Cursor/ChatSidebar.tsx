@@ -634,3 +634,4 @@ function CodeBlock({ language, code }: { language?: string; code: string }) {
 }
 
 export default ChatSidebar;
+export { ChatSidebar as CursorChatSidebar };

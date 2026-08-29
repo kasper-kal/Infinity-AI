@@ -22,6 +22,7 @@ import { xml } from "@codemirror/lang-xml";
 import { php } from "@codemirror/lang-php";
 import { vue } from "@codemirror/lang-vue";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { createCursorExtensions } from "@/components/Cursor/CodeMirrorIntegration";
 import "./CodeEditor.css";
 
 export type Language =
@@ -42,6 +43,15 @@ export type Language =
   | "php"
   | "vue"
   | "plaintext";
+
+export interface CursorAIConfig {
+  projectId: string;
+  projectRoot: string;
+  filePath: string;
+  tabAutocompleteEnabled?: boolean;
+  onCmdKAccept?: (newCode: string) => void;
+  onCmdKClose?: () => void;
+}
 
 export interface CodeEditorProps {
   value: string;
@@ -64,6 +74,8 @@ export interface CodeEditorProps {
   style?: React.CSSProperties;
   extensions?: Extension[];
   onMount?: (view: EditorView) => void;
+  /** Cursor AI features: Tab autocomplete (ghost text) and Cmd+K inline edit */
+  cursorConfig?: CursorAIConfig;
 }
 
 const LANGUAGE_MAP: Record<Language, Extension> = {
@@ -109,6 +121,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
       style,
       extensions = [],
       onMount,
+      cursorConfig,
     },
     ref
   ) => {
@@ -118,6 +131,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
     const languageCompartment = useRef(new Compartment());
     const themeCompartment = useRef(new Compartment());
     const readOnlyCompartment = useRef(new Compartment());
+    const cursorCompartment = useRef(new Compartment());
 
     const languageExt = useMemo(() => LANGUAGE_MAP[language] || [], [language]);
 
@@ -129,6 +143,19 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
     }, [theme]);
 
     const readOnlyExt = useMemo(() => (readOnly ? EditorState.readOnly.of(true) : []), [readOnly]);
+
+    const cursorExt = useMemo(() => {
+      if (!cursorConfig) return [];
+      return createCursorExtensions({
+        projectId: cursorConfig.projectId,
+        projectRoot: cursorConfig.projectRoot,
+        language,
+        filePath: cursorConfig.filePath,
+        tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
+        onCmdKAccept: cursorConfig.onCmdKAccept,
+        onCmdKClose: cursorConfig.onCmdKClose,
+      });
+    }, [cursorConfig, language]);
 
     useEffect(() => {
       setMounted(true);
@@ -145,6 +172,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
           languageCompartment.current.of(languageExt),
           themeCompartment.current.of(themeExt),
           readOnlyCompartment.current.of(readOnlyExt),
+          cursorCompartment.current.of(cursorExt),
           wordWrap ? EditorView.lineWrapping : [],
           StateEditorState.tabSize.of(tabSize),
           EditorView.theme({
@@ -201,7 +229,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
         view.destroy();
         viewRef.current = null;
       };
-    }, [mounted, value, languageExt, themeExt, readOnlyExt, wordWrap, tabSize, fontSize, fontFamily, lineHeight, minHeight, maxHeight, extensions, autoFocus, onChange, onMount]);
+    }, [mounted, value, languageExt, themeExt, readOnlyExt, wordWrap, tabSize, fontSize, fontFamily, lineHeight, minHeight, maxHeight, extensions, autoFocus, onChange, onMount, cursorExt]);
 
     // Sync external value changes
     useEffect(() => {
@@ -238,6 +266,24 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
         });
       }
     }, [readOnlyExt]);
+
+    // Update cursor config
+    useEffect(() => {
+      if (viewRef.current && cursorConfig) {
+        const newCursorExt = createCursorExtensions({
+          projectId: cursorConfig.projectId,
+          projectRoot: cursorConfig.projectRoot,
+          language,
+          filePath: cursorConfig.filePath,
+          tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
+          onCmdKAccept: cursorConfig.onCmdKAccept,
+          onCmdKClose: cursorConfig.onCmdKClose,
+        });
+        viewRef.current.dispatch({
+          effects: cursorCompartment.current.reconfigure(newCursorExt),
+        });
+      }
+    }, [cursorConfig, language]);
 
     const classNames = ["code-editor", `code-editor--${language}`, readOnly && "code-editor--readonly", className]
       .filter(Boolean)

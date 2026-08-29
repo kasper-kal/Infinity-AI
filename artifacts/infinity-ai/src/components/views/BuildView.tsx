@@ -42,6 +42,7 @@ import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { CursorChatSidebar } from "@/components/Cursor/ChatSidebar";
 import { CursorComposer } from "@/components/Cursor/Composer";
+import { GitBranch, MessageSquare } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -88,7 +89,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder' | 'analytics'>('plan');
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder' | 'analytics' | 'cursor-chat' | 'cursor-composer' | 'cursor-agent'>('plan');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -113,6 +114,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   // Phase 24: Cursor AI state
   const [cursorChatOpen, setCursorChatOpen] = useState(false);
   const [cursorComposerOpen, setCursorComposerOpen] = useState(false);
+  const [cursorAgentOpen, setCursorAgentOpen] = useState(false);
 
   // Default project root (can be overridden by parent)
   const projectRoot = useMemo(() => `/workspace/${projectId || 'default'}`, [projectId]);
@@ -688,6 +690,27 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onClick={() => setBuildTab('analytics')}
                 active={buildTab === 'analytics'}
               />
+              <AppShellSidebarNavItem
+                label="Cursor Chat"
+                icon={<MessageSquare size={16} />}
+                onClick={() => setBuildTab('cursor-chat')}
+                active={buildTab === 'cursor-chat'}
+              />
+              <AppShellSidebarNavItem
+                label="Cursor Composer"
+                icon={<GitBranch size={16} />}
+                onClick={() => setBuildTab('cursor-composer')}
+                active={buildTab === 'cursor-composer'}
+              />
+              <AppShellSidebarNavItem
+                label="Cursor Agent"
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}
+                onClick={() => {
+                  setBuildTab('cursor-agent');
+                  setCursorAgentOpen(true);
+                }}
+                active={buildTab === 'cursor-agent'}
+              />
             </div>
           </AppShellSidebarSection>
         </Sidebar>
@@ -709,6 +732,38 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onRollback={onRollback}
                 compact={agentPanelCompact}
               />
+            </AppShellSidebarSection>
+          )}
+          {cursorAgentOpen && (
+            <AppShellSidebarSection title="Cursor Agent">
+              <div className="p-4">
+                <div className="space-y-4">
+                  <div className="p-3 bg-brand-500/10 rounded-lg border border-brand-500/20">
+                    <h4 className="font-semibold text-brand-400 mb-2">Agent Mode Active</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Autonomous coding agent with explore→plan→implement→test→verify loop
+                    </p>
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      <div>• File operations: read, write, edit, glob, grep</div>
+                      <div>• Terminal execution</div>
+                      <div>• Git operations</div>
+                      <div>• Web search & browser automation</div>
+                      <div>• Checkpointing & rollback</div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setCursorAgentOpen(false);
+                      setBuildTab('plan');
+                    }}
+                  >
+                    Close Agent Panel
+                  </Button>
+                </div>
+              </div>
             </AppShellSidebarSection>
           )}
         </Sidebar>
@@ -784,6 +839,40 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {buildTab === 'analytics' && (
             <div className="flex flex-col h-full">
               <AnalyticsDashboard projectId={projectId ?? ''} />
+            </div>
+          )}
+          {buildTab === 'cursor-chat' && (
+            <div className="flex flex-col h-full p-4">
+              <CursorChatSidebar
+                projectId={projectId || 'default'}
+                projectRoot={projectRoot}
+                isOpen={true}
+                onClose={() => setBuildTab('plan')}
+                onNewConversation={() => {}}
+              />
+            </div>
+          )}
+          {buildTab === 'cursor-composer' && (
+            <div className="flex flex-col h-full p-4">
+              <CursorComposer
+                projectId={projectId || 'default'}
+                projectRoot={projectRoot}
+                isOpen={true}
+                onClose={() => setBuildTab('plan')}
+              />
+            </div>
+          )}
+          {buildTab === 'cursor-agent' && (
+            <div className="flex flex-col h-full p-4">
+              <div className="flex flex-col h-full">
+                <div className="mb-4 p-4 bg-brand-500/10 rounded-lg border border-brand-500/20">
+                  <h3 className="text-lg font-semibold text-brand-400 mb-2">Cursor Agent (Autonomous Coding)</h3>
+                  <p className="text-muted-foreground">
+                    Autonomous explore→plan→implement→test→verify loop with tool use.
+                    <br />Coming soon: full Agent panel integration.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -882,6 +971,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
           { id: 'terminal', label: t('build.sidebar.terminal'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>, action: () => setBuildTab('terminal') },
           { id: 'security', label: t('build.tabs.security'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>, action: () => setBuildTab('security') },
           { id: 'mobile', label: t('mobile.title'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>, action: () => setBuildTab('mobile') },
+          { id: 'cursor-chat', label: 'Cursor Chat (⌘L)', icon: <MessageSquare size={16} />, action: () => setBuildTab('cursor-chat') },
+          { id: 'cursor-composer', label: 'Cursor Composer (⌘I)', icon: <GitBranch size={16} />, action: () => setBuildTab('cursor-composer') },
+          { id: 'cursor-agent', label: 'Cursor Agent', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, action: () => { setBuildTab('cursor-agent'); setCursorAgentOpen(true); } },
         ]}
       />
 
