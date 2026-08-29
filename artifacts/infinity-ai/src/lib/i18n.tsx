@@ -1476,6 +1476,7 @@ const en = {
   "settings.mcpServersDescription": "Configure Model Context Protocol servers",
   "settings.advanced": "Advanced",
   "settings.enterprise": "Enterprise",
+  "settings.marketplace": "Marketplace",
   "settings.resetToDefaults": "Reset to defaults",
 
   /* Projects View */
@@ -2718,6 +2719,8 @@ const nl: Record<keyof typeof en, string> = {
   "settings.mcpServers": "MCP Servers",
   "settings.mcpServersDescription": "Configureer Model Context Protocol servers",
   "settings.advanced": "Geavanceerd",
+  "settings.enterprise": "Enterprise",
+  "settings.marketplace": "Marktplaats",
   "settings.resetToDefaults": "Standaardinstellingen herstellen",
 
   /* Projects View */

@@ -22,6 +22,8 @@ import { APIWizard } from "@/components/ui-builder/APIWizard";
 import { DatabasePanel } from "@/components/ui-builder/DatabasePanel";
 import { AuthPanel } from "@/components/ui-builder/AuthPanel";
 import { FrameworkSelector, type SupportedFrameworkId, FRAMEWORKS } from "@/components/ui-builder/FrameworkSelector";
+import { ComponentMarketplace } from "@/components/ComponentMarketplace";
+import { TemplateLibrary } from "@/components/TemplateLibrary";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -296,7 +298,7 @@ export interface SettingsViewProps {
   projectId?: string;
 }
 
-type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills' | 'collaboration' | 'integrations';
+type SettingsSection = 'theme' | 'notifications' | 'api-keys' | 'language' | 'mcp-servers' | 'advanced' | 'enterprise' | 'skills' | 'marketplace' | 'collaboration' | 'integrations';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -367,6 +369,16 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.skills',
+  },
+  marketplace: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12l2 2 4-4" />
+        <path d="M16 12l-4 4" />
+      </svg>
+    ),
+    labelKey: 'settings.marketplace',
   },
   collaboration: {
     icon: (
@@ -528,6 +540,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         return (
           <SkillsSettingsPanel projectId={projectId || ''} />
         );
+      case 'marketplace':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">{t('settings.marketplace')}</h3>
+            <p className="text-sm text-muted-foreground">
+              Browse and install components, templates, and starter kits from the Infinity AI Marketplace.
+            </p>
+            <Tabs defaultValue="components" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="components">
+                  <span>Components</span>
+                </TabsTrigger>
+                <TabsTrigger value="templates">
+                  <span>Templates</span>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="components" className="mt-4">
+                <ComponentMarketplace />
+              </TabsContent>
+              <TabsContent value="templates" className="mt-4">
+                <TemplateLibrary />
+              </TabsContent>
+            </Tabs>
+          </div>
+        );
       case 'collaboration':
         return (
           <div className="space-y-4">
@@ -643,6 +680,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'skills',
       label: t('settings.skills'),
       icon: SECTION_CONFIG.skills.icon,
+    },
+    {
+      id: 'marketplace',
+      label: t('settings.marketplace'),
+      icon: SECTION_CONFIG.marketplace.icon,
     },
     {
       id: 'collaboration',

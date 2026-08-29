@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-29
+LAST_UPDATED: 2026-08-29 20:45
 
 ## Just did (last action)
 - **Phase 20: Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) — COMPLETE (100%)** ✅
@@ -361,9 +361,9 @@ LAST_UPDATED: 2026-08-29
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 21 — AI-Powered Design Iteration (Variations, A/B, Analytics) ✅ COMPLETE** — All backend services, frontend components, and integration complete. Both builds passing.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**
-- **Next Phases:** **Phase 22 (Component Marketplace & Template Library)**, **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
+- **Current Phase:** **Phase 22 — Component Marketplace & Template Library (v0 Community) ✅ COMPLETE (100%)** — All backend services, frontend components, and integration complete. Both builds passing.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**, **Phase 22 (Component Marketplace & Template Library - 100% COMPLETE)**
+- **Next Phases:** **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -405,6 +405,15 @@ LAST_UPDATED: 2026-08-29
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-29 **Phase 22: Component Marketplace & Template Library — COMPLETE (100%)** ✅ — Full marketplace infrastructure complete:
+  - **Component Registry** (`component-registry.ts`): ComponentManifestSchema + TemplateManifestSchema (Zod), Semver class (parse, compare, satisfies, maxSatisfying), ComponentRegistryClient (searchComponents, getComponent, listVersions, searchTemplates, getTemplate, installComponent, installTemplate, publishComponent, rateComponent), BUILTIN_COMPONENTS (3: @infinity/button, @infinity/card, @infinity/pricing-table), BUILTIN_TEMPLATES (6: saas-dashboard, landing-page, blog-starter, docs-site, mobile-app, chrome-extension)
+  - **Template Engine** (`template-engine.ts`): TemplateEngine class (listTemplates, getTemplate, validateVariables, customizeTemplate, installTemplateComponents, mergeDesignSystems), VariableDefinition interface (type: text/color/select/boolean/number, validation), TemplateGenerator class (generateTemplate from existing project with variable extraction)
+  - **Marketplace API Routes** (`marketplace.ts`): REST endpoints for components (GET/POST /components, /components/:name, /components/:name/versions, /components/install, /components/publish, /components/:name/rate) and templates (GET/POST /templates, /templates/:name, /templates/:name/variables, /templates/:name/preview, /templates/customize, /templates/install, /templates/publish, /templates/:name/rate), plus /health, /categories, /stats
+  - **ComponentMarketplace.tsx**: Browse/search/preview/install UI with tabs (components/templates), filters (search, category, framework), grid layout, install dialog with target directory, variable inputs (color picker, select, checkbox, number, text), real-time install progress
+  - **TemplateLibrary.tsx**: Multi-step wizard (Configure → Preview → Install), variable validation per step, required field checking, preview shows files/design system tokens/deploy config, progress bar during installation with post-install commands display
+  - **SettingsView.tsx integration**: Added marketplace section with Tabs for Components/TemplateLibrary, added marketplace to SettingsSection type and SECTION_CONFIG, added bottomNav item for mobile
+  - **i18n.tsx**: Added English/Dutch translations for marketplace ("settings.marketplace": "Marketplace"/"Marktplaats")
+  - Both builds passing successfully ✅
 - 2026-08-29 **Phase 21: AI-Powered Design Iteration — COMPLETE (100%)** ✅ — Full design iteration system complete:
   - **Variation Generator** (`design-variations.ts`): DesignVariationGenerator class with LLM-based variation generation + 6 fallback categories (layout, color, typography, spacing, accessibility, performance, combined), confidence scoring, impact estimation
   - **Analytics Engine** (`design-analytics.ts`): AnalyticsCollector + DesignAnalyticsEngine with Web Vitals (LCP, CLS, INP, FCP), interaction tracking (clicks, hovers, scroll), funnel analysis with drop-off rates, dashboard aggregation
