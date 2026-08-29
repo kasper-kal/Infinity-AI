@@ -38,8 +38,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Separator } from '@/components/ui/Separator';
+import { ScrollArea } from '@/components/ui';
+import { Separator } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 export interface CommandAction {

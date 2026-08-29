@@ -36,12 +36,18 @@ interface Automation {
   lastOutputTime?: number;
 }
 
+interface HistoryEntry {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp?: number;
+}
+
 interface ChatSession {
   id: string;
   name: string;
   process: ChildProcess | null;
   clients: Set<WebSocket>;
-  history: string[];
+  history: HistoryEntry[];
   cwd: string;
   messageQueue: QueuedMessage[];
   isClaudeBusy: boolean;
@@ -110,7 +116,7 @@ function findClaudeSessions(): Array<{id: string, name: string}> {
   return sessions;
 }
 
-function loadSessionData(pid: string): { history: string[], name?: string } {
+function loadSessionData(pid: string): { history: HistoryEntry[], name?: string } {
   const filePath = path.join(CLAUDE_SESSIONS_DIR, `${pid}.json`);
   if (fs.existsSync(filePath)) {
     try {
@@ -119,7 +125,7 @@ function loadSessionData(pid: string): { history: string[], name?: string } {
 
       // Look up AI title AND full chat history from projects dir
       let aiTitle: string | undefined;
-      let fullHistory: string[] = [];
+      let fullHistory: HistoryEntry[] = [];
 
       if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
         for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
@@ -137,18 +143,18 @@ function loadSessionData(pid: string): { history: string[], name?: string } {
                   if (event.type === 'ai-title' && event.aiTitle) {
                     aiTitle = event.aiTitle;
                   }
-                  // Extract user and assistant messages
+                  // Extract user and assistant messages with proper roles
                   if (event.type === 'user' && event.message?.content) {
                     const content = typeof event.message.content === 'string'
                       ? event.message.content
                       : JSON.stringify(event.message.content);
-                    fullHistory.push(`> ${content}`);
+                    fullHistory.push({ role: 'user', content, timestamp: event.timestamp });
                   }
                   if (event.type === 'assistant' && event.message?.content) {
                     const content = typeof event.message.content === 'string'
                       ? event.message.content
                       : JSON.stringify(event.message.content);
-                    fullHistory.push(content);
+                    fullHistory.push({ role: 'assistant', content, timestamp: event.timestamp });
                   }
                 } catch {}
               }
@@ -158,7 +164,10 @@ function loadSessionData(pid: string): { history: string[], name?: string } {
       }
 
       // Use full history from JSONL, fallback to session history
-      const history = fullHistory.length > 0 ? fullHistory : (data.history || []);
+      let history: HistoryEntry[] = fullHistory.length > 0
+        ? fullHistory
+        : (data.history || []).map((h: string) => ({ role: 'system' as const, content: h }));
+
       return { history, name: aiTitle || data.name };
     } catch {
       return { history: [] };
@@ -291,13 +300,14 @@ wss.on('connection', (ws: WebSocket) => {
             if (proc) {
               proc.stdout?.on('data', (data: Buffer) => {
                 const output = data.toString();
-                session!.history.push(output);
+                const entry: HistoryEntry = { role: 'assistant', content: output, timestamp: Date.now() };
+                session!.history.push(entry);
                 if (session!.history.length > 10000) session!.history.shift();
                 session!.lastOutputTime = Date.now();
                 session!.isClaudeBusy = true;
                 for (const client of session!.clients) {
                   if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'output', sessionId, payload: output }));
+                    client.send(JSON.stringify({ type: 'output', sessionId, payload: entry }));
                   }
                 }
                 checkClaudeIdle(session!);
@@ -305,12 +315,13 @@ wss.on('connection', (ws: WebSocket) => {
 
               proc.stderr?.on('data', (data: Buffer) => {
                 const output = data.toString();
-                session!.history.push(output);
+                const entry: HistoryEntry = { role: 'system', content: output, timestamp: Date.now() };
+                session!.history.push(entry);
                 session!.lastOutputTime = Date.now();
                 session!.isClaudeBusy = true;
                 for (const client of session!.clients) {
                   if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'output', sessionId, payload: output }));
+                    client.send(JSON.stringify({ type: 'output', sessionId, payload: entry }));
                   }
                 }
                 checkClaudeIdle(session!);
@@ -331,6 +342,13 @@ wss.on('connection', (ws: WebSocket) => {
           if (currentSessionId) {
             const session = sessions.get(currentSessionId);
             if (session?.process?.stdin) {
+              const entry: HistoryEntry = { role: 'user', content: msg.payload, timestamp: Date.now() };
+              session.history.push(entry);
+              for (const client of session.clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'output', sessionId: currentSessionId, payload: entry }));
+                }
+              }
               session.process.stdin.write(msg.payload + '\n');
             }
           }

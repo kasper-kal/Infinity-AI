@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/hooks/use-toast';
 
 export interface OfflineState {
   /** Whether the app is currently online */
