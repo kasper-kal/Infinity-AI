@@ -19,6 +19,23 @@ const PORT = process.env.PORT || 3002;
 const CLAUDE_SESSIONS_DIR = process.env.CLAUDE_SESSIONS_DIR || path.join(process.env.HOME || '/home/codespace', '.claude', 'sessions');
 const CLAUDE_PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR || path.join(process.env.HOME || '/home/codespace', '.claude', 'projects');
 
+interface QueuedMessage {
+  id: string;
+  payload: string;
+  timestamp: number;
+}
+
+interface Automation {
+  id: string;
+  sessionId: string;
+  type: 'interval' | 'idle';
+  intervalMs?: number;
+  actions: Array<{type: 'input' | 'esc', payload?: string}>;
+  enabled: boolean;
+  timer?: NodeJS.Timeout;
+  lastOutputTime?: number;
+}
+
 interface ChatSession {
   id: string;
   name: string;
@@ -26,6 +43,10 @@ interface ChatSession {
   clients: Set<WebSocket>;
   history: string[];
   cwd: string;
+  messageQueue: QueuedMessage[];
+  isClaudeBusy: boolean;
+  lastOutputTime: number;
+  automations: Map<string, Automation>;
 }
 
 const sessions = new Map<string, ChatSession>();
@@ -151,6 +172,63 @@ function createNewClaudeSession(sessionId: string, cwd: string): ChildProcess {
   return proc;
 }
 
+function checkClaudeIdle(session: ChatSession) {
+  const now = Date.now();
+  if (now - session.lastOutputTime > 2000 && session.isClaudeBusy) {
+    session.isClaudeBusy = false;
+    for (const client of session.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'claude_idle', sessionId: session.id }));
+      }
+    }
+    processQueue(session);
+  }
+}
+
+function processQueue(session: ChatSession) {
+  if (!session.isClaudeBusy && session.messageQueue.length > 0 && session.process?.stdin) {
+    const next = session.messageQueue.shift()!;
+    session.process.stdin.write(next.payload + '\n');
+    session.isClaudeBusy = true;
+    for (const client of session.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'dequeued', payload: next }));
+      }
+    }
+  }
+}
+
+function startAutomation(session: ChatSession, automation: Automation) {
+  if (automation.timer) clearInterval(automation.timer);
+
+  if (automation.type === 'interval' && automation.intervalMs) {
+    automation.timer = setInterval(() => {
+      if (!automation.enabled) return;
+      for (const action of automation.actions) {
+        if (action.type === 'esc' && session.process?.stdin) {
+          session.process.stdin.write('\x1b');
+        } else if (action.type === 'input' && action.payload && session.process?.stdin) {
+          session.process.stdin.write(action.payload + '\n');
+        }
+      }
+    }, automation.intervalMs);
+  } else if (automation.type === 'idle') {
+    automation.timer = setInterval(() => {
+      if (!automation.enabled) return;
+      const now = Date.now();
+      if (now - session.lastOutputTime > (automation.intervalMs || 30000)) {
+        for (const action of automation.actions) {
+          if (action.type === 'esc' && session.process?.stdin) {
+            session.process.stdin.write('\x1b');
+          } else if (action.type === 'input' && action.payload && session.process?.stdin) {
+            session.process.stdin.write(action.payload + '\n');
+          }
+        }
+      }
+    }, 5000);
+  }
+}
+
 wss.on('connection', (ws: WebSocket) => {
   let currentSessionId: string | null = null;
 
@@ -187,7 +265,11 @@ wss.on('connection', (ws: WebSocket) => {
               process: proc,
               clients: new Set(),
               history,
-              cwd: process.cwd()
+              cwd: process.cwd(),
+              messageQueue: [],
+              isClaudeBusy: false,
+              lastOutputTime: Date.now(),
+              automations: new Map()
             };
             sessions.set(sessionId, session);
 
@@ -196,21 +278,27 @@ wss.on('connection', (ws: WebSocket) => {
                 const output = data.toString();
                 session!.history.push(output);
                 if (session!.history.length > 10000) session!.history.shift();
+                session!.lastOutputTime = Date.now();
+                session!.isClaudeBusy = true;
                 for (const client of session!.clients) {
                   if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ type: 'output', sessionId, payload: output }));
                   }
                 }
+                checkClaudeIdle(session!);
               });
 
               proc.stderr?.on('data', (data: Buffer) => {
                 const output = data.toString();
                 session!.history.push(output);
+                session!.lastOutputTime = Date.now();
+                session!.isClaudeBusy = true;
                 for (const client of session!.clients) {
                   if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ type: 'output', sessionId, payload: output }));
                   }
                 }
+                checkClaudeIdle(session!);
               });
             }
           }
@@ -229,6 +317,99 @@ wss.on('connection', (ws: WebSocket) => {
             const session = sessions.get(currentSessionId);
             if (session?.process?.stdin) {
               session.process.stdin.write(msg.payload + '\n');
+            }
+          }
+          break;
+        }
+
+        case 'queue': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              const queued: QueuedMessage = {
+                id: Math.random().toString(36).slice(2),
+                payload: msg.payload,
+                timestamp: Date.now()
+              };
+              session.messageQueue.push(queued);
+              ws.send(JSON.stringify({ type: 'queued', payload: queued }));
+            }
+          }
+          break;
+        }
+
+        case 'process_queue': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session && !session.isClaudeBusy && session.messageQueue.length > 0) {
+              const next = session.messageQueue.shift()!;
+              if (session.process?.stdin) {
+                session.process.stdin.write(next.payload + '\n');
+                session.isClaudeBusy = true;
+              }
+              ws.send(JSON.stringify({ type: 'dequeued', payload: next }));
+            }
+          }
+          break;
+        }
+
+        case 'add_automation': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              const automation: Automation = {
+                id: Math.random().toString(36).slice(2),
+                sessionId: currentSessionId,
+                type: msg.automation.type,
+                intervalMs: msg.automation.intervalMs,
+                actions: msg.automation.actions,
+                enabled: true
+              };
+              session.automations.set(automation.id, automation);
+              startAutomation(session, automation);
+              ws.send(JSON.stringify({ type: 'automation_added', payload: automation }));
+            }
+          }
+          break;
+        }
+
+        case 'remove_automation': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              const auto = session.automations.get(msg.automationId);
+              if (auto) {
+                if (auto.timer) clearInterval(auto.timer);
+                session.automations.delete(msg.automationId);
+                ws.send(JSON.stringify({ type: 'automation_removed', payload: msg.automationId }));
+              }
+            }
+          }
+          break;
+        }
+
+        case 'list_automations': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              const autos = Array.from(session.automations.values());
+              ws.send(JSON.stringify({ type: 'automations', payload: autos }));
+            }
+          }
+          break;
+        }
+
+        case 'toggle_automation': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              const auto = session.automations.get(msg.automationId);
+              if (auto) {
+                auto.enabled = !auto.enabled;
+                if (auto.enabled) startAutomation(session, auto);
+                else if (auto.timer) clearInterval(auto.timer);
+                ws.send(JSON.stringify({ type: 'automation_toggled', payload: auto }));
+              }
             }
           }
           break;

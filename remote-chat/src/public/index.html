@@ -13,10 +13,14 @@
     .session-item:hover, .session-item.active { background: #e94560; }
     #main { flex: 1; display: flex; flex-direction: column; }
     #header { padding: 10px 15px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; }
+    #header-buttons { display: flex; gap: 5px; }
     #terminal { flex: 1; padding: 15px; overflow-y: auto; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
     #terminal .output { color: #a0a0a0; }
     #terminal .input { color: #e94560; }
     #terminal .prompt { color: #4ecdc4; }
+    #terminal .queued { color: #ffa500; }
+    #terminal .dequeued { color: #4ecdc4; }
+    #terminal .idle { color: #4ecdc4; font-style: italic; }
     #input-area { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; }
     #input-line { display: flex; gap: 10px; }
     #input-line span { color: #4ecdc4; }
@@ -24,6 +28,17 @@
     #input:focus { border-color: #4ecdc4; }
     #status { padding: 5px 10px; background: #0f3460; color: #4ecdc4; font-size: 12px; }
     .hidden { display: none; }
+    .btn { background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; }
+    .btn:hover { background: #e94560; }
+    .btn.active { background: #e94560; }
+    #queue-panel { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; max-height: 150px; overflow-y: auto; }
+    .queue-item { display: flex; justify-content: space-between; padding: 5px; background: #0f3460; margin: 3px 0; border-radius: 3px; font-size: 12px; }
+    .queue-item button { background: #e94560; border: none; color: #1a1a2e; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
+    #automation-panel { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; }
+    .auto-row { display: flex; gap: 5px; margin: 5px 0; flex-wrap: wrap; align-items: center; }
+    .auto-row input, .auto-row select { background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 4px 8px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+    .auto-row input[type="text"] { flex: 1; min-width: 120px; }
+    .auto-row input[type="number"] { width: 70px; }
   </style>
 </head>
 <body>
@@ -36,13 +51,37 @@
   <div id="main">
     <div id="header">
       <span id="current-session">Select a session</span>
-      <span id="status">Disconnected</span>
+      <div id="header-buttons">
+        <button class="btn" id="btn-queue" onclick="togglePanel('queue')">Queue</button>
+        <button class="btn" id="btn-auto" onclick="togglePanel('auto')">Auto</button>
+        <span id="status">Disconnected</span>
+      </div>
     </div>
     <div id="terminal"></div>
+    <div id="queue-panel" class="hidden">
+      <div style="color: #4ecdc4; margin-bottom: 5px;">Message Queue (sent when Claude is idle)</div>
+      <div id="queue-list"></div>
+    </div>
+    <div id="automation-panel" class="hidden">
+      <div style="color: #4ecdc4; margin-bottom: 5px;">Automations</div>
+      <div id="automation-list"></div>
+      <div class="auto-row">
+        <select id="auto-type">
+          <option value="interval">Interval</option>
+          <option value="idle">When idle</option>
+        </select>
+        <input type="number" id="auto-interval" placeholder="ms (30000)" value="30000">
+        <button class="btn" onclick="addAutomationAction('esc')">ESC</button>
+        <input type="text" id="auto-input" placeholder="Message to send">
+        <button class="btn" onclick="addAutomationAction('input')">Add</button>
+        <button class="btn" onclick="saveAutomation()">Save</button>
+      </div>
+    </div>
     <div id="input-area" class="hidden">
       <div id="input-line">
         <span>$</span>
         <input type="text" id="input" placeholder="Type to send input..." autocomplete="off">
+        <button class="btn" onclick="queueMessage()">Queue</button>
       </div>
     </div>
   </div>
@@ -51,12 +90,17 @@
     const WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
     let ws = null;
     let currentSession = null;
+    let pendingActions = [];
     const terminal = document.getElementById('terminal');
     const input = document.getElementById('input');
     const sessionList = document.getElementById('session-list');
     const currentSessionEl = document.getElementById('current-session');
     const statusEl = document.getElementById('status');
     const inputArea = document.getElementById('input-area');
+    const queuePanel = document.getElementById('queue-panel');
+    const autoPanel = document.getElementById('automation-panel');
+    const queueList = document.getElementById('queue-list');
+    const autoList = document.getElementById('automation-list');
 
     function connect() {
       ws = new WebSocket(WS_URL);
@@ -77,9 +121,36 @@
             inputArea.classList.remove('hidden');
             terminal.innerHTML = '';
             msg.payload.history.forEach(line => appendOutput(line));
+            ws.send(JSON.stringify({ type: 'list_automations' }));
             break;
           case 'output':
             appendOutput(msg.payload);
+            break;
+          case 'queued':
+            appendQueued(msg.payload);
+            renderQueue();
+            break;
+          case 'dequeued':
+            appendDequeued(msg.payload);
+            renderQueue();
+            break;
+          case 'claude_idle':
+            appendIdle();
+            break;
+          case 'automations':
+            renderAutomations(msg.payload);
+            break;
+          case 'automation_added':
+            renderAutomations([msg.payload, ...Array.from(autoList.querySelectorAll('[data-id]')).map(el => JSON.parse(el.dataset.auto))]);
+            break;
+          case 'automation_removed':
+            renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).filter(el => el.dataset.id !== msg.payload).map(el => JSON.parse(el.dataset.auto)));
+            break;
+          case 'automation_toggled':
+            renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).map(el => {
+              const a = JSON.parse(el.dataset.auto);
+              return a.id === msg.payload.id ? msg.payload : a;
+            }));
             break;
           case 'pong':
             break;
@@ -115,6 +186,11 @@
       document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
       event.target.classList.add('active');
       ws.send(JSON.stringify({ type: 'join', sessionId: id }));
+      queuePanel.classList.add('hidden');
+      autoPanel.classList.add('hidden');
+      document.getElementById('btn-queue').classList.remove('active');
+      document.getElementById('btn-auto').classList.remove('active');
+      pendingActions = [];
     }
 
     function appendOutput(text) {
@@ -123,6 +199,114 @@
       div.textContent = text;
       terminal.appendChild(div);
       terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function appendQueued(q) {
+      const div = document.createElement('div');
+      div.className = 'queued';
+      div.textContent = '[QUEUED] ' + q.payload;
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function appendDequeued(q) {
+      const div = document.createElement('div');
+      div.className = 'dequeued';
+      div.textContent = '[SENT] ' + q.payload;
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function appendIdle() {
+      const div = document.createElement('div');
+      div.className = 'idle';
+      div.textContent = '[Claude idle]';
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function renderQueue() {
+      ws.send(JSON.stringify({ type: 'list' }));
+    }
+
+    function queueMessage() {
+      if (input.value && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'queue', payload: input.value }));
+        input.value = '';
+      }
+    }
+
+    function togglePanel(panel) {
+      if (panel === 'queue') {
+        queuePanel.classList.toggle('hidden');
+        document.getElementById('btn-queue').classList.toggle('active');
+        autoPanel.classList.add('hidden');
+        document.getElementById('btn-auto').classList.remove('active');
+      } else {
+        autoPanel.classList.toggle('hidden');
+        document.getElementById('btn-auto').classList.toggle('active');
+        queuePanel.classList.add('hidden');
+        document.getElementById('btn-queue').classList.remove('active');
+      }
+    }
+
+    function addAutomationAction(type) {
+      if (type === 'esc') {
+        pendingActions.push({ type: 'esc' });
+        renderPendingActions();
+      } else if (type === 'input') {
+        const val = document.getElementById('auto-input').value;
+        if (val) {
+          pendingActions.push({ type: 'input', payload: val });
+          document.getElementById('auto-input').value = '';
+          renderPendingActions();
+        }
+      }
+    }
+
+    function renderPendingActions() {
+      const container = document.getElementById('pending-actions') || (() => {
+        const div = document.createElement('div');
+        div.id = 'pending-actions';
+        div.style.marginTop = '5px';
+        document.querySelector('.auto-row').parentNode.insertBefore(div, document.querySelector('.auto-row').nextSibling);
+        return div;
+      })();
+      container.innerHTML = pendingActions.map((a, i) =>
+        `<span style="color:#ffa500">${a.type === 'esc' ? 'ESC' : 'SEND: ' + a.payload}</span> <button class="btn" onclick="pendingActions.splice(${i},1);renderPendingActions()">×</button>`
+      ).join(' ');
+    }
+
+    function saveAutomation() {
+      if (!currentSession || pendingActions.length === 0) return;
+      const type = document.getElementById('auto-type').value;
+      const intervalMs = parseInt(document.getElementById('auto-interval').value) || 30000;
+      ws.send(JSON.stringify({
+        type: 'add_automation',
+        automation: { type, intervalMs, actions: pendingActions }
+      }));
+      pendingActions = [];
+      renderPendingActions();
+    }
+
+    function renderAutomations(autos) {
+      autoList.innerHTML = autos.map(a => `
+        <div class="auto-row" data-id="${a.id}" data-auto='${JSON.stringify(a)}'>
+          <span style="color:${a.enabled ? '#4ecdc4' : '#666'}">${a.id.slice(0,6)}</span>
+          <span>${a.type === 'interval' ? 'Every ' + a.intervalMs + 'ms' : 'When idle > ' + (a.intervalMs || 30000) + 'ms'}</span>
+          <span>${a.actions.map(x => x.type === 'esc' ? 'ESC' : 'SEND: ' + x.payload).join(' → ')}</span>
+          <button class="btn" onclick="toggleAuto('${a.id}')">${a.enabled ? 'Disable' : 'Enable'}</button>
+          <button class="btn" onclick="removeAuto('${a.id}')">Remove</button>
+        </div>
+      `).join('');
+    }
+
+    function toggleAuto(id) {
+      ws.send(JSON.stringify({ type: 'toggle_automation', automationId: id }));
+    }
+
+    function removeAuto(id) {
+      ws.send(JSON.stringify({ type: 'remove_automation', automationId: id }));
     }
 
     input.addEventListener('keydown', (e) => {
