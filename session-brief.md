@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-29 21:25
+LAST_UPDATED: 2026-08-29 22:15
 
 ## Just did (last action)
 - **Added 8 new phases (34-41) to PHASES.md** based on user's extensive feature requirements:
@@ -129,10 +129,25 @@ LAST_UPDATED: 2026-08-29 21:25
   - **Import Path Fixes**: Fixed case sensitivity for Select/Input → select, Separator → separator, Badge → badge, Sheet → sheet.
   - **Both builds passing cleanly** ✅ — API server (esbuild) and frontend (vite) builds complete without errors.
 - **Next Actions (ready for next session):**
-  - Phase 21: AI-Powered Design Iteration (Variations, A/B, Analytics) — PLANNED
-  - Phase 22: Component Marketplace & Template Library (v0 Community) — PLANNED
-  - Phase 23: v0-Level Polish (Performance, Accessibility, DX) — **COMPLETE** ✅
-  - Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — PLANNED
+  - **Phase 24: Cursor-Level Code Intelligence — INTEGRATION NEEDED** 🔄
+    - Integrate ChatSidebar into ChatView/BuildView (currently standalone)
+    - Integrate Composer into BuildView as tab
+    - Integrate Agent mode into BuildView
+    - Wire TabAutocomplete into CodeEditor component
+    - Wire CmdKEdit into CodeEditor (Cmd+K binding)
+    - Add Cursor components to BuildView sidebar/navigation
+  - **Phase 25: Codebase Indexing & Semantic Search — FRONTEND NEEDED** 🔄
+    - Create CodebaseIndexPanel.tsx for BuildView (index status, re-index, exclude patterns)
+    - Deepen @codebase integration in ChatSidebar (query parser + result display)
+    - Add code navigation features (go to definition, find references) to editor
+  - Phase 26: Rules, Notepads & Customization (Cursor Personalization) — PLANNED
+  - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — PLANNED
+  - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
+  - Phase 29: IDE Integrations & CLI (Cursor Everywhere) — PLANNED
+  - Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — PLANNED
+  - Phase 31: Cursor-Level Performance & Polish (Speed, Reliability, DX) — PLANNED
+  - Phase 32: Context Auto-Compact & Limit Recognition — PLANNED
+  - Phase 33: AI Automation System (Natural Language Automations + Connector Integration) — PLANNED
   - Phase 34: AI Self-Management (Secrets, Settings, API Keys) — PLANNED
   - Phase 35: Dynamic Island / Live Task Display — PLANNED
   - Phase 36: Visual Build Map (AI-Managed Roadmap) — PLANNED
@@ -433,6 +448,12 @@ LAST_UPDATED: 2026-08-29 21:25
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-29 **Phase 24/25 Status Correction — PHASES.md & session-brief.md updated to reflect actual implementation** ✅
+  - **Phase 24 (Cursor-Level Code Intelligence):** Marked as IN PROGRESS (~80% Backend, ~60% Frontend) — All backend (codebase-indexer, cursor-agent, cursor-composer, cursor.ts routes) and frontend components (ChatSidebar, Composer, TabAutocomplete, CmdKEdit) fully implemented; needs integration into BuildView/ChatView
+  - **Phase 25 (Codebase Indexing & Semantic Search):** Marked as IN PROGRESS (~70% Backend, ~0% Frontend) — Backend complete (codebase-indexer, tree-sitter-parsers, embeddings, codebase-index.ts routes); Frontend CodebaseIndexPanel + deeper @codebase integration needed
+  - Updated phase overview table in PHASES.md with accurate status indicators
+  - Updated Project state and Next Actions in session-brief.md
+
 - 2026-08-29 **Phase 23: v0-Level Polish — COMPLETE (100%)** ✅ — All 6 polish components implemented and integrated:
   - **Sandbox Pool Manager** (`sandbox-pool.ts`): Pre-warmed iframe pool for sub-500ms cold start, <100ms HMR
   - **WASM Bundler** (`wasm-bundler.ts`): esbuild/SWC in WebAssembly for browser incremental compilation

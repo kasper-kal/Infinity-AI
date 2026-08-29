@@ -117,8 +117,10 @@ function loadSessionData(pid: string): { history: string[], name?: string } {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       const sessionId = data.sessionId || pid;
 
-      // Look up AI title from projects dir
+      // Look up AI title AND full chat history from projects dir
       let aiTitle: string | undefined;
+      let fullHistory: string[] = [];
+
       if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
         for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
           const projectPath = path.join(CLAUDE_PROJECTS_DIR, projectDir);
@@ -134,17 +136,30 @@ function loadSessionData(pid: string): { history: string[], name?: string } {
                   const event = JSON.parse(line);
                   if (event.type === 'ai-title' && event.aiTitle) {
                     aiTitle = event.aiTitle;
-                    break;
+                  }
+                  // Extract user and assistant messages
+                  if (event.type === 'user' && event.message?.content) {
+                    const content = typeof event.message.content === 'string'
+                      ? event.message.content
+                      : JSON.stringify(event.message.content);
+                    fullHistory.push(`> ${content}`);
+                  }
+                  if (event.type === 'assistant' && event.message?.content) {
+                    const content = typeof event.message.content === 'string'
+                      ? event.message.content
+                      : JSON.stringify(event.message.content);
+                    fullHistory.push(content);
                   }
                 } catch {}
               }
-              if (aiTitle) break;
             } catch {}
           }
         }
       }
 
-      return { history: data.history || [], name: aiTitle || data.name };
+      // Use full history from JSONL, fallback to session history
+      const history = fullHistory.length > 0 ? fullHistory : (data.history || []);
+      return { history, name: aiTitle || data.name };
     } catch {
       return { history: [] };
     }
