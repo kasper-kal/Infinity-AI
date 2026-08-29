@@ -496,6 +496,46 @@ wss.on('connection', (ws: WebSocket) => {
         case 'ping':
           ws.send(JSON.stringify({ type: 'pong' }));
           break;
+
+        case 'rename_session': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session && msg.newName?.trim()) {
+              session.name = msg.newName.trim();
+              // Broadcast to all clients of this session
+              for (const client of session.clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'session_renamed', sessionId: currentSessionId, name: session.name }));
+                }
+              }
+              // Also update the sessions list for all connected clients
+              broadcastSessionsList();
+            }
+          }
+          break;
+        }
+
+        case 'kill_session': {
+          if (currentSessionId) {
+            const session = sessions.get(currentSessionId);
+            if (session) {
+              if (session.process) {
+                session.process.kill('SIGTERM');
+                setTimeout(() => {
+                  if (session.process && !session.process.killed) session.process.kill('SIGKILL');
+                }, 2000);
+              }
+              for (const client of session.clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'session_killed', sessionId: currentSessionId }));
+                }
+              }
+              sessions.delete(currentSessionId);
+              broadcastSessionsList();
+            }
+          }
+          break;
+        }
       }
     } catch (e) {
       console.error('Message error:', e);
@@ -509,6 +549,18 @@ wss.on('connection', (ws: WebSocket) => {
     }
   });
 });
+
+function broadcastSessionsList() {
+  const available = findClaudeSessions();
+  const payload = JSON.stringify({ type: 'sessions', payload: available });
+  for (const session of sessions.values()) {
+    for (const client of session.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    }
+  }
+}
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', sessions: sessions.size });

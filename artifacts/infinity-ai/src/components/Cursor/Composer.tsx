@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Button, Input, TextArea, Flex, Box, Text, Badge, Checkbox, Separator, ScrollArea, Tabs, TabList, TabTrigger, TabContent, Alert, IconButton, Tooltip, Switch, RadioGroup, Radio, Card, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@radix-ui/themes";
+import { Button, Input, TextArea, Flex, Box, Text, Badge, Checkbox, Separator, ScrollArea, Tabs, TabList, TabTrigger, TabContent, Callout, IconButton, Tooltip, Switch, RadioGroup, Radio, Card } from "@radix-ui/themes";
 import { Send, Loader2, Check, X, FileText, Code, Diff, ChevronLeft, ChevronRight, Plus, Minus, Eye, EyeOff, Copy, Download, Upload, Zap, AlertTriangle, Shield, RefreshCw, RotateCcw, Trash2, Save, Search, Sparkles, GitBranch } from "lucide-react";
 
 interface FileChange {
@@ -278,7 +278,7 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
       {!plan && (
         <Box style={{ padding: "16px", borderBottom: "1px solid var(--gray-5)" }}>
           <Flex direction="column" gap="12">
-            <Textarea
+            <TextArea
               value={instruction}
               onChange={e => setInstruction(e.target.value)}
               placeholder="Describe what you want to build or change... (e.g., 'Add authentication middleware with JWT tokens and refresh token rotation')"
@@ -376,17 +376,16 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
 
           {/* Warnings */}
           {plan.warnings.length > 0 && (
-            <Alert status="warning" style={{ margin: "12px 16px", padding: "8px 12px" }}>
-              <AlertTriangle size={16} />
+            <Callout.Root status="warning" style={{ margin: "12px 16px", padding: "8px 12px" }}>
               <Flex direction="column" gap="4">
                 {plan.warnings.map((w, i) => <Text key={i} size="1">{w}</Text>)}
               </Flex>
-            </Alert>
+            </Callout.Root>
           )}
 
           {/* Required Approvals */}
           {plan.requiredApprovals.length > 0 && (
-            <Alert status="info" style={{ margin: "12px 16px", padding: "8px 12px" }}>
+            <Callout.Root status="info" style={{ margin: "12px 16px", padding: "8px 12px" }}>
               <Shield size={16} />
               <Flex direction="column" gap="2">
                 <Text weight="medium" size="1">Requires approval:</Text>
@@ -394,7 +393,7 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
                   <Text key={i} size="1" style={{ fontFamily: "monospace", color: "var(--gray-10)" }}>{f}</Text>
                 ))}
               </Flex>
-            </Alert>
+            </Callout.Root>
           )}
 
           {/* File List with Diffs */}
@@ -452,7 +451,7 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
           {/* Apply Result */}
           {applyResult && (
             <Box style={{ padding: "12px 16px", borderTop: "1px solid var(--gray-5)", background: "var(--gray-2)" }}>
-              <Alert status={applyResult.success ? "success" : "error"} style={{ margin: 0 }}>
+              <Callout.Root status={applyResult.success ? "success" : "error"} style={{ margin: 0 }}>
                 {applyResult.success ? <Check size={16} /> : <X size={16} />}
                 <Flex direction="column" gap="2">
                   <Text weight="medium" size="1">{applyResult.message}</Text>
@@ -460,7 +459,7 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
                     Applied: {applyResult.applied} | Failed: {applyResult.failed}
                   </Text>
                 </Flex>
-              </Alert>
+              </Callout.Root>
             </Box>
           )}
 
@@ -468,7 +467,7 @@ export function Composer({ projectId, projectRoot, isOpen, onClose, initialInstr
           <Box style={{ padding: "16px", borderTop: "1px solid var(--gray-5)", background: "var(--gray-2)" }}>
             <Text weight="medium" size="2" style={{ marginBottom: "8px" }}>Refine Plan</Text>
             <Flex direction="column" gap="8">
-              <Textarea
+              <TextArea
                 value={refinement}
                 onChange={e => setRefinement(e.target.value)}
                 placeholder="Add refinements... (e.g., 'Also update the tests', 'Use TypeScript strict mode', 'Add error handling')"
@@ -650,3 +649,4 @@ function getLanguageColor(lang: string) {
 }
 
 export default Composer;
+export { Composer as CursorComposer };
