@@ -38,6 +38,8 @@ import { MobileAppsView } from "@/components/mobile/MobileAppsView";
 import { SecurityDashboard } from "@/components/security/SecurityDashboard";
 import { ArtifactTemplateSelector } from "@/components/artifact-template-selector";
 import { ChatView } from "@/components/views/ChatView";
+import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
+import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -84,7 +86,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder'>('plan');
+  const [buildTab, setBuildTab] = useState<'plan' | 'transcript' | 'diff' | 'debug' | 'terminal' | 'agents' | 'mobile' | 'security' | 'ui-builder' | 'analytics'>('plan');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -347,13 +349,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
           )}
           {bottomNavTab === 'ui-builder' && (
             <div className="flex flex-col h-full">
-              <ChatView
-                messages={[]}
-                onSend={() => {}}
-                onNewChat={() => {}}
-                activeConversationId={projectId}
-                onSelectConversation={() => {}}
-                isBusy={false}
+              <UIBuilderView
+                projectId={projectId ?? ''}
+                initialFramework="nextjs"
               />
             </div>
           )}
@@ -533,7 +531,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ButtonGroup>
-              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security', 'ui-builder'].map((tab) => (
+              {['plan', 'transcript', 'diff', 'debug', 'terminal', 'agents', 'mobile', 'security', 'ui-builder', 'analytics'].map((tab) => (
                 <Button
                   key={tab}
                   variant={buildTab === tab ? 'primary' : 'ghost'}
@@ -654,6 +652,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 onClick={() => setBuildTab('ui-builder')}
                 active={buildTab === 'ui-builder'}
               />
+              <AppShellSidebarNavItem
+                label={t('build.tabs.analytics')}
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>}
+                onClick={() => setBuildTab('analytics')}
+                active={buildTab === 'analytics'}
+              />
             </div>
           </AppShellSidebarSection>
         </Sidebar>
@@ -741,14 +745,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
           )}
           {buildTab === 'ui-builder' && (
             <div className="flex flex-col h-full">
-              <ChatView
-                messages={[]}
-                onSend={() => {}}
-                onNewChat={() => {}}
-                activeConversationId={projectId}
-                onSelectConversation={() => {}}
-                isBusy={false}
+              <UIBuilderView
+                projectId={projectId ?? ''}
+                initialFramework="nextjs"
               />
+            </div>
+          )}
+          {buildTab === 'analytics' && (
+            <div className="flex flex-col h-full">
+              <AnalyticsDashboard projectId={projectId ?? ''} />
             </div>
           )}
         </div>

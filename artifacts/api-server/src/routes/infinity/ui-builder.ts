@@ -9,6 +9,9 @@ import { z } from 'zod';
 import { requireAuth, requireScope, AuthenticatedRequest } from '../../middleware/auth-middleware.js';
 import { getUICodegenEngine, UIGenerationRequestSchema, UIGenerationResponseSchema, UICodegenEngine } from '../../lib/ui-codegen.js';
 import { getProjectDesignSystem } from '../../lib/design-canvas.js';
+import { generateDesignVariations, VariationGenerationRequestSchema, VariationGenerationResultSchema } from '../../lib/design-variations.js';
+import { getAnalyticsEngine, collectAnalytics, AnalyticsEventSchema, AnalyticsCollectionResponseSchema } from '../../lib/design-analytics.js';
+import { generateDesignSuggestions, SuggestionRequestSchema, SuggestionResultSchema } from '../../lib/suggestion-engine.js';
 import {
   parseCode,
   generateCode,
@@ -685,6 +688,191 @@ router.post('/ast/parse', async (req: Request, res: Response) => {
     }
     console.error('AST parse error:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'AST parse failed' });
+  }
+});
+
+// ============================================================================
+// Design Variations Routes (Phase 21)
+// ============================================================================
+
+/**
+ * POST /api/infinity/ui-builder/design-variations/generate
+ * Generate design variations for a component
+ */
+router.post('/design-variations/generate', async (req: Request, res: Response) => {
+  try {
+    const validated = VariationGenerationRequestSchema.parse(req.body);
+    const authReq = req as AuthenticatedRequest;
+
+    const result = await generateDesignVariations({
+      componentIR: validated.componentIR,
+      framework: validated.framework,
+      designSystem: validated.designSystem,
+      count: validated.count,
+      focusAreas: validated.focusAreas,
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('Design variations generation error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Variation generation failed' });
+  }
+});
+
+// ============================================================================
+// Analytics Routes (Phase 21)
+// ============================================================================
+
+/**
+ * POST /api/infinity/ui-builder/analytics/collect
+ * Collect analytics events from client
+ */
+router.post('/analytics/collect', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      events: z.array(InteractionEventSchema),
+      projectId: z.string().optional(),
+      shareId: z.string().optional(),
+    }).parse(req.body);
+
+    const engine = getAnalyticsEngine();
+    const result = await engine.collectEvents(validated.events, {
+      projectId: validated.projectId,
+      shareId: validated.shareId,
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('Analytics collection error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Analytics collection failed' });
+  }
+});
+
+/**
+ * GET /api/infinity/ui-builder/analytics/aggregates
+ * Get aggregated analytics for a project/share
+ */
+router.get('/analytics/aggregates', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      projectId: z.string().optional(),
+      shareId: z.string().optional(),
+      days: z.coerce.number().int().min(1).max(90).default(7),
+    }).parse(req.query);
+
+    if (!validated.projectId && !validated.shareId) {
+      return res.status(400).json({ error: 'projectId or shareId required' });
+    }
+
+    const engine = getAnalyticsEngine();
+    const aggregates = engine.getAggregates(validated.projectId, validated.shareId);
+
+    res.json({ aggregates });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('Analytics aggregates error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get aggregates' });
+  }
+});
+
+/**
+ * GET /api/infinity/ui-builder/analytics/funnels
+ * Get funnel analytics
+ */
+router.get('/analytics/funnels', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      projectId: z.string().optional(),
+      shareId: z.string().optional(),
+      funnelId: z.string().optional(),
+    }).parse(req.query);
+
+    if (!validated.projectId && !validated.shareId) {
+      return res.status(400).json({ error: 'projectId or shareId required' });
+    }
+
+    const engine = getAnalyticsEngine();
+    const funnels = engine.getFunnelAggregates(validated.projectId, validated.shareId);
+
+    if (validated.funnelId) {
+      const funnel = funnels.find(f => f.funnelId === validated.funnelId);
+      return res.json({ funnel: funnel || null });
+    }
+
+    res.json({ funnels });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('Analytics funnels error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get funnels' });
+  }
+});
+
+/**
+ * GET /api/infinity/ui-builder/analytics/suggestions
+ * Get AI-powered design suggestions based on analytics
+ */
+router.get('/analytics/suggestions', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      projectId: z.string(),
+      shareId: z.string().optional(),
+      componentIR: z.string().optional(),
+      designSystem: z.string().optional(),
+      framework: z.string().optional(),
+    }).parse(req.query);
+
+    const engine = getAnalyticsEngine();
+    const aggregates = engine.getAggregates(validated.projectId, validated.shareId);
+    const funnels = engine.getFunnelAggregates(validated.projectId, validated.shareId);
+
+    const componentIR = validated.componentIR ? JSON.parse(validated.componentIR) : undefined;
+    const designSystem = validated.designSystem ? JSON.parse(validated.designSystem) : undefined;
+
+    const result = await generateDesignSuggestions({
+      projectId: validated.projectId,
+      shareId: validated.shareId,
+      analytics: aggregates,
+      funnels,
+      componentIR,
+      designSystem,
+      framework: validated.framework,
+    });
+
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('Analytics suggestions error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get suggestions' });
+  }
+});
+
+/**
+ * GET /api/infinity/ui-builder/analytics/client-script
+ * Get the client-side analytics collector script
+ */
+router.get('/analytics/client-script', async (_req: Request, res: Response) => {
+  try {
+    const engine = getAnalyticsEngine();
+    const script = engine.getClientScript();
+
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(script);
+  } catch (error) {
+    console.error('Client script error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to get client script' });
   }
 });
 
