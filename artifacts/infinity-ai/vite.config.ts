@@ -44,7 +44,6 @@ export default defineConfig({
       external: ['puppeteer', 'puppeteer-core'],
       output: {
         manualChunks: {
-          tensorflow: ['@tensorflow/tfjs', '@mediapipe/tasks-vision'],
           codemirror: ['@codemirror/state', '@codemirror/view', '@codemirror/lang-javascript', '@codemirror/lang-python', '@codemirror/lang-json', '@codemirror/lang-html', '@codemirror/lang-css', '@codemirror/autocomplete', '@codemirror/commands', '@codemirror/search', '@codemirror/lint', '@codemirror/fold'],
           xterm: ['xterm', 'xterm-addon-fit', 'xterm-addon-web-links', 'xterm-addon-search'],
           radix: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tooltip', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast', '@radix-ui/react-popover', '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-radio-group', '@radix-ui/react-slider', '@radix-ui/react-switch', '@radix-ui/react-separator', '@radix-ui/react-label'],
