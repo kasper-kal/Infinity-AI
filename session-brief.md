@@ -4,9 +4,19 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-29 20:45
+LAST_UPDATED: 2026-08-29 21:15
 
 ## Just did (last action)
+- **Phase 23: v0-Level Polish (Performance, Accessibility, DX) — COMPLETE (100%)** ✅
+  - **Sandbox Pool Manager** (`artifacts/api-server/src/lib/sandbox-pool.ts`): Pre-warmed iframe pool for sub-500ms cold start, <100ms HMR
+  - **WASM Bundler** (`artifacts/api-server/src/lib/wasm-bundler.ts`): esbuild/SWC compiled to WebAssembly for browser-based incremental compilation with HMR transform
+  - **Error Overlay** (`artifacts/infinity-ai/src/components/ui-builder/ErrorOverlay.tsx`): Friendly error UX with auto-fix suggestions, code annotations, docs links
+  - **Command Palette** (`artifacts/infinity-ai/src/components/ui-builder/CommandPalette.tsx`): Cmd+K fuzzy search for all actions with categories, recent actions, keyboard navigation
+  - **A11y Linter** (`artifacts/infinity-ai/src/components/ui-builder/A11yLinter.tsx`): axe-core integration for real-time WCAG AA compliance checking
+  - **Service Worker** (`artifacts/infinity-ai/public/sw.js`): Workbox-style offline-first caching with 6 strategies (cacheFirst, networkFirst, staleWhileRevalidate), expiration, size limits, background sync
+  - **Offline Hook** (`artifacts/infinity-ai/src/hooks/useOffline.ts`): Offline state, SW registration, IndexedDB mutation queue, background sync, prefetching
+  - **Integration**: All components wired into UIBuilderView with keyboard shortcuts (Cmd+K, Escape), OfflineIndicator in preview toolbar
+  - Both builds passing successfully ✅
 - **Phase 20: Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) — COMPLETE (100%)** ✅
   - **Framework Adapters**: 7 complete framework adapters (Next.js, Vite+React, Astro, Remix, SvelteKit, Nuxt/Vue, SolidStart) with scaffold generation, component transpilation, routing, styling, deployment config
   - **Component IR System**: Universal ComponentIR schema, builder, parser, and transpiler supporting 7 target frameworks
@@ -361,9 +371,9 @@ LAST_UPDATED: 2026-08-29 20:45
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 22 — Component Marketplace & Template Library (v0 Community) ✅ COMPLETE (100%)** — All backend services, frontend components, and integration complete. Both builds passing.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**, **Phase 22 (Component Marketplace & Template Library - 100% COMPLETE)**
-- **Next Phases:** **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
+- **Current Phase:** **Phase 23 — v0-Level Polish (Performance, Accessibility, DX) ✅ COMPLETE (100%)** — All 6 components implemented and integrated. Both builds passing.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**, **Phase 22 (Component Marketplace & Template Library - 100% COMPLETE)**, **Phase 23 (v0-Level Polish - 100% COMPLETE)**
+- **Next Phases:** **Phase 24 (Cursor-Level Code Intelligence)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -405,6 +415,16 @@ LAST_UPDATED: 2026-08-29 20:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-29 **Phase 23: v0-Level Polish — COMPLETE (100%)** ✅ — All 6 polish components implemented and integrated:
+  - **Sandbox Pool Manager** (`sandbox-pool.ts`): Pre-warmed iframe pool for sub-500ms cold start, <100ms HMR
+  - **WASM Bundler** (`wasm-bundler.ts`): esbuild/SWC in WebAssembly for browser incremental compilation
+  - **Error Overlay** (`ErrorOverlay.tsx`): Friendly error UX with auto-fix suggestions, code annotations, docs links
+  - **Command Palette** (`CommandPalette.tsx`): Cmd+K fuzzy search for all actions, categories, recent actions, keyboard navigation
+  - **A11y Linter** (`A11yLinter.tsx`): axe-core real-time WCAG AA compliance with impact filtering
+  - **Service Worker** (`sw.js`): Offline-first with 6 cache strategies, expiration, background sync, push notifications
+  - **Offline Hook** (`useOffline.ts`): IndexedDB mutation queue, background sync, prefetching
+  - **Integration**: UIBuilderView wired with all components, OfflineIndicator in toolbar, keyboard shortcuts (Cmd+K, Escape)
+  - Both builds passing successfully ✅
 - 2026-08-29 **Phase 22: Component Marketplace & Template Library — COMPLETE (100%)** ✅ — Full marketplace infrastructure complete:
   - **Component Registry** (`component-registry.ts`): ComponentManifestSchema + TemplateManifestSchema (Zod), Semver class (parse, compare, satisfies, maxSatisfying), ComponentRegistryClient (searchComponents, getComponent, listVersions, searchTemplates, getTemplate, installComponent, installTemplate, publishComponent, rateComponent), BUILTIN_COMPONENTS (3: @infinity/button, @infinity/card, @infinity/pricing-table), BUILTIN_TEMPLATES (6: saas-dashboard, landing-page, blog-starter, docs-site, mobile-app, chrome-extension)
   - **Template Engine** (`template-engine.ts`): TemplateEngine class (listTemplates, getTemplate, validateVariables, customizeTemplate, installTemplateComponents, mergeDesignSystems), VariableDefinition interface (type: text/color/select/boolean/number, validation), TemplateGenerator class (generateTemplate from existing project with variable extraction)
