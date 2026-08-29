@@ -8,11 +8,11 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select as RadixSelect, SelectContent as RadixSelectContent, SelectItem as RadixSelectItem, SelectTrigger as RadixSelectTrigger, SelectValue as RadixSelectValue } from '@/components/ui';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';

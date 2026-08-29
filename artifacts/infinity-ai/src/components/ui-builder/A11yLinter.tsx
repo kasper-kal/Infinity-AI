@@ -23,13 +23,13 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/Collapsible';
+import { Badge } from '@/components/ui';
+import { ScrollArea } from '@/components/ui';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { Switch } from '@/components/ui/Switch';
-import { Label } from '@/components/ui/Label';
+import { Select as RadixSelect, SelectContent as RadixSelectContent, SelectItem as RadixSelectItem, SelectTrigger as RadixSelectTrigger, SelectValue as RadixSelectValue } from '@/components/ui';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 export interface A11yViolation {

@@ -8,10 +8,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { X, AlertCircle, RefreshCw, Code2, ExternalLink, Copy, ChevronDown, ChevronUp, Zap, HelpCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/Collapsible';
-import { useToast } from '@/components/ui/Toast';
+import { Badge } from '@/components/ui';
+import { ScrollArea } from '@/components/ui';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { useToast } from '@/hooks/use-toast';
 
 export interface ErrorDetail {
   id: string;

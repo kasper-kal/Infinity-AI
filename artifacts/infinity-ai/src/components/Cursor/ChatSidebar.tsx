@@ -10,7 +10,8 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Button, Input, Textarea, ScrollArea, Flex, Box, Text, Badge, Avatar, IconButton, Menu, MenuItem, Tooltip, Separator, Skeleton } from "@radix-ui/themes";
+import { Button, Input, TextArea, ScrollArea, Flex, Box, Text, Badge, Avatar, IconButton, Tooltip, Separator, Skeleton } from "@radix-ui/themes";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Send, Loader2, Copy, ChevronUp, ChevronDown, Code, FileText, Sparkles, Zap, X, Check, AlertCircle, MessageSquare, Database, Terminal, GitBranch, Search, Settings, Plus, Trash2, RotateCcw } from "lucide-react";
 
 interface ChatMessage {
@@ -337,8 +338,8 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
           </Button>
         </Tooltip>
 
-        <Menu open={showModelSelector} onOpenChange={setShowModelSelector}>
-          <Menu.Trigger asChild>
+        <DropdownMenu open={showModelSelector} onOpenChange={setShowModelSelector}>
+          <DropdownMenuTrigger asChild>
             <Tooltip content="Select model">
               <Button variant="soft" size="1" style={{ minWidth: "160px", justifyContent: "space-between" }}>
                 <Flex align="center" gap="2">
@@ -348,10 +349,10 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
                 <ChevronDown size={14} />
               </Button>
             </Tooltip>
-          </Menu.Trigger>
-          <Menu.Content side="bottom" align="end" style={{ minWidth: "200px" }}>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end" style={{ minWidth: "200px" }}>
             {models.map(model => (
-              <Menu.Item
+              <DropdownMenuItem
                 key={model.id}
                 onSelect={() => setSelectedModel(model.id)}
                 style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}
@@ -359,10 +360,10 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
                 <Text size="1" weight={selectedModel === model.id ? "bold" : "regular"}>{model.name}</Text>
                 <Text size="1" color="var(--gray-10)">{model.provider}</Text>
                 {selectedModel === model.id && <Check size={14} color="var(--green-9)" />}
-              </Menu.Item>
+              </DropdownMenuItem>
             ))}
-          </Menu.Content>
-        </Menu>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </Flex>
 
       {/* Messages */}
@@ -436,7 +437,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
           alignItems: "flex-end",
         }}
       >
-        <Textarea
+        <TextArea
           ref={textareaRef}
           value={input}
           onChange={e => setInput(e.target.value)}

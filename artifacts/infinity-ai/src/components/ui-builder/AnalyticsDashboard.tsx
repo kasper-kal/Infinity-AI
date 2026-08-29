@@ -8,10 +8,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Button, IconButton } from '@/components/ui/Button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select as RadixSelect, SelectContent as RadixSelectContent, SelectItem as RadixSelectItem, SelectTrigger as RadixSelectTrigger, SelectValue as RadixSelectValue } from '@/components/ui';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';

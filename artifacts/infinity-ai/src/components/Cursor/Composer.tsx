@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Button, Input, Textarea, Flex, Box, Text, Badge, Checkbox, Separator, ScrollArea, Tabs, TabList, TabTrigger, TabContent, Alert, IconButton, Tooltip, Switch, RadioGroup, Radio, Card, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@radix-ui/themes";
+import { Button, Input, TextArea, Flex, Box, Text, Badge, Checkbox, Separator, ScrollArea, Tabs, TabList, TabTrigger, TabContent, Alert, IconButton, Tooltip, Switch, RadioGroup, Radio, Card, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@radix-ui/themes";
 import { Send, Loader2, Check, X, FileText, Code, Diff, ChevronLeft, ChevronRight, Plus, Minus, Eye, EyeOff, Copy, Download, Upload, Zap, AlertTriangle, Shield, RefreshCw, RotateCcw, Trash2, Save, Search, Sparkles, GitBranch } from "lucide-react";
 
 interface FileChange {

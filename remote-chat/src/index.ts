@@ -57,8 +57,8 @@ interface ChatSession {
 
 const sessions = new Map<string, ChatSession>();
 
-function findClaudeSessions(): Array<{id: string, name: string}> {
-  const sessions: Array<{id: string, name: string}> = [];
+function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: number, preview?: string, status?: string}> {
+  const sessions: Array<{id: string, name: string, lastActivity?: number, preview?: string, status?: string}> = [];
 
   // First, get all session IDs (PID -> sessionId mapping) and derived names from sessions dir
   const pidToSessionId = new Map<string, string>();
@@ -78,8 +78,9 @@ function findClaudeSessions(): Array<{id: string, name: string}> {
     }
   }
 
-  // Then, look in projects dir for AI-generated titles (ai-title events)
+  // Then, look in projects dir for AI-generated titles (ai-title events) + preview/activity
   const aiTitles = new Map<string, string>();
+  const sessionStats = new Map<string, { lastActivity: number, preview: string }>();
   if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
     for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
       const projectPath = path.join(CLAUDE_PROJECTS_DIR, projectDir);
@@ -91,16 +92,26 @@ function findClaudeSessions(): Array<{id: string, name: string}> {
         const filePath = path.join(projectPath, file);
         try {
           const content = fs.readFileSync(filePath, 'utf-8');
+          let lastActivity = 0;
+          try { lastActivity = fs.statSync(filePath).mtimeMs; } catch {}
+          let preview = '';
           for (const line of content.split('\n')) {
             if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
               if (data.type === 'ai-title' && data.aiTitle) {
                 aiTitles.set(sessionId, data.aiTitle);
-                break;
+              }
+              if ((data.type === 'user' || data.type === 'assistant') && data.message?.content) {
+                const text = typeof data.message.content === 'string'
+                  ? data.message.content
+                  : JSON.stringify(data.message.content);
+                const firstLine = text.split('\n')[0].trim();
+                if (firstLine) preview = firstLine.slice(0, 120);
               }
             } catch {}
           }
+          sessionStats.set(sessionId, { lastActivity, preview });
         } catch {}
       }
     }
@@ -110,8 +121,21 @@ function findClaudeSessions(): Array<{id: string, name: string}> {
   for (const [pid, sessionId] of pidToSessionId) {
     const derivedName = sessionMeta.get(sessionId) || pid;
     const name = aiTitles.get(sessionId) || derivedName;
-    sessions.push({ id: pid, name });
+    const stats = sessionStats.get(sessionId);
+    const lastActivity = stats?.lastActivity;
+    const now = Date.now();
+    const status = lastActivity && (now - lastActivity < 5 * 60 * 1000) ? 'active' : 'idle';
+    sessions.push({
+      id: pid,
+      name,
+      lastActivity,
+      preview: stats?.preview,
+      status
+    });
   }
+
+  // Sort by most recent activity
+  sessions.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
 
   return sessions;
 }

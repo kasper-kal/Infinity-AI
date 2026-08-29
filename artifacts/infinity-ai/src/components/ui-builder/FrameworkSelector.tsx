@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui';
 import { Check, ChevronDown, ChevronUp, Code, LayoutGrid, Smartphone, Globe, Zap, Layers } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
