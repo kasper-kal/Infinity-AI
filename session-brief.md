@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-28 10:55
+LAST_UPDATED: 2026-08-29
 
 ## Just did (last action)
 - **Phase 20: Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) — COMPLETE (100%)** ✅
@@ -361,9 +361,9 @@ LAST_UPDATED: 2026-08-28 10:55
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 20 — Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue) ✅ COMPLETE** — All infrastructure, API routes, and frontend FrameworkSelector component complete. Both builds passing.
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**
-- **Next Phases:** **Phase 21 (AI-Powered Design Iteration)**, **Phase 22 (Component Marketplace & Template Library)**, **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
+- **Current Phase:** **Phase 21 — AI-Powered Design Iteration (Variations, A/B, Analytics) ✅ COMPLETE** — All backend services, frontend components, and integration complete. Both builds passing.
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**
+- **Next Phases:** **Phase 22 (Component Marketplace & Template Library)**, **Phase 23 (v0-Level Polish)**, **Phase 24 (Cursor-Level Code Intelligence)**
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -405,6 +405,17 @@ LAST_UPDATED: 2026-08-28 10:55
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-29 **Phase 21: AI-Powered Design Iteration — COMPLETE (100%)** ✅ — Full design iteration system complete:
+  - **Variation Generator** (`design-variations.ts`): DesignVariationGenerator class with LLM-based variation generation + 6 fallback categories (layout, color, typography, spacing, accessibility, performance, combined), confidence scoring, impact estimation
+  - **Analytics Engine** (`design-analytics.ts`): AnalyticsCollector + DesignAnalyticsEngine with Web Vitals (LCP, CLS, INP, FCP), interaction tracking (clicks, hovers, scroll), funnel analysis with drop-off rates, dashboard aggregation
+  - **Suggestion Engine** (`suggestion-engine.ts`): DesignSuggestionEngine with 5 rule-based generators (accessibility, funnel, interaction, mobile, visual) + LLM-based deep analysis, merge/dedupe, severity+confidence sorting
+  - **API Routes** (`ui-builder.ts`): 6 endpoints — /design-variations/generate, /design-variations/list, /design-variations/:id, /analytics/aggregates, /analytics/suggestions, /generate (preview)
+  - **VariationsPanel**: Sidebar with generation controls (count 3-10, focus areas), 7 category tabs, animated variation cards with confidence bars, impact visualization, apply/preview/copy/download/delete actions
+  - **ABPreview**: Dual iframe A/B comparison with synchronized scroll/hover, metrics overlay (CTR, engagement, conversion), winner selection with merge, keyboard navigation
+  - **AnalyticsDashboard**: 4 tabs — Overview (Web Vitals scorecards), Interactions (element heatmap, event breakdown), Funnels (visual funnel + step drop-offs), AI Suggestions (prioritized actionable fixes with code diffs)
+  - **UIBuilderView**: Main view integrating VariationsPanel sidebar + preview area + ABPreview modal, framework/viewport/design system selectors, code/preview tabs, copy/download actions
+  - **BuildView Integration**: Replaced placeholder ChatView with functional UIBuilderView in desktop 'ui-builder' tab and mobile bottomNavTab 'ui-builder'
+  - Both builds passing successfully ✅
 - 2026-08-28 **Phase 20: Multi-Framework Support — COMPLETE (100%)** ✅ — Full multi-framework infrastructure complete:
   - 7 framework adapters (Next.js, Vite+React, Astro, Remix, SvelteKit, Nuxt/Vue, SolidStart) with scaffold generation, component transpilation, routing, styling, deployment config
   - Component IR system (schema, builder, parser, transpiler for 7 target frameworks)
