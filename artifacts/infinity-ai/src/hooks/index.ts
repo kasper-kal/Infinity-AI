@@ -5,6 +5,9 @@
 export { useAstHistory } from './useAstHistory';
 export { useConflictResolution } from './useConflictResolution';
 
+// Phase 23: v0-Level Polish
+export { useOffline, useOfflineMutation, useOfflineCapability, OfflineIndicator, type OfflineState, type OfflineActions, type OfflineMutation } from './useOffline';
+
 // Re-export other hooks
 export { useBuildShortcuts } from './use-build-shortcuts';
 export { useBuildStudio } from './use-build-studio';

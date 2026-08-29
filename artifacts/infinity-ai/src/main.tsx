@@ -5,6 +5,19 @@ import App from './App';
 import './index.css';
 import { applyStoredAccent } from './lib/use-accent';
 
+// Register Service Worker for offline support (Phase 23)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(registration => {
+        console.log('Service Worker registered:', registration.scope);
+      })
+      .catch(error => {
+        console.log('Service Worker registration failed:', error);
+      });
+  });
+}
+
 // Apple devices (iOS/macOS) → system SF Pro (crispest); others use self-hosted SF Pro
 if (/iPhone|iPad|iPod|Macintosh|Mac|Apple/i.test(navigator.userAgent)) {
   document.documentElement.classList.add('platform-apple');

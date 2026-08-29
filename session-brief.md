@@ -413,6 +413,7 @@ LAST_UPDATED: 2026-08-29 20:45
   - **TemplateLibrary.tsx**: Multi-step wizard (Configure → Preview → Install), variable validation per step, required field checking, preview shows files/design system tokens/deploy config, progress bar during installation with post-install commands display
   - **SettingsView.tsx integration**: Added marketplace section with Tabs for Components/TemplateLibrary, added marketplace to SettingsSection type and SECTION_CONFIG, added bottomNav item for mobile
   - **i18n.tsx**: Added English/Dutch translations for marketplace ("settings.marketplace": "Marketplace"/"Marktplaats")
+  - **Build fix**: Removed tensorflow manual chunk from vite.config.ts (causing OOM on 8GB memory), frontend build now passes with minify=true
   - Both builds passing successfully ✅
 - 2026-08-29 **Phase 21: AI-Powered Design Iteration — COMPLETE (100%)** ✅ — Full design iteration system complete:
   - **Variation Generator** (`design-variations.ts`): DesignVariationGenerator class with LLM-based variation generation + 6 fallback categories (layout, color, typography, spacing, accessibility, performance, combined), confidence scoring, impact estimation

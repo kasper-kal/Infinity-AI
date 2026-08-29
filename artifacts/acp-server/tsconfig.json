@@ -30,6 +30,10 @@
     "../api-server/src/lib/deep-research-v2.ts",
     "../api-server/src/lib/promo-maker.ts",
     "../api-server/src/lib/virtual-worktree.ts",
-    "../api-server/src/lib/parallel-agents.ts"
+    "../api-server/src/lib/parallel-agents.ts",
+    "../api-server/src/lib/adapter-factory.ts",
+    "../api-server/src/lib/adapters/local-adapter.ts",
+    "../api-server/src/lib/api-integration.ts",
+    "../api-server/src/lib/ast-editor.ts"
   ]
 }

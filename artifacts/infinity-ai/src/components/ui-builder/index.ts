@@ -21,3 +21,9 @@ export { AuthPanel, type AuthProviderConfig, type GeneratedAuthCode } from './Au
 export { APIWizard } from './APIWizard';
 export { DatabasePanel } from './DatabasePanel';
 export { FrameworkSelector, type FrameworkInfo, FRAMEWORKS } from './FrameworkSelector';
+
+// Phase 23: v0-Level Polish
+export { ErrorOverlay, useErrorOverlay, createErrorFromEvent, createErrorFromBuild, type ErrorDetail, type AutoFixAction } from './ErrorOverlay';
+export { CommandPalette, useCommandPalette, type CommandAction, type CommandCategory } from './CommandPalette';
+export { A11yLinter, useA11yLinter, type A11yViolation, type A11yResult } from './A11yLinter';
+export { useOffline, useOfflineMutation, useOfflineCapability, OfflineIndicator, type OfflineState, type OfflineActions, type OfflineMutation } from '../hooks/useOffline';

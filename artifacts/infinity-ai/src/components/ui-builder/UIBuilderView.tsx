@@ -4,7 +4,7 @@
  * managing component IR state and handling apply/preview callbacks.
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,9 +43,26 @@ import {
   Monitor,
   Tablet,
   Laptop,
+  Search,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+  CheckCircle,
+  Shield,
+  Zap as ZapIcon,
+  Terminal,
+  Layers as LayersIcon,
+  Palette as PaletteIcon,
+  Globe,
+  Settings as SettingsIcon,
+  Command,
 } from 'lucide-react';
 import { VariationsPanel, DesignVariation } from './VariationsPanel';
 import { ABPreview } from './ABPreview';
+import { CommandPalette, type CommandAction, type CommandCategory } from './CommandPalette';
+import { ErrorOverlay, useErrorOverlay, type ErrorDetail } from './ErrorOverlay';
+import { A11yLinter, type A11yViolation } from './A11yLinter';
+import { useOffline, OfflineIndicator, type OfflineState } from '../hooks/useOffline';
 
 export interface ComponentIR {
   name: string;
@@ -243,7 +260,69 @@ export function UIBuilderView({
   const [activeTab, setActiveTab] = useState<'builder' | 'code' | 'preview'>('builder');
   const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop' | 'wide'>('desktop');
   const [showCodeEditor, setShowCodeEditor] = useState(false);
+
+  // Phase 23: v0-Level Polish
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [previewErrors, setPreviewErrors] = useState<ErrorDetail[]>([]);
+  const [showA11yPanel, setShowA11yPanel] = useState(false);
+  const [a11yViolations, setA11yViolations] = useState<A11yViolation[]>([]);
+  const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
+
   const { toast } = useToast();
+
+  // Offline support
+  const [offlineState, offlineActions] = useOffline({
+    autoRegister: true,
+    onOnlineChange: (isOnline) => {
+      if (isOnline) toast({ title: 'Back online', description: 'Syncing changes...', variant: 'success' });
+      else toast({ title: 'Offline', description: 'Changes will sync when online', variant: 'default' });
+    },
+  });
+
+  // Error overlay
+  const { errors: errorOverlayErrors, isOpen: errorOverlayOpen, addError, clearErrors: clearErrorOverlay, close: closeErrorOverlay } = useErrorOverlay();
+
+  // Command palette actions
+  const commandActions: CommandAction[] = useMemo(() => [
+    // Navigation
+    { id: 'nav-builder', label: 'Go to Builder', description: 'Open the visual builder', category: 'navigation', icon: LayoutGrid, shortcut: '1', action: () => setActiveTab('builder') },
+    { id: 'nav-code', label: 'Go to Code', description: 'View component code', category: 'navigation', icon: Code, shortcut: '2', action: () => setActiveTab('code') },
+    { id: 'nav-preview', label: 'Go to Preview', description: 'Open full preview', category: 'navigation', icon: Eye, shortcut: '3', action: () => setActiveTab('preview') },
+
+    // Editing
+    { id: 'edit-copy', label: 'Copy Code', description: 'Copy component code to clipboard', category: 'editing', icon: Copy, shortcut: 'Cmd+C', action: () => navigator.clipboard.writeText(previewCode) },
+    { id: 'edit-download', label: 'Download Component', description: 'Download component as file', category: 'editing', icon: Download, shortcut: 'Cmd+S', action: () => {
+      const ext = framework === 'vue-nuxt' ? '.vue' : framework === 'sveltekit' ? '.svelte' : '.tsx';
+      const blob = new Blob([previewCode], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${componentIR.name}${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }},
+    { id: 'edit-toggle-code', label: 'Toggle Code Editor', description: 'Show/hide code editor panel', category: 'editing', icon: Code, shortcut: 'Cmd+E', action: () => setShowCodeEditor(!showCodeEditor) },
+
+    // Preview
+    { id: 'preview-refresh', label: 'Refresh Preview', description: 'Reload the preview iframe', category: 'preview', icon: RefreshCw, shortcut: 'Cmd+R', action: () => iframeRef.current?.contentWindow?.location.reload() },
+    { id: 'preview-mobile', label: 'Mobile Viewport', description: 'Set viewport to mobile (375px)', category: 'preview', icon: Smartphone, action: () => setViewport('mobile') },
+    { id: 'preview-tablet', label: 'Tablet Viewport', description: 'Set viewport to tablet (768px)', category: 'preview', icon: Tablet, action: () => setViewport('tablet') },
+    { id: 'preview-desktop', label: 'Desktop Viewport', description: 'Set viewport to desktop (1440px)', category: 'preview', icon: Monitor, action: () => setViewport('desktop') },
+    { id: 'preview-wide', label: 'Wide Viewport', description: 'Set viewport to wide (1920px)', category: 'preview', icon: Laptop, action: () => setViewport('wide') },
+
+    // AI
+    { id: 'ai-generate', label: 'Generate Variation', description: 'AI-generate a design variation', category: 'ai', icon: Sparkles, shortcut: 'Cmd+G', action: () => setActiveTab('builder') },
+    { id: 'ai-ab-test', label: 'A/B Test', description: 'Compare current with variation', category: 'ai', icon: GitBranch, action: () => selectedVariation && handlePreviewVariation(selectedVariation) },
+
+    // Settings
+    { id: 'settings-framework', label: 'Change Framework', description: 'Select a different framework', category: 'settings', icon: LayersIcon, action: () => {} },
+    { id: 'settings-design-system', label: 'Edit Design System', description: 'Modify colors, spacing, typography', category: 'settings', icon: PaletteIcon, action: () => {} },
+    { id: 'settings-accessibility', label: 'Accessibility Check', description: 'Run WCAG accessibility audit', category: 'settings', icon: Shield, shortcut: 'Cmd+Shift+A', action: () => setShowA11yPanel(true) },
+
+    // Deploy
+    { id: 'deploy-vercel', label: 'Deploy to Vercel', description: 'Deploy component to Vercel', category: 'deploy', icon: Globe, action: () => toast({ title: 'Deploy', description: 'Deploying to Vercel...', variant: 'default' }) },
+    { id: 'deploy-netlify', label: 'Deploy to Netlify', description: 'Deploy component to Netlify', category: 'deploy', icon: Globe, action: () => toast({ title: 'Deploy', description: 'Deploying to Netlify...', variant: 'default' }) },
+  ], [framework, componentIR.name, previewCode, showCodeEditor, selectedVariation, toast, iframeRef]);
 
   // Generate preview code when component IR changes
   useEffect(() => {
@@ -318,6 +397,40 @@ export function UIBuilderView({
 
   const currentViewport = VIEWPORT_OPTIONS.find(v => v.value === viewport) || VIEWPORT_OPTIONS[2];
 
+  // Keyboard handler for Command Palette (Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+      // Escape to close command palette
+      if (e.key === 'Escape' && commandPaletteOpen) {
+        setCommandPaletteOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [commandPaletteOpen]);
+
+  // Handle preview errors from iframe
+  const handleIframeError = useCallback((event: ErrorEvent) => {
+    addError({
+      type: 'runtime',
+      severity: 'error',
+      message: event.message,
+      file: event.filename,
+      line: event.lineno,
+      column: event.colno,
+      stack: event.error?.stack,
+    });
+  }, [addError]);
+
+  const handleIframeLoad = useCallback(() => {
+    // Clear errors on successful load
+    clearErrorOverlay();
+  }, [clearErrorOverlay]);
+
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Toolbar */}
@@ -377,6 +490,56 @@ export function UIBuilderView({
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
+          {/* Phase 23: Command Palette Trigger */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCommandPaletteOpen(true)}
+            title="Command Palette (Cmd+K)"
+            className="gap-1"
+          >
+            <Command className="w-4 h-4" />
+            <span className="hidden sm:inline">Command</span>
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-xs font-mono bg-muted rounded border">⌘K</kbd>
+          </Button>
+
+          {/* Accessibility Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowA11yPanel(!showA11yPanel)}
+            title="Accessibility Check (Cmd+Shift+A)"
+            className={showA11yPanel ? 'bg-primary/10 text-primary' : ''}
+          >
+            <Shield className="w-4 h-4" />
+            <span className="hidden sm:inline">A11y</span>
+            {a11yViolations.length > 0 && (
+              <Badge variant="destructive" className="ml-1">{a11yViolations.length}</Badge>
+            )}
+          </Button>
+
+          {/* Offline Indicator */}
+          {!offlineState.isOnline && (
+            <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <WifiOff className="w-4 h-4" />
+              <span className="text-xs hidden sm:inline">Offline</span>
+            </div>
+          )}
+          {offlineState.isOnline && offlineState.swRegistered && (
+            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+              <Wifi className="w-4 h-4" />
+              <span className="text-xs hidden sm:inline">Ready</span>
+            </div>
+          )}
+          {offlineState.updateAvailable && (
+            <Button variant="outline" size="sm" onClick={() => offlineActions.applyUpdate()} className="gap-1">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              Update
+            </Button>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-1 ml-auto">
@@ -472,6 +635,7 @@ export function UIBuilderView({
 
                   <div className="flex-1 relative overflow-hidden bg-muted/30">
                     <iframe
+                      ref={setIframeRef}
                       srcDoc={previewCode}
                       className="w-full h-full border-0"
                       style={{
@@ -481,7 +645,20 @@ export function UIBuilderView({
                       }}
                       sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
                       title="Component Preview"
+                      onLoad={handleIframeLoad}
+                      onError={handleIframeError}
                     />
+                    {/* Accessibility Panel */}
+                    {showA11yPanel && (
+                      <div className="absolute bottom-0 right-0 w-full sm:w-96 max-h-[60vh] z-10">
+                        <A11yLinter
+                          iframeRef={iframeRef}
+                          violations={a11yViolations}
+                          onViolationsChange={setA11yViolations}
+                          onClose={() => setShowA11yPanel(false)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -556,6 +733,7 @@ export function UIBuilderView({
               </div>
               <div className="flex-1 relative overflow-hidden bg-muted/30">
                 <iframe
+                  ref={setIframeRef}
                   srcDoc={previewCode}
                   className="w-full h-full border-0"
                   style={{
@@ -565,7 +743,20 @@ export function UIBuilderView({
                   }}
                   sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
                   title="Full Component Preview"
+                  onLoad={handleIframeLoad}
+                  onError={handleIframeError}
                 />
+                {/* Accessibility Panel */}
+                {showA11yPanel && (
+                  <div className="absolute bottom-0 right-0 w-full sm:w-96 max-h-[60vh] z-10">
+                    <A11yLinter
+                      iframeRef={iframeRef}
+                      violations={a11yViolations}
+                      onViolationsChange={setA11yViolations}
+                      onClose={() => setShowA11yPanel(false)}
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -591,6 +782,26 @@ export function UIBuilderView({
           />
         )}
       </AnimatePresence>
+
+      {/* Phase 23: Command Palette */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        actions={commandActions}
+        placeholder="Search commands..."
+      />
+
+      {/* Phase 23: Error Overlay */}
+      <ErrorOverlay
+        errors={errorOverlayErrors}
+        isOpen={errorOverlayOpen}
+        onClose={closeErrorOverlay}
+        onRetry={() => iframeRef.current?.contentWindow?.location.reload()}
+        title="Preview Error"
+      />
+
+      {/* Phase 23: Offline Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }

@@ -313,7 +313,7 @@ export class ComponentRegistryClient {
       results = results.filter((t) =>
         t.name.toLowerCase().includes(q) ||
         t.title.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q)
       );
     }
     if (query.category) results = results.filter((t) => t.category === query.category);

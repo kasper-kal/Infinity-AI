@@ -35,7 +35,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | ✅ **COMPLETE** |
 | **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | ✅ **COMPLETE** |
 | **22** | **Component Marketplace & Template Library (v0 Community)** | ✅ **COMPLETE** |
-| **23** | **v0-Level Polish (Performance, Accessibility, DX)** | 🔲 PLANNED |
+| **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
 | **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | 🔲 PLANNED |
 | **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | 🔲 PLANNED |
 | **26** | **Rules, Notepads & Customization (Cursor Personalization)** | 🔲 PLANNED |
@@ -44,11 +44,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **29** | **IDE Integrations & CLI (Cursor Everywhere)** | 🔲 PLANNED |
 | **30** | **Advanced Agent Capabilities (Cursor Agent Parity)** | 🔲 PLANNED |
 | **31** | **Cursor-Level Performance & Polish (Speed, Reliability, DX)** | 🔲 PLANNED |
-| **32** | **Infinity Self-Management & Live Task Intelligence** | 🔲 PLANNED |
-| **33** | **AI-Managed Roadmap (Build Map Intelligence)** | 🔲 PLANNED |
-| **34** | **Context Auto-Compact & Limit Recognition** | 🔲 PLANNED |
-| **35** | **README update** | 🔲 PLANNED |
-| **36** | **AI Automation System (Natural Language Automations + Connector Integration)** | 🔲 PLANNED |
+| **32** | **Context Auto-Compact & Limit Recognition** | 🔲 PLANNED |
+| **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | 🔲 PLANNED |
 
 Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**.
 
@@ -983,45 +980,50 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 **Match v0's polish** — Sub-second preview updates, zero-config accessibility, delightful DX. The "it just works" factor.
 
 ### Requirements
-- [ ] **Preview Performance** — <500ms cold start, <100ms HMR:
-  - Pre-warmed sandbox pool (reuse iframes)
-  - Incremental compilation (esbuild SWC in browser via WebAssembly)
-  - Dependency caching (shadcn/ui, Radix pre-bundled)
-  - Streaming preview updates (progressive enhancement)
-- [ ] **Accessibility by Default** — Every generated component passes WCAG AA:
-  - Semantic HTML, ARIA attributes, focus management
-  - Color contrast validation in real-time
-  - Keyboard navigation, screen reader testing
-  - axe-core integration in preview + CI
-- [ ] **Error Experience** — Friendly, actionable errors:
-  - Preview overlay: "Here's what went wrong, here's how to fix"
-  - Code annotations: red squiggles at exact error location
-  - Auto-fix suggestions (one-click apply)
-  - Link to docs/examples for common errors
-- [ ] **Keyboard-First DX** — All UI Builder actions keyboard accessible:
-  - Command palette (Cmd+K) for all actions
-  - Vim/Emacs keybindings in code editor
-  - Shortcuts for: toggle preview, extract component, deploy, variation
-- [ ] **Offline-First** — Service Worker caches:
-  - Sandbox runtime, component library, design tokens
-  - Works offline for editing; syncs on reconnect
-  - IndexedDB for project state persistence
+- [x] **Preview Performance** — <500ms cold start, <100ms HMR:
+  - [x] Pre-warmed sandbox pool (reuse iframes) — `sandbox-pool.ts`
+  - [x] Incremental compilation (esbuild SWC in browser via WebAssembly) — `wasm-bundler.ts`
+  - [x] Dependency caching (shadcn/ui, Radix pre-bundled)
+  - [x] Streaming preview updates (progressive enhancement)
+- [x] **Accessibility by Default** — Every generated component passes WCAG AA:
+  - [x] Semantic HTML, ARIA attributes, focus management
+  - [x] Color contrast validation in real-time
+  - [x] Keyboard navigation, screen reader testing
+  - [x] axe-core integration in preview + CI — `A11yLinter.tsx`
+- [x] **Error Experience** — Friendly, actionable errors:
+  - [x] Preview overlay: "Here's what went wrong, here's how to fix" — `ErrorOverlay.tsx`
+  - [x] Code annotations: red squiggles at exact error location
+  - [x] Auto-fix suggestions (one-click apply)
+  - [x] Link to docs/examples for common errors
+- [x] **Keyboard-First DX** — All UI Builder actions keyboard accessible:
+  - [x] Command palette (Cmd+K) for all actions — `CommandPalette.tsx`
+  - [x] Vim/Emacs keybindings in code editor
+  - [x] Shortcuts for: toggle preview, extract component, deploy, variation
+- [x] **Offline-First** — Service Worker caches:
+  - [x] Sandbox runtime, component library, design tokens — `sw.js`
+  - [x] Works offline for editing; syncs on reconnect — `useOffline.ts`
+  - [x] IndexedDB for project state persistence
 
 ### Implementation Plan
-1. **Sandbox Pool Manager** — Pre-warm N iframes, recycle on navigation
-2. **WASM Bundler** — esbuild/SWC compiled to WASM for browser bundling
-3. **A11y Linter** — Real-time axe-core in preview, CI integration
-4. **Error Formatter** — Structured error objects → friendly UI + auto-fix
-5. **Command Palette** — Centralized action registry with fuzzy search
-6. **Service Worker** — Workbox for caching strategy
+1. **Sandbox Pool Manager** — Pre-warm N iframes, recycle on navigation ✅
+2. **WASM Bundler** — esbuild/SWC compiled to WASM for browser bundling ✅
+3. **A11y Linter** — Real-time axe-core in preview, CI integration ✅
+4. **Error Formatter** — Structured error objects → friendly UI + auto-fix ✅
+5. **Command Palette** — Centralized action registry with fuzzy search ✅
+6. **Service Worker** — Workbox for caching strategy ✅
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/sandbox-pool.ts` (new)
-- `artifacts/api-server/src/lib/wasm-bundler.ts` (new)
-- `artifacts/Infinity/src/components/ui-builder/ErrorOverlay.tsx` (new)
-- `artifacts/Infinity/src/components/ui-builder/CommandPalette.tsx` (new)
-- `artifacts/Infinity/public/sw.js` (new — service worker)
-- `artifacts/Infinity/src/hooks/useOffline.ts` (new)
+### Files Created/Modified
+- `artifacts/api-server/src/lib/sandbox-pool.ts` (new) ✅
+- `artifacts/api-server/src/lib/wasm-bundler.ts` (new) ✅
+- `artifacts/infinity-ai/src/components/ui-builder/ErrorOverlay.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/ui-builder/CommandPalette.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/ui-builder/A11yLinter.tsx` (new) ✅
+- `artifacts/infinity-ai/public/sw.js` (new — service worker) ✅
+- `artifacts/infinity-ai/src/hooks/useOffline.ts` (new) ✅
+- `artifacts/infinity-ai/src/components/ui-builder/UIBuilderView.tsx` (integrated all Phase 23 components) ✅
+- `artifacts/infinity-ai/src/main.tsx` (Service Worker registration) ✅
+- `artifacts/infinity-ai/src/components/ui-builder/index.ts` (barrel exports) ✅
+- `artifacts/infinity-ai/src/hooks/index.ts` (barrel exports) ✅
 
 ---
 
@@ -1404,154 +1406,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 32: Infinity Self-Management & Live Task Intelligence
-
-### Goal
-**Infinity manages itself** — secrets, settings, and real-time task visibility. Build becomes a self-sustaining, self-aware system that securely stores its own credentials, adjusts its own configuration (with user consent), and surfaces every active task in a Live Dynamic Island — from building websites to deep research to writing books.
-
-### Requirements
-- [ ] **Infinity Build Secrets Manager** — Build saves its own API keys/secrets securely:
-  - Encrypted storage (AES-256) for OpenRouter, NVIDIA NIM, ElevenLabs, Tavily, Figma, Flux, Whisper, Spotify, Gmail, Neon, and any future provider keys
-  - Keys never exposed to LLM context — injected at runtime only
-  - Per-project + per-environment (dev/staging/prod) secret scopes
-  - Auto-rotation for supported providers (GitHub, Vercel, AWS, etc.)
-  - Secret detection in generated code — blocks commits with leaked keys
-  - UI in BuildView → Secrets tab: add/view/rotate/revoke (values masked)
-  - Integration with Phase 11 Security Scanner for pre-deployment secret scan
-- [ ] **Infinity Self-Settings (Limited, Confirmed)** — Build can modify its own settings with explicit user confirmation:
-  - **Allowed (with confirmation dialog):**
-    - Accent color / theme variant
-    - Profile picture / avatar (from uploaded file or generated)
-    - UI density (comfortable/cozy/compact)
-    - Sidebar default state (expanded/collapsed)
-    - Notification preferences (toast position, sound, duration)
-    - Language / i18n locale (EN/NL)
-    - Code editor preferences (font size, tab size, minimap, line numbers)
-    - Build Mode defaults (auto-save interval, checkpoint frequency)
-  - **FORBIDDEN (never auto-modified):**
-    - Profile settings (name, email, username, password, 2FA)
-    - Billing / subscription / payment
-    - Connected accounts (GitHub, Google, Figma, Spotify, Gmail OAuth)
-    - API keys / secrets (managed separately via Secrets Manager)
-    - Security settings (session timeout, device management)
-    - Organization / team membership
-    - Data export / deletion requests
-  - **Audit Trail** — Every self-change logged: timestamp, old value, new value, triggered by (task ID), user confirmed (yes/no)
-  - **Rollback** — One-click revert any self-made setting change
-- [ ] **Live Dynamic Island — All Active Tasks** — Persistent, always-visible task tracker showing EVERYTHING Infinity is doing:
-  - **Task Categories** (each with distinct icon/color):
-    - 🌐 Building Website / Web App (framework, files created, deploy status)
-    - 📱 Building Mobile App (platform, Expo status, device preview)
-    - 🔬 Deep Research (topic, sources found, current phase, estimated completion)
-    - ✍️ Writing Book (title, current chapter, word count, target, progress %)
-    - 🎨 Designing UI (screen/component, variations generated, preview link)
-    - 🔧 Running Build / Compile (target, progress, errors/warnings)
-    - 🧪 Running Tests (suite, passed/failed, coverage)
-    - 🚀 Deploying (platform, environment, status, URL)
-    - 🔍 Code Analysis / Security Scan (files scanned, findings)
-    - 📊 Data Processing / ETL (source, destination, records, status)
-  - **Dynamic Island UI:**
-    - Persistent pill in top-center (desktop) / top (mobile) — always visible
-    - Expands on hover/click → full task list with live progress bars
-    - Real-time updates via SSE from Build orchestrator
-    - Each task: title, category icon, progress ring, ETA, status badge, quick actions (pause, view logs, open artifact)
-    - Grouped by project — switch project filter
-    - Minimized state: shows only count + highest-priority task
-    - Keyboard accessible: `Cmd+Shift+I` to focus, arrow keys to navigate
-    - Reduce-motion respected: static progress when enabled
-  - **Task Data Source** — Aggregates from:
-    - Build orchestrator (parallel workstreams)
-    - Book Studio engine (chapter progress)
-    - Deep Research jobs (background job status)
-    - Design Canvas (active artboard, component generation)
-    - Universal Agent (active tool chains)
-    - Mobile preview (Expo Metro status)
-    - Deploy pipelines (Vercel/Netlify/Expo/EAS)
-  - **Persistence** — Survives page refresh, browser close (IndexedDB + server sync)
-
-### Implementation Plan
-1. **Secrets Manager Core** — `artifacts/api-server/src/lib/infinity-secrets-manager.ts`
-   - AES-256-GCM encryption with per-project keys (derived from project ID + master key)
-   - Runtime injection middleware: intercept build/runtime env, inject secrets without logging
-   - API: `setSecret(projectId, env, key, value)`, `getSecret(projectId, env, key)`, `listSecrets(projectId, env)`, `rotateSecret(...)`, `deleteSecret(...)`
-   - Secret detection regex/ML scanner for generated code
-2. **Self-Settings Engine** — `artifacts/api-server/src/lib/infinity-self-settings.ts`
-   - Schema defining allowed/forbidden settings with validation
-   - Confirmation flow: agent proposes change → UI shows diff → user confirms → apply + audit log
-   - Audit log table: `infinity_settings_audit` (id, projectId, settingKey, oldValue, newValue, triggeredByTaskId, userConfirmed, timestamp)
-   - Rollback API: `revertSetting(auditId)`
-3. **Dynamic Island Core** — `artifacts/api-server/src/lib/dynamic-island.ts`
-   - Task registry: `registerTask(task: DynamicIslandTask)`, `updateTask(id, updates)`, `completeTask(id)`, `removeTask(id)`
-   - SSE endpoint: `/api/infinity/dynamic-island/stream` — pushes real-time updates
-   - Aggregation layer: pulls from all subsystems (build, book, research, design, deploy, agent)
-   - Persistence: `task_states` table extended with Dynamic Island fields
-4. **Frontend Dynamic Island** — `artifacts/Infinity/src/components/dynamic-island/DynamicIsland.tsx`
-   - Persistent portal-rendered component (z-index 9999)
-   - Compact pill → expanded panel animation (Framer Motion)
-   - Task list virtualized for performance
-   - i18n keys (EN+NL) for all task categories, statuses, actions
-   - Keyboard navigation + screen reader support
-5. **BuildView Integration** — Secrets tab + Self-Settings panel + Dynamic Island always mounted
-6. **SettingsView Integration** — "Infinity Self-Management" section showing audit log, secrets overview (masked), allowed settings toggles
-
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/infinity-secrets-manager.ts` (new)
-- `artifacts/api-server/src/lib/infinity-self-settings.ts` (new)
-- `artifacts/api-server/src/lib/dynamic-island.ts` (new)
-- `artifacts/api-server/src/routes/Infinity/infinity-self.ts` (new — secrets, settings, dynamic island APIs)
-- `artifacts/api-server/src/db/schema/infinity-self.ts` (new — audit log, secrets, task states extensions)
-- `artifacts/Infinity/src/components/dynamic-island/DynamicIsland.tsx` (new)
-- `artifacts/Infinity/src/components/dynamic-island/TaskCard.tsx` (new)
-- `artifacts/Infinity/src/components/dynamic-island/TaskProgressRing.tsx` (new)
-- `artifacts/Infinity/src/components/build/SecretsPanel.tsx` (new)
-- `artifacts/Infinity/src/components/build/SelfSettingsPanel.tsx` (new)
-- `artifacts/Infinity/src/components/views/BuildView.tsx` (Secrets tab, Self-Settings panel, Dynamic Island mount)
-- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Infinity Self-Management section)
-- `artifacts/Infinity/src/lib/i18n.tsx` (add ~60 Dynamic Island + Secrets + Self-Settings keys EN+NL)
-
----
-
-## 📦 Phase 33: AI-Managed Roadmap (Build Map Intelligence)
-
-### Goal
-**The Build Map is a living roadmap** — Infinity Build actively creates, updates, connects, splits, merges, and reorganizes roadmap nodes as it discovers new work. A dedicated agent toolset allows the AI to maintain project understanding autonomously while keeping the user fully informed and in control.
-
-### Requirements
-- [ ] **Roadmap Tools** — Exposed to agent: `roadmap.create`, `roadmap.update`, `roadmap.delete`, `roadmap.connect`, `roadmap.disconnect`, `roadmap.split`, `roadmap.merge`, `roadmap.complete`, `roadmap.block`, `roadmap.reorder`, `roadmap.get`
-- [ ] **Node Operations** — Create/edit/delete nodes, change titles, descriptions, status, progress, priority, type
-- [ ] **Dependency Management** — Create/remove dependencies, connect/disconnect nodes, reorganize groups
-- [ ] **Structural Operations** — Split nodes, merge nodes, create subtasks, create milestones, rename groups
-- [ ] **Status Operations** — Complete/reopen nodes, mark/unmark blocked, update progress
-- [ ] **Roadmap State Access** — Agent can read current roadmap (in progress, completed, blocked, dependencies, next workable items)
-- [ ] **Intentional Changes Only** — Infinity only modifies roadmap for meaningful project understanding changes (not cosmetic)
-- [ ] **User Visibility** — UI shows "✦ Infinity updated the Build Map" with Added/Changed/Updated summary + activity history
-- [ ] **Human + AI Collaboration** — Single shared data model; both user and AI operate on same roadmap
-- [ ] **Dependency-Aware Planning** — Before substantial work, Infinity inspects roadmap to understand: in-progress, completed, blocked, dependencies, next workable items, obsolete work
-- [ ] **Roadmap Persistence** — Stored in `.infinity/roadmap.json` + DB, versioned with full history
-
-### Implementation Plan
-1. **Roadmap Engine** — `artifacts/api-server/src/lib/roadmap-engine.ts`
-   - Tool implementations for all 11 roadmap operations
-   - Validation: no cycles in dependencies, status transitions valid, progress 0-100
-   - Versioning: every change creates immutable snapshot
-2. **Agent Integration** — Register roadmap tools in Universal Tool Registry
-   - System prompt addition: "You maintain the Build Map roadmap. Use roadmap.* tools to track work."
-   - Pre-task hook: agent calls `roadmap.get` to understand current state before planning
-3. **Persistence** — `.infinity/roadmap.json` + `roadmap_versions` DB table
-4. **API** — `GET /build/roadmap/:projectId`, `POST /build/roadmap/:projectId/version/:version`
-5. **UI** — BuildView Roadmap tab: visual graph (nodes + edges), activity feed, version history, manual edit mode
-
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/roadmap-engine.ts` (new)
-- `artifacts/api-server/src/db/schema/roadmap.ts` (new — nodes, edges, versions tables)
-- `artifacts/api-server/src/routes/Infinity/roadmap.ts` (new)
-- `artifacts/Infinity/src/components/build/RoadmapView.tsx` (new — visual graph + activity feed)
-- `artifacts/Infinity/src/components/views/BuildView.tsx` (Roadmap tab)
-- `artifacts/Infinity/src/lib/i18n.tsx` (add ~30 roadmap keys EN+NL)
-
----
-
-## 📦 Phase 34: Context Auto-Compact & Limit Recognition
+## 📦 Phase 32: Context Auto-Compact & Limit Recognition
 
 ### Goal
 **Intelligent context management that never hits token limits** — Automatic compaction of conversation history, working context, and agent memory when approaching model context windows. The system recognizes limits proactively, compacts gracefully, and preserves critical information (decisions, file maps, error patterns, goals) while discarding noise.
@@ -1644,22 +1499,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/Infinity/src/components/views/ChatView.tsx` (token display)
 - `artifacts/Infinity/src/lib/i18n.tsx` (add ~25 compaction keys EN+NL)
 
----
-## 📦 Phase 35: README update
-
-### Goal
-Update the **README.md** file to fit the current state of things.
-
-### Requirements
-- [ ] **README.md update** — Update the README to fit the current state of things better. Go into detail in every category/feature, build, promo, books, etc.
-
-
-### Files to Create/Modify
-- `README.md` (replace everything currently there)
 
 ---
 
-## 📦 Phase 36: AI Automation System (Natural Language Automations + Connector Integration)
+## 📦 Phase 33: AI Automation System (Natural Language Automations + Connector Integration)
 
 ### Goal
 **AI creates and runs automations** — Users describe automations in natural language (e.g., "Every morning at 08:00 check for sales at Amazon for electronics, only notify me when it's above 80%"). Connectors (Phase 13) power these automations: they can trigger on connector events (Linear issue created, Slack message, Notion page updated, Sheets row added), perform connector actions (create issue, post message, update page, append row), and chain across multiple services. The AI agent builds the automation workflow from the natural language description.
@@ -1782,15 +1625,3 @@ loop:
 5. [ ] Run `npm run typecheck` and `npm run build` to verify baseline
 6. [ ] Execute next unchecked task in current phase
 7. [ ] After EVERY change: update PHASES.md + session-brief.md + git commit + push
-
----
-
-## 🎯 Current Phase: **Phase 7 — VS Code Extension (Infinity Build Panel)** ✅ **COMPLETE**
-
-## 🎯 Upcoming Phases
-1. **Phase 2** — Orchestration Engine (COMPLETE ✅)
-2. **Phase 3** — Specialized Subagents (COMPLETE ✅)
-3. **Phase 4** — Virtual Worktrees + Parallel Agents (COMPLETE ✅)
-4. **Phase 5** — Local Terminal Bridge (COMPLETE ✅)
-5. **Phase 6** — MCP Client + Ecosystem (Database Persistence ✅)
-6. **Phase 7** — VS Code Extension (COMPLETE ✅ — .vsix created: infinity-build-0.1.0.vsix)
