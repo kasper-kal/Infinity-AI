@@ -37,7 +37,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **22** | **Component Marketplace & Template Library (v0 Community)** | ✅ **COMPLETE** |
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
 | **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ✅ **COMPLETE** |
-| **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | 🔄 IN PROGRESS (~70% Backend, ~0% Frontend) |
+| **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | 🔄 IN PROGRESS (~70% Backend, ~60% Frontend) |
 | **26** | **Rules, Notepads & Customization (Cursor Personalization)** | 🔲 PLANNED |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | 🔲 PLANNED |
 | **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | 🔲 PLANNED |
@@ -1134,8 +1134,8 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ### Remaining Frontend Work
 - [ ] Create `CodebaseIndexPanel.tsx` for BuildView (index status, re-index button, exclude patterns)
-- [ ] Deepen @codebase integration in ChatSidebar (currently just a toggle, needs query parser + result display)
-- [ ] Add code navigation features (go to definition, find references) to editor
+- [x] **Deepen @codebase integration in ChatSidebar** — COMPLETE: parseCodebaseMention(), searchCodebase(), auto-search in Build mode, explicit @codebase forces search, CodebaseContextDisplay + CodebaseResultCard inline in messages
+- [x] **Add code navigation features (go to definition, find references) to editor** — COMPLETE: F12 for Go to Definition, Shift+F12 for Find References, tooltip UI with clickable file:line, onNavigate callback wired in build-studio.tsx and code-editor.tsx
 
 ---
 

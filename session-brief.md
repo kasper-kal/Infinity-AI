@@ -4,21 +4,26 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-29 23:15
+LAST_UPDATED: 2026-08-30 16:45
 
 ## Just did (last action)
-- **Completed Phase 24: Cursor-Level Code Intelligence — FULL INTEGRATION** ✅
-  - Added Cursor tabs to BuildView: 'cursor-chat', 'cursor-composer', 'cursor-agent' in buildTab state
-  - Integrated ChatSidebar, Composer, and Agent panels into BuildView tab content
-  - Added Cursor navigation items to BuildView sidebar (Tools section): Cursor Chat, Cursor Composer, Cursor Agent
-  - Added Cursor items to BuildView command palette with keyboard shortcuts (⌘L, ⌘I)
-  - Added right sidebar panel for Cursor Agent with feature overview
-  - Updated cursorConfig in build-studio.tsx already wired (TabAutocomplete + CmdKEdit)
-  - ChatView already had keyboard shortcuts (⌘L, ⌘I) and right sidebar integration for Cursor Chat/Composer
-  - CodeEditor (ui/CodeEditor.tsx) already has cursorConfig prop with projectId, projectRoot, filePath, language, tabAutocompleteEnabled, onCmdKAccept, onCmdKClose
-  - CodeMirrorIntegration.tsx provides both TabAutocomplete (ghost text) and CmdKEdit (floating panel) extensions
-- **Updated PHASES.md** — All Phase 24 integration items marked complete ✅
-- **Updated session-brief.md** — Next Actions updated to show Phase 24 complete
+- **Phase 25: Code Navigation Features — COMPLETE ✅** — Added Go to Definition (F12) and Find References (Shift+F12) to editor:
+  - Updated both CodeMirrorIntegration.tsx files (Cursor/ and CodeAI/) with createCodeNavigationExtension
+  - F12 keybinding calls /api/infinity/codebase/search/symbol for definition search
+  - Shift+F12 keybinding calls /api/infinity/codebase/search with hybrid mode for references
+  - Tooltip UI displays results with clickable file:line entries
+  - Updated CodeEditor (ui/CodeEditor.tsx) cursorConfig interface with onNavigate callback
+  - Updated build-studio.tsx to implement openFileAtLine handler for navigation
+  - Updated code-editor.tsx (legacy) to pass onNavigate through createCursorExtensions
+  - Frontend build passes successfully ✅
+- **Phase 25: @codebase Integration in Cursor ChatSidebar — COMPLETE ✅** — Build-mode auto context + explicit @codebase override:
+  - Added parseCodebaseMention() to extract @codebase <query> from user messages
+  - Added searchCodebase() calling /api/infinity/codebase/search with hybrid + query expansion
+  - Modified handleSend(): auto-search when useCodebase=true (default in Build mode), explicit @codebase forces search even if toggle OFF
+  - Added CodebaseContextDisplay + CodebaseResultCard components showing file, symbol, signature, lines, score badge
+  - Inline expandable cards in user message bubbles with copy file:line reference (ExternalLink)
+  - useCodebase defaults to true (Build mode = project-scoped context)
+  - @codebase becomes a FORCE trigger, not the primary trigger
 - **Phase 23: v0-Level Polish (Performance, Accessibility, DX) — COMPLETE (100%)** ✅
   - **Sandbox Pool Manager** (`artifacts/api-server/src/lib/sandbox-pool.ts`): Pre-warmed iframe pool for sub-500ms cold start, <100ms HMR
   - **WASM Bundler** (`artifacts/api-server/src/lib/wasm-bundler.ts`): esbuild/SWC compiled to WebAssembly for browser-based incremental compilation with HMR transform
@@ -138,10 +143,11 @@ LAST_UPDATED: 2026-08-29 23:15
     - ✅ Wire TabAutocomplete into CodeEditor component (done - cursorConfig prop already wired in build-studio.tsx)
     - ✅ Wire CmdKEdit into CodeEditor (Cmd+K binding) (done - CodeMirrorIntegration handles Cmd+K)
     - ✅ Add Cursor components to BuildView sidebar/navigation (done - sidebar nav items + command palette)
-  - **Phase 25: Codebase Indexing & Semantic Search — FRONTEND NEEDED** 🔄
+  - **Phase 25: Codebase Indexing & Semantic Search — FRONTEND IN PROGRESS** 🔄
+    - ✅ **Code navigation features (Go to Definition F12, Find References Shift+F12) — COMPLETE**
+    - ✅ **@codebase integration in Cursor ChatSidebar — COMPLETE**
     - Create CodebaseIndexPanel.tsx for BuildView (index status, re-index, exclude patterns)
-    - Deepen @codebase integration in ChatSidebar (query parser + result display)
-    - Add code navigation features (go to definition, find references) to editor
+    - Deepen @codebase integration in ChatSidebar (query parser + result display) - Already done
   - Phase 26: Rules, Notepads & Customization (Cursor Personalization) — PLANNED
   - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — PLANNED
   - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
@@ -407,6 +413,7 @@ LAST_UPDATED: 2026-08-29 23:15
 
 ## Project state — right now
 - **Current Phase:** **Phase 24 — Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) ✅ COMPLETE** — Backend 100%, Frontend 100% integrated
+- **Phase 25 — Codebase Indexing & Semantic Search — Frontend IN PROGRESS** — Backend 100% complete, Frontend integration started
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**, **Phase 22 (Component Marketplace & Template Library - 100% COMPLETE)**, **Phase 23 (v0-Level Polish - 100% COMPLETE)**, **Phase 24 (Cursor-Level Code Intelligence - 100% COMPLETE)**
 - **Next Phases:** Phase 25 (Codebase Indexing & Semantic Search — Frontend), Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
@@ -450,6 +457,15 @@ LAST_UPDATED: 2026-08-29 23:15
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-30 **Phase 25: @codebase Integration in Cursor ChatSidebar — COMPLETE ✅** — Build-mode auto context + explicit @codebase override:
+  - Added parseCodebaseMention() to extract @codebase <query> from user messages
+  - Added searchCodebase() calling /api/infinity/codebase/search with hybrid + query expansion
+  - Modified handleSend(): auto-search when useCodebase=true (default in Build mode), explicit @codebase forces search even if toggle OFF
+  - Added CodebaseContextDisplay + CodebaseResultCard components showing file, symbol, signature, lines, score badge
+  - Inline expandable cards in user message bubbles with copy file:line reference (ExternalLink)
+  - useCodebase defaults to true (Build mode = project-scoped context)
+  - @codebase becomes a FORCE trigger, not the primary trigger
+
 - 2026-08-29 **Phase 24: Cursor-Level Code Intelligence — COMPLETE ✅** — Full frontend integration into BuildView:
   - Added 'cursor-chat', 'cursor-composer', 'cursor-agent' tabs to BuildView buildTab state
   - Integrated ChatSidebar, Composer, Agent panels as tab content

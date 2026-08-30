@@ -27,6 +27,8 @@ interface CursorConfig {
   tabAutocompleteEnabled?: boolean;
   onCmdKAccept?: (newCode: string) => void;
   onCmdKClose?: () => void;
+  /** Callback when user navigates to a definition/reference (filePath, line, column) */
+  onNavigate?: (filePath: string, line: number, column?: number) => void;
 }
 
 interface CodeEditorProps {
@@ -108,6 +110,7 @@ export default function CodeEditor({ value, path, onChange, onCursorChange, onSa
         tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
         onCmdKAccept: cursorConfig.onCmdKAccept,
         onCmdKClose: cursorConfig.onCmdKClose,
+        onNavigate: cursorConfig.onNavigate,
       }));
     }
 

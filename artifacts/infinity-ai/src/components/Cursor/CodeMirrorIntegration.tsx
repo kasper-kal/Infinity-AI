@@ -5,7 +5,7 @@
  */
 
 import { Extension, StateField, StateEffect, Facet } from "@codemirror/state";
-import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate, keymap } from "@codemirror/view";
+import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate, keymap, Tooltip } from "@codemirror/view";
 import { useTabAutocomplete, useCmdKEdit } from ".";
 
 // ============================================
@@ -778,6 +778,389 @@ function createCmdKEditExtension(config: CmdKEditConfig): Extension {
 const cmdKPluginKey = ViewPlugin.define(() => ({})).key;
 
 // ============================================
+// Code Navigation Extension (Go to Definition, Find References)
+// ============================================
+
+interface CodeNavigationConfig {
+  projectId: string;
+  projectRoot: string;
+  language: string;
+  filePath: string;
+  onNavigate?: (filePath: string, line: number, column?: number) => void;
+}
+
+const CodeNavigationConfigFacet = Facet.define<CodeNavigationConfig, CodeNavigationConfig>({
+  combine(configs) {
+    return configs[configs.length - 1] || { projectId: "", projectRoot: "", language: "", filePath: "", onNavigate: undefined };
+  },
+});
+
+interface NavigationResult {
+  file: string;
+  filePath: string;
+  language: string;
+  type: string;
+  name: string;
+  signature?: string;
+  content: string;
+  startLine: number;
+  endLine: number;
+  score: number;
+  matchType?: string;
+}
+
+const codeNavState = StateField.define<{
+  showTooltip: boolean;
+  tooltipPos: number | null;
+  tooltipContent: string | null;
+  results: NavigationResult[];
+  isLoading: boolean;
+  mode: "definition" | "references" | null;
+}>({
+  create() {
+    return { showTooltip: false, tooltipPos: null, tooltipContent: null, results: [], isLoading: false, mode: null };
+  },
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(showNavTooltip)) {
+        return { ...value, showTooltip: true, tooltipPos: effect.value.pos, tooltipContent: effect.value.content, mode: effect.value.mode };
+      }
+      if (effect.is(hideNavTooltip)) {
+        return { ...value, showTooltip: false, tooltipPos: null, tooltipContent: null, mode: null };
+      }
+      if (effect.is(setNavResults)) {
+        return { ...value, results: effect.value.results, isLoading: false };
+      }
+      if (effect.is(setNavLoading)) {
+        return { ...value, isLoading: effect.value, results: effect.value ? [] : value.results };
+      }
+    }
+    return value;
+  },
+});
+
+const showNavTooltip = StateEffect.define<{ pos: number; content: string; mode: "definition" | "references" }>();
+const hideNavTooltip = StateEffect.define<void>();
+const setNavResults = StateEffect.define<{ results: NavigationResult[] }>();
+const setNavLoading = StateEffect.define<boolean>();
+
+async function searchDefinition(config: CodeNavigationConfig, symbol: string): Promise<NavigationResult[]> {
+  try {
+    const response = await fetch(`/api/infinity/codebase/search/symbol`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: config.projectId, symbol, limit: 10 }),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error("Definition search error:", error);
+    return [];
+  }
+}
+
+async function searchReferences(config: CodeNavigationConfig, symbol: string): Promise<NavigationResult[]> {
+  try {
+    const response = await fetch(`/api/infinity/codebase/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: config.projectId,
+        query: symbol,
+        limit: 20,
+        hybrid: true,
+        types: ["function", "class", "interface", "type"],
+      }),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error("References search error:", error);
+    return [];
+  }
+}
+
+function getSymbolAtPosition(view: EditorView, pos: number): string | null {
+  const doc = view.state.doc;
+  const line = doc.lineAt(pos);
+  const lineText = line.text;
+  const col = pos - line.from;
+
+  // Find word boundaries
+  let start = col;
+  let end = col;
+  while (start > 0 && /[\w$]/.test(lineText[start - 1])) start--;
+  while (end < lineText.length && /[\w$]/.test(lineText[end])) end++;
+
+  if (start === end) return null;
+  return lineText.slice(start, end);
+}
+
+function createCodeNavigationExtension(config: CodeNavigationConfig): Extension {
+  return [
+    CodeNavigationConfigFacet.of(config),
+    codeNavState,
+    ViewPlugin.fromClass(class {
+      tooltipEl: HTMLDivElement | null = null;
+      lastHoverPos: number | null = null;
+      hoverTimer: ReturnType<typeof setTimeout> | null = null;
+
+      constructor(readonly view: EditorView) {}
+
+      update(update: ViewUpdate) {
+        // Clear hover timer on scroll/doc change
+        if (update.docChanged || update.selectionSet || update.viewportChanged) {
+          if (this.hoverTimer) {
+            clearTimeout(this.hoverTimer);
+            this.hoverTimer = null;
+          }
+        }
+      }
+
+      async showDefinition(pos: number) {
+        const config = this.view.state.facet(CodeNavigationConfigFacet);
+        const symbol = getSymbolAtPosition(this.view, pos);
+        if (!symbol) return;
+
+        this.view.dispatch({ effects: setNavLoading.of(true) });
+        const results = await searchDefinition(config, symbol);
+
+        if (results.length === 0) {
+          this.view.dispatch({ effects: setNavResults.of({ results: [] }) });
+          this.showTooltipAt(pos, `No definition found for "${symbol}"`, "definition");
+          return;
+        }
+
+        this.view.dispatch({ effects: setNavResults.of({ results }) });
+
+        // Show tooltip for first result (definition)
+        const def = results[0];
+        const content = this.formatTooltip(def, "definition");
+        this.showTooltipAt(pos, content, "definition");
+      }
+
+      async showReferences(pos: number) {
+        const config = this.view.state.facet(CodeNavigationConfigFacet);
+        const symbol = getSymbolAtPosition(this.view, pos);
+        if (!symbol) return;
+
+        this.view.dispatch({ effects: setNavLoading.of(true) });
+        const results = await searchReferences(config, symbol);
+
+        this.view.dispatch({ effects: setNavResults.of({ results }) });
+
+        if (results.length === 0) {
+          this.showTooltipAt(pos, `No references found for "${symbol}"`, "references");
+          return;
+        }
+
+        const content = this.formatReferencesTooltip(results, symbol);
+        this.showTooltipAt(pos, content, "references");
+      }
+
+      formatTooltip(result: NavigationResult, mode: "definition" | "references"): string {
+        const relPath = result.file;
+        return `
+          <div style="font-family: var(--font-sans); font-size: 12px; line-height: 1.5;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+              <span style="background: var(--violet-3); color: var(--violet-11); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${mode === "definition" ? "Definition" : "Reference"}</span>
+              <span style="color: var(--gray-11); font-weight: 500;">${result.name}</span>
+            </div>
+            <div style="color: var(--gray-10); font-size: 11px; margin-bottom: 4px;">${relPath}:${result.startLine}</div>
+            ${result.signature ? `<div style="font-family: var(--font-mono); font-size: 11px; color: var(--gray-11); background: var(--gray-3); padding: 6px; border-radius: 4px; overflow-x: auto; white-space: pre; max-width: 400px;">${this.escapeHtml(result.signature)}</div>` : ""}
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--gray-5); font-size: 10px; color: var(--gray-9);">
+              Press <kbd style="background: var(--gray-3); padding: 1px 4px; border-radius: 3px;">Enter</kbd> to go to definition
+              ${mode === "references" ? ` | ${results.length} references found` : ""}
+            </div>
+          </div>
+        `;
+      }
+
+      formatReferencesTooltip(results: NavigationResult[], symbol: string): string {
+        const items = results.slice(0, 10).map(r =>
+          `<div style="padding: 4px 8px; border-radius: 4px; cursor: pointer; font-family: var(--font-mono); font-size: 11px; color: var(--gray-11);" data-file="${r.filePath}" data-line="${r.startLine}">${r.file}:${r.startLine} - ${r.signature || r.name}</div>`
+        ).join("");
+        return `
+          <div style="font-family: var(--font-sans); font-size: 12px; line-height: 1.5; max-height: 300px; overflow-y: auto;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+              <span style="background: var(--blue-3); color: var(--blue-11); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">References</span>
+              <span style="color: var(--gray-11); font-weight: 500;">${symbol}</span>
+              <span style="background: var(--gray-4); color: var(--gray-11); padding: 1px 6px; border-radius: 9999px; font-size: 10px;">${results.length} found</span>
+            </div>
+            <div>${items}</div>
+            ${results.length > 10 ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--gray-5); font-size: 10px; color: var(--gray-9);">Showing 10 of ${results.length} references</div>` : ""}
+          </div>
+        `;
+      }
+
+      escapeHtml(text: string): string {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      showTooltipAt(pos: number, content: string, mode: "definition" | "references") {
+        const coords = this.view.coordsAtPos(pos);
+        this.view.dispatch({ effects: showNavTooltip.of({ pos, content, mode }) });
+      }
+
+      handleNavigate(result: NavigationResult) {
+        const config = this.view.state.facet(CodeNavigationConfigFacet);
+        if (config.onNavigate) {
+          config.onNavigate(result.filePath, result.startLine, 1);
+        }
+      }
+
+      destroy() {
+        if (this.hoverTimer) clearTimeout(this.hoverTimer);
+        this.removeTooltip();
+      }
+
+      removeTooltip() {
+        if (this.tooltipEl) {
+          this.tooltipEl.remove();
+          this.tooltipEl = null;
+        }
+      }
+    }, {
+      decorations: (plugin) => {
+        const state = plugin.view.state.field(codeNavState);
+        if (!state.showTooltip || state.tooltipPos === null || !state.tooltipContent) return Decoration.none;
+
+        return Decoration.set([
+          Decoration.widget({
+            widget: new NavTooltipWidget(state.tooltipContent, state.tooltipPos, plugin.view, plugin),
+            side: 1,
+          }).range(state.tooltipPos),
+        ]);
+      },
+    }),
+    keymap.of([
+      {
+        key: "F12",
+        run(view) {
+          const plugin = view.plugin(navPluginKey);
+          if (plugin) {
+            const pos = view.state.selection.main.head;
+            plugin.showDefinition(pos);
+            return true;
+          }
+          return false;
+        },
+      },
+      {
+        key: "Shift-F12",
+        run(view) {
+          const plugin = view.plugin(navPluginKey);
+          if (plugin) {
+            const pos = view.state.selection.main.head;
+            plugin.showReferences(pos);
+            return true;
+          }
+          return false;
+        },
+      },
+      {
+        key: "Mod-Click",
+        run(view) {
+          const plugin = view.plugin(navPluginKey);
+          if (plugin) {
+            // This is handled by mouse event listener in widget
+            return false;
+          }
+          return false;
+        },
+      },
+      {
+        key: "Escape",
+        run(view) {
+          const state = view.state.field(codeNavState);
+          if (state.showTooltip) {
+            view.dispatch({ effects: hideNavTooltip.of(null) });
+            return true;
+          }
+          return false;
+        },
+      },
+    ]),
+  ];
+}
+
+const navPluginKey = ViewPlugin.define(() => ({})).key;
+
+class NavTooltipWidget {
+  constructor(
+    readonly content: string,
+    readonly pos: number,
+    readonly view: EditorView,
+    readonly plugin: any
+  ) {}
+
+  eq(other: NavTooltipWidget) {
+    return other.content === this.content && other.pos === this.pos;
+  }
+
+  toDOM() {
+    const el = document.createElement("div");
+    el.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: auto;
+      z-index: 100;
+      max-width: 500px;
+    `;
+    el.innerHTML = this.content;
+
+    // Position the tooltip
+    const coords = this.view.coordsAtPos(this.pos);
+    el.style.top = `${coords.bottom + 4}px`;
+    el.style.left = `${coords.left}px`;
+
+    // Add click handlers for reference items
+    el.querySelectorAll("[data-file]").forEach(item => {
+      item.addEventListener("click", (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const filePath = target.dataset.file;
+        const line = parseInt(target.dataset.line || "1", 10);
+        if (filePath) {
+          this.plugin.handleNavigate({ filePath, file: "", language: "", type: "", name: "", content: "", startLine: line, endLine: line, score: 0 } as NavigationResult);
+        }
+      });
+    });
+
+    // Handle keyboard
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const firstResult = this.view.state.field(codeNavState).results[0];
+        if (firstResult) {
+          this.plugin.handleNavigate(firstResult);
+        }
+        this.view.dispatch({ effects: hideNavTooltip.of(null) });
+        e.preventDefault();
+      }
+    });
+
+    // Close on click outside
+    setTimeout(() => {
+      document.addEventListener("click", (e) => {
+        if (!el.contains(e.target as Node)) {
+          this.view.dispatch({ effects: hideNavTooltip.of(null) });
+        }
+      }, { once: true });
+    }, 0);
+
+    return el;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
+// ============================================
 // Export helper functions
 // ============================================
 
@@ -789,6 +1172,7 @@ export function createCursorExtensions(config: {
   tabAutocompleteEnabled?: boolean;
   onCmdKAccept?: (newCode: string) => void;
   onCmdKClose?: () => void;
+  onNavigate?: (filePath: string, line: number, column?: number) => void;
 }): Extension[] {
   const extensions: Extension[] = [];
 
@@ -812,6 +1196,15 @@ export function createCursorExtensions(config: {
       onClose: config.onCmdKClose || (() => {}),
     }));
   }
+
+  // Always add code navigation if we have project config
+  extensions.push(createCodeNavigationExtension({
+    projectId: config.projectId,
+    projectRoot: config.projectRoot,
+    language: config.language,
+    filePath: config.filePath,
+    onNavigate: config.onNavigate,
+  }));
 
   return extensions;
 }

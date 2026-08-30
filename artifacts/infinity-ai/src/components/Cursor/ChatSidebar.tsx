@@ -67,7 +67,6 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [useCodebase, setUseCodebase] = useState(true);
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -87,16 +86,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
     { id: "deepseek-chat", name: "DeepSeek Chat", provider: "DeepSeek" },
   ];
 
-  // Parse @codebase mentions from user message
-  const parseCodebaseMention = useCallback((message: string): { query: string; hasExplicitMention: boolean } => {
-    const mentionMatch = message.match(/@codebase\s+(.+)$/i);
-    if (mentionMatch) {
-      return { query: mentionMatch[1].trim(), hasExplicitMention: true };
-    }
-    return { query: message, hasExplicitMention: false };
-  }, []);
-
-  // Semantic search against the project's codebase index
+  // Semantic search against the project's codebase index - ALWAYS ON in Build mode
   const searchCodebase = useCallback(async (query: string): Promise<CodebaseResult[]> => {
     setIsCodebaseSearching(true);
     try {
@@ -142,19 +132,9 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
   const handleSend = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
 
-    // Parse @codebase mention from input
-    const { query, hasExplicitMention } = parseCodebaseMention(input);
-
-    // Determine if we should use codebase context:
-    // - Explicit @codebase mention always triggers search (even if toggle is off)
-    // - If toggle is ON (default in Build mode), search automatically
-    // - If toggle is OFF and no @codebase mention, don't search
-    const shouldSearchCodebase = hasExplicitMention || useCodebase;
-
-    let codebaseContext: CodebaseResult[] = [];
-    if (shouldSearchCodebase) {
-      codebaseContext = await searchCodebase(query);
-    }
+    // In Build mode, ALWAYS search codebase - no toggle needed
+    // If user doesn't want codebase context, they'd use Chat mode
+    const codebaseContext = await searchCodebase(input);
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -162,7 +142,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
       content: input,
       timestamp: new Date(),
       codebaseContext: codebaseContext.length > 0 ? codebaseContext : undefined,
-      codebaseTriggered: hasExplicitMention,
+      codebaseTriggered: false,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -184,7 +164,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
           function: { name: tc.name, arguments: tc.arguments },
         })),
       })),
-      useCodebase: shouldSearchCodebase,
+      useCodebase: true,
       codebaseContext, // Pass pre-fetched context to backend
       model: selectedModel,
     });
@@ -389,7 +369,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
         </Flex>
       </Flex>
 
-      {/* Model selector & codebase toggle */}
+      {/* Model selector */}
       <Flex
         style={{
           padding: "12px 16px",
@@ -401,17 +381,11 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
         align="center"
         gap="2"
       >
-        <Tooltip content="Toggle codebase context">
-          <Button
-            variant={useCodebase ? "solid" : "soft"}
-            color="violet"
-            size="1"
-            onClick={() => setUseCodebase(!useCodebase)}
-            style={{ minWidth: "auto", gap: "6px" }}
-          >
+        <Tooltip content="Codebase context: ALWAYS ON in Build mode">
+          <Button variant="solid" color="violet" size="1" disabled style={{ minWidth: "auto", gap: "6px" }}>
             <Database size={14} />
             <Text size="1" weight="medium">Codebase</Text>
-            <Badge variant={useCodebase ? "solid" : "outline"} color="violet" size="1">ON</Badge>
+            <Badge variant="solid" color="violet" size="1">ON</Badge>
           </Button>
         </Tooltip>
 
@@ -457,7 +431,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
               <Text weight="medium" size="2">Start a conversation</Text>
               <Text size="2" style={{ textAlign: "center" }}>
                 Ask about your codebase, request edits, or get explanations.
-                Use <Code style={{ background: "var(--gray-4)", padding: "2px 6px", borderRadius: "4px" }}>@codebase</Code> for context.
+                Codebase context is automatically included.
               </Text>
               <Flex gap="2">
                 <Button variant="outline" size="2" onClick={() => { setInput("Explain the project structure"); handleSend(); }}>

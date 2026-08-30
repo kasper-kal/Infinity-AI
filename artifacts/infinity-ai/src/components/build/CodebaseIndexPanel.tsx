@@ -13,8 +13,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Button,
-  Input,
-  TextArea,
   Flex,
   Box,
   Text,
@@ -22,23 +20,21 @@ import {
   Separator,
   Progress,
   Switch,
-  Label,
   Checkbox,
-  Accordion,
-  AccordionTrigger,
-  AccordionContent,
   Tooltip,
-  Alert,
+  Callout,
   IconButton,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
   Popover,
   PopoverTrigger,
   PopoverContent,
 } from "@radix-ui/themes";
+import { Input, Textarea, Select } from "@/components/ui/Input";
+import { Label } from "@/components/ui/label";
+import {
+  Accordion,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import {
   Database,
   RefreshCw,
@@ -490,10 +486,10 @@ export function CodebaseIndexPanel({ projectId, projectRoot, onClose }: Codebase
           </Flex>
 
           {indexStatus?.status === "error" && indexStatus.error && (
-            <Alert variant="soft" color="red" style={{ maxWidth: "300px" }}>
+            <Callout variant="soft" color="red" style={{ maxWidth: "300px" }}>
               <AlertCircle size={14} />
               <Text size="1">{indexStatus.error}</Text>
-            </Alert>
+            </Callout>
           )}
         </Flex>
 
@@ -841,10 +837,10 @@ export function CodebaseIndexPanel({ projectId, projectRoot, onClose }: Codebase
             )}
 
             {searchExpanded && searchResults.length === 0 && !isSearching && searchQuery && (
-              <Alert variant="soft" color="amber">
+              <Callout variant="soft" color="amber">
                 <Info size={14} />
                 <Text size="1">No results found. Try a different query or re-index the codebase.</Text>
-              </Alert>
+              </Callout>
             )}
           </Flex>
         )}

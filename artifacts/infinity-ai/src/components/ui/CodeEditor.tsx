@@ -51,6 +51,8 @@ export interface CursorAIConfig {
   tabAutocompleteEnabled?: boolean;
   onCmdKAccept?: (newCode: string) => void;
   onCmdKClose?: () => void;
+  /** Callback when user navigates to a definition/reference (filePath, line, column) */
+  onNavigate?: (filePath: string, line: number, column?: number) => void;
 }
 
 export interface CodeEditorProps {
@@ -154,6 +156,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
         tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
         onCmdKAccept: cursorConfig.onCmdKAccept,
         onCmdKClose: cursorConfig.onCmdKClose,
+        onNavigate: cursorConfig.onNavigate,
       });
     }, [cursorConfig, language]);
 
@@ -278,6 +281,7 @@ export const CodeEditor = forwardRef<HTMLDivElement, CodeEditorProps>(
           tabAutocompleteEnabled: cursorConfig.tabAutocompleteEnabled,
           onCmdKAccept: cursorConfig.onCmdKAccept,
           onCmdKClose: cursorConfig.onCmdKClose,
+          onNavigate: cursorConfig.onNavigate,
         });
         viewRef.current.dispatch({
           effects: cursorCompartment.current.reconfigure(newCursorExt),
