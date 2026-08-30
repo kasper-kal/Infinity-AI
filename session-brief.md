@@ -4,9 +4,24 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-30 17:30
+LAST_UPDATED: 2026-08-30 17:45
 
 ## Just did (last action)
+- **Phase 26: Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅** — Full AI personalization system:
+  - **Backend (4 new libs + API)**:
+    - `rules.ts` — RulesEngine: frontmatter parsing, glob auto-attach, CRUD, user/project scope, template system
+    - `notepads.ts` — NotepadsManager: @notepad:name resolver, categories, pinning, search, templates
+    - `model-router.ts` — ModelRouter: capability-based routing, fallback chains, BYOM, provider health, cost/latency/quality preferences
+    - `customization.ts` — REST API: GET/POST/PATCH/DELETE for rules, notepads, model-preferences, custom-instructions, templates (mounted at `/customization`)
+  - **Frontend (3 new components)**:
+    - `RulesEditor.tsx` — Full CRUD UI with tabs (user/project/templates), dialog forms, template cards, kind/scope badges, syntax highlighting
+    - `NotepadManager.tsx` — Full CRUD UI with search, preview popover, @notepad reference copy, pinning, categories, scopes
+    - `ModelPreferences.tsx` — Per-capability model preferences table, available models browser with capability filtering, fallback chains, test model button
+  - **Settings Integration**:
+    - AI Customization tab with 3 sub-tabs (Rules / Notepads / Model Preferences) in SettingsView
+    - Wired into sidebar section list + mobile bottom nav
+  - **i18n**: 100+ English + complete Dutch translations for all new keys
+  - PHASES.md updated with checkmarks and complete file list
 - **Phase 25: Code Navigation Features — COMPLETE ✅** — Added Go to Definition (F12) and Find References (Shift+F12) to editor:
   - Updated both CodeMirrorIntegration.tsx files (Cursor/ and CodeAI/) with createCodeNavigationExtension
   - F12 keybinding calls /api/infinity/codebase/search/symbol for definition search
@@ -147,13 +162,20 @@ LAST_UPDATED: 2026-08-30 17:30
     - ✅ Code navigation features (Go to Definition F12, Find References Shift+F12)
     - ✅ @codebase integration in Cursor ChatSidebar
     - ✅ CodebaseIndexPanel.tsx for BuildView (index status, re-index, exclude patterns, search test)
-  - **Phase 26: Rules, Notepads & Customization — START NEXT**
-    - Rules system (.infinity/rules/ support, project/user rules, rule editor UI)
-    - Notepads (reusable context snippets, @notepad:name injection, team-shared)
-    - Model Preferences (per-project/user model routing, fallback chains, BYOM)
-    - Custom Instructions (per-agent overrides, Settings → AI Customization UI)
-  - Phase 26: Rules, Notepads & Customization (Cursor Personalization) — PLANNED
+  - **Phase 26: Rules, Notepads & Customization — COMPLETE ✅**
+    - ✅ Rules system (.infinity/rules/ support, project/user rules, rule editor UI, glob auto-attach)
+    - ✅ Notepads (reusable context snippets, @notepad:name injection, team-shared, categories, pinning)
+    - ✅ Model Preferences (per-project/user model routing, fallback chains, BYOM, capability filtering)
+    - ✅ Custom Instructions (per-agent overrides, Settings → AI Customization UI with 3 sub-tabs)
+    - ✅ Settings integration: AI Customization tab wired in sidebar + mobile bottom nav
+    - ✅ i18n: 100+ EN + complete NL translations
+  - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — START NEXT
+    - Shadow Workspace Manager (ephemeral isolated env per agent, pre-seeded, resource limits, warm pool)
+    - Agent Review Engine (PR review dimensions: correctness, security, performance, style, tests, breaking changes)
+    - Multi-Agent Orchestrator (parallel agents on single task, planner decomposition, shared context)
+    - Cloud Agent Runtime (persistent tasks, scheduler, notifications, cost tracking)
   - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — PLANNED
+  - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
   - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
   - Phase 29: IDE Integrations & CLI (Cursor Everywhere) — PLANNED
   - Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — PLANNED
