@@ -227,39 +227,27 @@ function loadSessionData(pid: string): { history: HistoryEntry[], name?: string 
   return { history: [] };
 }
 
-function createNewClaudeSession(sessionId: string, cwd: string): ChildProcess {
-  // Use --bg to create background session, then attach for interactive I/O
-  // First create the background session
-  const { spawnSync } = require('child_process');
-  const bgResult = spawnSync('claude', ['--bg', '--dangerously-skip-permissions'], {
-    cwd,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      ANTHROPIC_BASE_URL: "http://localhost:20128",
-      ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
-      ANTHROPIC_MODEL: "auto",
-      ANTHROPIC_SMALL_FAST_MODEL: "auto",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "auto",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
-    },
-    encoding: 'utf8'
-  });
+function createNewClaudeSession(sessionId: string, cwd: string): ChildProcess | null {
+  // Return null - we don't maintain a persistent process anymore
+  // Instead we use --continue -p for each message
+  return null;
+}
 
-  // Extract session ID from output like "backgrounded · abc12345 (idle — send a prompt to start)"
-  const match = bgResult.stdout?.match(/backgrounded · (\w+)/);
-  const bgSessionId = match ? match[1] : null;
-
-  if (!bgSessionId) {
-    console.error('Failed to create background session:', bgResult.stdout, bgResult.stderr);
-    // Fallback to simple spawn
-    return spawn('claude', ['--dangerously-skip-permissions'], {
+// Send a message to claude using --continue -p (single-shot, continues conversation)
+// For new sessions (empty history), use -p without --continue
+function sendToClaude(sessionId: string, cwd: string, message: string, isNewSession: boolean = false): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const { spawn } = require('child_process');
+    const args = isNewSession
+      ? ['--dangerously-skip-permissions', '-p', '--ax-screen-reader', '--output-format=text', message]
+      : ['--continue', '--dangerously-skip-permissions', '-p', '--ax-screen-reader', '--output-format=text', message];
+    const proc = spawn('claude', args, {
       cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         TERM: 'xterm-256color',
+        CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
         ANTHROPIC_BASE_URL: "http://localhost:20128",
         ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
         ANTHROPIC_MODEL: "auto",
@@ -268,25 +256,39 @@ function createNewClaudeSession(sessionId: string, cwd: string): ChildProcess {
         ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
       }
     });
-  }
 
-  // Now attach to the background session for interactive I/O
-  const proc = spawn('claude', ['attach', bgSessionId, '--dangerously-skip-permissions'], {
-    cwd,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      ANTHROPIC_BASE_URL: "http://localhost:20128",
-      ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
-      ANTHROPIC_MODEL: "auto",
-      ANTHROPIC_SMALL_FAST_MODEL: "auto",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "auto",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
-    }
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    proc.on('exit', (code: number) => {
+      if (code === 0 || code === null) {
+        // Filter out warning lines from stdout
+        const lines = stdout.split('\n').filter(line =>
+          !line.includes('auto-compact') &&
+          !line.includes('unrecognized_model') &&
+          !line.includes('query_source') &&
+          line.trim() !== ''
+        );
+        resolve(lines.join('\n').trim());
+      } else {
+        reject(new Error(`Claude exited with code ${code}: ${stderr}`));
+      }
+    });
+
+    // Timeout after 60 seconds (first call can be slow)
+    setTimeout(() => {
+      proc.kill();
+      reject(new Error('Claude request timed out'));
+    }, 60000);
   });
-
-  return proc;
 }
 
 function checkClaudeIdle(session: ChatSession) {
@@ -303,15 +305,51 @@ function checkClaudeIdle(session: ChatSession) {
 }
 
 function processQueue(session: ChatSession) {
-  if (!session.isClaudeBusy && session.messageQueue.length > 0 && session.process?.stdin) {
+  if (!session.isClaudeBusy && session.messageQueue.length > 0) {
     const next = session.messageQueue.shift()!;
-    session.process.stdin.write(next.payload + '\n');
+    // Add user message to history
+    const userEntry: HistoryEntry = { role: 'user', content: next.payload, timestamp: Date.now() };
+    session.history.push(userEntry);
+    for (const client of session.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'output', sessionId: session.id, payload: userEntry }));
+      }
+    }
     session.isClaudeBusy = true;
     for (const client of session.clients) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify({ type: 'dequeued', payload: next }));
+        client.send(JSON.stringify({ type: 'claude_busy', sessionId: session.id }));
       }
     }
+    // Send to Claude using --continue -p (queue is never new session since there's at least one message)
+    sendToClaude(session.id, session.cwd, next.payload, false)
+      .then(response => {
+        const responseEntry: HistoryEntry = { role: 'assistant', content: response, timestamp: Date.now() };
+        session.history.push(responseEntry);
+        session.lastOutputTime = Date.now();
+        session.isClaudeBusy = false;
+        for (const client of session.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'output', sessionId: session.id, payload: responseEntry }));
+            client.send(JSON.stringify({ type: 'claude_idle', sessionId: session.id }));
+          }
+        }
+        // Process any queued messages
+        processQueue(session);
+      })
+      .catch(err => {
+        console.error('Claude error:', err);
+        const errorEntry: HistoryEntry = { role: 'system', content: `Error: ${err.message}`, timestamp: Date.now() };
+        session.history.push(errorEntry);
+        session.isClaudeBusy = false;
+        for (const client of session.clients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: 'output', sessionId: session.id, payload: errorEntry }));
+            client.send(JSON.stringify({ type: 'claude_idle', sessionId: session.id }));
+          }
+        }
+      });
   }
 }
 
@@ -369,37 +407,11 @@ wss.on('connection', (ws: WebSocket) => {
           if (!session) {
             const { history, name } = loadSessionData(sessionId);
 
-            // Try to attach to tmux, fall back to new claude process if tmux unavailable
-            let proc: ChildProcess | null = null;
-
-            // Check if tmux exists first
-            const { spawnSync } = require('child_process');
-            const tmuxCheck = spawnSync('which', ['tmux']);
-            const hasTmux = tmuxCheck.status === 0;
-
-            if (hasTmux) {
-              const attachProc = spawn('tmux', ['attach-session', '-t', `claude-${sessionId}`], {
-                stdio: ['pipe', 'pipe', 'pipe']
-              });
-
-              // Wait briefly to see if attach succeeds
-              await new Promise<void>((resolve) => {
-                setTimeout(resolve, 300);
-              });
-
-              if (!attachProc.killed) {
-                proc = attachProc;
-              }
-            }
-
-            if (!proc) {
-              proc = createNewClaudeSession(sessionId, process.cwd());
-            }
-
+            // Create session without persistent process - we use --continue -p per message
             session = {
               id: sessionId,
               name: name || sessionId,
-              process: proc,
+              process: null,
               clients: new Set(),
               history,
               cwd: process.cwd(),
@@ -409,37 +421,6 @@ wss.on('connection', (ws: WebSocket) => {
               automations: new Map()
             };
             sessions.set(sessionId, session);
-
-            if (proc) {
-              proc.stdout?.on('data', (data: Buffer) => {
-                const output = data.toString();
-                const entry: HistoryEntry = { role: 'assistant', content: output, timestamp: Date.now() };
-                session!.history.push(entry);
-                if (session!.history.length > 10000) session!.history.shift();
-                session!.lastOutputTime = Date.now();
-                session!.isClaudeBusy = true;
-                for (const client of session!.clients) {
-                  if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'output', sessionId, payload: entry }));
-                  }
-                }
-                checkClaudeIdle(session!);
-              });
-
-              proc.stderr?.on('data', (data: Buffer) => {
-                const output = data.toString();
-                const entry: HistoryEntry = { role: 'system', content: output, timestamp: Date.now() };
-                session!.history.push(entry);
-                session!.lastOutputTime = Date.now();
-                session!.isClaudeBusy = true;
-                for (const client of session!.clients) {
-                  if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'output', sessionId, payload: entry }));
-                  }
-                }
-                checkClaudeIdle(session!);
-              });
-            }
           }
 
           session.clients.add(ws);
@@ -454,12 +435,11 @@ wss.on('connection', (ws: WebSocket) => {
         case 'create_session': {
           const newSessionId = 'sess_' + Math.random().toString(36).slice(2, 10);
           const cwd = msg.cwd || process.cwd();
-          const proc = createNewClaudeSession(newSessionId, cwd);
 
           const session: ChatSession = {
             id: newSessionId,
             name: newSessionId,
-            process: proc,
+            process: null,
             clients: new Set<WebSocket>(),
             history: [],
             cwd,
@@ -470,36 +450,8 @@ wss.on('connection', (ws: WebSocket) => {
           };
           sessions.set(newSessionId, session);
 
-          proc.stdout?.on('data', (data: Buffer) => {
-            const output = data.toString();
-            const entry: HistoryEntry = { role: 'assistant', content: output, timestamp: Date.now() };
-            session.history.push(entry);
-            if (session.history.length > 10000) session.history.shift();
-            session.lastOutputTime = Date.now();
-            session.isClaudeBusy = true;
-            for (const client of session.clients) {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'output', sessionId: newSessionId, payload: entry }));
-              }
-            }
-            checkClaudeIdle(session);
-          });
-
-          proc.stderr?.on('data', (data: Buffer) => {
-            const output = data.toString();
-            const entry: HistoryEntry = { role: 'system', content: output, timestamp: Date.now() };
-            session.history.push(entry);
-            session.lastOutputTime = Date.now();
-            session.isClaudeBusy = true;
-            for (const client of session.clients) {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'output', sessionId: newSessionId, payload: entry }));
-              }
-            }
-            checkClaudeIdle(session);
-          });
-
           session.clients.add(ws);
+          currentSessionId = newSessionId;
           ws.send(JSON.stringify({
             type: 'joined',
             sessionId: newSessionId,
@@ -512,7 +464,7 @@ wss.on('connection', (ws: WebSocket) => {
         case 'input': {
           if (currentSessionId) {
             const session = sessions.get(currentSessionId);
-            if (session?.process?.stdin) {
+            if (session) {
               const entry: HistoryEntry = { role: 'user', content: msg.payload, timestamp: Date.now() };
               session.history.push(entry);
               for (const client of session.clients) {
@@ -520,13 +472,43 @@ wss.on('connection', (ws: WebSocket) => {
                   client.send(JSON.stringify({ type: 'output', sessionId: currentSessionId, payload: entry }));
                 }
               }
-              session.process.stdin.write(msg.payload + '\n');
               // Notify clients that Claude is busy
               for (const client of session.clients) {
                 if (client.readyState === WebSocket.OPEN) {
                   client.send(JSON.stringify({ type: 'claude_busy', sessionId: currentSessionId }));
                 }
               }
+              session.isClaudeBusy = true;
+
+              // Send to Claude using --continue -p (or -p for new sessions)
+              const isNewSession = session.history.length <= 1; // Only the user message just added
+              sendToClaude(currentSessionId, session.cwd, msg.payload, isNewSession)
+                .then(response => {
+                  const responseEntry: HistoryEntry = { role: 'assistant', content: response, timestamp: Date.now() };
+                  session.history.push(responseEntry);
+                  session.lastOutputTime = Date.now();
+                  session.isClaudeBusy = false;
+                  for (const client of session.clients) {
+                    if (client.readyState === WebSocket.OPEN) {
+                      client.send(JSON.stringify({ type: 'output', sessionId: currentSessionId, payload: responseEntry }));
+                      client.send(JSON.stringify({ type: 'claude_idle', sessionId: currentSessionId }));
+                    }
+                  }
+                  // Process any queued messages
+                  processQueue(session);
+                })
+                .catch(err => {
+                  console.error('Claude error:', err);
+                  const errorEntry: HistoryEntry = { role: 'system', content: `Error: ${err.message}`, timestamp: Date.now() };
+                  session.history.push(errorEntry);
+                  session.isClaudeBusy = false;
+                  for (const client of session.clients) {
+                    if (client.readyState === WebSocket.OPEN) {
+                      client.send(JSON.stringify({ type: 'output', sessionId: currentSessionId, payload: errorEntry }));
+                      client.send(JSON.stringify({ type: 'claude_idle', sessionId: currentSessionId }));
+                    }
+                  }
+                });
             }
           }
           break;
@@ -551,13 +533,8 @@ wss.on('connection', (ws: WebSocket) => {
         case 'process_queue': {
           if (currentSessionId) {
             const session = sessions.get(currentSessionId);
-            if (session && !session.isClaudeBusy && session.messageQueue.length > 0) {
-              const next = session.messageQueue.shift()!;
-              if (session.process?.stdin) {
-                session.process.stdin.write(next.payload + '\n');
-                session.isClaudeBusy = true;
-              }
-              ws.send(JSON.stringify({ type: 'dequeued', payload: next }));
+            if (session) {
+              processQueue(session);
             }
           }
           break;
