@@ -42,6 +42,16 @@ interface HistoryEntry {
   timestamp?: number;
 }
 
+interface SessionInfo {
+  id: string;
+  name: string;
+  lastActivity?: number;
+  preview?: string;
+  status?: string;
+  branch?: string;
+  cwd?: string;
+}
+
 interface ChatSession {
   id: string;
   name: string;
@@ -57,12 +67,12 @@ interface ChatSession {
 
 const sessions = new Map<string, ChatSession>();
 
-function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: number, preview?: string, status?: string}> {
-  const sessions: Array<{id: string, name: string, lastActivity?: number, preview?: string, status?: string}> = [];
+function findClaudeSessions(): SessionInfo[] {
+  const sessions: SessionInfo[] = [];
 
   // First, get all session IDs (PID -> sessionId mapping) and derived names from sessions dir
   const pidToSessionId = new Map<string, string>();
-  const sessionMeta = new Map<string, string>(); // sessionId -> derived name
+  const sessionMeta = new Map<string, { name: string; cwd?: string }>(); // sessionId -> { name, cwd }
   if (fs.existsSync(CLAUDE_SESSIONS_DIR)) {
     for (const file of fs.readdirSync(CLAUDE_SESSIONS_DIR)) {
       if (file.endsWith('.json')) {
@@ -72,15 +82,15 @@ function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: n
           const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
           const sessionId = data.sessionId || pid;
           pidToSessionId.set(pid, sessionId);
-          sessionMeta.set(sessionId, data.name || pid);
+          sessionMeta.set(sessionId, { name: data.name || pid, cwd: data.cwd });
         } catch {}
       }
     }
   }
 
-  // Then, look in projects dir for AI-generated titles (ai-title events) + preview/activity
+  // Then, look in projects dir for AI-generated titles (ai-title events) + preview/activity + git branch
   const aiTitles = new Map<string, string>();
-  const sessionStats = new Map<string, { lastActivity: number, preview: string }>();
+  const sessionStats = new Map<string, { lastActivity: number, preview: string, branch?: string }>();
   if (fs.existsSync(CLAUDE_PROJECTS_DIR)) {
     for (const projectDir of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
       const projectPath = path.join(CLAUDE_PROJECTS_DIR, projectDir);
@@ -95,12 +105,16 @@ function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: n
           let lastActivity = 0;
           try { lastActivity = fs.statSync(filePath).mtimeMs; } catch {}
           let preview = '';
+          let branch: string | undefined;
           for (const line of content.split('\n')) {
             if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
               if (data.type === 'ai-title' && data.aiTitle) {
                 aiTitles.set(sessionId, data.aiTitle);
+              }
+              if (data.type === 'git-branch' && data.branch) {
+                branch = data.branch;
               }
               if ((data.type === 'user' || data.type === 'assistant') && data.message?.content) {
                 const text = typeof data.message.content === 'string'
@@ -111,7 +125,7 @@ function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: n
               }
             } catch {}
           }
-          sessionStats.set(sessionId, { lastActivity, preview });
+          sessionStats.set(sessionId, { lastActivity, preview, branch });
         } catch {}
       }
     }
@@ -119,8 +133,8 @@ function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: n
 
   // Combine: prefer AI title, then derived name, then PID
   for (const [pid, sessionId] of pidToSessionId) {
-    const derivedName = sessionMeta.get(sessionId) || pid;
-    const name = aiTitles.get(sessionId) || derivedName;
+    const meta = sessionMeta.get(sessionId) || { name: pid };
+    const name = aiTitles.get(sessionId) || meta.name;
     const stats = sessionStats.get(sessionId);
     const lastActivity = stats?.lastActivity;
     const now = Date.now();
@@ -130,7 +144,9 @@ function findClaudeSessions(): Array<{id: string, name: string, lastActivity?: n
       name,
       lastActivity,
       preview: stats?.preview,
-      status
+      status,
+      branch: stats?.branch,
+      cwd: meta.cwd
     });
   }
 
@@ -357,8 +373,66 @@ wss.on('connection', (ws: WebSocket) => {
           ws.send(JSON.stringify({
             type: 'joined',
             sessionId,
-            payload: { history: session.history }
+            payload: { history: session.history, name: session.name }
           }));
+          break;
+        }
+
+        case 'create_session': {
+          const newSessionId = 'sess_' + Math.random().toString(36).slice(2, 10);
+          const cwd = msg.cwd || process.cwd();
+          const proc = createNewClaudeSession(newSessionId, cwd);
+
+          const session: ChatSession = {
+            id: newSessionId,
+            name: newSessionId,
+            process: proc,
+            clients: new Set<WebSocket>(),
+            history: [],
+            cwd,
+            messageQueue: [],
+            isClaudeBusy: false,
+            lastOutputTime: Date.now(),
+            automations: new Map()
+          };
+          sessions.set(newSessionId, session);
+
+          proc.stdout?.on('data', (data: Buffer) => {
+            const output = data.toString();
+            const entry: HistoryEntry = { role: 'assistant', content: output, timestamp: Date.now() };
+            session.history.push(entry);
+            if (session.history.length > 10000) session.history.shift();
+            session.lastOutputTime = Date.now();
+            session.isClaudeBusy = true;
+            for (const client of session.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'output', sessionId: newSessionId, payload: entry }));
+              }
+            }
+            checkClaudeIdle(session);
+          });
+
+          proc.stderr?.on('data', (data: Buffer) => {
+            const output = data.toString();
+            const entry: HistoryEntry = { role: 'system', content: output, timestamp: Date.now() };
+            session.history.push(entry);
+            session.lastOutputTime = Date.now();
+            session.isClaudeBusy = true;
+            for (const client of session.clients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'output', sessionId: newSessionId, payload: entry }));
+              }
+            }
+            checkClaudeIdle(session);
+          });
+
+          session.clients.add(ws);
+          ws.send(JSON.stringify({
+            type: 'joined',
+            sessionId: newSessionId,
+            payload: { history: [], name: newSessionId }
+          }));
+          broadcastSessionsList();
           break;
         }
 
@@ -374,6 +448,12 @@ wss.on('connection', (ws: WebSocket) => {
                 }
               }
               session.process.stdin.write(msg.payload + '\n');
+              // Notify clients that Claude is busy
+              for (const client of session.clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'claude_busy', sessionId: currentSessionId }));
+                }
+              }
             }
           }
           break;

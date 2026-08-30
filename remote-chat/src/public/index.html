@@ -2,68 +2,341 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Remote Claude Chat</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; }
-    #sidebar { width: 280px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; }
-    #sidebar h2 { padding: 15px; border-bottom: 1px solid #0f3460; color: #e94560; }
-    #session-list { flex: 1; overflow-y: auto; padding: 10px; }
-    .session-item { padding: 10px; margin: 5px 0; background: #0f3460; cursor: pointer; border-radius: 4px; }
-    .session-item:hover, .session-item.active { background: #e94560; }
-    #main { flex: 1; display: flex; flex-direction: column; }
-    #header { padding: 10px 15px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; }
-    #header-buttons { display: flex; gap: 5px; }
-    #terminal { flex: 1; padding: 15px; overflow-y: auto; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    #terminal .output { color: #a0a0a0; }
-    #terminal .input { color: #e94560; }
-    #terminal .prompt { color: #4ecdc4; }
-    #terminal .queued { color: #ffa500; }
-    #terminal .dequeued { color: #4ecdc4; }
-    #terminal .idle { color: #4ecdc4; font-style: italic; }
-    #input-area { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; }
-    #input-line { display: flex; gap: 10px; }
-    #input-line span { color: #4ecdc4; }
-    #input { flex: 1; background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 14px; outline: none; }
-    #input:focus { border-color: #4ecdc4; }
-    #status { padding: 5px 10px; background: #0f3460; color: #4ecdc4; font-size: 12px; }
-    .hidden { display: none; }
-    .btn { background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; }
-    .btn:hover { background: #e94560; }
-    .btn.active { background: #e94560; }
-    #queue-panel { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; max-height: 150px; overflow-y: auto; }
-    .queue-item { display: flex; justify-content: space-between; padding: 5px; background: #0f3460; margin: 3px 0; border-radius: 3px; font-size: 12px; }
-    .queue-item button { background: #e94560; border: none; color: #1a1a2e; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
-    #automation-panel { padding: 10px 15px; background: #16213e; border-top: 1px solid #0f3460; }
-    .auto-row { display: flex; gap: 5px; margin: 5px 0; flex-wrap: wrap; align-items: center; }
-    .auto-row input, .auto-row select { background: #0f3460; border: 1px solid #e94560; color: #e0e0e0; padding: 4px 8px; border-radius: 3px; font-family: monospace; font-size: 12px; }
-    .auto-row input[type="text"] { flex: 1; min-width: 120px; }
-    .auto-row input[type="number"] { width: 70px; }
+    :root {
+      --bg: #1a1a2e;
+      --bg-panel: #16213e;
+      --bg-msg-user: #0f3460;
+      --bg-msg-assistant: #1f2a44;
+      --bg-msg-system: #2a1f2e;
+      --accent: #e94560;
+      --accent2: #4ecdc4;
+      --text: #e0e0e0;
+      --text-dim: #8a8a9a;
+      --border: #0f3460;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; height: 100vh; overflow: hidden;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 300px; min-width: 300px; background: var(--bg-panel);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    }
+    #sidebar-header {
+      padding: 15px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #sidebar-header h2 { color: var(--accent); font-size: 16px; }
+    #session-search {
+      margin: 10px; padding: 8px 12px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+      font-size: 13px; outline: none;
+    }
+    #session-search:focus { border-color: var(--accent2); }
+    #session-list { flex: 1; overflow-y: auto; padding: 0 10px 10px; }
+    .session-item {
+      padding: 12px; margin: 6px 0; background: var(--bg);
+      border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      position: relative;
+    }
+    .session-item:hover { background: #1c2747; }
+    .session-item.active { background: #1c2747; border-color: var(--accent); }
+    .session-item .s-name {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .session-item .s-preview {
+      font-size: 12px; color: var(--text-dim); margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .session-item .s-meta {
+      font-size: 11px; color: var(--text-dim); margin-top: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: #555;
+    }
+    .status-dot.active { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+    .status-dot.idle { background: #fbbf24; }
+    .unread-badge {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--accent); color: #fff; font-size: 11px;
+      min-width: 18px; height: 18px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      padding:  риск 0 4px; font-weight: 700;
+    }
+    .branch-tag {
+      font-size: 10px; background: #2a2a4a; color: var(--accent2);
+      padding: 1px 6px; border-radius: 4px;
+    }
+
+    /* Main */
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #header {
+      padding: 12px 18px; background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #current-session { font-size: 15px; font-weight: 600; color: var(--text); }
+    #header-buttons { display: flex; gap: 8px; align-items: center; }
+    #status { font-size: 12px; color: var(--accent2); }
+    #status.disconnected { color: var(--accent); }
+
+    /* Messages */
+    #messages {
+      flex: 1; overflow-y: auto; padding: 18px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .msg {
+      display: flex; flex-direction: column; max-width: 92%;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.assistant { align-self: flex-start; align-items: flex-start; }
+    .msg.system { align-self: center; max-width: 80%; }
+    .msg-header {
+      font-size: 11px; color: var(--text-dim); margin: 8px 4px 2px;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .msg.user .msg-header { flex-direction: row-reverse; }
+    .msg-role { font-weight: 600; }
+    .msg.user .msg-role { color: var(--accent2); }
+    .msg.assistant .msg-role { color: var(--accent); }
+    .msg.system .msg-role { color: #fbbf24; }
+    .bubble {
+      padding: 10px 14px; border-radius: 12px; font-size: 14px;
+      line-height: 1.6; word-break: break-word; position: relative;
+    }
+    .msg.user .bubble {
+      background: var(--bg-msg-user); border-bottom-right-radius: 4px;
+      color: var(--text);
+    }
+    .msg.assistant .bubble {
+      background: var(--bg-msg-assistant); border-bottom-left-radius: 4px;
+      color: var(--text);
+    }
+    .msg.system .bubble {
+      background: var(--bg-msg-system); border-radius: 8px;
+      color: #fbbf24; font-size: 12px; font-style: italic;
+    }
+    .msg.grouped .msg-header { display: none; }
+    .msg.grouped .bubble { border-top-left-radius: 4px; border-top-right-radius: 4px; margin-top: 2px; }
+
+    /* Markdown */
+    .bubble p { margin: 0 0 8px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble pre {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+      padding: 12px; overflow-x: auto; margin: 8px 0; position: relative;
+    }
+    .bubble code {
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+      background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px;
+    }
+    .bubble pre code { background: none; padding: 0; }
+    .bubble ul, .bubble ol { margin: 4px 0 8px 20px; }
+    .bubble li { margin: 2px 0; }
+    .bubble h1, .bubble h2, .bubble h3 { margin: 8px 0 4px; }
+    .bubble a { color: var(--accent2); }
+    .bubble blockquote {
+      border-left: 3px solid var(--accent); padding-left: 12px;
+      margin: 8px 0; color: var(--text-dim);
+    }
+    .bubble table { border-collapse: collapse; margin: 8px 0; }
+    .bubble th, .bubble td { border: 1px solid #30363d; padding: 4px 8px; }
+    .code-copy {
+      position: absolute; top: 6px; right: 6px;
+      background: #30363d; border: none; color: var(--text-dim);
+      font-size: 10px; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .bubble pre:hover .code-copy { opacity: 1; }
+    .code-copy:hover { color: var(--text); }
+
+    .msg-actions {
+      position: absolute; top: -10px; right: 8px;
+      display: none; gap: 4px;
+    }
+    .msg:hover .msg-actions { display: flex; }
+    .msg-action-btn {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      color: var(--text-dim); font-size: 11px; padding: 2px 8px;
+      border-radius: 5px; cursor: pointer;
+    }
+    .msg-action-btn:hover { color: var(--text); border-color: var(--accent2); }
+
+    /* Thinking indicator */
+    .thinking {
+      align-self: flex-start; display: flex; gap: 4px; padding: 12px 16px;
+      background: var(--bg-msg-assistant); border-radius: 12px;
+      border-bottom-left-radius: 4px; margin-top: 2px;
+    }
+    .thinking span {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent2);
+      animation: blink 1.4s infinite both;
+    }
+    .thinking span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+
+    /* Queue */
+    #queue-panel {
+      background: var(--bg-panel); border-top: 1px solid var(--border);
+      max-height: 140px; overflow-y: auto; padding: 8px 18px;
+    }
+    #queue-panel.hidden { display: none; }
+    .queue-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: var(--bg); margin: 4px 0;
+      border-radius: 6px; font-size: 13px; border-left: 3px solid #ffa500;
+    }
+    .queue-item .qi-payload { color: #ffa500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-item button {
+      background: var(--accent); border: none; color: #fff;
+      padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;
+    }
+
+    /* Automation */
+    #automation-panel {
+      background: var(--bg-panel); border-top: 1px solid var(--border);
+      padding: 10px 18px; max-height: 200px; overflow-y: auto;
+    }
+    #automation-panel.hidden { display: none; }
+    .auto-row {
+      display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; align-items: center;
+      font-size: 12px; padding: 6px 10px; background: var(--bg); border-radius: 6px;
+    }
+    .auto-row input, .auto-row select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 4px 8px; border-radius: 4px; font-size: 12px;
+    }
+    .auto-row input[type="text"] { flex: 1; min-width: 140px; }
+    .auto-row input[type="number"] { width: 80px; }
+
+    /* Input */
+    #input-area {
+      padding: 12px 18px 16px; background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+    }
+    #input-area.hidden { display: none; }
+    #quick-actions {
+      display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .chip {
+      background: var(--bg); border: 1px solid var(--border); color: var(--accent2);
+      padding: 4px 12px; border-radius: 14px; cursor: pointer; font-size: 12px;
+      transition: background 0.15s;
+    }
+    .chip:hover { background: #1c2747; border-color: var(--accent2); }
+    #input-line { display: flex; gap: 10px; align-items: flex-end; }
+    #input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 14px; border-radius: 10px;
+      font-family: inherit; font-size: 14px; outline: none; resize: none;
+      max-height: 120px; min-height: 42px; line-height: 1.5;
+    }
+    #input:focus { border-color: var(--accent2); }
+    #send-btn {
+      background: var(--accent); border: none; color: #fff;
+      padding: 0 18px; height: 42px; border-radius: 10px; cursor: pointer;
+      font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+    #send-btn:hover { background: #ff6b81; }
+    #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .hint { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+    .hint kbd {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+      padding: 0 4px; font-size: 10px;
+    }
+
+    .btn {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    .btn:hover { background: #1c2747; border-color: var(--accent2); }
+    .btn.active { background: var(--accent); border-color: var(--accent); }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; color: var(--text-dim); gap: 10px;
+    }
+    .empty-state .big { font-size: 48px; }
+
+    /* Mobile */
+    .mobile-toggle { display: none; }
+    @media (max-width: 768px) {
+      #sidebar {
+        position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+        transform: translateX(-100%); transition: transform 0.25s;
+        width: 85%; min-width: 85%;
+      }
+      #sidebar.open { transform: none; box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
+      .mobile-toggle {
+        display: block; background: none; border: none; color: var(--text);
+        font-size: 22px; cursor: pointer; padding: 0 8px;
+      }
+      .msg { max-width: 100%; }
+      #overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
+        display: none;
+      }
+      #overlay.show { display: block; }
+    }
   </style>
 </head>
 <body>
+  <div id="overlay"></div>
   <div id="sidebar">
-    <h2>Claude Sessions</h2>
+    <div id="sidebar-header">
+      <h2>💬 Claude Chat</h2>
+      <button class="btn" onclick="newSession()">+ New</button>
+    </div>
+    <input type="text" id="session-search" placeholder="Search sessions...">
     <div id="session-list">
-      <div style="padding: 10px; color: #666;">Loading...</div>
+      <div style="padding: 10px; color: var(--text-dim);">Loading...</div>
     </div>
   </div>
+
   <div id="main">
     <div id="header">
-      <span id="current-session">Select a session</span>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+        <span id="current-session">Select a session</span>
+      </div>
       <div id="header-buttons">
         <button class="btn" id="btn-queue" onclick="togglePanel('queue')">Queue</button>
         <button class="btn" id="btn-auto" onclick="togglePanel('auto')">Auto</button>
-        <span id="status">Disconnected</span>
+        <span id="status" class="disconnected">Disconnected</span>
       </div>
     </div>
-    <div id="terminal"></div>
+
+    <div id="messages">
+      <div class="empty-state" id="empty-state">
+        <div class="big">💬</div>
+        <div>Select a session from the left to start chatting</div>
+      </div>
+    </div>
+
     <div id="queue-panel" class="hidden">
-      <div style="color: #4ecdc4; margin-bottom: 5px;">Message Queue (sent when Claude is idle)</div>
+      <div style="color: var(--accent2); margin-bottom: 6px; font-size: 13px;">📤 Message Queue (sent when Claude is idle)</div>
       <div id="queue-list"></div>
     </div>
+
     <div id="automation-panel" class="hidden">
-      <div style="color: #4ecdc4; margin-bottom: 5px;">Automations</div>
+      <div style="color: var(--accent2); margin-bottom: 6px; font-size: 13px;">⚡ Automations</div>
       <div id="automation-list"></div>
       <div class="auto-row">
         <select id="auto-type">
@@ -77,21 +350,39 @@
         <button class="btn" onclick="saveAutomation()">Save</button>
       </div>
     </div>
+
     <div id="input-area" class="hidden">
+      <div id="quick-actions">
+        <span class="chip" onclick="quickSend('continue')">↪ continue</span>
+        <span class="chip" onclick="quickSend('run the tests')">🧪 run tests</span>
+        <span class="chip" onclick="quickSend('fix the errors')">🔧 fix errors</span>
+        <span class="chip" onclick="quickSend('summarize what you did')">📋 summarize</span>
+      </div>
       <div id="input-line">
-        <span>$</span>
-        <input type="text" id="input" placeholder="Type to send input..." autocomplete="off">
-        <button class="btn" onclick="queueMessage()">Queue</button>
+        <textarea id="input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+      <div class="hint">
+        <kbd>Enter</kbd> send · <kbd>Shift+Enter</kbd> newline ·
+        <kbd>Esc</kbd> queue (send when idle) · <kbd>Ctrl+K</kbd> switch session
       </div>
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
     const WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
     let ws = null;
     let currentSession = null;
     let pendingActions = [];
-    const terminal = document.getElementById('terminal');
+    let messages = [];           // {id, role, content, timestamp, streaming}
+    let unread = {};             // sessionId -> count
+    let lastViewedSession = null;
+    let isClaudeBusy = false;
+    let thinkingEl = null;
+
+    const messagesEl = document.getElementById('messages');
     const input = document.getElementById('input');
     const sessionList = document.getElementById('session-list');
     const currentSessionEl = document.getElementById('current-session');
@@ -101,141 +392,322 @@
     const autoPanel = document.getElementById('automation-panel');
     const queueList = document.getElementById('queue-list');
     const autoList = document.getElementById('automation-list');
+    const emptyState = document.getElementById('empty-state');
+
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      highlight: (code, lang) => {
+        try {
+          if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
+          return hljs.highlightAuto(code).value;
+        } catch { return code; }
+      }
+    });
 
     function connect() {
       ws = new WebSocket(WS_URL);
       ws.onopen = () => {
         statusEl.textContent = 'Connected';
-        statusEl.style.color = '#4ecdc4';
+        statusEl.classList.remove('disconnected');
         ws.send(JSON.stringify({ type: 'list' }));
       };
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         switch (msg.type) {
-          case 'sessions':
-            renderSessions(msg.payload);
-            break;
+          case 'sessions': renderSessions(msg.payload); break;
           case 'joined':
             currentSession = msg.sessionId;
-            currentSessionEl.textContent = msg.sessionId;
+            currentSessionEl.textContent = msg.payload.name || msg.sessionId;
             inputArea.classList.remove('hidden');
-            terminal.innerHTML = '';
-            msg.payload.history.forEach(line => appendOutput(line));
+            emptyState.style.display = 'none';
+            messages = [];
+            messagesEl.innerHTML = '';
+            msg.payload.history.forEach(line => appendMessage(line.role, line.content, line.timestamp, false));
+            unread[currentSession] = 0;
+            updateUnreadBadges();
             ws.send(JSON.stringify({ type: 'list_automations' }));
             break;
-          case 'output':
-            appendOutput(msg.payload);
-            break;
-          case 'queued':
-            appendQueued(msg.payload);
-            renderQueue();
-            break;
-          case 'dequeued':
-            appendDequeued(msg.payload);
-            renderQueue();
-            break;
+          case 'output': handleOutput(msg.payload); break;
+          case 'queued': renderQueue(); break;
+          case 'dequeued': renderQueue(); break;
           case 'claude_idle':
-            appendIdle();
+            isClaudeBusy = false;
+            finalizeStreaming();
+            removeThinking();
             break;
-          case 'automations':
-            renderAutomations(msg.payload);
+          case 'claude_busy': isClaudeBusy = true; break;
+          case 'automations': renderAutomations(msg.payload); break;
+          case 'automation_added': renderAutomations([msg.payload, ...Array.from(autoList.querySelectorAll('[data-id]')).map(el => JSON.parse(el.dataset.auto))]); break;
+          case 'automation_removed': renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).filter(el => el.dataset.id !== msg.payload).map(el => JSON.parse(el.dataset.auto))); break;
+          case 'automation_toggled': renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).map(el => { const a = JSON.parse(el.dataset.auto); return a.id === msg.payload.id ? msg.payload : a; })); break;
+          case 'session_renamed':
+            if (currentSession === msg.sessionId) currentSessionEl.textContent = msg.name;
             break;
-          case 'automation_added':
-            renderAutomations([msg.payload, ...Array.from(autoList.querySelectorAll('[data-id]')).map(el => JSON.parse(el.dataset.auto))]);
-            break;
-          case 'automation_removed':
-            renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).filter(el => el.dataset.id !== msg.payload).map(el => JSON.parse(el.dataset.auto)));
-            break;
-          case 'automation_toggled':
-            renderAutomations(Array.from(autoList.querySelectorAll('[data-id]')).map(el => {
-              const a = JSON.parse(el.dataset.auto);
-              return a.id === msg.payload.id ? msg.payload : a;
-            }));
-            break;
-          case 'pong':
-            break;
+          case 'pong': break;
         }
       };
       ws.onclose = () => {
-        statusEl.textContent = 'Disconnected - reconnecting...';
-        statusEl.style.color = '#e94560';
+        statusEl.textContent = 'Disconnected — reconnecting...';
+        statusEl.classList.add('disconnected');
         setTimeout(connect, 3000);
       };
       ws.onerror = () => {};
     }
 
-    function renderSessions(sessions) {
-      sessionList.innerHTML = '';
-      if (sessions.length === 0) {
-        sessionList.innerHTML = '<div style="padding: 10px; color: #666;">No sessions found</div>';
+    // ---- Message rendering ----
+    function handleOutput(payload) {
+      const { role, content, timestamp } = payload;
+      if (role === 'user') {
+        removeThinking();
+        appendMessage('user', content, timestamp, false);
         return;
       }
-      sessions.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'session-item';
+      // assistant / system: stream into a single growing bubble
+      const last = messages[messages.length - 1];
+      if ((role === 'assistant' || role === 'system') && last && last.streaming && last.role === role) {
+        last.content += content;
+        updateBubble(last);
+      } else {
+        removeThinking();
+        appendMessage(role, content, timestamp, true);
+      }
+    }
+
+    function appendMessage(role, content, timestamp, streaming) {
+      const id = 'm' + Date.now() + Math.random().toString(36).slice(2, 6);
+      const prev = messages[messages.length - 1];
+      const grouped = prev && prev.role === role && !prev.streaming;
+      messages.push({ id, role, content: content || '', timestamp: timestamp || Date.now(), streaming: !!streaming });
+      if (currentSession && currentSession !== lastViewedSession) {
+        unread[currentSession] = (unread[currentSession] || 0) + 1;
+        updateUnreadBadges();
+      }
+      renderMessage(id, grouped);
+      scrollToBottom();
+    }
+
+    function renderMessage(id, grouped) {
+      const m = messages.find(x => x.id === id);
+      if (!m) return;
+      const div = document.createElement('div');
+      div.className = `msg ${m.role}${grouped ? ' grouped' : ''}`;
+      div.id = id;
+      const time = formatTime(m.timestamp);
+      const roleLabel = m.role === 'user' ? 'You' : m.role === 'assistant' ? 'Claude' : 'System';
+      if (m.role === 'system') {
+        div.innerHTML = `<div class="bubble">${escapeHtml(m.content)}</div>`;
+      } else {
+        div.innerHTML = `
+          <div class="msg-header">
+            <span class="msg-role">${roleLabel}</span>
+            <span class="msg-time">${time}</span>
+          </div>
+          <div class="bubble" ondblclick="copyMessage('${id}')">${renderMarkdown(m.content)}
+            <div class="msg-actions">
+              <button class="msg-action-btn" onclick="copyMessage('${id}')">Copy</button>
+              ${m.role === 'assistant' ? `<button class="msg-action-btn" onclick="regenerate('${id}')">↻</button>` : ''}
+            </div>
+          </div>`;
+      }
+      messagesEl.appendChild(div);
+      attachCodeCopy(div);
+    }
+
+    function updateBubble(m) {
+      const div = document.getElementById(m.id);
+      if (!div) return;
+      const bubble = div.querySelector('.bubble');
+      if (bubble) {
+        bubble.innerHTML = renderMarkdown(m.content) + `
+          <div class="msg-actions">
+            <button class="msg-action-btn" onclick="copyMessage('${m.id}')">Copy</button>
+            ${m.role === 'assistant' ? `<button class="msg-action-btn" onclick="regenerate('${m.id}')">↻</button>` : ''}
+          </div>`;
+        attachCodeCopy(div);
+      }
+      scrollToBottom();
+    }
+
+    function finalizeStreaming() {
+      for (const m of messages) {
+        if (m.streaming) { m.streaming = false; }
+      }
+    }
+
+    function showThinking() {
+      if (thinkingEl) return;
+      thinkingEl = document.createElement('div');
+      thinkingEl.className = 'thinking';
+      thinkingEl.innerHTML = '<span></span><span></span><span></span>';
+      messagesEl.appendChild(thinkingEl);
+      scrollToBottom();
+    }
+
+    function removeThinking() {
+      if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
+    }
+
+    function renderMarkdown(text) {
+      if (!text) return '<span style="color:var(--text-dim)">…</span>';
+      try { return marked.parse(text); }
+      catch { return escapeHtml(text); }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function attachCodeCopy(container) {
+      container.querySelectorAll('pre code').forEach(block => {
+        const btn = document.createElement('button');
+        btn.className = 'code-copy';
+        btn.textContent = 'Copy';
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(block.textContent);
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 1500);
+        };
+        block.parentElement.style.position = 'relative';
+        block.parentElement.appendChild(btn);
+      });
+    }
+
+    function copyMessage(id) {
+      const m = messages.find(x => x.id === id);
+      if (m) navigator.clipboard.writeText(m.content);
+    }
+
+    function regenerate(id) {
+      const m = messages.find(x => x.id === id);
+      if (m) {
+        const idx = messages.indexOf(m);
+        const prevUser = [...messages.slice(0, idx)].reverse().find(x => x.role === 'user');
+        if (prevUser) sendRaw(prevUser.content);
+      }
+    }
+
+    // ---- Sessions ----
+    function renderSessions(sessions) {
+      const search = document.getElementById('session-search').value.toLowerCase();
+      sessionList.innerHTML = '';
+      const filtered = sessions.filter(s => {
+        const name = (typeof s === 'string' ? s : (s.name || s.id)).toLowerCase();
+        return !search || name.includes(search);
+      });
+      if (filtered.length === 0) {
+        sessionList.innerHTML = '<div style="padding:10px;color:var(--text-dim)">No sessions found</div>';
+        return;
+      }
+      filtered.forEach(s => {
         const name = typeof s === 'string' ? s : (s.name || s.id);
         const id = typeof s === 'string' ? s : s.id;
-        div.textContent = name;
-        div.title = id;
-        div.onclick = () => joinSession(id);
+        const div = document.createElement('div');
+        div.className = 'session-item' + (id === currentSession ? ' active' : '');
+        div.dataset.id = id;
+        const ur = unread[id] || 0;
+        div.innerHTML = `
+          <div class="s-name">
+            <span class="status-dot ${s.status || 'idle'}"></span>
+            <span>${escapeHtml(name)}</span>
+          </div>
+          <div class="s-preview">${escapeHtml(s.preview || 'No messages yet')}</div>
+          <div class="s-meta">
+            <span>${formatRelative(s.lastActivity)}</span>
+            ${s.branch ? `<span class="branch-tag">⎇ ${escapeHtml(s.branch)}</span>` : ''}
+          </div>
+          ${ur > 0 ? `<span class="unread-badge">${ur > 99 ? '99+' : ur}</span>` : ''}`;
+        div.onclick = () => joinSession(id, div);
         sessionList.appendChild(div);
       });
     }
 
-    function joinSession(id) {
-      document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
-      event.target.classList.add('active');
+    function updateUnreadBadges() {
+      document.querySelectorAll('.session-item').forEach(el => {
+        const id = el.dataset.id;
+        const ur = unread[id] || 0;
+        let badge = el.querySelector('.unread-badge');
+        if (ur > 0) {
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'unread-badge';
+            el.appendChild(badge);
+          }
+          badge.textContent = ur > 99 ? '99+' : ur;
+        } else if (badge) {
+          badge.remove();
+        }
+      });
+    }
+
+    function joinSession(id, el) {
+      lastViewedSession = id;
+      unread[id] = 0;
+      updateUnreadBadges();
+      document.querySelectorAll('.session-item').forEach(x => x.classList.remove('active'));
+      if (el) el.classList.add('active');
       ws.send(JSON.stringify({ type: 'join', sessionId: id }));
       queuePanel.classList.add('hidden');
       autoPanel.classList.add('hidden');
       document.getElementById('btn-queue').classList.remove('active');
       document.getElementById('btn-auto').classList.remove('active');
       pendingActions = [];
+      if (window.innerWidth <= 768) toggleSidebar(false);
     }
 
-    function appendOutput(text) {
-      const div = document.createElement('div');
-      div.className = 'output';
-      div.textContent = text;
-      terminal.appendChild(div);
-      terminal.scrollTop = terminal.scrollHeight;
+    function newSession() {
+      const cwd = prompt('Working directory for new session:', process ? '' : '');
+      if (cwd !== null) ws.send(JSON.stringify({ type: 'create_session', cwd: cwd || undefined }));
     }
 
-    function appendQueued(q) {
-      const div = document.createElement('div');
-      div.className = 'queued';
-      div.textContent = '[QUEUED] ' + q.payload;
-      terminal.appendChild(div);
-      terminal.scrollTop = terminal.scrollHeight;
+    // ---- Input ----
+    function sendMessage() {
+      const text = input.value.trim();
+      if (!text || ws?.readyState !== WebSocket.OPEN) return;
+      sendRaw(text);
+      input.value = '';
+      autoResize();
     }
 
-    function appendDequeued(q) {
-      const div = document.createElement('div');
-      div.className = 'dequeued';
-      div.textContent = '[SENT] ' + q.payload;
-      terminal.appendChild(div);
-      terminal.scrollTop = terminal.scrollHeight;
+    function sendRaw(text) {
+      showThinking();
+      ws.send(JSON.stringify({ type: 'input', payload: text }));
     }
 
-    function appendIdle() {
-      const div = document.createElement('div');
-      div.className = 'idle';
-      div.textContent = '[Claude idle]';
-      terminal.appendChild(div);
-      terminal.scrollTop = terminal.scrollHeight;
-    }
-
-    function renderQueue() {
-      ws.send(JSON.stringify({ type: 'list' }));
-    }
-
-    function queueMessage() {
-      if (input.value && ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'queue', payload: input.value }));
-        input.value = '';
+    function quickSend(text) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        showThinking();
+        ws.send(JSON.stringify({ type: 'input', payload: text }));
       }
     }
 
+    function queueMessage() {
+      const text = input.value.trim();
+      if (!text || ws?.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'queue', payload: text }));
+      input.value = '';
+      autoResize();
+    }
+
+    function autoResize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    }
+
+    function scrollToBottom() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // ---- Queue ----
+    function renderQueue() {
+      if (!currentSession) return;
+      const session = window.__sessions?.get?.(currentSession);
+      // We rely on server pushing queue contents; request a fresh list
+      ws.send(JSON.stringify({ type: 'list' }));
+    }
+
+    // ---- Automations ----
     function togglePanel(panel) {
       if (panel === 'queue') {
         queuePanel.classList.toggle('hidden');
@@ -265,15 +737,15 @@
     }
 
     function renderPendingActions() {
-      const container = document.getElementById('pending-actions') || (() => {
-        const div = document.createElement('div');
-        div.id = 'pending-actions';
-        div.style.marginTop = '5px';
-        document.querySelector('.auto-row').parentNode.insertBefore(div, document.querySelector('.auto-row').nextSibling);
-        return div;
-      })();
+      let container = document.getElementById('pending-actions');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'pending-actions';
+        container.style.marginTop = '6px';
+        document.querySelector('.auto-row').parentNode.insertBefore(container, document.querySelector('.auto-row').nextSibling);
+      }
       container.innerHTML = pendingActions.map((a, i) =>
-        `<span style="color:#ffa500">${a.type === 'esc' ? 'ESC' : 'SEND: ' + a.payload}</span> <button class="btn" onclick="pendingActions.splice(${i},1);renderPendingActions()">×</button>`
+        `<span style="color:#ffa500;font-size:12px">${a.type === 'esc' ? 'ESC' : 'SEND: ' + escapeHtml(a.payload)}</span> <button class="btn" onclick="pendingActions.splice(${i},1);renderPendingActions()">×</button>`
       ).join(' ');
     }
 
@@ -281,10 +753,7 @@
       if (!currentSession || pendingActions.length === 0) return;
       const type = document.getElementById('auto-type').value;
       const intervalMs = parseInt(document.getElementById('auto-interval').value) || 30000;
-      ws.send(JSON.stringify({
-        type: 'add_automation',
-        automation: { type, intervalMs, actions: pendingActions }
-      }));
+      ws.send(JSON.stringify({ type: 'add_automation', automation: { type, intervalMs, actions: pendingActions } }));
       pendingActions = [];
       renderPendingActions();
     }
@@ -292,48 +761,75 @@
     function renderAutomations(autos) {
       autoList.innerHTML = autos.map(a => `
         <div class="auto-row" data-id="${a.id}" data-auto='${JSON.stringify(a)}'>
-          <span style="color:${a.enabled ? '#4ecdc4' : '#666'}">${a.id.slice(0,6)}</span>
+          <span style="color:${a.enabled ? 'var(--accent2)' : 'var(--text-dim)'}">${a.id.slice(0,6)}</span>
           <span>${a.type === 'interval' ? 'Every ' + a.intervalMs + 'ms' : 'When idle > ' + (a.intervalMs || 30000) + 'ms'}</span>
-          <span>${a.actions.map(x => x.type === 'esc' ? 'ESC' : 'SEND: ' + x.payload).join(' → ')}</span>
+          <span>${a.actions.map(x => x.type === 'esc' ? 'ESC' : 'SEND: ' + escapeHtml(x.payload)).join(' → ')}</span>
           <button class="btn" onclick="toggleAuto('${a.id}')">${a.enabled ? 'Disable' : 'Enable'}</button>
           <button class="btn" onclick="removeAuto('${a.id}')">Remove</button>
         </div>
       `).join('');
     }
 
-    function toggleAuto(id) {
-      ws.send(JSON.stringify({ type: 'toggle_automation', automationId: id }));
+    function toggleAuto(id) { ws.send(JSON.stringify({ type: 'toggle_automation', automationId: id })); }
+    function removeAuto(id) { ws.send(JSON.stringify({ type: 'remove_automation', automationId: id })); }
+
+    // ---- Time helpers ----
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    function formatRelative(ts) {
+      if (!ts) return 'unknown';
+      const diff = Date.now() - ts;
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      const d = Math.floor(h / 24);
+      if (d < 7) return d + 'd ago';
+      return new Date(ts).toLocaleDateString();
     }
 
-    function removeAuto(id) {
-      ws.send(JSON.stringify({ type: 'remove_automation', automationId: id }));
+    // ---- Mobile ----
+    function toggleSidebar(force) {
+      const sb = document.getElementById('sidebar');
+      const ov = document.getElementById('overlay');
+      const open = force !== undefined ? force : !sb.classList.contains('open');
+      sb.classList.toggle('open', open);
+      ov.classList.toggle('show', open);
     }
+    document.getElementById('overlay').onclick = () => toggleSidebar(false);
 
+    // ---- Keyboard ----
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value && ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'input', payload: input.value }));
-        const div = document.createElement('div');
-        div.className = 'input';
-        div.textContent = '> ' + input.value;
-        terminal.appendChild(div);
-        terminal.scrollTop = terminal.scrollHeight;
-        input.value = '';
-      }
-      if (e.key === 'Escape' && ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'input', payload: '\x1b' }));
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        sendMessage();
+      } else if (e.key === 'Escape' && !e.shiftKey) {
+        e.preventDefault();
+        queueMessage();
       }
+    });
+    input.addEventListener('input', autoResize);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ws?.readyState === WebSocket.OPEN && currentSession && document.activeElement !== input) {
+        ws.send(JSON.stringify({ type: 'input', payload: '\x1b' }));
+      }
+      if (e.key === 'k' && e.ctrlKey) {
+        e.preventDefault();
+        document.getElementById('session-search').focus();
+      }
+    });
+
+    document.getElementById('session-search').addEventListener('input', () => {
+      ws.send(JSON.stringify({ type: 'list' }));
     });
 
     connect();
     setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 30000);
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && ws?.readyState === WebSocket.OPEN && currentSession) {
-        ws.send(JSON.stringify({ type: 'input', payload: '\x1b' }));
-        e.preventDefault();
-      }
-    });
   </script>
 </body>
 </html>
