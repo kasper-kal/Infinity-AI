@@ -37,7 +37,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **22** | **Component Marketplace & Template Library (v0 Community)** | ✅ **COMPLETE** |
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
 | **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ✅ **COMPLETE** |
-| **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | 🔄 IN PROGRESS (~70% Backend, ~90% Frontend) |
+| **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | ✅ COMPLETE |
 | **26** | **Rules, Notepads & Customization (Cursor Personalization)** | 🔲 PLANNED |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | 🔲 PLANNED |
 | **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | 🔲 PLANNED |
@@ -1116,15 +1116,17 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - [x] Auto-trigger on @codebase mention (handled in cursor-agent.ts)
   - [x] Inject top-N relevant chunks into context
   - [x] Show sources used in response
-- [ ] **Code Navigation** — "Go to definition", "Find references", "Call hierarchy" via index
-- [ ] **Index Management UI** — BuildView tab: index status, re-index, exclude patterns, size stats
+- [x] **Code Navigation** — "Go to definition", "Find references", "Call hierarchy" via index
+- [x] **Index Management UI** — BuildView tab: index status, re-index, exclude patterns, size stats
 
 ### Implementation Plan
 1. **Tree-sitter Parser** — WASM grammars for major languages, extract symbols + chunks ✅ COMPLETE
 2. **Embedding Pipeline** — Batch embed chunks, store locally ✅ COMPLETE
 3. **Search API** — Hybrid vector+keyword search with reranking ✅ COMPLETE
 4. **Incremental Watcher** — chokidar + debounced re-index ✅ COMPLETE (partial - watcher in codebase-indexer.ts)
-5. **Frontend Integration** — @codebase parser in chat/composer, results display — PARTIAL (ChatSidebar has useCodebase toggle, needs deeper integration)
+5. **Frontend Integration** — @codebase parser in chat/composer, results display ✅ COMPLETE
+6. **Code Navigation** — F12/Shift+F12 in editor with tooltip UI ✅ COMPLETE
+7. **Index Management UI** — CodebaseIndexPanel in BuildView ✅ COMPLETE
 
 ### Files Created/Modified ✅ BACKEND COMPLETE
 - `artifacts/api-server/src/lib/codebase-indexer.ts` — Complete indexer with 10+ language support (31KB)
