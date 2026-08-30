@@ -9,10 +9,10 @@
  * - Inline code references
  */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button, Input, TextArea, ScrollArea, Flex, Box, Text, Badge, Avatar, IconButton, Tooltip, Separator, Skeleton } from "@radix-ui/themes";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Send, Loader2, Copy, ChevronUp, ChevronDown, Code, FileText, Sparkles, Zap, X, Check, AlertCircle, MessageSquare, Database, Terminal, GitBranch, Search, Settings, Plus, Trash2, RotateCcw } from "lucide-react";
+import { Send, Loader2, Copy, ChevronUp, ChevronDown, Code, FileText, Sparkles, Zap, X, Check, AlertCircle, MessageSquare, Database, Terminal, GitBranch, Search, Settings, Plus, Trash2, RotateCcw, ExternalLink } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -22,6 +22,23 @@ interface ChatMessage {
   toolCalls?: ToolCall[];
   toolResults?: ToolResult[];
   isStreaming?: boolean;
+  codebaseContext?: CodebaseResult[];
+  codebaseTriggered?: boolean; // Was @codebase used explicitly?
+}
+
+/** A single codebase semantic-search hit, shaped by /api/infinity/codebase/search */
+interface CodebaseResult {
+  file: string;
+  filePath: string;
+  language: string;
+  type: string;
+  name: string;
+  signature?: string;
+  content: string;
+  startLine: number;
+  endLine: number;
+  score: number;
+  matchType?: string;
 }
 
 interface ToolCall {
@@ -54,6 +71,9 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [codebaseResults, setCodebaseResults] = useState<CodebaseResult[]>([]);
+  const [showCodebasePanel, setShowCodebasePanel] = useState(false);
+  const [isCodebaseSearching, setIsCodebaseSearching] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -66,6 +86,46 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
     { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "Google" },
     { id: "deepseek-chat", name: "DeepSeek Chat", provider: "DeepSeek" },
   ];
+
+  // Parse @codebase mentions from user message
+  const parseCodebaseMention = useCallback((message: string): { query: string; hasExplicitMention: boolean } => {
+    const mentionMatch = message.match(/@codebase\s+(.+)$/i);
+    if (mentionMatch) {
+      return { query: mentionMatch[1].trim(), hasExplicitMention: true };
+    }
+    return { query: message, hasExplicitMention: false };
+  }, []);
+
+  // Semantic search against the project's codebase index
+  const searchCodebase = useCallback(async (query: string): Promise<CodebaseResult[]> => {
+    setIsCodebaseSearching(true);
+    try {
+      const response = await fetch(`/api/infinity/codebase/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          query,
+          limit: 10,
+          hybrid: true,
+          expandQuery: true,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn("Codebase search failed:", response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error("Codebase search error:", error);
+      return [];
+    } finally {
+      setIsCodebaseSearching(false);
+    }
+  }, [projectId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -82,11 +142,27 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
   const handleSend = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
 
+    // Parse @codebase mention from input
+    const { query, hasExplicitMention } = parseCodebaseMention(input);
+
+    // Determine if we should use codebase context:
+    // - Explicit @codebase mention always triggers search (even if toggle is off)
+    // - If toggle is ON (default in Build mode), search automatically
+    // - If toggle is OFF and no @codebase mention, don't search
+    const shouldSearchCodebase = hasExplicitMention || useCodebase;
+
+    let codebaseContext: CodebaseResult[] = [];
+    if (shouldSearchCodebase) {
+      codebaseContext = await searchCodebase(query);
+    }
+
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: input,
       timestamp: new Date(),
+      codebaseContext: codebaseContext.length > 0 ? codebaseContext : undefined,
+      codebaseTriggered: hasExplicitMention,
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -108,7 +184,8 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
           function: { name: tc.name, arguments: tc.arguments },
         })),
       })),
-      useCodebase,
+      useCodebase: shouldSearchCodebase,
+      codebaseContext, // Pass pre-fetched context to backend
       model: selectedModel,
     });
 
@@ -470,6 +547,125 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
   );
 }
 
+// Codebase context display component
+function CodebaseContextDisplay({ results, triggered }: { results: CodebaseResult[]; triggered: boolean }) {
+  if (!results || results.length === 0) return null;
+
+  return (
+    <Flex
+      direction="column"
+      gap="6"
+      style={{
+        marginTop: "8px",
+        padding: "10px 12px",
+        background: "var(--violet-2)",
+        border: "1px solid var(--violet-5)",
+        borderRadius: "8px",
+        fontSize: "12px",
+      }}
+    >
+      <Flex align="center" gap="6" style={{ opacity: 0.8 }}>
+        <Database size={12} color="var(--violet-9)" />
+        <Text size="1" weight="medium" color="var(--violet-11)">
+          {triggered ? "Codebase context (explicit @codebase)" : "Codebase context (auto)"}
+        </Text>
+        <Badge variant="soft" color="violet" size="1">{results.length} result{results.length !== 1 ? "s" : ""}</Badge>
+      </Flex>
+
+      <Flex direction="column" gap="4" style={{ maxHeight: "200px", overflow: "auto" }}>
+        {results.slice(0, 5).map((result, idx) => (
+          <CodebaseResultCard key={`${result.file}-${result.startLine}-${idx}`} result={result} />
+        ))}
+        {results.length > 5 && (
+          <Text size="1" color="var(--gray-10)" style={{ textAlign: "center", padding: "4px" }}>
+            +{results.length - 5} more results...
+          </Text>
+        )}
+      </Flex>
+    </Flex>
+  );
+}
+
+function CodebaseResultCard({ result }: { result: CodebaseResult }) {
+  const languageColors: Record<string, string> = {
+    typescript: "var(--blue-9)",
+    javascript: "var(--yellow-9)",
+    python: "var(--green-9)",
+    rust: "var(--orange-9)",
+    go: "var(--cyan-9)",
+    java: "var(--red-9)",
+    cpp: "var(--purple-9)",
+    c: "var(--purple-9)",
+  };
+
+  const typeIcons: Record<string, React.ReactNode> = {
+    function: <Code size={10} />,
+    class: <FileText size={10} />,
+    interface: <FileText size={10} />,
+    type: <FileText size={10} />,
+    import: <GitBranch size={10} />,
+    export: <GitBranch size={10} />,
+    comment: <MessageSquare size={10} />,
+    block: <Terminal size={10} />,
+  };
+
+  return (
+    <Tooltip content={result.filePath}>
+      <Flex
+        direction="column"
+        gap="4"
+        onClick={() => navigator.clipboard.writeText(`${result.filePath}:${result.startLine}-${result.endLine}`)}
+        style={{
+          padding: "8px",
+          background: "var(--violet-1)",
+          border: "1px solid var(--violet-4)",
+          borderRadius: "6px",
+          cursor: "pointer",
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "var(--violet-3)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "var(--violet-1)"; }}
+      >
+        <Flex align="center" gap="6">
+          <Box style={{ color: languageColors[result.language] || "var(--gray-9)", display: "flex" }}>
+            {typeIcons[result.type] || <Code size={10} />}
+          </Box>
+          <Flex direction="column" gap="0" style={{ flex: 1, minWidth: 0 }}>
+            <Flex align="center" gap="4">
+              <Text size="1" weight="medium" color="var(--violet-12)" style={{ fontFamily: "monospace" }}>
+                {result.name || "anonymous"}
+              </Text>
+              {result.signature && (
+                <Text size="1" color="var(--gray-10)" style={{ fontFamily: "monospace", fontSize: "10px" }}>
+                  {result.signature.slice(0, 60)}{result.signature.length > 60 ? "..." : ""}
+                </Text>
+              )}
+            </Flex>
+            <Flex align="center" gap="6">
+              <Text size="1" color="var(--gray-10)" style={{ fontFamily: "monospace", fontSize: "10px" }}>
+                {result.file}
+              </Text>
+              <Text size="1" color="var(--gray-10)" style={{ fontFamily: "monospace", fontSize: "10px" }}>
+                L{result.startLine}–{result.endLine}
+              </Text>
+              <Badge variant="outline" color="violet" size="1" style={{ fontSize: "9px" }}>
+                {Math.round(result.score * 100)}%
+              </Badge>
+            </Flex>
+          </Flex>
+        </Flex>
+        <Flex justify="flex-end">
+          <Tooltip content="Copy file:line reference">
+            <IconButton size="1" variant="ghost" onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`${result.filePath}:${result.startLine}-${result.endLine}`); }} aria-label="Copy reference">
+              <ExternalLink size={10} />
+            </IconButton>
+          </Tooltip>
+        </Flex>
+      </Flex>
+    </Tooltip>
+  );
+}
+
 // Message Bubble Component
 function MessageBubble({ message, isLast, onCopy }: { message: ChatMessage; isLast: boolean; onCopy: (text: string) => void }) {
   const isUser = message.role === "user";
@@ -529,6 +725,11 @@ function MessageBubble({ message, isLast, onCopy }: { message: ChatMessage; isLa
         <Box style={{ color: isUser ? "var(--violet-12)" : "var(--gray-12)" }}>
           {message.content ? formatContent(message.content) : <Skeleton width="100%" height={40} />}
         </Box>
+
+        {/* Codebase context display for user messages */}
+        {isUser && message.codebaseContext && message.codebaseContext.length > 0 && (
+          <CodebaseContextDisplay results={message.codebaseContext} triggered={message.codebaseTriggered || false} />
+        )}
 
         {/* Copy button for assistant messages */}
         {isAssistant && !message.isStreaming && (

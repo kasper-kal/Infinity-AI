@@ -465,6 +465,7 @@ const en = {
   "overview.tabs.security": "Security",
   "overview.tabs.deploy": "Deploy",
   "overview.tabs.agents": "Agents",
+  "overview.tabs.codebase": "Codebase",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deployment Pipeline",
@@ -2296,6 +2297,7 @@ const nl: Record<keyof typeof en, string> = {
   "overview.tabs.security": "Beveiliging",
   "overview.tabs.deploy": "Deploy",
   "overview.tabs.agents": "Agents",
+  "overview.tabs.codebase": "Codebase",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deploy Pipeline",

@@ -41,7 +41,8 @@ import { ChatView } from "@/components/views/ChatView";
 import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
-import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard } from "lucide-react";
+import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
+import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -776,7 +777,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
   onRollback,
 }) => {
   const { t } = useI18n();
-  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents'>('progress');
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase'>('progress');
 
   return (
     <div className="flex flex-col h-full">
@@ -791,6 +792,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" /> },
             { id: 'deploy', label: t('overview.tabs.deploy'), icon: <Globe className="w-4 h-4" /> },
             { id: 'agents', label: t('overview.tabs.agents'), icon: <Wrench className="w-4 h-4" /> },
+            { id: 'codebase', label: t('overview.tabs.codebase'), icon: <Database className="w-4 h-4" /> },
           ]}
           activeTab={overviewTab}
           onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
@@ -856,6 +858,11 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
           <div className="flex flex-col h-full items-center justify-center text-muted-foreground">
             <p className="text-center">{t('build.agentPanel.noTask')}</p>
             <p className="text-sm text-center mt-2">{t('build.agentPanel.startBuildToSeeAgents')}</p>
+          </div>
+        )}
+        {overviewTab === 'codebase' && (
+          <div className="flex flex-col h-full">
+            <CodebaseIndexPanel projectId={projectId} projectRoot="/" />
           </div>
         )}
       </div>
