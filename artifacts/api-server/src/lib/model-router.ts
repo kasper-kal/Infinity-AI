@@ -1,795 +1,740 @@
-/**
- * MODEL ROUTER + EFFORT CHOOSER
- *
- * Intelligent model selection for Build Mode:
- * - Task classification → auto-select model tier (Lite/High/Max)
- * - Role-based routing: Planner→Max, Coder→High, Reviewer→Max, Fixer→High, Research→High
- * - Provider failover chain: OpenRouter → NVIDIA NIM → Local Ollama → Local vLLM
- * - Cost tracking per model (enforce $0 budget, prefer free tiers)
- * - Effort selector: user can override with --effort lite|high|max
- */
+import { z } from "zod";
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-import { LLMAdapter, LLMCapabilities } from "./llm-adapter";
-import { adapterFactory, createBestAdapter, createAdapterForKey, createManualAdapter, createAdapterFromEntry } from "./adapter-factory";
-import { listKeys, LlmKeyEntry } from "./llm-client";
-import { isLocalModelAvailable, LOCAL_MODEL_CAPABILITIES } from "./adapters/local-adapter";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
- * Model effort tiers
+ * Model Router - Per-project/user model preferences, fallback chains, BYOM
  */
-export type EffortTier = "lite" | "high" | "max";
 
-/**
- * Agent roles in the build pipeline
- */
-export type AgentRole = "planner" | "coder" | "reviewer" | "fixer" | "researcher" | "summarizer" | "general";
-
-/**
- * Task categories for classification
- */
-export type TaskCategory =
-  | "simple-edit"       // font change, remove component, config tweak
-  | "standard-coding"   // implement feature, write component, fix bug
-  | "complex-planning"  // architecture, multi-file refactor, design decisions
-  | "research"          // web search, documentation lookup
-  | "code-review"       // review code, find issues
-  | "error-fix"         // fix compilation/runtime errors
-  | "summarization"     // compress context, summarize steps
-  | "visual-verification" // browser inspection, screenshot analysis
-  | "deployment";       // deploy, CI config
-
-/**
- * Model tier configuration
- */
-export interface ModelTierConfig {
-  tier: EffortTier;
-  name: string;
-  description: string;
-  /** Preferred provider order for this tier */
-  providerOrder: string[];
-  /** Minimum capabilities required */
-  minCapabilities: Partial<LLMCapabilities>;
-  /** Max cost per 1k tokens (0 for free) */
-  maxCostPer1kTokens: number;
-  /** Estimated time budget */
-  estimatedTimeMinutes: number;
-  /** Typical use cases */
-  useCases: string[];
+export enum ModelCapability {
+  CHAT = "chat",
+  COMPOSER = "composer",
+  AGENT = "agent",
+  TAB_AUTOCOMPLETE = "tab-autocomplete",
+  CMD_K_EDIT = "cmd-k-edit",
+  CODEBASE_SEARCH = "codebase-search",
+  DEEP_RESEARCH = "deep-research",
+  VISUAL_EDITING = "visual-editing",
+  EMBEDDINGS = "embeddings"
 }
 
-/**
- * Model routing decision
- */
-export interface RoutingDecision {
-  tier: EffortTier;
-  role: AgentRole;
-  taskCategory: TaskCategory;
-  selectedAdapter: LLMAdapter;
-  selectedKey: LlmKeyEntry | null; // null when using local model
-  reasoning: string;
-  fallbackAdapters: LLMAdapter[];
-  fallbackKeys: LlmKeyEntry[];
-  estimatedCost: number;
-  estimatedTimeMinutes: number;
-  userOverride?: EffortTier;
+export enum ModelProvider {
+  OPENROUTER = "openrouter",
+  ANTHROPIC = "anthropic",
+  OPENAI = "openai",
+  GOOGLE = "google",
+  NVIDIA_NIM = "nvidia-nim",
+  OLLAMA = "ollama",
+  LM_STUDIO = "lm-studio",
+  CUSTOM = "custom"
 }
 
-/**
- * Cost tracking entry
- */
-export interface CostEntry {
-  timestamp: string;
-  tier: EffortTier;
-  role: AgentRole;
-  taskCategory: TaskCategory;
-  model: string;
-  provider: string;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd: number;
-  buildId?: string;
-  projectId?: string;
-}
+// Model configuration
+export const ModelConfigSchema = z.object({
+  id: z.string(),                    // Unique identifier
+  name: z.string(),                  // Display name
+  provider: z.nativeEnum(ModelProvider),
+  modelId: z.string(),               // Provider's model ID (e.g., "anthropic/claude-3.5-sonnet")
+  capabilities: z.array(z.nativeEnum(ModelCapability)).default([]),
+  contextWindow: z.number().default(128000),
+  maxOutputTokens: z.number().default(4096),
+  supportsStreaming: z.boolean().default(true),
+  supportsTools: z.boolean().default(true),
+  supportsVision: z.boolean().default(false),
+  supportsJsonMode: z.boolean().default(false),
+  costPer1kInputTokens: z.number().default(0),    // USD
+  costPer1kOutputTokens: z.number().default(0),   // USD
+  latencyMs: z.number().default(1000),            // Estimated latency
+  qualityScore: z.number().min(1).max(10).default(5), // Subjective quality 1-10
+  enabled: z.boolean().default(true),
+  apiKeyRef: z.string().optional(),               // Reference to stored API key
+  baseUrl: z.string().optional(),                 // Custom endpoint (BYOM)
+  headers: z.record(z.string()).default({}),      // Custom headers
+  metadata: z.record(z.unknown()).default({})
+});
 
-/**
- * Model router configuration
- */
-export interface ModelRouterConfig {
-  /** Enable cost enforcement ($0 budget) */
-  enforceZeroBudget: boolean;
-  /** Default effort if not specified */
-  defaultEffort: EffortTier;
-  /** Allow user override via --effort flag */
-  allowUserOverride: boolean;
-  /** Provider failover chain */
-  failoverChain: string[];
-  /** Custom tier configs */
-  tierConfigs?: Partial<Record<EffortTier, ModelTierConfig>>;
-}
+export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 
-/**
- * Default tier configurations
- */
-export const DEFAULT_TIER_CONFIGS: Record<EffortTier, ModelTierConfig> = {
-  lite: {
-    tier: "lite",
-    name: "Lite",
-    description: "Fast, cheap/local model for simple tasks (~3 min)",
-    providerOrder: ["ollama", "openrouter-free", "nvidia-nim"],
-    minCapabilities: {
-      streaming: true,
-      jsonMode: true,
-      toolCalling: false,
-      maxContextTokens: 32768,
-      maxOutputTokens: 4096,
-    },
-    maxCostPer1kTokens: 0, // Free only
-    estimatedTimeMinutes: 3,
-    useCases: ["font changes", "config tweaks", "remove component", "simple edits", "error explanation"],
+// Fallback chain entry
+export const FallbackEntrySchema = z.object({
+  modelId: z.string(),
+  reason: z.enum(["primary", "rate-limit", "error", "cost", "latency", "capability"]).default("primary"),
+  maxRetries: z.number().default(1),
+  timeoutMs: z.number().default(30000)
+});
+
+export type FallbackEntry = z.infer<typeof FallbackEntrySchema>;
+
+// Model preference per capability
+export const CapabilityPreferenceSchema = z.object({
+  capability: z.nativeEnum(ModelCapability),
+  primaryModelId: z.string(),
+  fallbackChain: z.array(FallbackEntrySchema).default([]),
+  preferences: z.object({
+    preferSpeed: z.boolean().default(false),
+    preferQuality: z.boolean().default(false),
+    preferCost: z.boolean().default(false),
+    preferLocal: z.boolean().default(false),
+    maxCostPerRequest: z.number().optional(),
+    maxLatencyMs: z.number().optional()
+  }).default({})
+});
+
+export type CapabilityPreference = z.infer<typeof CapabilityPreferenceSchema>;
+
+// Project model preferences
+export const ProjectModelPreferencesSchema = z.object({
+  projectId: z.string(),
+  capabilities: z.array(CapabilityPreferenceSchema).default([]),
+  defaultModelId: z.string().optional(),
+  globalFallbackChain: z.array(FallbackEntrySchema).default([]),
+  updatedAt: z.number().default(() => Date.now()),
+  updatedBy: z.string().optional()
+});
+
+export type ProjectModelPreferences = z.infer<typeof ProjectModelPreferencesSchema>;
+
+// User model preferences
+export const UserModelPreferencesSchema = z.object({
+  userId: z.string(),
+  capabilities: z.array(CapabilityPreferenceSchema).default([]),
+  defaultModelId: z.string().optional(),
+  globalFallbackChain: z.array(FallbackEntrySchema).default([]),
+  updatedAt: z.number().default(() => Date.now())
+});
+
+export type UserModelPreferences = z.infer<typeof UserModelPreferencesSchema>;
+
+// Resolved model for a capability
+export const ResolvedModelSchema = z.object({
+  capability: z.nativeEnum(ModelCapability),
+  model: ModelConfigSchema,
+  fallbackModels: z.array(ModelConfigSchema).default([]),
+  selectionReason: z.string()
+});
+
+export type ResolvedModel = z.infer<typeof ResolvedModelSchema>;
+
+// Built-in model catalog (free tier friendly)
+export const BUILTIN_MODELS: ModelConfig[] = [
+  // OpenRouter free models
+  {
+    id: "openrouter:meta-llama/llama-3.1-8b-instruct:free",
+    name: "Llama 3.1 8B (Free)",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "meta-llama/llama-3.1-8b-instruct:free",
+    capabilities: [ModelCapability.CHAT, ModelCapability.COMPOSER, ModelCapability.CODEBASE_SEARCH],
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 6,
+    latencyMs: 800
   },
-  high: {
-    tier: "high",
-    name: "High",
-    description: "Balanced model for standard coding tasks (~15 min)",
-    providerOrder: ["openrouter", "nvidia-nim", "ollama"],
-    minCapabilities: {
-      streaming: true,
-      jsonMode: true,
-      toolCalling: true,
-      vision: false,
-      maxContextTokens: 128000,
-      maxOutputTokens: 8192,
-    },
-    maxCostPer1kTokens: 0.001, // Very cheap
-    estimatedTimeMinutes: 15,
-    useCases: ["implement feature", "write component", "fix bug", "standard coding", "research"],
+  {
+    id: "openrouter:microsoft/phi-3-mini-128k-instruct:free",
+    name: "Phi-3 Mini 128K (Free)",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "microsoft/phi-3-mini-128k-instruct:free",
+    capabilities: [ModelCapability.CHAT, ModelCapability.TAB_AUTOCOMPLETE, ModelCapability.CMD_K_EDIT],
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 5,
+    latencyMs: 600
   },
-  max: {
-    tier: "max",
-    name: "Max",
-    description: "Strongest model for complex planning/architectural tasks (~45 min)",
-    providerOrder: ["openrouter", "nvidia-nim"],
-    minCapabilities: {
-      streaming: true,
-      jsonMode: true,
-      toolCalling: true,
-      vision: true,
-      maxContextTokens: 200000,
-      maxOutputTokens: 16384,
-    },
-    maxCostPer1kTokens: 0.01, // Still prefer free but allow paid if needed
-    estimatedTimeMinutes: 45,
-    useCases: ["architecture", "multi-file refactor", "design decisions", "complex planning", "code review"],
+  {
+    id: "openrouter:google/gemma-2-9b-it:free",
+    name: "Gemma 2 9B (Free)",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "google/gemma-2-9b-it:free",
+    capabilities: [ModelCapability.CHAT, ModelCapability.COMPOSER, ModelCapability.AGENT],
+    contextWindow: 8192,
+    maxOutputTokens: 4096,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 6,
+    latencyMs: 700
   },
-};
+  {
+    id: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
+    name: "Qwen 2.5 Coder 32B (Free)",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "qwen/qwen-2.5-coder-32b-instruct:free",
+    capabilities: [
+      ModelCapability.CHAT, ModelCapability.COMPOSER, ModelCapability.AGENT,
+      ModelCapability.TAB_AUTOCOMPLETE, ModelCapability.CMD_K_EDIT, ModelCapability.CODEBASE_SEARCH
+    ],
+    contextWindow: 32768,
+    maxOutputTokens: 8192,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 8,
+    latencyMs: 1000
+  },
+  // OpenRouter paid but cheap
+  {
+    id: "openrouter:anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "anthropic/claude-3.5-sonnet",
+    capabilities: Object.values(ModelCapability),
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    supportsVision: true,
+    costPer1kInputTokens: 3.00,
+    costPer1kOutputTokens: 15.00,
+    qualityScore: 10,
+    latencyMs: 1500
+  },
+  {
+    id: "openrouter:anthropic/claude-3.5-haiku",
+    name: "Claude 3.5 Haiku",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "anthropic/claude-3.5-haiku",
+    capabilities: Object.values(ModelCapability),
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    costPer1kInputTokens: 0.25,
+    costPer1kOutputTokens: 1.25,
+    qualityScore: 8,
+    latencyMs: 800
+  },
+  {
+    id: "openrouter:openai/gpt-4o",
+    name: "GPT-4o",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "openai/gpt-4o",
+    capabilities: Object.values(ModelCapability),
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    supportsVision: true,
+    costPer1kInputTokens: 2.50,
+    costPer1kOutputTokens: 10.00,
+    qualityScore: 9,
+    latencyMs: 1200
+  },
+  {
+    id: "openrouter:openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "openai/gpt-4o-mini",
+    capabilities: Object.values(ModelCapability),
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    supportsVision: true,
+    costPer1kInputTokens: 0.15,
+    costPer1kOutputTokens: 0.60,
+    qualityScore: 7,
+    latencyMs: 600
+  },
+  // Local models (Ollama)
+  {
+    id: "ollama:qwen2.5-coder:7b",
+    name: "Qwen 2.5 Coder 7B (Local)",
+    provider: ModelProvider.OLLAMA,
+    modelId: "qwen2.5-coder:7b",
+    capabilities: [
+      ModelCapability.CHAT, ModelCapability.COMPOSER, ModelCapability.AGENT,
+      ModelCapability.TAB_AUTOCOMPLETE, ModelCapability.CMD_K_EDIT, ModelCapability.CODEBASE_SEARCH
+    ],
+    contextWindow: 32768,
+    maxOutputTokens: 8192,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 7,
+    latencyMs: 2000,
+    baseUrl: "http://localhost:11434"
+  },
+  {
+    id: "ollama:deepseek-coder:6.7b",
+    name: "DeepSeek Coder 6.7B (Local)",
+    provider: ModelProvider.OLLAMA,
+    modelId: "deepseek-coder:6.7b",
+    capabilities: [
+      ModelCapability.CHAT, ModelCapability.COMPOSER, ModelCapability.TAB_AUTOCOMPLETE,
+      ModelCapability.CMD_K_EDIT, ModelCapability.CODEBASE_SEARCH
+    ],
+    contextWindow: 16384,
+    maxOutputTokens: 4096,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 7,
+    latencyMs: 1500,
+    baseUrl: "http://localhost:11434"
+  },
+  {
+    id: "ollama:codellama:13b",
+    name: "CodeLlama 13B (Local)",
+    provider: ModelProvider.OLLAMA,
+    modelId: "codellama:13b",
+    capabilities: [
+      ModelCapability.CHAT, ModelCapability.TAB_AUTOCOMPLETE, ModelCapability.CMD_K_EDIT,
+      ModelCapability.CODEBASE_SEARCH
+    ],
+    contextWindow: 16384,
+    maxOutputTokens: 4096,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 6,
+    latencyMs: 2500,
+    baseUrl: "http://localhost:11434"
+  },
+  // Embeddings
+  {
+    id: "openrouter: Voyage AI (via OpenRouter)",
+    name: "voyage-3",
+    provider: ModelProvider.OPENROUTER,
+    modelId: "voyage/voyage-3",
+    capabilities: [ModelCapability.EMBEDDINGS],
+    contextWindow: 32768,
+    maxOutputTokens: 1024,
+    costPer1kInputTokens: 0.10,
+    costPer1kOutputTokens: 0,
+    qualityScore: 8,
+    latencyMs: 500
+  },
+  {
+    id: "ollama:nomic-embed-text",
+    name: "Nomic Embed Text (Local)",
+    provider: ModelProvider.OLLAMA,
+    modelId: "nomic-embed-text",
+    capabilities: [ModelCapability.EMBEDDINGS],
+    contextWindow: 8192,
+    maxOutputTokens: 1024,
+    costPer1kInputTokens: 0,
+    costPer1kOutputTokens: 0,
+    qualityScore: 6,
+    latencyMs: 300,
+    baseUrl: "http://localhost:11434"
+  }
+];
 
 /**
- * Role to default tier mapping
- */
-export const ROLE_DEFAULT_TIER: Record<AgentRole, EffortTier> = {
-  planner: "max",
-  coder: "high",
-  reviewer: "max",
-  fixer: "high",
-  researcher: "high",
-  summarizer: "lite",
-  general: "high",
-};
-
-/**
- * Task category to default tier mapping
- */
-export const TASK_CATEGORY_DEFAULT_TIER: Record<TaskCategory, EffortTier> = {
-  "simple-edit": "lite",
-  "standard-coding": "high",
-  "complex-planning": "max",
-  "research": "high",
-  "code-review": "max",
-  "error-fix": "high",
-  "summarization": "lite",
-  "visual-verification": "high",
-  "deployment": "high",
-};
-
-/**
- * Model Router Engine
+ * Model Router - Resolves models for capabilities with fallbacks
  */
 export class ModelRouter {
-  private config: ModelRouterConfig;
-  private costHistory: CostEntry[] = [];
-  private adapterCache: Map<string, LLMAdapter> = new Map();
+  private models: Map<string, ModelConfig> = new Map();
+  private projectPreferences: Map<string, ProjectModelPreferences> = new Map();
+  private userPreferences: Map<string, UserModelPreferences> = new Map();
+  private projectRoot: string;
 
-  constructor(config: Partial<ModelRouterConfig> = {}) {
-    this.config = {
-      enforceZeroBudget: true,
-      defaultEffort: "high",
-      allowUserOverride: true,
-      failoverChain: ["openrouter", "nvidia-nim", "ollama", "vllm"],
-      tierConfigs: {},
-      ...config,
-    };
+  constructor(projectRoot: string = process.cwd()) {
+    this.projectRoot = projectRoot;
+    this.registerBuiltinModels();
+  }
+
+  private registerBuiltinModels(): void {
+    for (const model of BUILTIN_MODELS) {
+      this.models.set(model.id, model);
+    }
   }
 
   /**
-   * Get tier configuration (with overrides)
+   * Register a custom model (BYOM)
    */
-  getTierConfig(tier: EffortTier): ModelTierConfig {
-    return { ...DEFAULT_TIER_CONFIGS[tier], ...this.config.tierConfigs?.[tier] };
+  registerModel(model: ModelConfig): void {
+    this.models.set(model.id, model);
   }
 
   /**
-   * Classify task into category based on description/context
+   * Get all available models
    */
-  classifyTask(
-    description: string,
-    context?: { filesChanged?: string[]; errorOutput?: string; planStep?: string }
-  ): TaskCategory {
-    const desc = description.toLowerCase();
-    const error = context?.errorOutput?.toLowerCase() || "";
-    const files = context?.filesChanged?.join(" ").toLowerCase() || "";
-    const plan = context?.planStep?.toLowerCase() || "";
+  getModels(filters?: { capability?: ModelCapability; provider?: ModelProvider; enabled?: boolean }): ModelConfig[] {
+    let models = Array.from(this.models.values());
 
-    // Error fix detection
-    if (error.includes("typescript") || error.includes("ts2") ||
-        error.includes("compilation") || error.includes("build failed") ||
-        desc.includes("fix error") || desc.includes("fix bug")) {
-      return "error-fix";
+    if (filters?.enabled !== undefined) {
+      models = models.filter(m => m.enabled === filters.enabled);
+    }
+    if (filters?.capability) {
+      models = models.filter(m => m.capabilities.includes(filters.capability!));
+    }
+    if (filters?.provider) {
+      models = models.filter(m => m.provider === filters.provider);
     }
 
-    // Simple edit detection
-    if (desc.includes("font") || desc.includes("color") || desc.includes("spacing") ||
-        desc.includes("remove") && (desc.includes("component") || desc.includes("file")) ||
-        desc.includes("config") || desc.includes("constant") ||
-        desc.includes("rename") || desc.includes("typos")) {
-      return "simple-edit";
-    }
-
-    // Visual verification
-    if (desc.includes("visual") || desc.includes("screenshot") ||
-        desc.includes("browser") || desc.includes("inspect") ||
-        desc.includes("layout") || desc.includes("overflow")) {
-      return "visual-verification";
-    }
-
-    // Research
-    if (desc.includes("research") || desc.includes("search") ||
-        desc.includes("documentation") || desc.includes("lookup") ||
-        desc.includes("find") && (desc.includes("how to") || desc.includes("example"))) {
-      return "research";
-    }
-
-    // Code review
-    if (desc.includes("review") || desc.includes("audit") ||
-        desc.includes("security") || desc.includes("performance") ||
-        desc.includes("best practice")) {
-      return "code-review";
-    }
-
-    // Summarization
-    if (desc.includes("summarize") || desc.includes("compress") ||
-        desc.includes("compact") || desc.includes("condense")) {
-      return "summarization";
-    }
-
-    // Deployment
-    if (desc.includes("deploy") || desc.includes("ci") || desc.includes("cd") ||
-        desc.includes("pipeline") || desc.includes("release")) {
-      return "deployment";
-    }
-
-    // Complex planning
-    if (desc.includes("architecture") || desc.includes("design") ||
-        desc.includes("plan") && (desc.includes("multi") || desc.includes("system")) ||
-        desc.includes("refactor") && (files.split(" ").length > 3) ||
-        desc.includes("migrate") || desc.includes("restructure")) {
-      return "complex-planning";
-    }
-
-    // Default to standard coding
-    return "standard-coding";
+    return models.sort((a, b) => b.qualityScore - a.qualityScore);
   }
 
   /**
-   * Determine effort tier for a task/role
+   * Get model by ID
    */
-  determineTier(
-    role: AgentRole,
-    taskCategory: TaskCategory,
-    userOverride?: EffortTier
-  ): EffortTier {
-    // User override takes precedence
-    if (userOverride && this.config.allowUserOverride) {
-      return userOverride;
-    }
-
-    // Role-based default
-    const roleTier = ROLE_DEFAULT_TIER[role];
-
-    // Task category default
-    const taskTier = TASK_CATEGORY_DEFAULT_TIER[taskCategory];
-
-    // Use the higher tier (more capable)
-    const tierOrder: EffortTier[] = ["lite", "high", "max"];
-    const roleIndex = tierOrder.indexOf(roleTier);
-    const taskIndex = tierOrder.indexOf(taskTier);
-
-    return tierOrder[Math.max(roleIndex, taskIndex)];
+  getModel(id: string): ModelConfig | undefined {
+    return this.models.get(id);
   }
 
   /**
-   * Route to best available model for a tier
+   * Load project preferences from .infinity/model-preferences.json
    */
-  async routeToTier(
-    tier: EffortTier,
-    role: AgentRole,
-    taskCategory: TaskCategory,
-    buildId?: string,
-    projectId?: string
-  ): Promise<RoutingDecision> {
-    const tierConfig = this.getTierConfig(tier);
-    const allKeys = await listKeys();
-
-    // Filter enabled, healthy keys
-    const healthyKeys = allKeys.filter(k => {
-      if (!k.enabled) return false;
-      if (k.coolDownUntil && Date.now() < k.coolDownUntil) return false;
-      return true;
-    });
-
-    // Score and sort keys by provider preference and capabilities
-    const scoredKeys = healthyKeys.map(key => {
-      const capabilities = this.getCapabilitiesForKey(key);
-      const providerScore = this.getProviderScore(key, tierConfig.providerOrder);
-      const capabilityScore = this.scoreCapabilities(capabilities, tierConfig.minCapabilities);
-      const costScore = this.scoreCost(key, tierConfig.maxCostPer1kTokens);
-
-      return {
-        key,
-        capabilities,
-        totalScore: providerScore * 0.5 + capabilityScore * 0.3 + costScore * 0.2,
-        providerScore,
-        capabilityScore,
-        costScore,
-      };
-    }).filter(s => s.capabilityScore > 0) // Must meet minimum capabilities
-    .sort((a, b) => b.totalScore - a.totalScore);
-
-    // Try to add local model as fallback for lite tier (or when no keys available)
-    let localAdapter: LLMAdapter | null = null;
-    let localCapabilities: LLMCapabilities | null = null;
-    if (tier === "lite" || scoredKeys.length === 0) {
-      localCapabilities = await this.getLocalModelCapabilities();
-      if (localCapabilities) {
-        // Check if local model meets minimum capabilities
-        const localCapScore = this.scoreCapabilities(localCapabilities, tierConfig.minCapabilities);
-        if (localCapScore > 0) {
-          localAdapter = await import("./adapters/local-adapter").then(m => m.createLocalAdapter());
-        }
-      }
+  async loadProjectPreferences(projectId: string): Promise<ProjectModelPreferences | null> {
+    const cacheKey = `project:${projectId}`;
+    if (this.projectPreferences.has(cacheKey)) {
+      return this.projectPreferences.get(cacheKey)!;
     }
 
-    // If no scored keys and no local model, throw error
-    if (scoredKeys.length === 0 && !localAdapter) {
-      throw new Error(`No available models meet requirements for tier: ${tier}`);
-    }
-
-    let best: typeof scoredKeys[0];
-    let selectedAdapter: LLMAdapter;
-    let selectedKey: LlmKeyEntry | null = null;
-    let reasoning: string;
-    let estimatedCost: number;
-
-    if (scoredKeys.length > 0) {
-      best = scoredKeys[0];
-      selectedAdapter = await this.createAdapterFromKey(best.key);
-      selectedKey = best.key;
-      reasoning = `Selected ${best.key.provider}/${best.key.model} (${tierConfig.name} tier) for ${role} role, ${taskCategory} task. Provider score: ${best.providerScore.toFixed(2)}, Capability score: ${best.capabilityScore.toFixed(2)}, Cost score: ${best.costScore.toFixed(2)}`;
-      estimatedCost = this.estimateCost(best.key, tierConfig.estimatedTimeMinutes);
-    } else {
-      // Use local model as primary
-      selectedAdapter = localAdapter!;
-      selectedKey = null;
-      reasoning = `Using local model (${tierConfig.name} tier) for ${role} role, ${taskCategory} task - no cloud keys available`;
-      estimatedCost = 0;
-    }
-
-    // Build fallbacks: remaining scored keys + local model if not already used
-    const fallbacks = scoredKeys.slice(1, 4);
-    const fallbackAdapters = await Promise.all(
-      fallbacks.map(f => this.createAdapterFromKey(f.key))
-    );
-
-    // Add local model as fallback if available and not already primary
-    if (localAdapter && !selectedKey) {
-      // Already using local as primary
-    } else if (localAdapter) {
-      fallbackAdapters.push(localAdapter);
-    }
-
-    return {
-      tier,
-      role,
-      taskCategory,
-      selectedAdapter,
-      selectedKey,
-      reasoning,
-      fallbackAdapters,
-      fallbackKeys: fallbacks.map(f => f.key),
-      estimatedCost,
-      estimatedTimeMinutes: tierConfig.estimatedTimeMinutes,
-    };
-  }
-
-  /**
-   * High-level routing: classify task and route
-   */
-  async route(
-    role: AgentRole,
-    taskDescription: string,
-    context?: { filesChanged?: string[]; errorOutput?: string; planStep?: string },
-    userOverride?: EffortTier,
-    buildId?: string,
-    projectId?: string
-  ): Promise<RoutingDecision> {
-    const taskCategory = this.classifyTask(taskDescription, context);
-    const tier = this.determineTier(role, taskCategory, userOverride);
-    return this.routeToTier(tier, role, taskCategory, buildId, projectId);
-  }
-
-  /**
-   * Execute with automatic failover
-   */
-  async executeWithFailover<T>(
-    decision: RoutingDecision,
-    operation: (adapter: LLMAdapter) => Promise<T>
-  ): Promise<{ result: T; usedFallback: boolean; fallbackIndex?: number }> {
-    // Try primary
+    const prefsPath = join(this.projectRoot, ".infinity", "model-preferences.json");
     try {
-      const result = await operation(decision.selectedAdapter);
-      return { result, usedFallback: false };
-    } catch (primaryError) {
-      // Try fallbacks
-      for (let i = 0; i < decision.fallbackAdapters.length; i++) {
-        try {
-          const result = await operation(decision.fallbackAdapters[i]);
-          return { result, usedFallback: true, fallbackIndex: i };
-        } catch (fallbackError) {
-          // Continue to next fallback
-          console.warn(`Fallback ${i + 1} failed:`, fallbackError);
-        }
-      }
-      // All failed
-      throw primaryError;
+      const content = await readFile(prefsPath, "utf-8");
+      const parsed = JSON.parse(content);
+      const validated = ProjectModelPreferencesSchema.parse(parsed);
+      this.projectPreferences.set(cacheKey, validated);
+      return validated;
+    } catch {
+      return null;
     }
   }
 
   /**
-   * Record cost for tracking
+   * Save project preferences
    */
-  recordCost(entry: Omit<CostEntry, "timestamp">): void {
-    const fullEntry: CostEntry = {
-      ...entry,
-      timestamp: new Date().toISOString(),
-    };
-    this.costHistory.push(fullEntry);
+  async saveProjectPreferences(prefs: ProjectModelPreferences): Promise<void> {
+    const prefsPath = join(this.projectRoot, ".infinity", "model-preferences.json");
+    await mkdir(dirname(prefsPath), { recursive: true });
+    await writeFile(prefsPath, JSON.stringify(prefs, null, 2), "utf-8");
+    this.projectPreferences.set(`project:${prefs.projectId}`, prefs);
+  }
 
-    // Keep history bounded
-    if (this.costHistory.length > 10000) {
-      this.costHistory = this.costHistory.slice(-10000);
+  /**
+   * Load user preferences from ~/.infinity/model-preferences.json
+   */
+  async loadUserPreferences(userId: string): Promise<UserModelPreferences | null> {
+    const cacheKey = `user:${userId}`;
+    if (this.userPreferences.has(cacheKey)) {
+      return this.userPreferences.get(cacheKey)!;
+    }
+
+    const homeDir = process.env.HOME || "";
+    const prefsPath = join(homeDir, ".infinity", "model-preferences.json");
+    try {
+      const content = await readFile(prefsPath, "utf-8");
+      const parsed = JSON.parse(content);
+      const validated = UserModelPreferencesSchema.parse(parsed);
+      this.userPreferences.set(cacheKey, validated);
+      return validated;
+    } catch {
+      return null;
     }
   }
 
   /**
-   * Get cost summary
+   * Save user preferences
    */
-  getCostSummary(projectId?: string, buildId?: string): {
-    totalCost: number;
-    totalTokens: { input: number; output: number };
-    byTier: Record<EffortTier, { cost: number; calls: number }>;
-    byRole: Record<AgentRole, { cost: number; calls: number }>;
-    byProvider: Record<string, { cost: number; calls: number }>;
-    recentEntries: CostEntry[];
-  } {
-    let entries = this.costHistory;
-    if (projectId) {
-      entries = entries.filter(e => e.projectId === projectId);
-    }
-    if (buildId) {
-      entries = entries.filter(e => e.buildId === buildId);
-    }
+  async saveUserPreferences(prefs: UserModelPreferences): Promise<void> {
+    const homeDir = process.env.HOME || "";
+    const prefsPath = join(homeDir, ".infinity", "model-preferences.json");
+    await mkdir(dirname(prefsPath), { recursive: true });
+    await writeFile(prefsPath, JSON.stringify(prefs, null, 2), "utf-8");
+    this.userPreferences.set(`user:${prefs.userId}`, prefs);
+  }
 
-    const byTier: Record<EffortTier, { cost: number; calls: number }> = {
-      lite: { cost: 0, calls: 0 },
-      high: { cost: 0, calls: 0 },
-      max: { cost: 0, calls: 0 },
-    };
+  /**
+   * Resolve the best model for a capability
+   */
+  async resolveModel(
+    capability: ModelCapability,
+    context: { projectId?: string; userId?: string; preferences?: Partial<CapabilityPreference["preferences"]> } = {}
+  ): Promise<ResolvedModel> {
+    // 1. Check project preferences
+    let capabilityPref: CapabilityPreference | undefined;
+    let globalFallback: FallbackEntry[] = [];
 
-    const byRole: Record<AgentRole, { cost: number; calls: number }> = {
-      planner: { cost: 0, calls: 0 },
-      coder: { cost: 0, calls: 0 },
-      reviewer: { cost: 0, calls: 0 },
-      fixer: { cost: 0, calls: 0 },
-      researcher: { cost: 0, calls: 0 },
-      summarizer: { cost: 0, calls: 0 },
-      general: { cost: 0, calls: 0 },
-    };
-
-    const byProvider: Record<string, { cost: number; calls: number }> = {};
-
-    let totalCost = 0;
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-
-    for (const entry of entries) {
-      totalCost += entry.costUsd;
-      totalInputTokens += entry.inputTokens;
-      totalOutputTokens += entry.outputTokens;
-
-      byTier[entry.tier].cost += entry.costUsd;
-      byTier[entry.tier].calls += 1;
-
-      byRole[entry.role].cost += entry.costUsd;
-      byRole[entry.role].calls += 1;
-
-      if (!byProvider[entry.provider]) {
-        byProvider[entry.provider] = { cost: 0, calls: 0 };
+    if (context.projectId) {
+      const projectPrefs = await this.loadProjectPreferences(context.projectId);
+      if (projectPrefs) {
+        capabilityPref = projectPrefs.capabilities.find(c => c.capability === capability);
+        globalFallback = projectPrefs.globalFallbackChain;
       }
-      byProvider[entry.provider].cost += entry.costUsd;
-      byProvider[entry.provider].calls += 1;
+    }
+
+    // 2. Fall back to user preferences
+    if (!capabilityPref && context.userId) {
+      const userPrefs = await this.loadUserPreferences(context.userId);
+      if (userPrefs) {
+        capabilityPref = userPrefs.capabilities.find(c => c.capability === capability);
+        globalFallback = userPrefs.globalFallbackChain;
+      }
+    }
+
+    // 3. Use defaults if no preferences
+    if (!capabilityPref) {
+      capabilityPref = this.getDefaultPreference(capability);
+    }
+
+    // 4. Merge context preferences
+    const mergedPrefs = { ...capabilityPref.preferences, ...context.preferences };
+
+    // 5. Find primary model
+    const primaryModel = this.models.get(capabilityPref.primaryModelId);
+    if (!primaryModel || !primaryModel.enabled) {
+      // Fall back to best available model for capability
+      const available = this.getModels({ capability, enabled: true });
+      if (available.length === 0) {
+        throw new Error(`No models available for capability: ${capability}`);
+      }
+      return {
+        capability,
+        model: available[0],
+        fallbackModels: available.slice(1, 3),
+        selectionReason: "default-best-available"
+      };
+    }
+
+    // 6. Build fallback chain
+    const fallbackModels: ModelConfig[] = [];
+
+    // Add capability-specific fallbacks
+    for (const fallback of capabilityPref.fallbackChain) {
+      const model = this.models.get(fallback.modelId);
+      if (model && model.enabled) {
+        fallbackModels.push(model);
+      }
+    }
+
+    // Add global fallbacks
+    for (const fallback of globalFallback) {
+      const model = this.models.get(fallback.modelId);
+      if (model && model.enabled && !fallbackModels.includes(model)) {
+        fallbackModels.push(model);
+      }
+    }
+
+    // Add best available as last resort
+    const available = this.getModels({ capability, enabled: true });
+    for (const model of available) {
+      if (!fallbackModels.includes(model) && model.id !== primaryModel.id) {
+        fallbackModels.push(model);
+      }
+    }
+
+    // 7. Apply preference filters
+    let filteredFallbacks = fallbackModels;
+
+    if (mergedPrefs.preferLocal) {
+      filteredFallbacks = filteredFallbacks.sort((a, b) => {
+        const aLocal = a.provider === ModelProvider.OLLAMA || a.provider === ModelProvider.LM_STUDIO;
+        const bLocal = b.provider === ModelProvider.OLLAMA || b.provider === ModelProvider.LM_STUDIO;
+        return (aLocal === bLocal) ? 0 : aLocal ? -1 : 1;
+      });
+    }
+
+    if (mergedPrefs.preferSpeed) {
+      filteredFallbacks = filteredFallbacks.sort((a, b) => a.latencyMs - b.latencyMs);
+    }
+
+    if (mergedPrefs.preferCost) {
+      filteredFallbacks = filteredFallbacks.sort((a, b) => {
+        const aCost = a.costPer1kInputTokens + a.costPer1kOutputTokens;
+        const bCost = b.costPer1kInputTokens + b.costPer1kOutputTokens;
+        return aCost - bCost;
+      });
+    }
+
+    if (mergedPrefs.preferQuality) {
+      filteredFallbacks = filteredFallbacks.sort((a, b) => b.qualityScore - a.qualityScore);
+    }
+
+    if (mergedPrefs.maxCostPerRequest !== undefined) {
+      filteredFallbacks = filteredFallbacks.filter(m => {
+        const cost = (m.costPer1kInputTokens + m.costPer1kOutputTokens) * (m.maxOutputTokens / 1000);
+        return cost <= mergedPrefs.maxCostPerRequest!;
+      });
+    }
+
+    if (mergedPrefs.maxLatencyMs !== undefined) {
+      filteredFallbacks = filteredFallbacks.filter(m => m.latencyMs <= mergedPrefs.maxLatencyMs!);
     }
 
     return {
-      totalCost,
-      totalTokens: { input: totalInputTokens, output: totalOutputTokens },
-      byTier,
-      byRole,
-      byProvider,
-      recentEntries: entries.slice(-50),
+      capability,
+      model: primaryModel,
+      fallbackModels: filteredFallbacks.slice(0, 5),
+      selectionReason: capabilityPref.primaryModelId === primaryModel.id ? "explicit-preference" : "best-available"
     };
   }
 
   /**
-   * Check if budget allows another call
+   * Get default preference for a capability
    */
-  checkBudget(estimatedCost: number, projectId?: string): { allowed: boolean; reason?: string } {
-    if (!this.config.enforceZeroBudget) {
-      return { allowed: true };
-    }
+  private getDefaultPreference(capability: ModelCapability): CapabilityPreference {
+    // Default to best free model for each capability
+    const freeModels = this.getModels({ capability, enabled: true }).filter(m => m.costPer1kInputTokens === 0);
+    const bestFree = freeModels[0] || this.getModels({ capability, enabled: true })[0];
 
-    const summary = this.getCostSummary(projectId);
-    if (summary.totalCost + estimatedCost > 0.01) { // $0.01 threshold for "effectively zero"
-      return {
-        allowed: false,
-        reason: `Budget exceeded: $${summary.totalCost.toFixed(4)} used, $${estimatedCost.toFixed(4)} estimated`,
-      };
-    }
+    const primaryId = bestFree?.id || "openrouter:qwen/qwen-2.5-coder-32b-instruct:free";
 
-    return { allowed: true };
-  }
-
-  // ============================================================
-  // PRIVATE HELPERS
-  // ============================================================
-
-  private getCapabilitiesForKey(key: LlmKeyEntry): LLMCapabilities {
-    const baseUrl = key.baseUrl.toLowerCase();
-    const model = key.model.toLowerCase();
-
-    if (baseUrl.includes("openrouter")) {
-      return {
-        streaming: true,
-        jsonMode: true,
-        toolCalling: true,
-        vision: true,
-        maxContextTokens: model.includes("gemini") ? 1000000 : 128000,
-        maxOutputTokens: 8192,
-      };
-    }
-    if (baseUrl.includes("nvidia")) {
-      return {
-        streaming: true,
-        jsonMode: true,
-        toolCalling: true,
-        vision: true,
-        maxContextTokens: 128000,
-        maxOutputTokens: 8192,
-      };
-    }
-    if (baseUrl.includes("ollama") || baseUrl.includes("localhost")) {
-      return {
-        streaming: true,
-        jsonMode: true,
-        toolCalling: false,
-        vision: false,
-        maxContextTokens: 32768,
-        maxOutputTokens: 4096,
-      };
-    }
-    if (baseUrl.includes("vllm")) {
-      return {
-        streaming: true,
-        jsonMode: true,
-        toolCalling: true,
-        vision: false,
-        maxContextTokens: 128000,
-        maxOutputTokens: 8192,
-      };
-    }
-
-    // Generic
     return {
-      streaming: true,
-      jsonMode: true,
-      toolCalling: true,
-      vision: false,
-      maxContextTokens: 128000,
-      maxOutputTokens: 8192,
+      capability,
+      primaryModelId: primaryId,
+      fallbackChain: [],
+      preferences: {
+        preferSpeed: capability === ModelCapability.TAB_AUTOCOMPLETE,
+        preferQuality: capability === ModelCapability.AGENT || capability === ModelCapability.DEEP_RESEARCH,
+        preferCost: true
+      }
     };
   }
 
   /**
-   * Get capabilities for local model (not from key pool)
+   * Set capability preference for project
    */
-  private async getLocalModelCapabilities(): Promise<LLMCapabilities | null> {
-    const available = await isLocalModelAvailable();
-    if (!available) return null;
-    return { ...LOCAL_MODEL_CAPABILITIES };
-  }
-
-  private getProviderScore(key: LlmKeyEntry, providerOrder: string[]): number {
-    const baseUrl = key.baseUrl.toLowerCase();
-    let provider = "unknown";
-
-    if (baseUrl.includes("openrouter")) provider = "openrouter";
-    else if (baseUrl.includes("nvidia")) provider = "nvidia-nim";
-    else if (baseUrl.includes("ollama") || baseUrl.includes("localhost")) provider = "ollama";
-    else if (baseUrl.includes("vllm")) provider = "vllm";
-
-    const index = providerOrder.indexOf(provider);
-    if (index >= 0) {
-      return 1 - (index / providerOrder.length) * 0.5; // 1.0 for first, 0.5 for last
+  async setProjectCapabilityPreference(
+    projectId: string,
+    pref: CapabilityPreference
+  ): Promise<void> {
+    let prefs = await this.loadProjectPreferences(projectId);
+    if (!prefs) {
+      prefs = { projectId, capabilities: [], globalFallbackChain: [] };
     }
-    return 0.3; // Unknown provider gets low score
+
+    const idx = prefs.capabilities.findIndex(c => c.capability === pref.capability);
+    if (idx >= 0) {
+      prefs.capabilities[idx] = pref;
+    } else {
+      prefs.capabilities.push(pref);
+    }
+    prefs.updatedAt = Date.now();
+    await this.saveProjectPreferences(prefs);
   }
 
-  private scoreCapabilities(actual: LLMCapabilities, required: Partial<LLMCapabilities>): number {
-    let score = 0;
-    let checks = 0;
+  /**
+   * Set global fallback chain for project
+   */
+  async setProjectGlobalFallback(projectId: string, chain: FallbackEntry[]): Promise<void> {
+    let prefs = await this.loadProjectPreferences(projectId);
+    if (!prefs) {
+      prefs = { projectId, capabilities: [], globalFallbackChain: chain };
+    } else {
+      prefs.globalFallbackChain = chain;
+    }
+    prefs.updatedAt = Date.now();
+    await this.saveProjectPreferences(prefs);
+  }
 
-    for (const [cap, requiredValue] of Object.entries(required)) {
-      checks++;
-      const actualValue = actual[cap as keyof LLMCapabilities];
-      if (actualValue === requiredValue) {
-        score += 1;
-      } else if (typeof actualValue === "number" && typeof requiredValue === "number") {
-        // For numeric capabilities, score based on ratio
-        score += Math.min(1, actualValue / requiredValue);
-      } else if (actualValue === true && requiredValue === false) {
-        score += 1; // Exceeds requirement
+  /**
+   * Set capability preference for user
+   */
+  async setUserCapabilityPreference(
+    userId: string,
+    pref: CapabilityPreference
+  ): Promise<void> {
+    let prefs = await this.loadUserPreferences(userId);
+    if (!prefs) {
+      prefs = { userId, capabilities: [], globalFallbackChain: [] };
+    }
+
+    const idx = prefs.capabilities.findIndex(c => c.capability === pref.capability);
+    if (idx >= 0) {
+      prefs.capabilities[idx] = pref;
+    } else {
+      prefs.capabilities.push(pref);
+    }
+    prefs.updatedAt = Date.now();
+    await this.saveUserPreferences(prefs);
+  }
+
+  /**
+   * Get default preferences template
+   */
+  static getDefaultPreferences(): CapabilityPreference[] {
+    return [
+      {
+        capability: ModelCapability.CHAT,
+        primaryModelId: "openrouter:anthropic/claude-3.5-sonnet",
+        fallbackChain: [
+          { modelId: "openrouter:openai/gpt-4o", reason: "error" },
+          { modelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free", reason: "rate-limit" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.COMPOSER,
+        primaryModelId: "openrouter:anthropic/claude-3.5-sonnet",
+        fallbackChain: [
+          { modelId: "openrouter:openai/gpt-4o", reason: "error" },
+          { modelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free", reason: "rate-limit" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.AGENT,
+        primaryModelId: "openrouter:anthropic/claude-3.5-sonnet",
+        fallbackChain: [
+          { modelId: "openrouter:openai/gpt-4o", reason: "error" },
+          { modelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free", reason: "rate-limit" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.TAB_AUTOCOMPLETE,
+        primaryModelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
+        fallbackChain: [
+          { modelId: "ollama:qwen2.5-coder:7b", reason: "error" },
+          { modelId: "openrouter:microsoft/phi-3-mini-128k-instruct:free", reason: "latency" }
+        ],
+        preferences: { preferSpeed: true, preferLocal: true }
+      },
+      {
+        capability: ModelCapability.CMD_K_EDIT,
+        primaryModelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
+        fallbackChain: [
+          { modelId: "ollama:qwen2.5-coder:7b", reason: "error" },
+          { modelId: "openrouter:anthropic/claude-3.5-haiku", reason: "rate-limit" }
+        ],
+        preferences: { preferSpeed: true }
+      },
+      {
+        capability: ModelCapability.CODEBASE_SEARCH,
+        primaryModelId: "openrouter:qwen/qwen-2.5-coder-32b-instruct:free",
+        fallbackChain: [
+          { modelId: "ollama:qwen2.5-coder:7b", reason: "error" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.DEEP_RESEARCH,
+        primaryModelId: "openrouter:anthropic/claude-3.5-sonnet",
+        fallbackChain: [
+          { modelId: "openrouter:openai/gpt-4o", reason: "error" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.VISUAL_EDITING,
+        primaryModelId: "openrouter:anthropic/claude-3.5-sonnet",
+        fallbackChain: [
+          { modelId: "openrouter:openai/gpt-4o", reason: "error" }
+        ],
+        preferences: { preferQuality: true }
+      },
+      {
+        capability: ModelCapability.EMBEDDINGS,
+        primaryModelId: "ollama:nomic-embed-text",
+        fallbackChain: [
+          { modelId: "openrouter:voyage/voyage-3", reason: "error" }
+        ],
+        preferences: { preferLocal: true, preferSpeed: true }
       }
-      // actualValue false when required true = 0
-    }
-
-    return checks > 0 ? score / checks : 1;
-  }
-
-  private scoreCost(key: LlmKeyEntry, maxCostPer1k: number): number {
-    // Free models get max score
-    if (key.costPer1kTokens === 0 || key.costPer1kTokens === undefined) {
-      return 1;
-    }
-    if (key.costPer1kTokens <= maxCostPer1k) {
-      return 1 - (key.costPer1kTokens / maxCostPer1k) * 0.5;
-    }
-    return 0; // Exceeds max cost
-  }
-
-  private estimateCost(key: LlmKeyEntry, minutes: number): number {
-    // Very rough estimate based on typical usage
-    if (key.costPer1kTokens === 0 || key.costPer1kTokens === undefined) {
-      return 0;
-    }
-    // Estimate ~10k tokens per minute of work
-    const estimatedTokens = minutes * 10000;
-    return (estimatedTokens / 1000) * key.costPer1kTokens;
-  }
-
-  private async createAdapterFromKey(key: LlmKeyEntry): Promise<LLMAdapter> {
-    const cacheKey = `${key.id}:${key.model}`;
-    const cached = this.adapterCache.get(cacheKey);
-    if (cached) return cached;
-
-    const adapter = await createAdapterFromEntry(key);
-    this.adapterCache.set(cacheKey, adapter);
-    return adapter;
+    ];
   }
 }
 
 /**
- * ============================================================
- * HIGH-LEVEL API
- * ============================================================
+ * Singleton
  */
+let modelRouterInstance: ModelRouter | null = null;
 
-// Global router instance
-let modelRouter: ModelRouter | null = null;
-
-/**
- * Get or create global model router
- */
-export function getModelRouter(config?: Partial<ModelRouterConfig>): ModelRouter {
-  if (!modelRouter) {
-    modelRouter = new ModelRouter(config);
+export function getModelRouter(projectRoot?: string): ModelRouter {
+  if (!modelRouterInstance) {
+    modelRouterInstance = new ModelRouter(projectRoot);
   }
-  return modelRouter;
+  return modelRouterInstance;
 }
 
-/**
- * Route and execute with automatic failover
- */
-export async function routeAndExecute<T>(
-  role: AgentRole,
-  taskDescription: string,
-  operation: (adapter: LLMAdapter) => Promise<T>,
-  context?: { filesChanged?: string[]; errorOutput?: string; planStep?: string },
-  userOverride?: EffortTier,
-  buildId?: string,
-  projectId?: string
-): Promise<{ result: T; decision: RoutingDecision; usedFallback: boolean }> {
-  const router = getModelRouter();
-  const decision = await router.route(role, taskDescription, context, userOverride, buildId, projectId);
-
-  // Check budget
-  const budgetCheck = router.checkBudget(decision.estimatedCost, projectId);
-  if (!budgetCheck.allowed) {
-    throw new Error(`Budget check failed: ${budgetCheck.reason}`);
-  }
-
-  const { result, usedFallback } = await router.executeWithFailover(decision, operation);
-
-  // Record cost (would be updated with actual tokens from operation)
-  router.recordCost({
-    tier: decision.tier,
-    role,
-    taskCategory: decision.taskCategory,
-    model: decision.selectedKey?.model ?? "local",
-    provider: decision.selectedKey?.provider ?? "ollama",
-    inputTokens: 0, // Would be filled by adapter
-    outputTokens: 0,
-    costUsd: decision.estimatedCost,
-    buildId,
-    projectId,
-  });
-
-  return { result, decision, usedFallback };
+export function resetModelRouter(): void {
+  modelRouterInstance = null;
 }
-
-/**
- * Parse effort flag from command line
- */
-export function parseEffortFlag(args: string[]): EffortTier | undefined {
-  const effortArg = args.find(arg => arg.startsWith("--effort=")) || args[args.indexOf("--effort") + 1];
-  if (effortArg) {
-    const value = effortArg.replace("--effort=", "") as EffortTier;
-    if (["lite", "high", "max"].includes(value)) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Get tier display name
- */
-export function getTierDisplayName(tier: EffortTier): string {
-  return DEFAULT_TIER_CONFIGS[tier].name;
-}
-
-/**
- * Get tier description
- */
-export function getTierDescription(tier: EffortTier): string {
-  return DEFAULT_TIER_CONFIGS[tier].description;
-}
-
-export default ModelRouter;

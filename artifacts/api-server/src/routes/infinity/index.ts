@@ -77,6 +77,7 @@ import artifactTemplatesRouter from "./artifact-templates";
 import enterpriseRouter from "./enterprise";
 import skillsRouter from "./skills";
 import uiBuilderRouter from "./ui-builder";
+import customizationRouter from "./customization";
 import uiCollabRouter from "./ui-collab";
 import frameworksRouter from "./frameworks";
 
@@ -132,6 +133,7 @@ router.use(artifactTemplatesRouter);
 router.use("/enterprise", enterpriseRouter);
 router.use("/skills", skillsRouter);
 router.use("/ui-builder", uiBuilderRouter);
+router.use("/customization", customizationRouter);
 router.use("/ui-collab", uiCollabRouter);
 router.use("/frameworks", frameworksRouter);
 router.use(hotReloadRouter);

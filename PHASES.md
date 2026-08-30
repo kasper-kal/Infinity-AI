@@ -38,7 +38,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
 | **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ✅ **COMPLETE** |
 | **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | ✅ COMPLETE |
-| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | 🔲 PLANNED |
+| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ✅ **COMPLETE** |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | 🔲 PLANNED |
 | **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | 🔲 PLANNED |
 | **29** | **IDE Integrations & CLI (Cursor Everywhere)** | 🔲 PLANNED |
@@ -1147,42 +1147,43 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Personalize AI behavior per project/team/user** — Rules (project/user), Notepads (reusable context), Model Preferences, Custom Instructions — all version-controlled and shareable.
 
 ### Requirements
-- [ ] **Rules** — `.infinity/rules/` support:
+- [x] **Rules** — `.infinity/rules/` support:
   - Project rules at repo root (auto-loaded)
   - User rules: global preferences (coding style, frameworks, conventions)
   - Rule types: always, auto-attached (glob patterns), agent-requested
   - Rule editor UI: syntax-highlighted, validation, templates
   - Inheritance: user → project → task-specific
-- [ ] **Notepads** — Reusable context snippets:
+- [x] **Notepads** — Reusable context snippets:
   - Save any chat context, code selection, or docs as notepad
   - `@notepad:name` to inject in chat/composer/agent
   - Team-shared notepads (project-scoped)
   - Version control: notepads as `.infinity/notepads/*.md` files
   - Categories: architecture decisions, API contracts, common patterns, debugging guides
-- [ ] **Model Preferences** — Per-project/user model routing:
+- [x] **Model Preferences** — Per-project/user model routing:
   - Default model for chat, composer, agent, tab
   - Fallback chain: primary → secondary → local
   - Cost/latency/quality preferences
   - BYOM (Bring Your Own Model) — custom OpenAI-compatible endpoints
-- [ ] **Custom Instructions** — Free-form prompt additions:
+- [x] **Custom Instructions** — Free-form prompt additions:
   - Per-agent overrides (composer vs agent vs chat)
   - UI: Settings → AI Customization
 
 ### Implementation Plan
-1. **Rules Parser** — Load rules files, parse frontmatter + glob patterns
-2. **Notepad Manager** — CRUD for notepads, file-based storage, @notepad resolver
-3. **Model Router** — Extend LLM adapter with per-capability model selection
-4. **Settings UI** — Rules editor, Notepad manager, Model preferences panel
+1. ✅ **Rules Parser** — Load rules files, parse frontmatter + glob patterns
+2. ✅ **Notepad Manager** — CRUD for notepads, file-based storage, @notepad resolver
+3. ✅ **Model Router** — Extend LLM adapter with per-capability model selection
+4. ✅ **Settings UI** — Rules editor, Notepad manager, Model preferences panel
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/rules.ts` (new)
-- `artifacts/api-server/src/lib/notepads.ts` (new)
-- `artifacts/api-server/src/lib/model-router.ts` (new)
-- `artifacts/api-server/src/routes/Infinity/customization.ts` (new)
-- `artifacts/Infinity/src/components/cursor/RulesEditor.tsx` (new)
-- `artifacts/Infinity/src/components/cursor/NotepadManager.tsx` (new)
-- `artifacts/Infinity/src/components/cursor/ModelPreferences.tsx` (new)
-- `artifacts/Infinity/src/components/views/SettingsView.tsx` (AI Customization tab)
+- ✅ `artifacts/api-server/src/lib/rules.ts` (new)
+- ✅ `artifacts/api-server/src/lib/notepads.ts` (new)
+- ✅ `artifacts/api-server/src/lib/model-router.ts` (new)
+- ✅ `artifacts/api-server/src/routes/Infinity/customization.ts` (new)
+- ✅ `artifacts/infinity-ai/src/components/cursor/RulesEditor.tsx` (new)
+- ✅ `artifacts/infinity-ai/src/components/cursor/NotepadManager.tsx` (new)
+- ✅ `artifacts/infinity-ai/src/components/cursor/ModelPreferences.tsx` (new)
+- ✅ `artifacts/infinity-ai/src/components/views/SettingsView.tsx` (AI Customization tab)
+- ✅ `artifacts/infinity-ai/src/lib/i18n.tsx` (EN + NL translations)
 
 ---
 
