@@ -650,7 +650,7 @@ app.get('/api/sessions', (req, res) => {
   res.json(findClaudeSessions());
 });
 
-server.listen(PORT, () => {
+server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   console.log(`Remote chat server running on port ${PORT}`);
   console.log(`Looking for Claude sessions in: ${CLAUDE_SESSIONS_DIR}`);
 });
