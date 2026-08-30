@@ -184,16 +184,27 @@ function loadSessionData(pid: string): { history: HistoryEntry[], name?: string 
                     aiTitle = event.aiTitle;
                   }
                   // Extract user and assistant messages with proper roles
+                  function extractText(content: any): string {
+                    if (typeof content === 'string') return content;
+                    if (Array.isArray(content)) {
+                      return content.map(c => extractText(c)).join('\n');
+                    }
+                    if (content && typeof content === 'object') {
+                      if (content.type === 'text' && content.text) return content.text;
+                      if (content.type === 'thinking' && content.thinking) return `[thinking: ${content.thinking.slice(0,100)}...]`;
+                      if (content.type === 'tool_use') return `[tool: ${content.name}]`;
+                      if (content.type === 'tool_result') return `[tool result: ${typeof content.content === 'string' ? content.content.slice(0,200) : JSON.stringify(content.content).slice(0,200)}]`;
+                      return JSON.stringify(content);
+                    }
+                    return '';
+                  }
+
                   if (event.type === 'user' && event.message?.content) {
-                    const content = typeof event.message.content === 'string'
-                      ? event.message.content
-                      : JSON.stringify(event.message.content);
+                    const content = extractText(event.message.content);
                     fullHistory.push({ role: 'user', content, timestamp: event.timestamp });
                   }
                   if (event.type === 'assistant' && event.message?.content) {
-                    const content = typeof event.message.content === 'string'
-                      ? event.message.content
-                      : JSON.stringify(event.message.content);
+                    const content = extractText(event.message.content);
                     fullHistory.push({ role: 'assistant', content, timestamp: event.timestamp });
                   }
                 } catch {}
@@ -216,23 +227,65 @@ function loadSessionData(pid: string): { history: HistoryEntry[], name?: string 
   return { history: [] };
 }
 
-function attachToSession(sessionId: string): ChildProcess | null {
-  const sessionName = `claude-${sessionId}`;
-  const tmuxSession = `claude-${sessionId}`;
-
-  const proc = spawn('tmux', ['attach-session', '-t', tmuxSession], {
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-
-  return proc;
-}
-
 function createNewClaudeSession(sessionId: string, cwd: string): ChildProcess {
-  const proc = spawn('claude', [], {
+  // Use --bg to create background session, then attach for interactive I/O
+  // First create the background session
+  const { spawnSync } = require('child_process');
+  const bgResult = spawnSync('claude', ['--bg', '--dangerously-skip-permissions'], {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, TERM: 'xterm-256color' }
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      ANTHROPIC_BASE_URL: "http://localhost:20128",
+      ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
+      ANTHROPIC_MODEL: "auto",
+      ANTHROPIC_SMALL_FAST_MODEL: "auto",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "auto",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
+    },
+    encoding: 'utf8'
   });
+
+  // Extract session ID from output like "backgrounded · abc12345 (idle — send a prompt to start)"
+  const match = bgResult.stdout?.match(/backgrounded · (\w+)/);
+  const bgSessionId = match ? match[1] : null;
+
+  if (!bgSessionId) {
+    console.error('Failed to create background session:', bgResult.stdout, bgResult.stderr);
+    // Fallback to simple spawn
+    return spawn('claude', ['--dangerously-skip-permissions'], {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        ANTHROPIC_BASE_URL: "http://localhost:20128",
+        ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
+        ANTHROPIC_MODEL: "auto",
+        ANTHROPIC_SMALL_FAST_MODEL: "auto",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "auto",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
+      }
+    });
+  }
+
+  // Now attach to the background session for interactive I/O
+  const proc = spawn('claude', ['attach', bgSessionId, '--dangerously-skip-permissions'], {
+    cwd,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      ANTHROPIC_BASE_URL: "http://localhost:20128",
+      ANTHROPIC_AUTH_TOKEN: "sk-2535363cc0d37fa7-f00e7b-3f4f64b2",
+      ANTHROPIC_MODEL: "auto",
+      ANTHROPIC_SMALL_FAST_MODEL: "auto",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "auto",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "auto"
+    }
+  });
+
   return proc;
 }
 
@@ -296,7 +349,7 @@ function startAutomation(session: ChatSession, automation: Automation) {
 wss.on('connection', (ws: WebSocket) => {
   let currentSessionId: string | null = null;
 
-  ws.on('message', (data: Buffer) => {
+  ws.on('message', async (data: Buffer) => {
     try {
       const msg = JSON.parse(data.toString());
 
@@ -315,11 +368,31 @@ wss.on('connection', (ws: WebSocket) => {
 
           if (!session) {
             const { history, name } = loadSessionData(sessionId);
+
+            // Try to attach to tmux, fall back to new claude process if tmux unavailable
             let proc: ChildProcess | null = null;
 
-            try {
-              proc = attachToSession(sessionId);
-            } catch {
+            // Check if tmux exists first
+            const { spawnSync } = require('child_process');
+            const tmuxCheck = spawnSync('which', ['tmux']);
+            const hasTmux = tmuxCheck.status === 0;
+
+            if (hasTmux) {
+              const attachProc = spawn('tmux', ['attach-session', '-t', `claude-${sessionId}`], {
+                stdio: ['pipe', 'pipe', 'pipe']
+              });
+
+              // Wait briefly to see if attach succeeds
+              await new Promise<void>((resolve) => {
+                setTimeout(resolve, 300);
+              });
+
+              if (!attachProc.killed) {
+                proc = attachProc;
+              }
+            }
+
+            if (!proc) {
               proc = createNewClaudeSession(sessionId, process.cwd());
             }
 

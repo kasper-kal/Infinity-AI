@@ -1,0 +1,22 @@
+Remote chat server running on port 3002
+Looking for Claude sessions in: /home/codespace/.claude/sessions
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: spawn tmux ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:286:19)
+    at onErrorNT (node:internal/child_process:484:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+Emitted 'error' event on ChildProcess instance at:
+    at ChildProcess._handle.onexit (node:internal/child_process:292:12)
+    at onErrorNT (node:internal/child_process:484:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'spawn tmux',
+  path: 'tmux',
+  spawnargs: [ 'attach-session', '-t', 'claude-6922' ]
+}
+
+Node.js v24.14.0
