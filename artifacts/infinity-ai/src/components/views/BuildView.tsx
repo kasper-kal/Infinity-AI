@@ -42,7 +42,9 @@ import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
-import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database } from "lucide-react";
+import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
+import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
+import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -777,7 +779,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
   onRollback,
 }) => {
   const { t } = useI18n();
-  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase'>('progress');
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview'>('progress');
 
   return (
     <div className="flex flex-col h-full">
@@ -793,6 +795,8 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'deploy', label: t('overview.tabs.deploy'), icon: <Globe className="w-4 h-4" /> },
             { id: 'agents', label: t('overview.tabs.agents'), icon: <Wrench className="w-4 h-4" /> },
             { id: 'codebase', label: t('overview.tabs.codebase'), icon: <Database className="w-4 h-4" /> },
+            { id: 'shadowWorkspaces', label: t('overview.tabs.shadowWorkspaces'), icon: <Server className="w-4 h-4" /> },
+            { id: 'agentReview', label: t('overview.tabs.agentReview'), icon: <GitPullRequest className="w-4 h-4" /> },
           ]}
           activeTab={overviewTab}
           onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
@@ -863,6 +867,16 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
         {overviewTab === 'codebase' && (
           <div className="flex flex-col h-full">
             <CodebaseIndexPanel projectId={projectId} projectRoot="/" />
+          </div>
+        )}
+        {overviewTab === 'shadowWorkspaces' && (
+          <div className="flex flex-col h-full">
+            <ShadowWorkspacePanel projectId={projectId} projectRoot="/" />
+          </div>
+        )}
+        {overviewTab === 'agentReview' && (
+          <div className="flex flex-col h-full">
+            <AgentReviewPanel projectId={projectId} />
           </div>
         )}
       </div>
