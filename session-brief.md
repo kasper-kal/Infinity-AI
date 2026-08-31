@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-30 17:45
+LAST_UPDATED: 2026-08-31
 
 ## Just did (last action)
 - **Phase 26: Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅** — Full AI personalization system:
@@ -190,6 +190,7 @@ LAST_UPDATED: 2026-08-30 17:45
   - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes) — PLANNED
   - Phase 40: Recipe Widget (Standard + Deep Research) — PLANNED
   - Phase 41: File Format Conversion (@File Convert Command) — PLANNED
+- Phase 42: Passkeys + TOTP (Authenticator App) Integration — PLANNED
 
 - **Build Status:**
   - API Server: **BUILD PASSES** ✅ (esbuild - produces dist/index.mjs ~14MB)
@@ -483,6 +484,8 @@ LAST_UPDATED: 2026-08-30 17:45
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-08-31 **Added Phase 42: Passkeys + TOTP (Authenticator App) Integration** — New final phase for modern MFA: Passkeys (WebAuthn/FIDO2) for passwordless login + TOTP authenticator apps (Google Authenticator, Authy, 1Password, Bitwarden). $0 cost, local-first, no external dependencies. Added to PHASES.md with full requirements, implementation plan, and file list.
+
 - 2026-08-30 **Phase 25: Codebase Indexing & Semantic Search — COMPLETE ✅** — All frontend work finished:
   - **CodebaseIndexPanel.tsx** already existed and integrated in BuildView overviewTab 'codebase' with index status, re-index buttons, stats, exclude patterns, search test interface
   - **Code Navigation Features — COMPLETE**: F12 (Go to Definition) + Shift+F12 (Find References) added to both CodeMirrorIntegration.tsx files (Cursor/ and CodeAI/)

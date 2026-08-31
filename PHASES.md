@@ -2127,6 +2127,71 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
+## 📦 Phase 42: Passkeys + TOTP (Authenticator App) Integration
+
+### Goal
+**Modern multi-factor authentication** — Passkeys (WebAuthn/FIDO2) for passwordless login + TOTP authenticator apps (Google Authenticator, Authy, 1Password, Bitwarden). Both are $0, local-first, no external dependencies.
+
+### Requirements
+- [ ] **TOTP (Authenticator App)** — `artifacts/api-server/src/lib/totp.ts`:
+  - [ ] `otplib` for secret generation + validation (free, battle-tested)
+  - [ ] `qrcode` npm package for server-side QR code generation
+  - [ ] Encrypted secret storage in `auth_mfa` DB table (AES-256-GCM via existing secrets manager)
+  - [ ] Setup flow: generate secret → render QR → user scans → verify first code → enabled
+  - [ ] Login flow: password → TOTP code challenge (or passkey first if registered)
+  - [ ] Backup codes: generate 10 single-use codes on setup, store hashed
+  - [ ] Disable/rotate secret endpoint
+- [ ] **Passkeys (WebAuthn/FIDO2)** — `artifacts/api-server/src/lib/webauthn.ts`:
+  - [ ] `@simplewebauthn/server` + `@simplewebauthn/browser` for ceremonies
+  - [ ] Registration: `POST /webauthn/register/begin` (challenge + user info) → client `navigator.credentials.create()` → `POST /webauthn/register/finish` (verify attestation, store credential)
+  - [ ] Authentication: `POST /webauthn/authenticate/begin` (challenge) → client `navigator.credentials.get()` → `POST /webauthn/authenticate/finish` (verify assertion)
+  - [ ] Credential storage: credential ID, public key, counter, transports, AAGUID
+  - [ ] User verification: required (platform authenticator) or preferred
+  - [ ] Resident keys for username-less login (discoverable credentials)
+  - [ ] Multiple passkeys per account (phone, laptop, security key)
+  - [ ] Passkey management: list, rename, delete
+- [ ] **MFA Integration** — `artifacts/api-server/src/routes/infinity/auth-mfa.ts`:
+  - [ ] Extend existing auth flow: login → check MFA methods → challenge appropriate factor
+  - [ ] Factor priority: passkey (if available) → TOTP → backup codes → password only
+  - [ ] Remember device option (30-day trusted device cookie)
+  - [ ] Recovery flow: lost all factors → email verification + backup codes
+  - [ ] Session elevation: sensitive actions (delete account, change email, add passkey) require recent MFA
+- [ ] **Frontend** — `artifacts/infinity-ai/src/components/auth/MfaSettings.tsx`:
+  - [ ] Settings panel: list registered passkeys, TOTP status, backup codes
+  - [ ] "Add Passkey" button → WebAuthn registration ceremony
+  - [ ] "Setup Authenticator App" → QR code + manual secret entry
+  - [ ] "View Backup Codes" → modal with copy/download
+  - [ ] "Remove" actions with confirmation
+  - [ ] Login screen: passkey autofill (conditional UI), TOTP input, backup code fallback
+- [ ] **Database Schema** — `lib/db/src/schema/auth-mfa.ts`:
+  - [ ] `mfa_totp_secrets` table: accountId, encryptedSecret, confirmedAt, backupCodes (jsonb)
+  - [ ] `mfa_passkeys` table: accountId, credentialId, publicKey, counter, transports, aaguid, name, createdAt, lastUsedAt
+  - [ ] `mfa_trusted_devices` table: accountId, deviceFingerprint, expiresAt, createdAt
+  - [ ] Indexes for fast lookup by accountId + credentialId
+
+### Implementation Plan
+1. **TOTP Library** — `otplib` + `qrcode` setup, secret encryption via existing secrets manager
+2. **WebAuthn Library** — `@simplewebauthn/server` + `@simplewebauthn/browser` integration
+3. **Database Schema** — Drizzle schema + migration for MFA tables
+4. **API Routes** — TOTP setup/verify/disable, WebAuthn register/authenticate begin/finish
+5. **Auth Flow Integration** — Modify login to check MFA, challenge factors, session elevation
+6. **Frontend Settings Panel** — MfaSettings component in SettingsView security tab
+7. **Login UI Updates** — Passkey conditional UI, TOTP input, backup code fallback
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/totp.ts` (new)
+- `artifacts/api-server/src/lib/webauthn.ts` (new)
+- `artifacts/api-server/src/routes/infinity/auth-mfa.ts` (new)
+- `lib/db/src/schema/auth-mfa.ts` (new)
+- `artifacts/infinity-ai/src/components/auth/MfaSettings.tsx` (new)
+- `artifacts/infinity-ai/src/components/auth/PasskeyRegistration.tsx` (new)
+- `artifacts/infinity-ai/src/components/auth/TotpSetup.tsx` (new)
+- `artifacts/infinity-ai/src/components/views/LoginView.tsx` (extend — MFA challenges)
+- `artifacts/infinity-ai/src/components/views/SettingsView.tsx` (Security tab integration)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add MFA keys EN+NL)
+
+---
+
 ## 🔄 Autonomous Execution Rules
 
 ### For the Agent Running This Plan
@@ -2173,6 +2238,7 @@ loop:
 9. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
 10. **Phase 40** — Recipe Widget (Standard + Deep Research)
 11. **Phase 41** — File Format Conversion (@File Convert Command)
+12. **Phase 42** — Passkeys + TOTP (Authenticator App) Integration
 
 ### Escalation Triggers (Stop and Notify)
 - [ ] 3 consecutive failures on same task
