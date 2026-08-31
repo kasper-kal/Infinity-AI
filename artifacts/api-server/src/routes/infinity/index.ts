@@ -80,6 +80,9 @@ import uiBuilderRouter from "./ui-builder";
 import customizationRouter from "./customization";
 import uiCollabRouter from "./ui-collab";
 import frameworksRouter from "./frameworks";
+import agentReviewRouter from "../Infinity/agent-review";
+import cloudAgentsRouter from "../Infinity/cloud-agents";
+import shadowWorkspacesRouter from "../Infinity/shadow-workspaces";
 
 const router = Router();
 
@@ -136,6 +139,9 @@ router.use("/ui-builder", uiBuilderRouter);
 router.use("/customization", customizationRouter);
 router.use("/ui-collab", uiCollabRouter);
 router.use("/frameworks", frameworksRouter);
+router.use("/agent-review", agentReviewRouter);
+router.use("/cloud-agents", cloudAgentsRouter);
+router.use("/shadow-workspaces", shadowWorkspacesRouter);
 router.use(hotReloadRouter);
 router.use(packageManagerRouter);
 router.use(gitRouter);
