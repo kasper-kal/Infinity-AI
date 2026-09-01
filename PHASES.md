@@ -1234,27 +1234,27 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 28: Design Mode & Visual Editing (Cursor Design Mode)
+## 📦 Phase 28: Design Mode & Visual Editing (Cursor Design Mode) ✅ **COMPLETE**
 
 ### Goal
 **Visual development in the IDE** — click UI in preview → jump to code, edit visually, see changes instantly. Bridge between design and code like Figma but code-native.
 
 ### Requirements
-- [ ] **Design Mode Toggle** — In BuildView/Preview: enter visual editing mode
-- [ ] **Element Inspector** — Hover/click in preview → highlight in editor + show props panel
+- [x] **Design Mode Toggle** — In BuildView/Preview: enter visual editing mode
+- [x] **Element Inspector** — Hover/click in preview → highlight in editor + show props panel
   - Bidirectional: select in editor → highlight in preview
   - Works for React, Vue, Svelte, HTML components
-- [ ] **Visual Property Editor** — Sidebar for selected element:
+- [x] **Visual Property Editor** — Sidebar for selected element:
   - Style props: color, spacing, typography, layout (visual controls)
   - Component props: variant, size, disabled, etc.
   - Tailwind class editor with autocomplete + design token suggestions
   - Live preview as you edit
-- [ ] **Component Playground** — Isolated component rendering:
+- [x] **Component Playground** — Isolated component rendering:
   - Render any component with editable props
   - State simulation (hover, focus, loading, error)
   - Responsive preview (mobile/tablet/desktop)
   - Export as story or test
-- [ ] **Design System Sync** — Connect to project's design tokens (Phase 8):
+- [x] **Design System Sync** — Connect to project's design tokens (Phase 8):
   - Colors, spacing, typography from design system → visual controls
   - Changes to tokens → propagate to all components
   - "Extract design tokens from CSS" for existing projects
@@ -1267,10 +1267,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ### Files to Create/Modify
 - ✅ `artifacts/api-server/src/lib/design-mode.ts` (new) — DesignModeEngine with session management, element inspection, visual property editing, component registry, design token extraction, bidirectional preview↔code sync
-- `artifacts/Infinity/src/components/design/DesignMode.tsx` (new)
-- `artifacts/Infinity/src/components/design/VisualPropertyEditor.tsx` (new)
-- `artifacts/Infinity/src/components/design/ComponentPlayground.tsx` (new)
-- `artifacts/Infinity/src/components/ui-builder/LivePreview.tsx` (extend — design mode)
+- ✅ `artifacts/infinity-ai/src/components/design/DesignMode.tsx` (new) — Main orchestrator with toolbar, inspector overlay, property editor sidebar, component playground sheet
+- ✅ `artifacts/infinity-ai/src/components/design/VisualPropertyEditor.tsx` (new) — Visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete with design token suggestions
+- ✅ `artifacts/infinity-ai/src/components/design/ComponentPlayground.tsx` (new) — Isolated component rendering with state simulation, responsive preview, export as Storybook/Test/JSX
+- ✅ `artifacts/infinity-ai/src/components/ui-builder/LivePreview.tsx` (extended) — Design Mode toggle in toolbar, inspection scripts injected into preview iframe, bidirectional message passing
+- ✅ `artifacts/infinity-ai/src/hooks/useDesignMode.ts` (new) — Client-side hook for Design Mode Engine connection, SSE for real-time updates, property change application
+- ✅ `artifacts/infinity-ai/src/components/views/BuildView.tsx` (modified) — DesignMode component mounted in preview tab, connected to LivePreview ref for bidirectional sync
+- ✅ `artifacts/infinity-ai/src/hooks/index.ts` (modified) — Added useDesignMode export
 
 ---
 
