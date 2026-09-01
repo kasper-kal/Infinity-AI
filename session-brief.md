@@ -171,45 +171,20 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
   - **Import Path Fixes**: Fixed case sensitivity for Select/Input → select, Separator → separator, Badge → badge, Sheet → sheet.
   - **Both builds passing cleanly** ✅ — API server (esbuild) and frontend (vite) builds complete without errors.
 - **Next Actions (ready for next session):**
-  - **Phase 24: Cursor-Level Code Intelligence — COMPLETE** ✅
-    - ✅ Integrate ChatSidebar into ChatView/BuildView (done - BuildView tabs + right sidebar)
-    - ✅ Integrate Composer into BuildView as tab (done - cursor-composer tab)
-    - ✅ Integrate Agent mode into BuildView (done - cursor-agent tab + right sidebar panel)
-    - ✅ Wire TabAutocomplete into CodeEditor component (done - cursorConfig prop already wired in build-studio.tsx)
-    - ✅ Wire CmdKEdit into CodeEditor (Cmd+K binding) (done - CodeMirrorIntegration handles Cmd+K)
-    - ✅ Add Cursor components to BuildView sidebar/navigation (done - sidebar nav items + command palette)
-  - **Phase 25: Codebase Indexing & Semantic Search — COMPLETE ✅**
-    - ✅ Code navigation features (Go to Definition F12, Find References Shift+F12)
-    - ✅ @codebase integration in Cursor ChatSidebar
-    - ✅ CodebaseIndexPanel.tsx for BuildView (index status, re-index, exclude patterns, search test)
-  - **Phase 26: Rules, Notepads & Customization — COMPLETE ✅**
-    - ✅ Rules system (.infinity/rules/ support, project/user rules, rule editor UI, glob auto-attach)
-    - ✅ Notepads (reusable context snippets, @notepad:name injection, team-shared, categories, pinning)
-    - ✅ Model Preferences (per-project/user model routing, fallback chains, BYOM, capability filtering)
-    - ✅ Custom Instructions (per-agent overrides, Settings → AI Customization UI with 3 sub-tabs)
-    - ✅ Settings integration: AI Customization tab wired in sidebar + mobile bottom nav
-    - ✅ i18n: 100+ EN + complete NL translations
-  - **Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅**
-    - ✅ Shadow Workspace Manager (ephemeral isolated env per agent, pre-seeded, resource limits, warm pool)
-    - ✅ Agent Review Engine (PR review dimensions: correctness, security, performance, style, tests, breaking changes)
-    - ✅ Multi-Agent Orchestrator (parallel agents on single task, planner decomposition, shared context)
-    - ✅ Cloud Agent Runtime (persistent tasks, scheduler, notifications, cost tracking)
-    - ✅ ShadowWorkspacePanel.tsx + AgentReviewPanel.tsx integrated in BuildView
-  - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — COMPLETE ✅**
-    - ✅ DesignModeEngine backend with session management, element inspection, visual property editing, component registry, design token extraction
-    - ✅ useDesignMode hook for client-side SSE connection to DesignModeEngine
-    - ✅ DesignMode.tsx — Main orchestrator with toolbar, inspector overlay, property editor sidebar, component playground sheet
-    - ✅ VisualPropertyEditor.tsx — Visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete
-    - ✅ ComponentPlayground.tsx — Isolated rendering with state simulation, responsive preview, export as Storybook/Test/JSX
-    - ✅ LivePreview extended with Design Mode toggle, inspection scripts, bidirectional message passing
-    - ✅ BuildView integration with DesignMode in preview tab
-  - **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — START NEXT**
-    - VS Code Extension (Phase 7): Complete feature parity — Chat sidebar, Composer panel, Agent view, Tab autocomplete
-    - JetBrains Plugin: IntelliJ, WebStorm, PyCharm, GoLand, Rider — Kotlin implementation
-    - Neovim Plugin: Lua plugin for Neovim 0.9+ — Chat buffer, Composer buffer, nvim-cmp source
-    - CLI (`infinity`): chat/compose/agent/review/index commands with shell completion
-    - Shell Integration: `infinity <file>` open in web UI, pipe support `git diff | infinity review`
-  - Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — PLANNED
+  - **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅**
+    - ✅ VS Code Extension — 9-tab BuildPanel: Chat, Composer, Agent, Tab, Rules, Notepads, Index, Terminal, Settings
+    - ✅ JetBrains Plugin — 3-tab ToolWindow: Chat, Composer, Agent (Kotlin + Gradle, plugin.xml, actions, icons)
+    - ✅ Neovim Plugin — Chat/Composer/Agent buffers, nvim-cmp source, commands, keymaps, docs
+    - ✅ CLI — chat/compose/agent/review/index/completion/open commands with shell completions (bash/zsh/fish/powershell)
+    - ✅ Shell Integration — pipe support, `infinity <file>` opens in web UI
+  - **Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — START NEXT**
+    - Multi-step planning with persistent task state
+    - Background agent runs (hours/days) with scheduling
+    - Agent cost tracking + budgets
+    - Agent memory across sessions
+    - Tool use: web search, file ops, terminal, git, browser, MCP servers
+    - Parallel sub-agents with shared context
+    - Human-in-the-loop approval gates
   - Phase 31: Cursor-Level Performance & Polish (Speed, Reliability, DX) — PLANNED
   - Phase 32: Context Auto-Compact & Limit Recognition — PLANNED
   - Phase 33: AI Automation System (Natural Language Automations + Connector Integration) — PLANNED
@@ -541,6 +516,13 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-09-01 **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅** — Full IDE integration suite:
+  - **VS Code Extension** (extended Phase 7): `artifacts/vscode-extension/src/webview/BuildPanel.tsx` — 9-tab panel (Chat, Composer, Agent, Tab, Rules, Notepads, Index, Terminal, Settings); `ChatSidebar.tsx` with @codebase context, model selector, streaming; `ComposerPanel.tsx` with multi-file diff preview (side-by-side/unified); `AgentView.tsx` with autonomous run, tool calls, progress; `TabAutocomplete.tsx` config UI; `RulesNotepadsPanel.tsx` editor + manager
+  - **JetBrains Plugin** (new): `artifacts/jetbrains-plugin/` — Complete Kotlin + Gradle implementation: `InfinityPlugin.kt` main entry; `InfinityApiClient.kt` REST/WebSocket client with SSE; `ChatPanel.kt` with conversations, @codebase, streaming, model/mode selector; `ComposerPanel.kt` with plan tree, diff preview, apply selected/all; `AgentPanel.kt` with goal input, mode selector, step progress, log viewer; `InfinityToolWindowFactory.kt` 3-tab tool window; 6 actions (Chat, Composer, Agent, SendToInfinity, Settings, Refresh); Settings UI; plugin.xml with all extensions; 5 SVG icons
+  - **Neovim Plugin** (new): `artifacts/neovim-plugin/` — Complete Lua implementation: `init.lua` entry point; `config.lua` configuration; `api.lua` REST/WebSocket client with auto-reconnect; `chat.lua` floating buffer with history, streaming, @codebase; `composer.lua` floating buffer with goal input, plan display, diff preview; `agent.lua` floating buffer with goal, mode, steps, logs, real-time progress; `autocomplete.lua` nvim-cmp source (async, debounced, ghost text); `commands.lua` 6 Vim commands; `keymaps.lua` default keymaps (<leader>ic, <leader>iC, <leader>ia, <leader>ir, <leader>ii, <leader>io); `ui.lua` shared UI components; `plugin/infinity.vim` entry; `doc/infinity.txt` documentation
+  - **CLI** (enhanced): `artifacts/cli/src/cli.ts` — Added 7 command handlers: `runChat()` (interactive + single-shot), `runCompose()` (multi-file generation), `runAgent()` (autonomous agent), `runReview()` (diff/PR review), `runIndex()` (codebase re-index), `runCompletion()` (bash/zsh/fish/powershell generators), `runOpen()` (open file in web UI); Global options: --api-key, --base-url, --project-id, --headless, --json, --verbose
+  - **Shell Integration**: Pipe support (`git diff | infinity review`), `infinity <file>` opens in web UI, shell completion scripts generated via `infinity completion <shell>`
+
 - 2026-09-01 **Phase 28: Design Mode & Visual Editing — STARTED** — Created `artifacts/api-server/src/lib/design-mode.ts` (1000+ lines) backend library with DesignModeEngine class featuring:
   - Session management for design mode (create, get, element registration/selection)
   - Element inspection with selector, bounds, style, attributes, component info, source location
