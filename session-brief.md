@@ -4,10 +4,21 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-08-31
+LAST_UPDATED: 2026-09-01
 
 ## Just did (last action)
-- **Phase 26: Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅** — Full AI personalization system:
+- **Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅** — Full autonomous QA system:
+  - **Backend (3 new libs + 2 API routes)**:
+    - `shadow-workspace.ts` — ShadowWorkspaceManager: ephemeral isolated workspaces extending Virtual Worktree (Phase 4), resource limits (CPU/memory/time/network/disk), warm pool for instant start, artifact collection (logs, tests, coverage, screenshots), auto-cleanup with failure preservation
+    - `agent-review.ts` — AgentReviewEngine: 9 review dimensions (correctness, security, performance, style, tests, breaking-changes, documentation, dependencies), 40+ default review rules, codebase indexer integration for context-aware reviews, perspective-diverse verification, learning system (feedback tracking, false positive reduction)
+    - `multi-agent-orchestrator.ts` — MultiAgentOrchestrator: 6 orchestration patterns (map-reduce, pipeline, scatter-gather, consensus, adversarial, specialist), SharedContextStore pub/sub, ShadowWorkspaceManager integration, planner/synthesizer subagents, progress tracking
+    - `agent-review.ts` (routes) — Full REST API: POST /review, GET /status/:id, GET /result/:id, POST /quick, POST/GET /rules, POST /trigger, GET /history, GET /default-rules, learning feedback endpoints
+    - `shadow-workspaces.ts` (routes) — Full REST API: GET/POST workspaces, GET/POST/:id/run, POST/:id/stop, POST/:id/cleanup, GET/POST /pool, DELETE shutdown
+  - **Frontend (2 new components)**:
+    - `ShadowWorkspacePanel.tsx` — Complete UI: workspace list with status badges, resource usage, artifacts, agent results; warm pool management with resize; create task modal with prompt/config; tabs for workspaces/pool/create
+    - `AgentReviewPanel.tsx` — Complete UI: new review (diff/PR/quick modes), dimension selection, history with drill-down, rules management, settings with severity threshold and learning stats
+  - **BuildView Integration**: Both panels integrated as tabs in Overview (shadowWorkspaces, agentReview)
+  - PHASES.md updated with all checkmarks and complete file list
   - **Backend (4 new libs + API)**:
     - `rules.ts` — RulesEngine: frontmatter parsing, glob auto-attach, CRUD, user/project scope, template system
     - `notepads.ts` — NotepadsManager: @notepad:name resolver, categories, pinning, search, templates
