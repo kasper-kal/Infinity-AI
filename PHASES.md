@@ -41,7 +41,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ✅ **COMPLETE** |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | ✅ **COMPLETE** |
 | **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | ✅ **COMPLETE** |
-| **29** | **IDE Integrations & CLI (Cursor Everywhere)** | 🔲 PLANNED |
+| **29** | **IDE Integrations & CLI (Cursor Everywhere)** | ✅ **COMPLETE** |
 | **30** | **Advanced Agent Capabilities (Cursor Agent Parity)** | 🔲 PLANNED |
 | **31** | **Cursor-Level Performance & Polish (Speed, Reliability, DX)** | 🔲 PLANNED |
 | **32** | **Context Auto-Compact & Limit Recognition** | 🔲 PLANNED |
@@ -1277,41 +1277,106 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 29: IDE Integrations & CLI (Cursor Everywhere)
+## 📦 Phase 29: IDE Integrations & CLI (Cursor Everywhere) ✅ **COMPLETE**
 
 ### Goal
 **Use Infinity Build from any IDE** — VS Code extension (Phase 7), JetBrains plugin, Neovim plugin, CLI, Shell integration.
 
 ### Requirements
-- [ ] **VS Code Extension** — (Phase 7) Full feature parity:
-  - Chat sidebar, Composer panel, Agent view, Tab autocomplete
-  - Inline diffs, diagnostics, @codebase, rules, notepads
-  - File sync, terminal bridge, MCP servers
-- [ ] **JetBrains Plugin** — IntelliJ, WebStorm, PyCharm, GoLand, Rider:
-  - Same features via JetBrains platform APIs
-  - Kotlin implementation, Gradle build
-  - Marketplace publish (free)
-- [ ] **Neovim Plugin** — Lua plugin for Neovim 0.9+:
-  - Chat buffer, Composer buffer, Agent buffer
-  - Tab autocomplete via nvim-cmp source
-  - @codebase via RPC to Infinity API
-- [ ] **CLI (`infinity`)**:
-  - `infinity chat "question"` — CLI chat with codebase context
-  - `infinity compose "task"` — Multi-file generation from terminal
-  - `infinity agent "goal"` — Autonomous agent run
-  - `infinity review` — Agent review on current diff
+- [x] **VS Code Extension** — (Phase 7 + Phase 29) Full feature parity:
+  - 9-tab BuildPanel: Chat, Composer, Agent, Tab, Rules, Notepads, Index, Terminal, Settings
+  - ChatSidebar with @codebase context, model selector, streaming
+  - ComposerPanel with multi-file diff preview (side-by-side/unified)
+  - AgentView with autonomous run, tool calls, progress
+  - TabAutocomplete config UI
+  - RulesNotepadsPanel with editor + manager
+  - Terminal bridge integration
+  - File sync, MCP servers
+  - Deliverable: `.vsix` package ready for Marketplace
+- [x] **JetBrains Plugin** — IntelliJ, WebStorm, PyCharm, GoLand, Rider:
+  - 3-tab ToolWindow: Chat, Composer, Agent
+  - ChatPanel with conversations, @codebase, streaming, model/mode selector
+  - ComposerPanel with plan tree, diff preview, apply selected/all
+  - AgentPanel with goal input, mode selector, step progress, log viewer
+  - Kotlin + Gradle (Kotlin DSL), full IntelliJ Platform SDK integration
+  - Actions: Chat, Composer, Agent, SendToInfinity, Settings, Refresh
+  - Settings: API key, base URL, project ID, model preferences
+  - Icons: chat, composer, agent, infinity, send (SVG)
+  - plugin.xml with all extensions, actions, tool window, services
+- [x] **Neovim Plugin** — Lua plugin for Neovim 0.9+:
+  - Chat buffer (floating): history, streaming, @codebase, model selector
+  - Composer buffer (floating): goal input, plan display, diff preview, apply
+  - Agent buffer (floating): goal, mode, steps, logs, real-time progress
+  - Tab autocomplete via nvim-cmp source (async, debounced, ghost text)
+  - Commands: `:InfinityChat`, `:InfinityCompose`, `:InfinityAgent`, `:InfinityReview`, `:InfinityIndex`, `:InfinityOpen`
+  - Keymaps: `<leader>ic`, `<leader>iC`, `<leader>ia`, `<leader>ir`, `<leader>ii`, `<leader>io`
+  - Config: API key, base URL, project ID, keymaps, UI preferences
+  - API client: REST + WebSocket with auto-reconnect, SSE streaming
+  - UI utilities: floating windows, split panes, progress spinners
+  - Documentation: `doc/infinity.txt`
+  - Plugin entry: `plugin/infinity.vim`
+- [x] **CLI (`infinity`)** — Enhanced with 7 new commands:
+  - `infinity chat [prompt]` — Interactive or single-shot chat with codebase context
+  - `infinity compose [prompt]` — Multi-file generation from terminal
+  - `infinity agent [goal]` — Autonomous agent run
+  - `infinity review [--diff/--pr]` — Agent code review
   - `infinity index` — Trigger codebase re-index
-  - Shell completion (bash, zsh, fish)
-- [ ] **Shell Integration**:
-  - `infinity <file>` — Open in Infinity web UI
+  - `infinity completion <shell>` — Generate shell completions (bash, zsh, fish, powershell)
+  - `infinity open <file>` — Open file in Infinity web UI
+  - Global options: `--api-key`, `--base-url`, `--project-id`, `--headless`, `--json`, `--verbose`
+- [x] **Shell Integration**:
+  - Shell completions for bash, zsh, fish, powershell (via `infinity completion <shell>`)
   - Pipe support: `git diff | infinity review`
+  - `infinity <file>` opens in web UI
 
 ### Implementation Plan
-1. **VS Code Extension** — Complete Phase 7 with full feature set
-2. **JetBrains Plugin** — Scaffold with Gradle, implement core features
-3. **Neovim Plugin** — Lua + RPC client, nvim-cmp source
-4. **CLI Enhancement** — chat/compose/agent/review/index commands
-5. **Shell Integration** — Wrapper scripts, completion generators
+1. **VS Code Extension** — Complete Phase 7 with full feature set ✅ DONE
+2. **JetBrains Plugin** — Scaffold with Gradle, implement core features ✅ DONE
+3. **Neovim Plugin** — Lua + RPC client, nvim-cmp source ✅ DONE
+4. **CLI Enhancement** — chat/compose/agent/review/index commands ✅ DONE
+5. **Shell Integration** — Wrapper scripts, completion generators ✅ DONE
+
+### Files Created/Modified
+
+**VS Code Extension** (extended from Phase 7):
+- `artifacts/vscode-extension/src/webview/BuildPanel.tsx` — Main 9-tab panel
+- `artifacts/vscode-extension/src/webview/components/ChatSidebar.tsx` — Chat with @codebase
+- `artifacts/vscode-extension/src/webview/components/ComposerPanel.tsx` — Multi-file planning
+- `artifacts/vscode-extension/src/webview/components/AgentView.tsx` — Autonomous agent
+- `artifacts/vscode-extension/src/webview/components/TabAutocomplete.tsx` — Tab config
+- `artifacts/vscode-extension/src/webview/components/RulesNotepadsPanel.tsx` — Rules/Notepads UI
+
+**JetBrains Plugin** (new):
+- `artifacts/jetbrains-plugin/build.gradle.kts` — Gradle Kotlin DSL config
+- `artifacts/jetbrains-plugin/settings.gradle.kts` — Settings
+- `artifacts/jetbrains-plugin/gradle.properties` — Properties
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/InfinityPlugin.kt` — Main plugin
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/api/InfinityApiClient.kt` — REST/WebSocket client
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/ui/ChatPanel.kt` — Chat with @codebase
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/ui/ComposerPanel.kt` — Plan/diff/apply
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/ui/AgentPanel.kt` — Autonomous agent UI
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/ui/InfinityToolWindowFactory.kt` — 3-tab tool window
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/actions/*.kt` — 6 actions
+- `artifacts/jetbrains-plugin/src/main/kotlin/com/infinity/build/settings/*.kt` — Settings UI
+- `artifacts/jetbrains-plugin/src/main/resources/META-INF/plugin.xml` — Plugin manifest
+- `artifacts/jetbrains-plugin/src/main/resources/icons/*.svg` — 5 icons
+
+**Neovim Plugin** (new):
+- `artifacts/neovim-plugin/lua/infinity/init.lua` — Entry point
+- `artifacts/neovim-plugin/lua/infinity/config.lua` — Configuration
+- `artifacts/neovim-plugin/lua/infinity/api.lua` — REST/WebSocket client
+- `artifacts/neovim-plugin/lua/infinity/chat.lua` — Floating chat buffer
+- `artifacts/neovim-plugin/lua/infinity/composer.lua` — Composer buffer
+- `artifacts/neovim-plugin/lua/infinity/agent.lua` — Agent buffer
+- `artifacts/neovim-plugin/lua/infinity/autocomplete.lua` — nvim-cmp source
+- `artifacts/neovim-plugin/lua/infinity/commands.lua` — Vim commands
+- `artifacts/neovim-plugin/lua/infinity/keymaps.lua` — Default keymaps
+- `artifacts/neovim-plugin/lua/infinity/ui.lua` — Shared UI components
+- `artifacts/neovim-plugin/plugin/infinity.vim` — Plugin entry
+- `artifacts/neovim-plugin/doc/infinity.txt` — Documentation
+
+**CLI** (enhanced):
+- `artifacts/cli/src/cli.ts` — Added 7 command handlers + shell completion generators
 
 ### Files to Create/Modify
 - `artifacts/vscode-extension/` (extend Phase 7)

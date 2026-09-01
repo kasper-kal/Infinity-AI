@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-09-01 09:15 — Phase 28 Design Mode: COMPLETE ✅ | Ready for Phase 29
+LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅ | Ready for Phase 30
 
 ## Just did (last action)
 - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
@@ -470,10 +470,36 @@ LAST_UPDATED: 2026-09-01 09:15 — Phase 28 Design Mode: COMPLETE ✅ | Ready fo
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 24 — Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) ✅ COMPLETE** — Backend 100%, Frontend 100% integrated
-- **Phase 25 — Codebase Indexing & Semantic Search — COMPLETE ✅** — Backend 100% complete, Frontend 100% complete: CodebaseIndexPanel integrated, @codebase integration complete, code navigation (F12/Shift+F12) complete
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), **Phase 16 (v0-Level Generative UI Engine)**, **Phase 17 (Visual Component Editor - 100% COMPLETE)**, **Phase 18 (v0-Style Collaborative Workflows - 100% COMPLETE)**, **Phase 19 (External API & Database Integration - 100% COMPLETE)**, **Phase 20 (Multi-Framework Support - 100% COMPLETE)**, **Phase 21 (AI-Powered Design Iteration - 100% COMPLETE)**, **Phase 22 (Component Marketplace & Template Library - 100% COMPLETE)**, **Phase 23 (v0-Level Polish - 100% COMPLETE)**, **Phase 24 (Cursor-Level Code Intelligence - 100% COMPLETE)**, **Phase 25 (Codebase Indexing & Semantic Search - 100% COMPLETE)**
-- **Next Phases:** Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
+- **Current Phase:** **Phase 29 — IDE Integrations & CLI (Cursor Everywhere) ✅ COMPLETE**
+- **Phase 28 — Design Mode & Visual Editing (Cursor Design Mode) — COMPLETE ✅**
+- **Phase 27 — Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅**
+- **Phase 26 — Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅**
+- **Phase 25 — Codebase Indexing & Semantic Search — COMPLETE ✅**
+- **Phase 24 — Cursor-Level Code Intelligence — COMPLETE ✅**
+- **Phase 23 — v0-Level Polish — COMPLETE ✅**
+- **Phase 22 — Component Marketplace & Template Library — COMPLETE ✅**
+- **Phase 21 — AI-Powered Design Iteration — COMPLETE ✅**
+- **Phase 20 — Multi-Framework Support — COMPLETE ✅**
+- **Phase 19 — External API & Database Integration — COMPLETE ✅**
+- **Phase 18 — v0-Style Collaborative Workflows — COMPLETE ✅**
+- **Phase 17 — Visual Component Editor — COMPLETE ✅**
+- **Phase 16 — v0-Level Generative UI Engine — COMPLETE ✅**
+- **Phase 15 — Agent Skills & Custom Instructions Marketplace — COMPLETE ✅**
+- **Phase 14 — Enterprise Features — COMPLETE ✅**
+- **Phase 13 — External Service Connectors — COMPLETE ✅**
+- **Phase 12 — Multi-Artifact Support — COMPLETE ✅**
+- **Phase 11 — Security Scanner + Secrets Manager — COMPLETE ✅**
+- **Phase 10 — Mobile App Development — COMPLETE ✅**
+- **Phase 9 — Parallel Agent Execution — COMPLETE ✅**
+- **Phase 8 — Replit-Level Design Canvas — COMPLETE ✅**
+- **Phase 7 — VS Code Extension — COMPLETE ✅**
+- **Phase 6 — MCP Client + Ecosystem Integration — COMPLETE ✅**
+- **Phase 5 — Local Terminal Bridge — COMPLETE ✅**
+- **Phase 4 — Virtual Worktrees + Parallel Agent Execution — COMPLETE ✅**
+- **Phase 3 — Specialized Subagents with Schemas — COMPLETE ✅**
+- **Phase 2 — Orchestration Engine — COMPLETE ✅**
+- **Phase 1 — Build Project Map Subsystem — COMPLETE ✅**
+- **Next Phases:** Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables

@@ -1,0 +1,564 @@
+*infinity.txt*   Infinity.nvim - AI-native IDE features for Neovim
+
+==============================================================================
+CONTENTS                                                          *infinity-contents*
+
+1. Introduction                      |infinity-introduction|
+2. Installation                      |infinity-installation|
+3. Configuration                     |infinity-configuration|
+4. Commands                          |infinity-commands|
+5. Keybindings                       |infinity-keybindings|
+6. Features                          |infinity-features|
+   6.1 Chat                          |infinity-chat|
+   6.2 Composer                      |infinity-composer|
+   6.3 Agent                         |infinity-agent|
+   6.4 Autocomplete                  |infinity-autocomplete|
+   6.5 Code Review                   |infinity-review|
+   6.6 Codebase Indexing             |infinity-indexing|
+7. API Integration                   |infinity-api|
+8. Troubleshooting                   |infinity-troubleshooting|
+9. License                           |infinity-license|
+
+==============================================================================
+1. Introduction                            *infinity-introduction*
+
+Infinity.nvim brings AI-native IDE features to Neovim, inspired by Cursor,
+Claude Code, and other AI-powered editors. It connects to the Infinity API
+server to provide:
+
+* **Chat** - Conversational coding with @codebase context and file attachments
+* **Composer** - Multi-file task planning with diff preview and selective apply
+* **Agent** - Autonomous coding agent with timeline, context, and approval prompts
+* **Tab Autocomplete** - Multi-line, context-aware completions via nvim-cmp
+* **Code Review** - AI-powered code review of diffs and PRs
+* **Codebase Indexing** - Semantic search with @codebase integration
+
+All features work with Neovim 0.9+ and are compatible with lazy.nvim, packer.nvim,
+and native package loading.
+
+==============================================================================
+2. Installation                            *infinity-installation*
+
+Requirements:
+- Neovim 0.9+
+- plenary.nvim (required for HTTP/WebSocket)
+- Infinity API server running (default: http://localhost:8080)
+
+Optional dependencies:
+- telescope.nvim or fzf-lua (for file picking in chat)
+- nvim-cmp (for Tab autocomplete)
+- which-key.nvim (for keymap help)
+
+Using lazy.nvim:
+```lua
+{
+  "Infinity-AI/infinity.nvim",
+  dir = "~/path/to/infinity.nvim",  -- or use a git URL when published
+  dependencies = {
+    "nvim-lua/plenary.nvim",
+    "nvim-telescope/telescope.nvim",  -- optional
+    "hrsh7th/nvim-cmp",                -- optional
+  },
+  config = function()
+    require("infinity").setup({
+      api_url = "http://localhost:8080",
+      project_id = "my-project",  -- optional, auto-detected from git root
+    })
+  end,
+}
+```
+
+Using packer.nvim:
+```lua
+use {
+  "Infinity-AI/infinity.nvim",
+  requires = { "nvim-lua/plenary.nvim" },
+  config = function()
+    require("infinity").setup({ api_url = "http://localhost:8080" })
+  end,
+}
+```
+
+Native package loading (Neovim 0.10+):
+```bash
+git clone https://github.com/Infinity-AI/infinity.nvim \
+  ~/.local/share/nvim/site/pack/infinity/start/infinity.nvim
+```
+
+Then in your init.lua:
+```lua
+require("infinity").setup({ api_url = "http://localhost:8080" })
+```
+
+==============================================================================
+3. Configuration                           *infinity-configuration*
+
+Default configuration with all options:
+
+```lua
+require("infinity").setup({
+  -- API Connection
+  api_url = "http://localhost:8080",      -- Infinity API server URL
+  project_id = nil,                        -- Auto-detected from git root if nil
+  api_key = nil,                           -- API key (optional, uses session cookie)
+
+  -- Connection
+  auto_connect = true,                     -- Auto-connect WebSocket on startup
+  reconnect_interval = 5000,               -- Reconnection interval (ms)
+  request_timeout = 30000,                 -- Request timeout (ms)
+
+  -- UI Windows
+  ui = {
+    chat = {
+      width = 0.4, height = 0.8,
+      border = "rounded", position = "right",
+      title = " Infinity Chat ",
+      show_line_numbers = false, wrap = true,
+    },
+    composer = {
+      width = 0.5, height = 0.8,
+      border = "rounded", position = "right",
+      title = " Infinity Composer ",
+      show_diff = true, diff_context_lines = 3,
+    },
+    agent = {
+      width = 0.5, height = 0.8,
+      border = "rounded", position = "right",
+      title = " Infinity Agent ",
+      show_timeline = true, show_context = true,
+    },
+    review = {
+      width = 0.6, height = 0.8,
+      border = "rounded", position = "right",
+      title = " Infinity Review ",
+    },
+    float = { zindex = 50, backdrop = 0.3 },
+  },
+
+  -- Keybindings
+  keymaps = {
+    enabled = true,
+    prefix = "<leader>i",
+    chat = "c",          composer = "C",
+    agent = "a",         review = "r",
+    index = "i",         toggle = "t",
+    send = "<C-s>",      accept = "<C-a>",
+    reject = "<C-r>",    next_tab = "<Tab>",
+    prev_tab = "<S-Tab>", close = "q", help = "?",
+  },
+
+  -- Chat
+  chat = {
+    max_history = 100,
+    stream = true,
+    show_tool_calls = true,
+    auto_scroll = true,
+    codebase_trigger = "@codebase",
+    attachment_trigger = "@file",
+  },
+
+  -- Composer
+  composer = {
+    auto_apply = false,
+    show_preview = true,
+    context_files = 10,
+    max_steps = 20,
+  },
+
+  -- Agent
+  agent = {
+    max_iterations = 50,
+    auto_approve = false,
+    show_thinking = true,
+    checkpoint_interval = 5,
+  },
+
+  -- Autocomplete (Tab)
+  autocomplete = {
+    enabled = true,
+    trigger_on_tab = true,
+    min_chars = 2,
+    max_suggestions = 5,
+    debounce_ms = 100,
+    use_local_fallback = true,
+    local_model_path = nil,
+  },
+
+  -- Indexing
+  indexing = {
+    auto_index = true,
+    watch_files = true,
+    exclude_patterns = { "node_modules", ".git", "dist", "build", "*.min.js" },
+    include_patterns = { "*.ts", "*.tsx", "*.js", "*.jsx", "*.py", "*.go", "*.rs" },
+  },
+
+  -- File Picker
+  picker = { enabled = true, prefer_telescope = true },
+
+  -- Debug
+  debug = false,
+  log_level = "info",
+})
+```
+
+Runtime configuration changes:
+```lua
+-- Get a value
+local api_url = require("infinity.config").get("api_url")
+
+-- Set a value
+require("infinity.config").set("api_url", "http://newhost:8080")
+
+-- Reset to defaults
+require("infinity.config").reset()
+```
+
+==============================================================================
+4. Commands                                *infinity-commands*
+
+Chat:
+  :InfinityChat [message]        Open chat window with optional initial message
+  :InfinityChatClose             Close chat window
+  :InfinityChatToggle            Toggle chat window
+  :InfinityChatClear             Clear chat history
+
+Composer:
+  :InfinityComposer [task]       Open composer with optional task description
+  :InfinityComposerClose         Close composer window
+  :InfinityComposerToggle        Toggle composer window
+  :InfinityComposerApply         Apply all pending diffs
+  :InfinityComposerReject        Reject all pending diffs
+
+Agent:
+  :InfinityAgent [goal]          Open agent with optional goal
+  :InfinityAgentClose            Close agent window
+  :InfinityAgentToggle           Toggle agent window
+  :InfinityAgentStop             Stop running agent
+  :InfinityAgentCheckpoint       Create manual checkpoint
+  :InfinityAgentRestore          Restore from checkpoint
+
+Review:
+  :InfinityReview [diff|PR]      Open code review (uses git diff if no arg)
+  :InfinityReviewClose           Close review window
+  :InfinityReviewToggle          Toggle review window
+
+Indexing:
+  :InfinityIndex [mode]          Trigger indexing (full|incremental|status|search)
+  :InfinityIndexStatus           Show indexing status
+  :InfinityIndexSearch <query>   Search indexed codebase
+
+Config & Utility:
+  :InfinityConfig [show|reset|edit]  Show/edit/reset configuration
+  :InfinityHealth                Check plugin health
+  :InfinityConnect               Connect to API server
+  :InfinityDisconnect            Disconnect from API server
+  :InfinityProject [detect|set|show]  Manage project
+  :InfinityKeys                  Show keymap help
+  :InfinityVersion               Show plugin version
+
+Autocomplete:
+  :InfinityAutocompleteEnable    Enable autocomplete
+  :InfinityAutocompleteDisable   Disable autocomplete
+  :InfinityAutocompleteToggle    Toggle autocomplete
+
+==============================================================================
+5. Keybindings                             *infinity-keybindings*
+
+Default prefix: `<leader>i`
+
+Global (normal mode):
+  <leader>ic     Toggle Chat
+  <leader>iC     Toggle Composer
+  <leader>ia     Toggle Agent
+  <leader>ir     Toggle Code Review
+  <leader>ii     Trigger Indexing
+  <leader>it     Toggle Last Window
+  <leader>ih     Show Keymap Help
+  <leader>iv     Health Check
+  <leader>is     Quick Chat (Explain Selection)
+  <leader>if     Quick Agent (Fix Selection)
+  <leader>id     Quick Review
+  <leader>ip     Detect Project
+  <leader>ia     Toggle Autocomplete
+
+Buffer-local (in code files):
+  <leader>ice    Explain code at cursor
+  <leader>icf    Fix code at cursor
+  <leader>ict    Generate tests
+  <leader>icr    Review code
+  <leader>icd    Document code
+
+Chat Window:
+  <C-s>          Send message (normal/insert)
+  @codebase      Trigger codebase search
+  @file          Attach file (opens telescope/fzf)
+  <Esc>          Exit insert mode
+  q              Close window
+  ?              Show help
+
+Composer Window:
+  <C-s>          Generate plan
+  <C-a>          Apply all diffs
+  <C-r>          Reject all diffs
+  <leader>1      Plan tab
+  <leader>2      Diff tab
+  <leader>3      Files tab
+  <CR>           Open file (in Files tab)
+  <C-a>          Apply diff at cursor (in Diff tab)
+  <C-r>          Reject diff at cursor (in Diff tab)
+
+Agent Window:
+  <C-s>          Start/Continue agent
+  <Space>        Pause/Resume
+  <C-a>          Approve step
+  <C-r>          Reject step
+  <leader>c      Create checkpoint
+  <leader>r      Restore checkpoint
+
+Autocomplete:
+  <Tab>          Accept ghost text completion
+  <C-n>          Next completion (in cmp menu)
+  <C-p>          Previous completion
+  <C-e>          Dismiss completion
+
+==============================================================================
+6. Features                                *infinity-features*
+
+6.1 Chat                                    *infinity-chat*
+
+The Chat window provides a conversational interface to the Infinity AI.
+
+Features:
+- Persistent message history (up to 100 messages by default)
+- Streaming responses with tool call visibility
+- @codebase trigger: Type `@codebase your query` to search the indexed codebase
+- @file trigger: Type `@file` to open file picker and attach files
+- Inline code references with click-to-open (in supported terminals)
+- Model selector (when multiple models configured)
+
+Usage:
+1. Open with `<leader>ic` or `:InfinityChat`
+2. Type your question or request
+3. Press `<C-s>` to send
+4. Use `@codebase` to include codebase context
+5. Use `@file` to attach specific files
+
+Example:
+```
+You: @codebase How does authentication work in this project?
+Assistant: Based on the codebase, authentication is handled in...
+  [shows relevant files with scores]
+
+You: @file src/auth.ts
+     Can you add JWT refresh token support?
+Assistant: I'll add refresh token support to src/auth.ts...
+  [shows diff preview in Composer]
+```
+
+6.2 Composer                                *infinity-composer*
+
+The Composer enables multi-file editing tasks with a plan/diff/files workflow.
+
+Tabs:
+- **Plan** - Step-by-step execution plan generated from your task
+- **Diff** - Side-by-side diffs for each file change
+- **Files** - Context files included in the task
+
+Workflow:
+1. Open with `<leader>iC` or `:InfinityComposer "Add user dashboard"`
+2. Press `<C-s>` to generate plan
+3. Review plan in Plan tab
+4. Switch to Diff tab (`<leader>2`) to see changes
+5. Press `<C-a>` to apply all, or `<C-a>` on specific diff to apply individually
+6. Press `<C-r>` to reject
+
+Features:
+- Selective diff application
+- Context file browser (Files tab)
+- Iterative refinement: "also update tests", "fix types"
+- New file creation, edits, and deletions
+
+6.3 Agent                                   *infinity-agent*
+
+The Agent runs autonomous coding tasks with human-in-the-loop approval.
+
+Views:
+- **Timeline** - Chronological log of thinking, tool calls, results, approvals
+- **Context** - Current step details, checkpoints, modified files
+- **Config** - Agent settings
+
+Workflow:
+1. Open with `<leader>ia` or `:InfinityAgent "Refactor auth module"`
+2. Press `<C-s>` to start
+3. Agent explores, plans, and executes steps
+4. When approval needed: review in Context tab, press `<C-a>` to approve or `<C-r>` to reject
+5. Press `<Space>` to pause/resume
+6. Press `<leader>c` to create checkpoint, `<leader>r` to restore
+
+Tools available to agent:
+- File read/write/edit
+- Code search (grep, glob, semantic)
+- Terminal commands
+- Git operations
+- Web search/browse
+- Codebase indexing
+
+6.4 Autocomplete                            *infinity-autocomplete*
+
+Tab autocomplete via nvim-cmp source connecting to Infinity Tab API.
+
+Features:
+- Multi-line, context-aware completions
+- Understands codebase patterns, imports, types
+- Ghost text preview (inline)
+- Local WASM model fallback for privacy/speed
+- Works with any editor (CodeMirror, Monaco, textarea)
+
+Setup:
+```lua
+-- In your cmp config
+require("cmp").setup({
+  sources = {
+    { name = "infinity", priority = 100 },
+    { name = "nvim_lsp" },
+    { name = "luasnip" },
+    { name = "buffer" },
+  },
+})
+```
+
+Keymaps:
+- `<Tab>` - Accept ghost text completion
+- `<C-n>` / `<C-p>` - Navigate cmp menu
+- `<C-e>` - Dismiss
+
+Commands:
+- `:InfinityAutocompleteEnable`
+- `:InfinityAutocompleteDisable`
+- `:InfinityAutocompleteToggle`
+
+6.5 Code Review                             *infinity-review*
+
+AI-powered code review of diffs, PRs, or current changes.
+
+Usage:
+- `:InfinityReview` - Review git diff (HEAD)
+- `:InfinityReview <PR-number>` - Review PR (when supported)
+- `:InfinityReview <diff-text>` - Review specific diff
+
+Features:
+- Inline comments on issues
+- Severity levels: critical, high, medium, low
+- Suggestions with diff format
+- Click-to-open file at issue location
+- Categories: correctness, security, performance, style, tests
+
+6.6 Codebase Indexing                       *infinity-indexing*
+
+Semantic codebase search powering @codebase in Chat and Composer.
+
+Commands:
+- `:InfinityIndex full` - Full re-index
+- `:InfinityIndex incremental` - Incremental update (default)
+- `:InfinityIndex status` - Show index status
+- `:InfinityIndexSearch <query>` - Search codebase
+
+Features:
+- Tree-sitter based parsing (10+ languages)
+- Local embeddings (WASM) + remote fallback
+- Vector storage in SQLite (no external DB)
+- Incremental updates on file changes
+- Hybrid search: vector + keyword + symbol
+- Privacy: local-first, remote opt-in
+
+==============================================================================
+7. API Integration                         *infinity-api*
+
+Infinity.nvim connects to the Infinity API server (part of the Infinity platform).
+
+Required endpoints:
+- POST   /api/infinity/chat           - Chat completions
+- POST   /api/infinity/composer       - Multi-file task planning
+- POST   /api/infinity/agent/run      - Agent execution
+- POST   /api/infinity/autocomplete/suggest - Tab completions
+- POST   /api/infinity/index          - Trigger indexing
+- GET    /api/infinity/index/status   - Index status
+- POST   /api/infinity/index/search   - Semantic search
+- POST   /api/infinity/review         - Code review
+- WS     /ws                          - Real-time streaming
+
+Authentication:
+- Session cookie (preferred)
+- Bearer token via api_key config
+- Project scoping via project_id
+
+==============================================================================
+8. Troubleshooting                         *infinity-troubleshooting*
+
+Common Issues:
+
+**Connection refused**
+- Ensure Infinity API server is running on configured api_url
+- Check firewall/network connectivity
+- Verify project_id is correct
+
+**WebSocket not connecting**
+- Check if server supports WebSocket at /ws
+- Try REST-only mode (auto_connect = false)
+- Check browser devtools for WebSocket errors
+
+**Autocomplete not working**
+- Ensure nvim-cmp is installed and configured
+- Check :InfinityHealth for source registration
+- Verify autocomplete.enabled = true
+- Try :InfinityAutocompleteEnable
+
+**@codebase not working**
+- Run :InfinityIndex full to build index
+- Check indexing status with :InfinityIndexStatus
+- Ensure codebase has supported file types
+
+**File picker not opening**
+- Install telescope.nvim or fzf-lua
+- Check picker.enabled = true
+- Try :InfinityConfig show to verify
+
+**Keymaps not working**
+- Check keymaps.enabled = true
+- Verify no conflicts with other plugins
+- Use :InfinityKeys to see active keymaps
+
+Debug mode:
+```lua
+require("infinity").setup({ debug = true, log_level = "debug" })
+```
+
+Logs are available via `:messages` and `vim.notify` history.
+
+==============================================================================
+9. License                                 *infinity-license*
+
+MIT License
+
+Copyright (c) 2024 Infinity AI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+*infinity.txt*   End of documentation
