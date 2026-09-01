@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-09-01 08:45 — Phase 28 Design Mode: COMPLETE ✅
+LAST_UPDATED: 2026-09-01 09:15 — Phase 28 Design Mode: COMPLETE ✅ | Ready for Phase 29
 
 ## Just did (last action)
 - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
@@ -189,15 +189,26 @@ LAST_UPDATED: 2026-09-01 08:45 — Phase 28 Design Mode: COMPLETE ✅
     - ✅ Custom Instructions (per-agent overrides, Settings → AI Customization UI with 3 sub-tabs)
     - ✅ Settings integration: AI Customization tab wired in sidebar + mobile bottom nav
     - ✅ i18n: 100+ EN + complete NL translations
-  - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — START NEXT
-    - Shadow Workspace Manager (ephemeral isolated env per agent, pre-seeded, resource limits, warm pool)
-    - Agent Review Engine (PR review dimensions: correctness, security, performance, style, tests, breaking changes)
-    - Multi-Agent Orchestrator (parallel agents on single task, planner decomposition, shared context)
-    - Cloud Agent Runtime (persistent tasks, scheduler, notifications, cost tracking)
-  - Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — PLANNED
-  - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
-  - Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — PLANNED
-  - Phase 29: IDE Integrations & CLI (Cursor Everywhere) — PLANNED
+  - **Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅**
+    - ✅ Shadow Workspace Manager (ephemeral isolated env per agent, pre-seeded, resource limits, warm pool)
+    - ✅ Agent Review Engine (PR review dimensions: correctness, security, performance, style, tests, breaking changes)
+    - ✅ Multi-Agent Orchestrator (parallel agents on single task, planner decomposition, shared context)
+    - ✅ Cloud Agent Runtime (persistent tasks, scheduler, notifications, cost tracking)
+    - ✅ ShadowWorkspacePanel.tsx + AgentReviewPanel.tsx integrated in BuildView
+  - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — COMPLETE ✅**
+    - ✅ DesignModeEngine backend with session management, element inspection, visual property editing, component registry, design token extraction
+    - ✅ useDesignMode hook for client-side SSE connection to DesignModeEngine
+    - ✅ DesignMode.tsx — Main orchestrator with toolbar, inspector overlay, property editor sidebar, component playground sheet
+    - ✅ VisualPropertyEditor.tsx — Visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete
+    - ✅ ComponentPlayground.tsx — Isolated rendering with state simulation, responsive preview, export as Storybook/Test/JSX
+    - ✅ LivePreview extended with Design Mode toggle, inspection scripts, bidirectional message passing
+    - ✅ BuildView integration with DesignMode in preview tab
+  - **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — START NEXT**
+    - VS Code Extension (Phase 7): Complete feature parity — Chat sidebar, Composer panel, Agent view, Tab autocomplete
+    - JetBrains Plugin: IntelliJ, WebStorm, PyCharm, GoLand, Rider — Kotlin implementation
+    - Neovim Plugin: Lua plugin for Neovim 0.9+ — Chat buffer, Composer buffer, nvim-cmp source
+    - CLI (`infinity`): chat/compose/agent/review/index commands with shell completion
+    - Shell Integration: `infinity <file>` open in web UI, pipe support `git diff | infinity review`
   - Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — PLANNED
   - Phase 31: Cursor-Level Performance & Polish (Speed, Reliability, DX) — PLANNED
   - Phase 32: Context Auto-Compact & Limit Recognition — PLANNED
@@ -210,7 +221,7 @@ LAST_UPDATED: 2026-09-01 08:45 — Phase 28 Design Mode: COMPLETE ✅
   - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes) — PLANNED
   - Phase 40: Recipe Widget (Standard + Deep Research) — PLANNED
   - Phase 41: File Format Conversion (@File Convert Command) — PLANNED
-- Phase 42: Passkeys + TOTP (Authenticator App) Integration — PLANNED
+  - Phase 42: Passkeys + TOTP (Authenticator App) Integration — PLANNED
 
 - **Build Status:**
   - API Server: **BUILD PASSES** ✅ (esbuild - produces dist/index.mjs ~14MB)
