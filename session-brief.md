@@ -4,9 +4,18 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-09-01
+LAST_UPDATED: 2026-09-01 08:45 — Phase 28 Design Mode: COMPLETE ✅
 
 ## Just did (last action)
+- **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
+  - **Backend** (`artifacts/api-server/src/lib/design-mode.ts`): DesignModeEngine with session management, element inspection, visual property editing, component registry, design token extraction, bidirectional preview↔code sync
+  - **Hook** (`artifacts/infinity-ai/src/hooks/useDesignMode.ts`): Client-side hook for Design Mode Engine connection, SSE for real-time updates, property change application
+  - **Frontend Components**:
+    - `DesignMode.tsx` — Main orchestrator with toolbar, overlay, property editor sidebar, component playground sheet
+    - `VisualPropertyEditor.tsx` — Visual controls: color picker, spacing slider, typography selector, variant selectors, Tailwind autocomplete with design token suggestions
+    - `ComponentPlayground.tsx` — Isolated component rendering with state simulation (hover/focus/loading/error), responsive preview, export as Storybook/Test/JSX
+  - **LivePreview Integration**: Design Mode toggle in toolbar, design mode inspection scripts injected into preview iframe, bidirectional message passing for element hover/select and property changes
+  - **BuildView Integration**: DesignMode component mounted in preview tab, connected to LivePreview ref for bidirectional sync
 - **Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅** — Full autonomous QA system:
   - **Backend (3 new libs + 2 API routes)**:
     - `shadow-workspace.ts` — ShadowWorkspaceManager: ephemeral isolated workspaces extending Virtual Worktree (Phase 4), resource limits (CPU/memory/time/network/disk), warm pool for instant start, artifact collection (logs, tests, coverage, screenshots), auto-cleanup with failure preservation
@@ -495,6 +504,16 @@ LAST_UPDATED: 2026-09-01
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-09-01 **Phase 28: Design Mode & Visual Editing — STARTED** — Created `artifacts/api-server/src/lib/design-mode.ts` (1000+ lines) backend library with DesignModeEngine class featuring:
+  - Session management for design mode (create, get, element registration/selection)
+  - Element inspection with selector, bounds, style, attributes, component info, source location
+  - Visual property changes (style/attribute/prop) with bidirectional sync: preview ↔ code
+  - Component registry building from codebase (AST-based prop extraction, shadcn variant detection, categorization)
+  - Design token extraction from project (Tailwind config, CSS custom properties, token config files)
+  - Visual control config generation (color picker, spacing slider, typography select, enum select, toggle)
+  - Code change generation via AST transformation (CSS variable updates, className/Tailwind updates)
+  - Event emitter for session/element/token updates
+
 - 2026-08-31 **Added Phase 42: Passkeys + TOTP (Authenticator App) Integration** — New final phase for modern MFA: Passkeys (WebAuthn/FIDO2) for passwordless login + TOTP authenticator apps (Google Authenticator, Authy, 1Password, Bitwarden). $0 cost, local-first, no external dependencies. Added to PHASES.md with full requirements, implementation plan, and file list.
 
 - 2026-08-30 **Phase 25: Codebase Indexing & Semantic Search — COMPLETE ✅** — All frontend work finished:

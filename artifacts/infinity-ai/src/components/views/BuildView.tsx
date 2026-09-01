@@ -4,7 +4,7 @@
  * Overview: Build progress, transcript, plan, terminal, security, deploy - all visual
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { AppShell, AppShellSidebarSection, AppShellSidebarNavItem } from "@/components/layout/AppShell";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Panel, PanelGroup, SplitPanel } from "@/components/layout/Panel";
@@ -44,7 +44,8 @@ import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
 import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
 import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
-import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest } from "lucide-react";
+import { DesignMode } from "@/components/design/DesignMode";
+import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2 } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -124,6 +125,10 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewRunning, setPreviewRunning] = useState(false);
   const [previewPort, setPreviewPort] = useState(4173);
+
+  // Design Mode state
+  const [designModeActive, setDesignModeActive] = useState(false);
+  const livePreviewRef = useRef<HTMLIFrameElement>(null);
 
   const handlePlusAction = useCallback((action: PlusAction) => {
     setPlusMenuOpen(false);
@@ -588,13 +593,22 @@ export const BuildView: React.FC<BuildViewProps> = ({
         {/* Tab content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {buildTab === 'preview' && (
-            <LivePreview
-              projectId={projectId ?? ''}
-              initialUrl={previewUrl}
-              onUrlChange={setPreviewUrl}
-              onPreviewStart={() => setPreviewRunning(true)}
-              onPreviewStop={() => setPreviewRunning(false)}
-            />
+            <div className="flex-1 flex flex-col relative">
+              <LivePreview
+                ref={livePreviewRef}
+                projectId={projectId ?? ''}
+                initialUrl={previewUrl}
+                onUrlChange={setPreviewUrl}
+                onPreviewStart={() => setPreviewRunning(true)}
+                onPreviewStop={() => setPreviewRunning(false)}
+              />
+              {designModeActive && livePreviewRef.current && (
+                <DesignMode
+                  previewRef={livePreviewRef}
+                  onToggleDesignMode={setDesignModeActive}
+                />
+              )}
+            </div>
           )}
           {buildTab === 'overview' && (
             <BuildOverviewPanel

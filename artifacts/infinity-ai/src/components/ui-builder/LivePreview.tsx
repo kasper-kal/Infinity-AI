@@ -12,7 +12,8 @@ import { Button } from '@/components/ui';
 import { Select, SelectItem, SelectTrigger, SelectContent, SelectValue } from '@/components/ui/select';
 import { Tabs } from '@/components/ui/Tabs';
 import { Separator, Badge } from '@/components/ui';
-import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus, Grip, PanelLeft, PanelRight, Maximize } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { Loader2, X, Maximize2, Minimize2, Bug, Terminal, Smartphone, Tablet, Monitor, RefreshCw, Copy, Download, MousePointer, MousePointer2, Code, ChevronUp, ChevronDown, Users, UserPlus, UserMinus, Grip, PanelLeft, PanelRight, Maximize } from 'lucide-react';
 import { CommentOverlay, type Comment, type CommentElementData } from './CommentOverlay';
 import { DeviceFrame, type DeviceKind } from './DeviceFrame';
 
@@ -261,6 +262,9 @@ const setActiveTab = (tabId: string) => {
   const [selectedElements, setSelectedElements] = useState<SelectedElement[]>([]);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Design Mode State
+  const [designModeActive, setDesignModeActive] = useState(false);
+
   // Phase 18: Presence SSE State
   const presenceEventSource = useRef<EventSource | null>(null);
   const commentEventSource = useRef<EventSource | null>(null);
@@ -451,6 +455,31 @@ const setActiveTab = (tabId: string) => {
 
         case 'dom-ready':
           injectInspectionScripts();
+          break;
+
+        // Design Mode messages
+        case 'DESIGN_MODE_TOGGLE':
+          setDesignModeActive(payload.active);
+          if (payload.active) {
+            injectDesignModeScripts();
+          } else {
+            stopDesignModeScripts();
+          }
+          break;
+
+        case 'DESIGN_MODE_PROPERTY_CHANGE':
+          if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage(
+              { type: 'apply-design-change', payload },
+              '*'
+            );
+          }
+          break;
+
+        case 'DESIGN_MODE_CODE_UPDATE':
+          // Reload preview with updated code
+          previewKey.current += 1;
+          setIsLoading(true);
           break;
       }
     };
@@ -949,6 +978,250 @@ const ConsoleIcons = ({
     }, '*');
   }, [iframeRef]);
 
+  // Design Mode: Inject design mode inspection scripts
+  const injectDesignModeScripts = useCallback(() => {
+    if (!iframeRef.current?.contentWindow) return;
+
+    const script = `
+      (function() {
+        if (window.__infinityDesignModeInjected) return;
+        window.__infinityDesignModeInjected = true;
+
+        let isDesignMode = false;
+        let currentHovered = null;
+        let currentSelected = null;
+
+        let highlightOverlay = null;
+        let hoverOverlay = null;
+        let labelOverlay = null;
+
+        function getSelector(element) {
+          if (element.dataset.previewId) return '[data-preview-id="' + element.dataset.previewId + '"]';
+          if (element.id) return '#' + element.id;
+          if (element.className && typeof element.className === 'string' && element.className.trim()) {
+            const classes = element.className.trim().split(/\\s+/).filter(c => c && !c.startsWith('infinity-'));
+            if (classes.length) return element.tagName.toLowerCase() + '.' + classes.join('.');
+          }
+          return element.tagName.toLowerCase();
+        }
+
+        function getElementInfo(element) {
+          const rect = element.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          const computedStyle: Record<string, string> = {};
+          for (const prop of style) {
+            if (style[prop] !== '') computedStyle[prop] = style[prop];
+          }
+
+          const attributes: Record<string, string> = {};
+          for (const attr of element.attributes) {
+            attributes[attr.name] = attr.value;
+          }
+
+          let depth = 0;
+          let parent = element.parentElement;
+          while (parent) {
+            depth++;
+            parent = parent.parentElement;
+          }
+
+          let xpath = '';
+          let current = element;
+          while (current && current !== document.body) {
+            let index = 1;
+            let sibling = current.previousElementSibling;
+            while (sibling) {
+              if (sibling.tagName === current.tagName) index++;
+              sibling = sibling.previousElementSibling;
+            }
+            xpath = '/' + current.tagName.toLowerCase() + (index > 1 ? '[' + index + ']' : '') + xpath;
+            current = current.parentElement;
+          }
+          xpath = '/html/body' + xpath;
+
+          return {
+            id: element.dataset.previewId || element.id || Math.random().toString(36).slice(2),
+            selector: getSelector(element),
+            tagName: element.tagName,
+            className: element.className || '',
+            style: computedStyle,
+            attributes,
+            bounds: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+            children: element.children.length,
+            depth,
+            xpath,
+          };
+        }
+
+        function createOverlay(className) {
+          const div = document.createElement('div');
+          div.className = className;
+          div.style.cssText = \`
+            position: fixed;
+            pointer-events: none;
+            z-index: 2147483646;
+            border: 2px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            transition: all 50ms ease-out;
+            display: none;
+          \`;
+          document.body.appendChild(div);
+          return div;
+        }
+
+        function createLabel(text) {
+          const div = document.createElement('div');
+          div.style.cssText = \`
+            position: fixed;
+            pointer-events: none;
+            z-index: 2147483647;
+            background: #1e1e1e;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: monospace;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: none;
+          \`;
+          div.textContent = text;
+          document.body.appendChild(div);
+          return div;
+        }
+
+        function updateOverlay(overlay, info) {
+          if (!overlay || !info) return;
+          overlay.style.display = 'block';
+          overlay.style.left = info.bounds.x + 'px';
+          overlay.style.top = info.bounds.y + 'px';
+          overlay.style.width = info.bounds.width + 'px';
+          overlay.style.height = info.bounds.height + 'px';
+        }
+
+        function updateLabel(label, info, isSelected) {
+          if (!label || !info) return;
+          label.style.display = 'block';
+          label.style.left = info.bounds.x + 'px';
+          label.style.top = Math.max(0, info.bounds.y - 18) + 'px';
+          label.textContent = (isSelected ? '● ' : '') + info.tagName.toLowerCase() + (info.className ? '.' + info.className.split(' ')[0] : '');
+        }
+
+        function removeOverlay(overlay) {
+          if (overlay) overlay.style.display = 'none';
+        }
+
+        function onMouseOver(e) {
+          if (!isDesignMode) return;
+          e.stopPropagation();
+          const target = e.target;
+          if (target === highlightOverlay || target === hoverOverlay || target === labelOverlay) return;
+
+          const info = getElementInfo(target);
+          currentHovered = info;
+
+          if (!hoverOverlay) hoverOverlay = createOverlay('infinity-dm-hover-overlay');
+          if (!labelOverlay) labelOverlay = createLabel('');
+
+          updateOverlay(hoverOverlay, info);
+          updateLabel(labelOverlay, info, false);
+          hoverOverlay.style.borderColor = '#3b82f6';
+          hoverOverlay.style.background = 'rgba(59, 130, 246, 0.1)';
+          labelOverlay.style.background = '#3b82f6';
+
+          window.parent.postMessage({ type: 'DESIGN_MODE_ELEMENT_HOVER', payload: info }, '*');
+        }
+
+        function onMouseOut(e) {
+          if (!isDesignMode) return;
+          e.stopPropagation();
+          const target = e.target;
+          if (!target.contains(e.relatedTarget as Node)) {
+            removeOverlay(hoverOverlay);
+            removeOverlay(labelOverlay);
+            currentHovered = null;
+            window.parent.postMessage({ type: 'DESIGN_MODE_ELEMENT_UNHOVER', payload: null }, '*');
+          }
+        }
+
+        function onClick(e) {
+          if (!isDesignMode) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const target = e.target;
+          const info = getElementInfo(target);
+          currentSelected = info;
+
+          if (!highlightOverlay) highlightOverlay = createOverlay('infinity-dm-select-overlay');
+          highlightOverlay.style.borderColor = '#22c55e';
+          highlightOverlay.style.background = 'rgba(34, 197, 94, 0.15)';
+          updateOverlay(highlightOverlay, info);
+          updateLabel(labelOverlay, info, true);
+          labelOverlay.style.background = '#22c55e';
+
+          window.parent.postMessage({ type: 'DESIGN_MODE_ELEMENT_SELECT', payload: info }, '*');
+        }
+
+        function startDesignMode() {
+          isDesignMode = true;
+          document.addEventListener('mouseover', onMouseOver, true);
+          document.addEventListener('mouseout', onMouseOut, true);
+          document.addEventListener('click', onClick, true);
+          document.body.style.cursor = 'crosshair';
+        }
+
+        function stopDesignMode() {
+          isDesignMode = false;
+          document.removeEventListener('mouseover', onMouseOver, true);
+          document.removeEventListener('mouseout', onMouseOut, true);
+          document.removeEventListener('click', onClick, true);
+          document.body.style.cursor = '';
+          removeOverlay(highlightOverlay);
+          removeOverlay(hoverOverlay);
+          removeOverlay(labelOverlay);
+          currentHovered = null;
+          currentSelected = null;
+        }
+
+        function applyDesignChange(change) {
+          const element = document.querySelector(change.selector);
+          if (!element) return;
+
+          if (change.type === 'style') {
+            element.style.setProperty(change.property, change.value);
+          } else if (change.type === 'attribute') {
+            element.setAttribute(change.property, change.value);
+          }
+        }
+
+        window.addEventListener('message', (event) => {
+          if (event.data.type === 'apply-design-change') {
+            applyDesignChange(event.data.payload);
+          } else if (event.data.type === 'start-design-mode') {
+            startDesignMode();
+          } else if (event.data.type === 'stop-design-mode') {
+            stopDesignMode();
+          }
+        });
+
+        window.parent.postMessage({ type: 'dom-ready', payload: null }, '*');
+      })();
+    `;
+
+    iframeRef.current.contentWindow.postMessage({
+      type: 'inject-script',
+      payload: script,
+    }, '*');
+  }, [iframeRef]);
+
+  const stopDesignModeScripts = useCallback(() => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'stop-design-mode' }, '*');
+    }
+  }, [iframeRef]);
+
   const startInspecting = useCallback(() => {
     setIsInspecting(true);
     if (iframeRef.current?.contentWindow) {
@@ -1051,6 +1324,24 @@ const ConsoleIcons = ({
           >
             <span className="w-4 h-4">🌙</span>
           </Button>
+
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
+          {/* Design Mode Toggle */}
+          <Tooltip content={designModeActive ? 'Exit Design Mode' : 'Enter Design Mode'}>
+            <Button
+              variant={designModeActive ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => iframeRef.current?.contentWindow?.postMessage({
+                type: 'DESIGN_MODE_TOGGLE',
+                payload: { active: !designModeActive }
+              }, '*')}
+              className="flex items-center gap-1"
+            >
+              <MousePointer2 className="w-3.5 h-3.5 mr-1" />
+              {designModeActive ? 'Design Mode' : 'Design'}
+            </Button>
+          </Tooltip>
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
