@@ -1,0 +1,152 @@
+<idea-plugin>
+    <id>com.infinity.build</id>
+    <name>Infinity Build</name>
+    <version>${project.version}</version>
+    <vendor email="kasperkal1970@gmail.com" url="https://github.com/kasper-kal/Infinity-AI">Infinity AI</vendor>
+
+    <description><![CDATA[
+    <h2>Infinity Build - AI-Powered Development Companion</h2>
+    <p>Bring the power of Infinity AI to your JetBrains IDE. Features:</p>
+    <ul>
+        <li><b>Chat</b> - Conversational AI with @codebase context awareness</li>
+        <li><b>Composer</b> - Multi-file task planning with diff preview</li>
+        <li><b>Agent</b> - Autonomous coding agent with approval workflow</li>
+        <li><b>Send to Infinity</b> - Right-click any file/selection to send to AI</li>
+        <li><b>Settings</b> - Configure API connection, models, and preferences</li>
+        <li><b>Keybindings</b> - Customizable shortcuts for all actions</li>
+    </ul>
+    <p>Supports: IntelliJ IDEA, WebStorm, PyCharm, GoLand, Rider, PhpStorm, RubyMine, CLion, DataGrip, Android Studio (2023.1+)</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+    <h3>1.0.0 - Initial Release</h3>
+    <ul>
+        <li>Chat panel with @codebase context</li>
+        <li>Composer for multi-file planning</li>
+        <li>Autonomous agent with approvals</li>
+        <li>Context menu integration</li>
+        <li>Configurable settings</li>
+        <li>WebSocket real-time updates</li>
+        <li>Terminal bridge support</li>
+    </ul>
+    ]]></change-notes>
+
+    <!-- Minimum IDE version -->
+    <idea-version since-build="231" until-build="243.*"/>
+
+    <!-- Dependencies -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.vcs</depends>
+    <depends optional="true">JavaScriptLanguage</depends>
+    <depends optional="true">PythonCore</depends>
+    <depends optional="true">org.jetbrains.kotlin</depends>
+    <depends optional="true">Go</depends>
+    <depends optional="true">com.intellij.rider</depends>
+
+    <!-- Extensions -->
+    <extensions defaultExtensionNs="com.intellij">
+
+        <!-- Tool Window -->
+        <toolWindow id="InfinityBuild"
+                    anchor="right"
+                    icon="/icons/infinity.svg"
+                    factoryClass="com.infinity.build.ui.InfinityToolWindowFactory"
+                    conditionClass="com.infinity.build.ui.ToolWindowCondition"/>
+
+        <!-- Settings -->
+        <applicationConfigurable
+            instance="com.infinity.build.settings.InfinitySettingsConfigurable"
+            groupId="tools"
+            groupName="Infinity Build"
+            displayName="Infinity Build"/>
+
+        <projectConfigurable
+            instance="com.infinity.build.settings.InfinityProjectSettingsConfigurable"
+            groupId="tools"
+            groupName="Infinity Build"
+            displayName="Infinity Build (Project)"/>
+
+        <!-- Notifications -->
+        <notificationGroup id="Infinity Build" displayType="BALLOON"/>
+
+        <!-- Project Service -->
+        <projectService serviceImplementation="com.infinity.build.settings.InfinityProjectSettings"/>
+
+    </extensions>
+
+    <!-- Actions -->
+    <actions>
+
+        <!-- Main Tool Window Actions -->
+        <group id="InfinityBuild.MainMenu" text="Infinity Build" description="Infinity Build AI Assistant">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="Infinity.Chat.Action" class="com.infinity.build.actions.ChatAction"
+                    text="Open Chat" description="Open Infinity Chat with @codebase context">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt I"/>
+            </action>
+            <action id="Infinity.Composer.Action" class="com.infinity.build.actions.ComposerAction"
+                    text="Open Composer" description="Open Multi-file Composer">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt O"/>
+            </action>
+            <action id="Infinity.Agent.Action" class="com.infinity.build.actions.AgentAction"
+                    text="Open Agent" description="Open Autonomous Agent">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt A"/>
+            </action>
+            <separator/>
+            <action id="Infinity.Settings.Action" class="com.infinity.build.actions.SettingsAction"
+                    text="Settings" description="Configure Infinity Build"/>
+            <action id="Infinity.Refresh.Action" class="com.infinity.build.actions.RefreshAction"
+                    text="Refresh" description="Refresh Infinity Build tool window">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt R"/>
+            </action>
+        </group>
+
+        <!-- Editor Context Menu - Send to Infinity -->
+        <group id="InfinityBuild.EditorPopup" text="Send to Infinity" description="Send code to Infinity AI" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="last" relative-to-action="CutCopyPasteGroup"/>
+            <action id="Infinity.SendSelection.Action" class="com.infinity.build.actions.SendToInfinityAction"
+                    text="Send Selection to Infinity" description="Send selected code to Infinity Chat">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt S"/>
+            </action>
+            <action id="Infinity.SendFile.Action" class="com.infinity.build.actions.SendFileToInfinityAction"
+                    text="Send File to Infinity" description="Send current file to Infinity Chat"/>
+            <action id="Infinity.SendFiles.Action" class="com.infinity.build.actions.SendFilesToInfinityAction"
+                    text="Send Files to Infinity" description="Send multiple files to Infinity Chat"/>
+        </group>
+
+        <!-- Project View Context Menu -->
+        <group id="InfinityBuild.ProjectViewPopup" text="Send to Infinity" popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <action id="Infinity.SendFile.Action" class="com.infinity.build.actions.SendFileToInfinityAction"
+                    text="Send File to Infinity"/>
+            <action id="Infinity.SendFiles.Action" class="com.infinity.build.actions.SendFilesToInfinityAction"
+                    text="Send Files to Infinity"/>
+        </group>
+
+        <!-- Tool Window Toolbar Actions -->
+        <group id="InfinityBuild.ToolWindowToolbar">
+            <action id="Infinity.Chat.Action" class="com.infinity.build.actions.ChatAction"
+                    text="Chat" description="Open Chat tab" icon="/icons/chat.svg"/>
+            <action id="Infinity.Composer.Action" class="com.infinity.build.actions.ComposerAction"
+                    text="Composer" description="Open Composer tab" icon="/icons/composer.svg"/>
+            <action id="Infinity.Agent.Action" class="com.infinity.build.actions.AgentAction"
+                    text="Agent" description="Open Agent tab" icon="/icons/agent.svg"/>
+            <separator/>
+            <action id="Infinity.SendToInfinity.Action" class="com.infinity.build.actions.SendToInfinityAction"
+                    text="Send to Infinity" description="Send current selection to chat" icon="/icons/send.svg"/>
+            <action id="Infinity.Settings.Action" class="com.infinity.build.actions.SettingsAction"
+                    text="Settings" description="Open settings" icon="/icons/settings.svg"/>
+            <action id="Infinity.Refresh.Action" class="com.infinity.build.actions.RefreshAction"
+                    text="Refresh" description="Refresh tool window" icon="/icons/refresh.svg"/>
+        </group>
+
+    </actions>
+
+    <!-- Application Listener for startup/shutdown -->
+    <applicationListeners>
+        <listener class="com.infinity.build.InfinityPlugin$PluginLifecycleService"
+                  topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+    </applicationListeners>
+
+</idea-plugin>

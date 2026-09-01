@@ -5,6 +5,11 @@ import { ProjectInfo } from './components/ProjectInfo';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { Toolbar } from './components/Toolbar';
 import { TabBar, Tab } from './components/TabBar';
+import { ChatSidebar } from './components/ChatSidebar';
+import { ComposerPanel } from './components/ComposerPanel';
+import { AgentView } from './components/AgentView';
+import { TabAutocomplete } from './components/TabAutocomplete';
+import { RulesNotepadsPanel } from './components/RulesNotepadsPanel';
 
 interface BuildPanelProps {
   state: any;
@@ -14,7 +19,7 @@ interface BuildPanelProps {
 }
 
 export function BuildPanel({ state, vscode, onUpdateState, onSendMessage }: BuildPanelProps) {
-  const [activeTab, setActiveTab] = useState<'build' | 'terminal' | 'diagnostics' | 'settings'>('build');
+  const [activeTab, setActiveTab] = useState<'build' | 'terminal' | 'diagnostics' | 'settings' | 'chat' | 'composer' | 'agent' | 'tab-autocomplete' | 'rules-notepads'>('build');
   const [buildGoal, setBuildGoal] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
   const terminalRef = useRef<any>(null);
@@ -82,7 +87,7 @@ export function BuildPanel({ state, vscode, onUpdateState, onSendMessage }: Buil
         vscode={vscode}
       />
 
-      <TabBar activeTab={activeTab} onTabChange={(tab: string) => setActiveTab(tab as 'build' | 'terminal' | 'diagnostics' | 'settings')}>
+      <TabBar activeTab={activeTab} onTabChange={(tab: string) => setActiveTab(tab as 'build' | 'terminal' | 'diagnostics' | 'settings' | 'chat' | 'composer' | 'agent' | 'tab-autocomplete' | 'rules-notepads')}>
         <Tab id="build" label="Build" icon="▦">
           <div className="tab-content build-tab">
             <ProjectInfo project={project} projectRoot={state.projectRoot} />
@@ -136,10 +141,69 @@ export function BuildPanel({ state, vscode, onUpdateState, onSendMessage }: Buil
 
         <Tab id="settings" label="Settings" icon="⚙">
           <div className="tab-content settings-tab">
-            <SettingsPanel config={state.config} onConfigChange={(cfg) => {
-              onUpdateState({ config: { ...state.config, ...cfg } });
-              vscode.postMessage({ type: 'update_config', config: cfg });
-            }} />
+            <SettingsPanel
+              config={state.config}
+              onConfigChange={(cfg) => {
+                onUpdateState({ config: { ...state.config, ...cfg } });
+                vscode.postMessage({ type: 'update_config', config: cfg });
+              }}
+              vscode={vscode}
+            />
+          </div>
+        </Tab>
+
+        <Tab id="chat" label="Chat" icon="💬">
+          <div className="tab-content chat-tab">
+            <ChatSidebar
+              vscode={vscode}
+              onSendMessage={onSendMessage}
+              projectRoot={state.projectRoot}
+              connected={state.connected}
+            />
+          </div>
+        </Tab>
+
+        <Tab id="composer" label="Composer" icon="🎼">
+          <div className="tab-content composer-tab">
+            <ComposerPanel
+              vscode={vscode}
+              onSendMessage={onSendMessage}
+              projectRoot={state.projectRoot}
+              connected={state.connected}
+            />
+          </div>
+        </Tab>
+
+        <Tab id="agent" label="Agent" icon="🤖">
+          <div className="tab-content agent-tab">
+            <AgentView
+              vscode={vscode}
+              onSendMessage={onSendMessage}
+              projectRoot={state.projectRoot}
+              connected={state.connected}
+            />
+          </div>
+        </Tab>
+
+        <Tab id="tab-autocomplete" label="Tab" icon="⇥">
+          <div className="tab-content tab-autocomplete-tab">
+            <TabAutocomplete
+              vscode={vscode}
+              onSendMessage={onSendMessage}
+              projectRoot={state.projectRoot}
+              connected={state.connected}
+            />
+          </div>
+        </Tab>
+
+        <Tab id="rules-notepads" label="Rules" icon="📋">
+          <div className="tab-content rules-notepads-tab">
+            <RulesNotepadsPanel
+              vscode={vscode}
+              onSendMessage={onSendMessage}
+              projectRoot={state.projectRoot}
+              connected={state.connected}
+            />
           </div>
         </Tab>
       </TabBar>
@@ -163,7 +227,7 @@ export function BuildPanel({ state, vscode, onUpdateState, onSendMessage }: Buil
   );
 }
 
-function SettingsPanel({ config, onConfigChange }: { config: any; onConfigChange: (cfg: any) => void }) {
+function SettingsPanel({ config, onConfigChange, vscode }: { config: any; onConfigChange: (cfg: any) => void; vscode: any }) {
   return (
     <div className="settings-panel">
       <h3>Infinity Build Settings</h3>
