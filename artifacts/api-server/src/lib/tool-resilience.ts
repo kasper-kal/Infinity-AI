@@ -104,19 +104,23 @@ class CircuitBreaker {
   private lastFailure?: string;
   private lastSuccess?: string;
   private nextAttemptAt?: number;
+  private onStateChange?: (toolName: string, oldState: CircuitState, newState: CircuitState) => void;
 
   constructor(
     private readonly toolName: string,
     private readonly threshold: number,
-    private readonly timeout: number
-  ) {}
+    private readonly timeout: number,
+    options?: { onStateChange?: (toolName: string, oldState: CircuitState, newState: CircuitState) => void }
+  ) {
+    this.onStateChange = options?.onStateChange;
+  }
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
     // Check if circuit is open
     if (this.state === "open") {
       if (this.nextAttemptAt && Date.now() >= this.nextAttemptAt) {
         // Transition to half-open
-        this.state = "half-open";
+        this.setState("half-open");
       } else {
         throw new Error(`Circuit breaker OPEN for ${this.toolName}. Next attempt at ${new Date(this.nextAttemptAt || 0).toISOString()}`);
       }
@@ -132,12 +136,20 @@ class CircuitBreaker {
     }
   }
 
+  private setState(newState: CircuitState): void {
+    const oldState = this.state;
+    if (oldState !== newState) {
+      this.state = newState;
+      this.onStateChange?.(this.toolName, oldState, newState);
+    }
+  }
+
   private onSuccess(): void {
     this.failureCount = 0;
     this.successCount++;
     this.lastSuccess = new Date().toISOString();
     if (this.state === "half-open") {
-      this.state = "closed";
+      this.setState("closed");
     }
   }
 
@@ -145,7 +157,7 @@ class CircuitBreaker {
     this.failureCount++;
     this.lastFailure = error;
     if (this.failureCount >= this.threshold) {
-      this.state = "open";
+      this.setState("open");
       this.nextAttemptAt = Date.now() + this.timeout;
     }
   }
@@ -163,7 +175,7 @@ class CircuitBreaker {
   }
 
   reset(): void {
-    this.state = "closed";
+    this.setState("closed");
     this.failureCount = 0;
     this.successCount = 0;
     this.lastFailure = undefined;
@@ -177,10 +189,19 @@ class CircuitBreaker {
  */
 const circuitBreakers = new Map<string, CircuitBreaker>();
 
+// Global state change callback
+let globalCircuitBreakerStateChangeCallback: ((toolName: string, oldState: CircuitState, newState: CircuitState) => void) | null = null;
+
+export function setCircuitBreakerStateChangeCallback(callback: (toolName: string, oldState: CircuitState, newState: CircuitState) => void): void {
+  globalCircuitBreakerStateChangeCallback = callback;
+}
+
 function getCircuitBreaker(toolName: string, config: ToolResilienceConfig): CircuitBreaker {
   let breaker = circuitBreakers.get(toolName);
   if (!breaker) {
-    breaker = new CircuitBreaker(toolName, config.circuitBreaker.threshold, config.circuitBreaker.timeout);
+    breaker = new CircuitBreaker(toolName, config.circuitBreaker.threshold, config.circuitBreaker.timeout, {
+      onStateChange: globalCircuitBreakerStateChangeCallback,
+    });
     circuitBreakers.set(toolName, breaker);
   }
   return breaker;

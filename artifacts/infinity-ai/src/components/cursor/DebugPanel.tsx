@@ -675,8 +675,8 @@ export function DebugPanel({ projectId }: { projectId: string }) {
                             </TableBody>
                           </Table>
                         </ScrollArea>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

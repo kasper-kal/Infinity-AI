@@ -490,7 +490,8 @@ export function ModelPreferences({ projectRoot, onPreferencesChange }: ModelPref
                 {saving ? <Loader2Icon className="h-4 w-4 animate-spin mr-2" /> : null}
                 {editingPref ? t("common.save") : t("common.create")}
               </Button>
-            </DialogFooter          </DialogContent>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
 
         <ToastViewport className="bottom-4 right-4">

@@ -32,8 +32,17 @@ import {
 import { SUBAGENTS, spawnSubagent, spawnSubagentsParallel, perspectiveDiverseVerify, type SubagentDefinition, type SubagentConfig, type CodeReviewerOutput } from "./subagents";
 import { ToolExecutionContext, UniversalToolResult, Artifact, ToolCategory, ToolRisk } from "./tool-types";
 import { getToolDefinitionsForLLM, executeTool, formatToolResults, registerTool, discoverTools } from "./tool-registry";
-import { executeUniversalToolWithResilience, classifyToolFailure, type ResilientExecutionOptions } from "./tool-resilience";
-import { getTaskPersistenceManager, type PersistentTaskState, type TaskStatus } from "./tool-persistence";
+import {
+  executeUniversalToolWithResilience,
+  classifyToolFailure,
+  getCircuitBreakerStatus,
+  getAllCircuitBreakerStatuses,
+  resetCircuitBreaker,
+  type ResilientExecutionOptions,
+  type CircuitBreakerStatus,
+  type ToolFailureInfo,
+} from "./tool-resilience";
+import { getTaskPersistenceManager, type PersistentTaskState, type TaskStatus, type RecoveryPlan } from "./tool-persistence";
 import { CodebaseIndexer, SearchResult, createCodebaseIndexer, IndexConfig } from "./codebase-indexer";
 
 // ============================================================================
@@ -59,6 +68,8 @@ export interface CursorAgentEvent {
         "tool_start" | "tool_progress" | "tool_complete" | "tool_error" |
         "checkpoint_created" | "checkpoint_restored" |
         "approval_requested" | "approval_received" |
+        "circuit_breaker_open" | "circuit_breaker_half_open" | "circuit_breaker_closed" |
+        "recovery_started" | "recovery_complete" | "recovery_failed" |
         "loop_complete" | "error";
   step: number;
   timestamp: string;
@@ -356,6 +367,18 @@ export class CursorAgent {
     // Register Cursor-specific tools
     this.registerCursorTools();
 
+    // Register circuit breaker state change callback
+    const { setCircuitBreakerStateChangeCallback } = await import("./tool-resilience");
+    setCircuitBreakerStateChangeCallback((toolName, oldState, newState) => {
+      this.emitEvent({
+        type: newState === "open" ? "circuit_breaker_open" :
+              newState === "half-open" ? "circuit_breaker_half_open" : "circuit_breaker_closed",
+        step: this.currentIteration,
+        timestamp: new Date().toISOString(),
+        content: `Circuit breaker for ${toolName}: ${oldState} → ${newState}`,
+      });
+    });
+
     // Load persisted state if taskId exists
     if (this.config.taskId) {
       await this.loadPersistedState();
@@ -370,17 +393,33 @@ export class CursorAgent {
   }
 
   /** Run the agent with a user goal */
-  async run(goal: string): Promise<CursorAgentResult> {
+  async run(goal: string, options?: { resumeFromCheckpoint?: boolean; checkpointId?: string }): Promise<CursorAgentResult> {
     this.stopped = false;
     this.startTime = Date.now();
     this.currentIteration = 0;
     this.totalToolCalls = 0;
 
-    // Add user goal to history
-    this.addToHistory({ role: "user", content: goal });
+    // If resuming from checkpoint
+    if (options?.resumeFromCheckpoint) {
+      if (options.checkpointId) {
+        await this.restoreCheckpoint(options.checkpointId);
+      } else {
+        // Try to load from persistence
+        await this.loadPersistedState();
+      }
+      this.emitEvent({
+        type: "checkpoint_restored",
+        step: 0,
+        timestamp: new Date().toISOString(),
+        content: "Resumed from checkpoint",
+      });
+    } else {
+      // Add user goal to history (only for new runs)
+      this.addToHistory({ role: "user", content: goal });
+    }
 
-    // Planning mode: create plan first
-    if (this.config.enablePlanningMode) {
+    // Planning mode: create plan first (skip if we have an existing plan from checkpoint)
+    if (this.config.enablePlanningMode && !this.plan) {
       await this.createPlan(goal);
       if (this.plan && this.plan.status === "draft") {
         // Request user approval for plan
@@ -390,6 +429,9 @@ export class CursorAgent {
         }
         this.plan.status = "approved";
       }
+    } else if (this.plan) {
+      // We have a plan from checkpoint - continue executing it
+      this.plan.status = "executing";
     }
 
     // Main agent loop
@@ -447,6 +489,74 @@ export class CursorAgent {
     });
 
     return true;
+  }
+
+  /** Get circuit breaker status for a specific tool */
+  getCircuitBreakerStatus(toolName: string): CircuitBreakerStatus | null {
+    return getCircuitBreakerStatus(toolName);
+  }
+
+  /** Get all circuit breaker statuses */
+  getAllCircuitBreakerStatuses(): Record<string, CircuitBreakerStatus> {
+    return getAllCircuitBreakerStatuses();
+  }
+
+  /** Reset circuit breaker for a tool */
+  resetCircuitBreaker(toolName: string): void {
+    resetCircuitBreaker(toolName);
+  }
+
+  /** Get recovery plan for current task */
+  async getRecoveryPlan(): Promise<RecoveryPlan | null> {
+    const persistence = getTaskPersistenceManager();
+    return persistence.createRecoveryPlan(this.config.taskId);
+  }
+
+  /** Execute recovery for current task */
+  async executeRecovery(): Promise<{ success: boolean; results: UniversalToolResult[] }> {
+    const persistence = getTaskPersistenceManager();
+    return persistence.recoverTask(this.config.taskId, {
+      projectId: this.config.projectId,
+      accountId: "cursor-agent",
+      permissions: [],
+      approvalCallback: async (prompt) => {
+        if (this.config.autoApproveSafeActions) return true;
+        return new Promise((resolve) => {
+          const approvalId = `approval-${Date.now()}`;
+          this.emitEvent({
+            type: "approval_requested",
+            step: this.currentIteration,
+            timestamp: new Date().toISOString(),
+            approvalId,
+            approvalPrompt: prompt,
+            approvalOptions: ["Approve", "Deny"],
+          });
+          this.pendingApprovals.set(approvalId, {
+            prompt,
+            options: ["Approve", "Deny"],
+            resolve: (value) => resolve(value.approved),
+          });
+        });
+      },
+    } as ToolExecutionContext, async (toolName, args, context) => {
+      return executeTool(toolName, args, context);
+    });
+  }
+
+  /** Health check for all registered tools */
+  async runHealthCheck(toolNames?: string[]): Promise<{ healthy: boolean; results: Record<string, { ok: boolean; latencyMs: number; error?: string }> }> {
+    const { runUniversalToolHealthCheck } = await import("./tool-resilience");
+    return runUniversalToolHealthCheck({
+      projectId: this.config.projectId,
+      accountId: "cursor-agent",
+      permissions: [],
+    } as ToolExecutionContext, toolNames);
+  }
+
+  /** Get resilience metrics */
+  getResilienceMetrics() {
+    const { getUniversalResilienceMetrics } = await import("./tool-resilience");
+    return getUniversalResilienceMetrics();
   }
 
   /** Respond to approval request */
@@ -1211,7 +1321,63 @@ Rules:
     };
 
     if (this.config.enableResilience) {
-      return executeUniversalToolWithResilience(toolCall.name, toolCall.arguments, ctx, this.config.resilienceOptions);
+      // Monitor circuit breaker state before execution
+      const cbStatus = getCircuitBreakerStatus(toolCall.name);
+      if (cbStatus?.state === "open") {
+        this.emitEvent({
+          type: "tool_error",
+          step: this.currentIteration,
+          timestamp: new Date().toISOString(),
+          toolCall: {
+            id: toolCall.id,
+            name: toolCall.name,
+            args: toolCall.arguments,
+            dependsOn: [],
+            parallelGroup: 0,
+          },
+          toolResult: {
+            success: false,
+            error: `Circuit breaker OPEN for ${toolCall.name}. Next attempt at ${cbStatus.nextAttemptAt ? new Date(cbStatus.nextAttemptAt).toISOString() : "unknown"}`,
+          },
+        });
+        throw new Error(`Circuit breaker OPEN for ${toolCall.name}`);
+      }
+
+      return executeUniversalToolWithResilience(toolCall.name, toolCall.arguments, ctx, {
+        ...this.config.resilienceOptions,
+        onProgress: (stage, info) => {
+          this.emitEvent({
+            type: "tool_progress",
+            step: this.currentIteration,
+            timestamp: new Date().toISOString(),
+            toolCall: {
+              id: toolCall.id,
+              name: toolCall.name,
+              args: toolCall.arguments,
+              dependsOn: [],
+              parallelGroup: 0,
+            },
+            content: `${stage}: ${JSON.stringify(info)}`,
+          });
+          this.config.resilienceOptions?.onProgress?.(stage, info);
+        },
+        onAttempt: (attempt, maxAttempts, error) => {
+          this.emitEvent({
+            type: "tool_progress",
+            step: this.currentIteration,
+            timestamp: new Date().toISOString(),
+            toolCall: {
+              id: toolCall.id,
+              name: toolCall.name,
+              args: toolCall.arguments,
+              dependsOn: [],
+              parallelGroup: 0,
+            },
+            content: `Attempt ${attempt}/${maxAttempts}${error ? ` - ${error.message}` : ""}`,
+          });
+          this.config.resilienceOptions?.onAttempt?.(attempt, maxAttempts, error);
+        },
+      });
     }
 
     return executeTool(toolCall.name, toolCall.arguments, ctx);

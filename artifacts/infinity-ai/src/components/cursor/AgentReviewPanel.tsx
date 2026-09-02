@@ -405,10 +405,10 @@ export function AgentReviewPanel({ projectId }: { projectId: string }) {
                       <Textarea
                         value={diffInput}
                         onChange={(e) => setDiffInput(e.target.value)}
-                        placeholder={t("agentReview.new.diffPlaceholder") || "diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1,5 +1,7 @@\n+import { newFeature } from './new';\n+..."
+                        placeholder={t("agentReview.new.diffPlaceholder") || `Paste git diff format here...`}
                         rows={12}
                         className="font-mono text-sm"
-                      />
+                      </Textarea>
                     </div>
                   )}
 

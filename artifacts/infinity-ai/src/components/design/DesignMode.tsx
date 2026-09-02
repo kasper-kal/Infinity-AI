@@ -462,7 +462,7 @@ function DesignModeStatus({ selectedElement }: DesignModeStatusProps) {
   return (
     <div className="design-mode-status selected">
       <span className="status-dot active" />
-      <span className="element-tag"><{selectedElement.tagName.toLowerCase()}></span>
+      <span className="element-tag">{"<" + selectedElement.tagName.toLowerCase() + ">"}</span>
       {selectedElement.componentInfo && (
         <>
           <Separator orientation="vertical" className="mx-1" />
@@ -618,7 +618,7 @@ function PropertyEditorSidebar({
         <div className="header-left">
           <h3>{t("designMode.properties")}</h3>
           <Badge variant="outline" className="element-type-badge">
-            <{element.tagName.toLowerCase()}>
+            {"<" + element.tagName.toLowerCase() + ">"}
           </Badge>
           {element.componentInfo && (
             <Badge variant="secondary" className="component-badge">
