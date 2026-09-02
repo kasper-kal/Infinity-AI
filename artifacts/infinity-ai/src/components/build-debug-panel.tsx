@@ -26,8 +26,12 @@ import {
   Brain,
   Wrench,
   Cpu,
+  BarChart2,
+  History,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { TokenUsageGauge } from '@/components/build/TokenUsageGauge';
+import { CompactionHistory } from '@/components/build/CompactionHistory';
 
 type BuildEventType =
   | 'plan_start'
@@ -939,6 +943,22 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       )}
+
+      {/* Token Usage Gauge (Phase 32) */}
+      <div className="shrink-0 border-b border-border bg-secondary/50 p-3">
+        <TokenUsageGauge
+          workspaceId={workspaceId}
+          className="w-full"
+        />
+      </div>
+
+      {/* Compaction History (Phase 32) */}
+      <div className="shrink-0 border-b border-border bg-secondary/50 p-3">
+        <CompactionHistory
+          projectId={workspaceId}
+          className="w-full"
+        />
+      </div>
 
       {/* Summary / Events */}
       <div className="flex-1 min-h-0 overflow-hidden">

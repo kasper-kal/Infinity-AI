@@ -18,6 +18,13 @@ import {
 import { db } from "@workspace/db";
 import { buildCheckpoints } from "@workspace/db/schema";
 import { eq, desc } from "drizzle-orm";
+import {
+  compactWorkingContext,
+  autoCompactContext as newAutoCompactContext,
+  extractPreservationRules,
+  createPreservationRules,
+  COMPACTION_LEVELS as NEW_COMPACTION_LEVELS,
+} from "./context-compactor";
 
 export interface FileSummary {
   /** Relative path from workspace root */
@@ -579,7 +586,7 @@ function estimateContextTokens(ctx: WorkingContext): number {
 }
 
 /**
- * Auto-compact context based on triggers
+ * Auto-compact context based on triggers - uses new context-compactor.ts pipeline
  */
 export async function autoCompactContext(projectId: string): Promise<CompactionLevel> {
   const triggers = checkCompactionTriggers(projectId);
@@ -601,12 +608,13 @@ export async function autoCompactContext(projectId: string): Promise<CompactionL
     else if (trigger.type === "context-size" && trigger.currentValue > 50_000) targetLevel = Math.max(targetLevel, 2) as CompactionLevel;
   }
 
+  // Use the new context-compactor for working context compaction
   await compactContext(projectId, targetLevel);
   return targetLevel;
 }
 
 /**
- * Compact context to a specific level
+ * Compact context to a specific level - delegates to context-compactor for working context
  */
 export async function compactContext(projectId: string, level: CompactionLevel): Promise<void> {
   const ctx = getWorkingContext(projectId);
@@ -624,12 +632,42 @@ export async function compactContext(projectId: string, level: CompactionLevel):
     ctx.completedSteps = ctx.completedSteps.slice(-config.keepDetailedSteps);
   }
 
-  // Prune decisions if needed
+  // Use new context-compactor for working context compression (preserves fileMap, decisions, errors)
+  const preserveRules = extractPreservationRules([], {
+    fileMap: Object.fromEntries(ctx.fileMap),
+    keyDecisions: ctx.keyDecisions,
+    errorPatterns: ctx.errorPatterns,
+    currentPlan: ctx.currentPlan,
+    originalGoal: ctx.projectGoal,
+    projectInstructions: [],
+  });
+
+  const compactResult = compactWorkingContext(ctx, level, preserveRules);
+
+  // Apply compressed working context back to ctx
+  if (compactResult.compacted && compactResult.compacted !== ctx) {
+    const compressed = compactResult.compacted;
+    if (compressed.keyDecisions) ctx.keyDecisions = compressed.keyDecisions;
+    if (compressed.errorPatterns) ctx.errorPatterns = compressed.errorPatterns;
+    if (compressed.fileMap) {
+      // Convert back to Map
+      ctx.fileMap = new Map(Object.entries(compressed.fileMap).map(([path, info]: [string, any]) => [
+        path,
+        {
+          ...ctx.fileMap.get(path)!,
+          purpose: info.summary || info.purpose,
+          exports: info.symbols || info.exports || []
+        }
+      ]));
+    }
+  }
+
+  // Prune decisions if needed (level 3+)
   if (!config.keepDecisions && ctx.keyDecisions.length > 0) {
     ctx.keyDecisions = ctx.keyDecisions.slice(-5); // Keep last 5
   }
 
-  // Prune file map if needed
+  // Prune file map if needed (level 3+)
   if (!config.keepFileMap && ctx.fileMap.size > 50) {
     // Keep only recently changed files
     const entries = Array.from(ctx.fileMap.entries())
@@ -638,7 +676,7 @@ export async function compactContext(projectId: string, level: CompactionLevel):
     ctx.fileMap = new Map(entries);
   }
 
-  // Prune error patterns if needed
+  // Prune error patterns if needed (level 3+)
   if (!config.keepErrorPatterns) {
     ctx.errorPatterns = ctx.errorPatterns.slice(-10);
   }

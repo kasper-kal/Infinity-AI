@@ -15,7 +15,7 @@
  * - Model-agnostic: loop only depends on LLMAdapter interface
  */
 
-import { LLMAdapter, LLMMessage, LLMTool, LLMCompletionOptions, LLMCompletionResult, LLMToolCall } from "./llm-adapter";
+import { LLMAdapter, LLMMessage, LLMTool, LLMCompletionOptions, LLMCompletionResult, LLMToolCall, LLMCapabilities } from "./llm-adapter";
 import {
   pipelineConcurrent,
   parallel,
@@ -33,6 +33,18 @@ import {
   type Approach,
   type Judge,
 } from "./orchestration-engine";
+import {
+  autoCompactContext,
+  compactHistory,
+  compactWorkingContext,
+  shouldCompact,
+  createTokenBudget,
+  TokenBudget,
+  PreservationRules,
+  createPreservationRules,
+  extractPreservationRules,
+  COMPACTION_LEVELS
+} from "./context-compactor";
 
 // Extended message type that includes tool_calls for conversation history (OpenAI API format)
 interface LLMMessageWithToolCalls extends LLMMessage {
@@ -128,6 +140,14 @@ export interface UniversalAgentConfig {
   enableJudgePanel?: boolean;
   /** Minimum confidence threshold for skipping verification (0-1, default: 0.8) */
   verificationConfidenceThreshold?: number;
+  /** Token budget configuration for auto-compaction */
+  tokenBudget?: TokenBudget;
+  /** Enable automatic context compaction when approaching token limits (default: true) */
+  enableAutoCompact?: boolean;
+  /** Custom preservation rules for compaction */
+  preservationRules?: Partial<PreservationRules>;
+  /** Callback when context is compacted */
+  onContextCompacted?: (result: { level: number; tokensSaved: number; description: string }) => void;
 }
 
 /** Result of running the universal agent */
@@ -483,7 +503,25 @@ export async function runUniversalAgent(
     enableCompletenessCritic = true,
     enableJudgePanel = true,
     verificationConfidenceThreshold = 0.8,
+    tokenBudget: configTokenBudget,
+    enableAutoCompact = true,
+    preservationRules: configPreservationRules,
+    onContextCompacted,
   } = config;
+
+  // Initialize token budget if not provided
+  const capabilities = llmAdapter.getCapabilities();
+  let tokenBudget = configTokenBudget || createTokenBudget(
+    "universal-agent",
+    capabilities.maxContextTokens,
+    capabilities.maxOutputTokens
+  );
+
+  // Initialize preservation rules
+  let preservationRules = createPreservationRules();
+  if (configPreservationRules) {
+    preservationRules = { ...preservationRules, ...configPreservationRules };
+  }
 
   // Register orchestration tools if enabled
   if (enableOrchestration) {
@@ -499,7 +537,7 @@ export async function runUniversalAgent(
   const fullSystemPrompt = buildAgentSystemPrompt(systemPrompt, toolDefs);
 
   // Initialize conversation
-  const messages: LLMMessage[] = [
+  let messages: LLMMessage[] = [
     { role: "system", content: fullSystemPrompt },
     ...history,
     { role: "user", content: userMessage },
@@ -518,7 +556,86 @@ export async function runUniversalAgent(
 
   const loopStartTime = Date.now();
 
+  // Working context for compaction
+  let workingContext: any = {
+    fileMap: {},
+    keyDecisions: [],
+    errorPatterns: [],
+    tokenBudget,
+    currentPlan: null,
+    originalGoal: userMessage,
+    projectInstructions: preservationRules.projectInstructions,
+  };
+
   for (let iteration = 0; iteration < maxIterations; iteration++) {
+    // ===== AUTO-COMPACTION CHECK (pre-iteration) =====
+    if (enableAutoCompact && iteration > 0) {
+      // Estimate current token usage from messages
+      const { countMessageTokens } = await import("./token-counter");
+      const estimatedTokens = await countMessageTokens(messages as any, "default");
+
+      const compactCheck = shouldCompact(
+        { inputTokens: estimatedTokens, outputTokens: 0, totalTokens: estimatedTokens },
+        capabilities
+      );
+
+      if (compactCheck.shouldCompact) {
+        onToolEvent({
+          type: "tool_progress",
+          step: iteration,
+          timestamp: new Date().toISOString(),
+          toolResult: {
+            success: true,
+            data: { compaction: `Auto-compacting context (level ${compactCheck.level}): ${compactCheck.reason}` },
+          },
+        });
+
+        // Extract latest preservation rules from context
+        preservationRules = extractPreservationRules(messages, workingContext);
+
+        const compactResult = await autoCompactContext({
+          messages,
+          workingContext,
+          tokenBudget,
+          modelCapabilities: capabilities,
+          preserveRules: preservationRules,
+          llmAdapter,
+        });
+
+        if (compactResult.compactionResults.length > 0) {
+          messages = compactResult.messages || messages;
+          workingContext = compactResult.workingContext || workingContext;
+          tokenBudget = compactResult.compactionResults[compactResult.compactionResults.length - 1].compacted
+            ? { ...tokenBudget, usedTokens: tokenBudget.usedTokens - compactResult.totalTokensSaved }
+            : tokenBudget;
+
+          // Emit compaction event
+          onToolEvent({
+            type: "tool_progress",
+            step: iteration,
+            timestamp: new Date().toISOString(),
+            toolResult: {
+              success: true,
+              data: {
+                context_compacted: true,
+                level: compactResult.finalLevel,
+                tokensSaved: compactResult.totalTokensSaved,
+                description: compactResult.compactionResults.map(r => r.description).join("; "),
+              },
+            },
+          });
+
+          // Call callback if provided
+          onContextCompacted?.({
+            level: compactResult.finalLevel,
+            tokensSaved: compactResult.totalTokensSaved,
+            description: compactResult.compactionResults.map(r => r.description).join("; "),
+          });
+        }
+      }
+    }
+    // ===== END AUTO-COMPACTION CHECK =====
+
     // Emit thinking_start event
     onToolEvent({
       type: "thinking_start",
@@ -879,6 +996,31 @@ export async function runUniversalAgent(
       })),
     } as LLMMessageWithToolCalls);
     messages.push(toolResultsMessage);
+
+    // ===== POST-TOOL TOKEN TRACKING =====
+    if (enableAutoCompact && completion.usage) {
+      const { inputTokens: promptTokens, completionTokens, totalTokens } = completion.usage;
+      tokenBudget = { ...tokenBudget, usedTokens: tokenBudget.usedTokens + promptTokens + completionTokens };
+      workingContext.tokenBudget = tokenBudget;
+
+      // Check if compaction needed after this iteration
+      const compactCheck = shouldCompact(
+        { inputTokens: promptTokens, outputTokens: completionTokens, totalTokens },
+        capabilities
+      );
+      if (compactCheck.shouldCompact && iteration < maxIterations - 1) {
+        onToolEvent({
+          type: "tool_progress",
+          step: iteration,
+          timestamp: new Date().toISOString(),
+          toolResult: {
+            success: true,
+            data: { compaction: `Post-iteration compaction check: ${compactCheck.reason}` },
+          },
+        });
+      }
+    }
+    // ===== END POST-TOOL TOKEN TRACKING =====
 
     // Check if we should continue (if all tools failed, maybe stop?)
     const allFailed = toolResults.every(r => !r.success);

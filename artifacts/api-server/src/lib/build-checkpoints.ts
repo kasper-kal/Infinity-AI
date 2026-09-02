@@ -80,6 +80,8 @@ export interface CheckpointData {
   plan: Record<string, unknown>;
   completedSteps: Array<Record<string, unknown>>;
   workingContext: Record<string, unknown>;
+  /** Compacted version of workingContext when auto-compaction was applied */
+  compactedContext?: Record<string, unknown>;
   fileSnapshots?: Record<string, string>;
   tokenUsage?: Record<string, unknown>;
   /** Git commit hash at checkpoint */
@@ -160,6 +162,7 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
   const redactedPlan = redactCheckpointData(data.plan);
   const redactedCompletedSteps = redactArray(data.completedSteps);
   const redactedWorkingContext = redactCheckpointData(data.workingContext);
+  const redactedCompactedContext = data.compactedContext ? redactCheckpointData(data.compactedContext) : undefined;
   const redactedFileSnapshots = data.fileSnapshots ? redactCheckpointData(data.fileSnapshots) : undefined;
   const redactedTokenUsage = data.tokenUsage ? redactCheckpointData(data.tokenUsage) : undefined;
 
@@ -180,6 +183,7 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
         plan: redactedPlan,
         completedSteps: redactedCompletedSteps,
         workingContext: redactedWorkingContext,
+        compactedContext: redactedCompactedContext ?? null,
         fileSnapshots: redactedFileSnapshots ?? null,
         tokenUsage: redactedTokenUsage ?? {},
         updatedAt: new Date(),
@@ -198,6 +202,7 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
       plan: redactedPlan,
       completedSteps: redactedCompletedSteps,
       workingContext: redactedWorkingContext,
+      compactedContext: redactedCompactedContext ?? null,
       fileSnapshots: redactedFileSnapshots ?? null,
       tokenUsage: redactedTokenUsage ?? {},
     })
@@ -686,6 +691,7 @@ export async function generateResumeOptions(
     plan: checkpoint.plan as Record<string, unknown>,
     completedSteps: checkpoint.completedSteps as Array<Record<string, unknown>>,
     workingContext: checkpoint.workingContext as Record<string, unknown>,
+    compactedContext: checkpoint.compactedContext as Record<string, unknown> | undefined,
     fileSnapshots: checkpoint.fileSnapshots as Record<string, string> | undefined,
     tokenUsage: checkpoint.tokenUsage as Record<string, unknown> | undefined,
     gitCommit: (checkpoint.plan as any)?.gitCommit,

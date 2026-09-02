@@ -20,6 +20,8 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   /** Private reasoning chain shown in a collapsible "Thinking" block (thinking mode). */
   reasoning: text("reasoning"),
+  /** Compacted summary of conversation history when auto-compaction was applied */
+  compactedSummary: text("compacted_summary"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -1524,6 +1524,96 @@ router.post("/build/context/tokens", requireAuth, requireScope("build:write"), a
   }
 });
 
+/**
+ * Phase 32: Get token usage for a project (for TokenUsageGauge UI)
+ */
+router.get("/build/:projectId/token-usage", requireAuth, async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  try {
+    const ctx = getWorkingContext(projectId);
+    // Get model capabilities to determine context window
+    let model = "default";
+    let contextWindow = 200000;
+    try {
+      const { pooledClient } = await import("../../lib/llm-client");
+      const client = pooledClient();
+      const caps = client.capabilities;
+      model = caps.model || "default";
+      contextWindow = caps.maxContextTokens || 200000;
+    } catch {
+      // Use defaults
+    }
+    res.json({
+      ok: true,
+      used: ctx.tokenBudget.used,
+      limit: ctx.tokenBudget.limit,
+      model,
+      contextWindow,
+      percentUsed: ctx.tokenBudget.limit > 0 ? (ctx.tokenBudget.used / ctx.tokenBudget.limit) * 100 : 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get token usage");
+    res.status(500).json({ error: "Failed to get token usage" });
+  }
+});
+
+/**
+ * Phase 32: Get compaction history for a project (for CompactionHistory UI)
+ */
+router.get("/build/:projectId/compaction-history", requireAuth, async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  try {
+    // For now, we'll read from checkpoints which store compaction info
+    // In a full implementation, this would query a dedicated compaction_events table
+    const { buildCheckpoints } = await import("@workspace/db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+    const { db } = await import("@workspace/db");
+
+    const checkpoints = await db
+      .select()
+      .from(buildCheckpoints)
+      .where(eq(buildCheckpoints.projectId, projectId))
+      .orderBy(desc(buildCheckpoints.iteration))
+      .limit(limit);
+
+    // Extract compaction events from checkpoints
+    const events = checkpoints
+      .filter(cp => cp.plan && typeof cp.plan === 'object' && (cp.plan as any).compactionLevel)
+      .map((cp, idx) => {
+        const plan = cp.plan as any;
+        const wctx = cp.workingContext as any;
+        return {
+          id: cp.id,
+          timestamp: cp.createdAt.toISOString(),
+          level: plan.compactionLevel || 1,
+          levelName: ['Summarize History', 'Compress Working', 'Goal + State', 'Emergency Minimal'][plan.compactionLevel - 1] || 'Unknown',
+          trigger: 'context-size' as const,
+          tokensBefore: wctx?.tokenBudget?.used || 0,
+          tokensAfter: wctx?.tokenBudget?.used || 0,
+          tokensSaved: 0,
+          messagesCompacted: 0,
+          preservedItems: {
+            userInstructions: 0,
+            projectInstructions: 0,
+            fileMapFiles: wctx?.fileMapSize || 0,
+            errorPatterns: plan?.errorPatterns?.length || 0,
+            decisions: plan?.keyDecisions?.length || 0,
+            currentPlan: !!plan?.currentPlan,
+            originalGoal: !!plan?.goal,
+          },
+          description: `Compaction to level ${plan.compactionLevel} at iteration ${cp.iteration}`,
+          durationMs: 0,
+        };
+      });
+
+    res.json({ ok: true, events, total: events.length });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get compaction history");
+    res.status(500).json({ error: "Failed to get compaction history" });
+  }
+});
+
 router.post("/build/preview/agent", requireAuth, requireScope("build:write"), async (req, res) => {
   const sessionId = cleanText(req.body?.sessionId, 100) || "studio-preview";
   const workspaceId = cleanText(req.body?.workspaceId, 64) || "default";

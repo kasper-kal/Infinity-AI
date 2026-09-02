@@ -38,6 +38,8 @@ import { getToolDefinitionsForLLM } from "../../lib/tool-registry";
 import { type ToolExecutionContext } from "../../lib/tool-types";
 import { optionalApiKeyAuth } from "../../middlewares/api-key-auth";
 import { redactSSEData } from "../../lib/secret-redaction";
+import { countMessageTokens, createTokenBudget, shouldCompact, updateTokenBudget, getBudgetStatus } from "../../lib/token-counter";
+import { autoCompactContext, extractPreservationRules, COMPACTION_LEVELS, type PreservationRules, type CompactionResult } from "../../lib/context-compactor";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {
@@ -1459,6 +1461,69 @@ router.post("/chat", requireAuth, async (req, res) => {
       { role: "user", content: currentUserContent },
     ];
 
+    // ===== PRE-MESSAGE CONVERSATION COMPACTION =====
+    // Check if conversation history needs compaction before sending to LLM
+    let compactedMessages = chatMessages;
+    let compactionResult: { compacted: any; totalTokensSaved: number; finalLevel: number; compactionResults: CompactionResult[] } | null = null;
+    let preservationRules: PreservationRules | null = null;
+    let tokenBudget: ReturnType<typeof createTokenBudget> | null = null;
+
+    try {
+      // Get model capabilities from the adapter
+      const adapter = createManualAdapter(manualKey);
+      const capabilities = adapter.getCapabilities();
+
+      // Create token budget based on model capabilities
+      tokenBudget = createTokenBudget("default", capabilities.maxContextTokens, capabilities.maxOutputTokens);
+
+      // Count tokens in current message history
+      const estimatedTokens = await countMessageTokens(chatMessages as any, "default");
+      tokenBudget = { ...tokenBudget, usedTokens: estimatedTokens };
+
+      // Check if compaction needed
+      const compactCheck = shouldCompact(
+        { inputTokens: estimatedTokens, outputTokens: 0, totalTokens: estimatedTokens },
+        capabilities
+      );
+
+      if (compactCheck.shouldCompact) {
+        // Extract preservation rules from conversation
+        // We need to extract project instructions, user instructions from context
+        preservationRules = extractPreservationRules(chatMessages, {
+          projectInstructions: projectContext ? [projectContext.prompt] : [],
+          originalGoal: sanitizedMessage,
+        });
+
+        // Perform auto-compaction
+        compactionResult = await autoCompactContext({
+          messages: chatMessages,
+          tokenBudget,
+          modelCapabilities: capabilities,
+          preserveRules: preservationRules,
+          llmAdapter: adapter,
+        });
+
+        if (compactionResult.compactionResults.length > 0) {
+          compactedMessages = compactionResult.messages || chatMessages;
+
+          // Emit compaction event via SSE
+          res.write(`data: ${JSON.stringify({
+            type: "context_compacted",
+            level: compactionResult.finalLevel,
+            tokensSaved: compactionResult.totalTokensSaved,
+            description: compactionResult.compactionResults.map(r => r.description).join("; "),
+          })}\n\n`);
+
+          // Store compacted summary in database (if we have convId)
+          // The summary will be stored when we save the assistant message
+        }
+      }
+    } catch (e) {
+      // Compaction failed, continue with original messages
+      console.warn("Context compaction failed, continuing with full context:", e);
+    }
+    // ===== END PRE-MESSAGE COMPACTION =====
+
     // ── Manual key mode (chat + voice) ─────────────────────────────
     // Chat and voice do NOT auto-loop through API keys (that is the rule for
     // every other mode: 10 attempts per key with a 10s cooldown, then the next
@@ -2515,7 +2580,8 @@ router.post("/chat", requireAuth, async (req, res) => {
     const useUniversalAgent = agentMode === "true";
 
     // Build runMessages early so it's available for universal agent
-    const runMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [...chatMessages];
+    // Use compactedMessages if compaction was applied
+    const runMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [...(compactionResult ? compactedMessages : chatMessages)];
 
     if (useUniversalAgent) {
       await db.insert(messages).values({
@@ -2589,12 +2655,17 @@ router.post("/chat", requireAuth, async (req, res) => {
         followUp: undefined,
       })}\n\n`);
 
-      // Persist assistant reply
+      // Persist assistant reply with compacted summary if compaction was applied
+      const compactedSummary = compactionResult && compactionResult.compactionResults.length > 0
+        ? compactionResult.compactionResults.map(r => `${r.level}: ${r.description} (saved ${r.tokensSaved} tokens)`).join("; ")
+        : null;
+
       await db.insert(messages).values({
         conversationId: convId,
         role: "assistant",
         content: agentResult.finalResponse,
         reasoning: agentResult.iterations.map(it => it.thought).join("\n\n"),
+        compactedSummary,
       });
 
       await db
@@ -2667,9 +2738,11 @@ router.post("/chat", requireAuth, async (req, res) => {
     // and is then fed back into the answer pass so the final response is
     // consistent with the thinking.
     let reasoningText = "";
+    // Use compacted messages if available
+    const messagesForLLM = compactionResult ? compactedMessages : chatMessages;
     if (thinkingEnabled === "true") {
       const thinkMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        ...chatMessages,
+        ...messagesForLLM,
         { role: "system", content: THINKING_INSTRUCTION },
       ];
       const think = await streamToClient(thinkMessages, 1024, {}, "reasoning");
@@ -2701,7 +2774,7 @@ router.post("/chat", requireAuth, async (req, res) => {
         const dispatchRes = await manualCreate({
           model: manualKey!.model,
           messages: [
-            ...runMessages,
+            ...messagesForLLM,
             {
               role: "system",
               content:
@@ -2728,7 +2801,7 @@ router.post("/chat", requireAuth, async (req, res) => {
           // real fonts/colors/layout back as context so the code matches.
           const figmaContext = await runFigmaDesignTool(dispatch.url, res);
           const finalMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-            ...runMessages,
+            ...messagesForLLM,
             { role: "system", content: "FIGMA DESIGN DATA:\n" + figmaContext },
           ];
           const final = await streamToClient(finalMessages, maxTokens);
@@ -2741,7 +2814,7 @@ router.post("/chat", requireAuth, async (req, res) => {
           // with the content available as context.
           const writeContext = await writeSourceCodeTool(dispatch, res);
           const finalMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-            ...runMessages,
+            ...messagesForLLM,
             { role: "system", content: "FILE WRITE RESULT:\n" + writeContext },
           ];
           const final = await streamToClient(finalMessages, maxTokens);
@@ -2767,7 +2840,7 @@ router.post("/chat", requireAuth, async (req, res) => {
             },
           );
           const finalMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-            ...runMessages,
+            ...messagesForLLM,
             {
               role: "system",
               content:
@@ -2788,7 +2861,7 @@ router.post("/chat", requireAuth, async (req, res) => {
         }
       } catch (dispatchErr) {
         req.log.warn({ err: dispatchErr }, "source-code dispatch failed, falling back to plain stream");
-        const plain = await streamToClient(runMessages, maxTokens);
+        const plain = await streamToClient(messagesForLLM, maxTokens);
         if (plain.interrupted) return;
         fullResponse = plain.text;
         totalTokens = plain.totalTokens;
@@ -2797,7 +2870,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       if (sourceContext) {
         // Stream the final answer with the code available as context.
         const finalMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-          ...runMessages,
+          ...messagesForLLM,
           {
             role: "system",
             content:
@@ -2812,7 +2885,7 @@ router.post("/chat", requireAuth, async (req, res) => {
       }
     } else {
       // No code access (declined or not requested), plain stream, no tools.
-      const plain = await streamToClient(runMessages, maxTokens);
+      const plain = await streamToClient(messagesForLLM, maxTokens);
       if (plain.interrupted) return;
       fullResponse = plain.text;
       totalTokens = plain.totalTokens;
@@ -2844,6 +2917,9 @@ router.post("/chat", requireAuth, async (req, res) => {
         role: "assistant",
         content: response,
         reasoning: reasoningText || null,
+        compactedSummary: compactionResult && compactionResult.compactionResults.length > 0
+          ? compactionResult.compactionResults.map(r => `${r.level}: ${r.description} (saved ${r.tokensSaved} tokens)`).join("; ")
+          : null,
       }),
       db
         .update(conversations)

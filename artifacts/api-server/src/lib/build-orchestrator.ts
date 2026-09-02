@@ -14,7 +14,7 @@
 import { z } from "zod";
 import { adapterFactory, createBestAdapter } from "./adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt } from "./infinity-prompt";
-import type { LLMAdapter } from "./llm-adapter";
+import type { LLMAdapter, LLMCapabilities } from "./llm-adapter";
 import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, type ToolResult, TOOL_DEFINITIONS } from "./build-tools";
 import { runAgentForStep, type PlanStep as AgentPlanStep, type AgentConfig } from "./build-agent";
 import { buildPlannerPrompt } from "./agent-prompts/planner";
@@ -43,6 +43,17 @@ import {
   parallel,
   type AdversarialVerifyResult,
 } from "./orchestration-engine";
+import {
+  autoCompactContext,
+  shouldCompact,
+  createTokenBudget,
+  TokenBudget,
+  PreservationRules,
+  createPreservationRules,
+  extractPreservationRules,
+  COMPACTION_LEVELS,
+  countMessageTokens,
+} from "./context-compactor";
 
 // ============================================================================
 // SCHEMAS
@@ -195,6 +206,12 @@ export class BuildOrchestrator {
   private onProgress?: ProgressCallback;
   private events: OrchestratorEvent[] = [];
 
+  // Token budget and compaction
+  private tokenBudget: TokenBudget;
+  private preservationRules: PreservationRules;
+  private enableAutoCompact = true;
+  private onContextCompacted?: (result: { level: number; tokensSaved: number; description: string; phase: string }) => void;
+
   private constructor(params: {
     projectId: string;
     workspaceId?: string;
@@ -203,6 +220,10 @@ export class BuildOrchestrator {
     model?: string;
     toolContext: ToolExecutionContext;
     onProgress?: ProgressCallback;
+    tokenBudget?: TokenBudget;
+    preservationRules?: Partial<PreservationRules>;
+    enableAutoCompact?: boolean;
+    onContextCompacted?: (result: { level: number; tokensSaved: number; description: string; phase: string }) => void;
   }) {
     this.projectId = params.projectId;
     this.workspaceId = params.workspaceId || params.projectId;
@@ -210,8 +231,17 @@ export class BuildOrchestrator {
     this.apiKey = params.apiKey || "";
     this.onProgress = params.onProgress;
     this.toolContext = params.toolContext;
+    this.enableAutoCompact = params.enableAutoCompact ?? true;
+    this.onContextCompacted = params.onContextCompacted;
     // llm will be initialized via init()
     this.context = createEmptyContext();
+
+    // Initialize token budget and preservation rules after llm is available (in init)
+    this.tokenBudget = params.tokenBudget || { maxContextTokens: 128000, maxOutputTokens: 8192, usedTokens: 0, reservedOutputTokens: 8192, warningThreshold: 89600, compactThreshold: 108800, emergencyThreshold: 121600, model: "default" };
+    this.preservationRules = createPreservationRules();
+    if (params.preservationRules) {
+      this.preservationRules = { ...this.preservationRules, ...params.preservationRules };
+    }
   }
 
   static async create(params: {
@@ -222,11 +252,26 @@ export class BuildOrchestrator {
     model?: string;
     toolContext: ToolExecutionContext;
     onProgress?: ProgressCallback;
+    tokenBudget?: TokenBudget;
+    preservationRules?: Partial<PreservationRules>;
+    enableAutoCompact?: boolean;
+    onContextCompacted?: (result: { level: number; tokensSaved: number; description: string; phase: string }) => void;
   }): Promise<BuildOrchestrator> {
     const orch = new BuildOrchestrator(params);
     orch.llm = params.model
       ? await adapterFactory.createAdapter({ adapterType: "auto", modelHint: params.model })
       : await createBestAdapter();
+
+    // Initialize token budget with actual model capabilities
+    if (!params.tokenBudget) {
+      const capabilities = orch.llm.getCapabilities();
+      orch.tokenBudget = createTokenBudget(
+        "build-orchestrator",
+        capabilities.maxContextTokens,
+        capabilities.maxOutputTokens
+      );
+    }
+
     return orch;
   }
 
@@ -306,6 +351,98 @@ export class BuildOrchestrator {
     // Store project map reference for use in steps
     (this.context as any).projectMap = projectMap;
     (this.context as any).smartContext = smartContext;
+
+    // ===== PRE-BUILD COMPACTION CHECK =====
+    if (this.enableAutoCompact) {
+      await this.checkAndCompactContext("pre-build");
+    }
+    // ===== END PRE-BUILD COMPACTION =====
+  }
+
+  /**
+   * Check token budget and compact context if needed
+   */
+  private async checkAndCompactContext(phase: string): Promise<void> {
+    if (!this.enableAutoCompact) return;
+
+    // Estimate current token usage from context
+    const estimatedTokens = await countMessageTokens([
+      { role: "system", content: this.context.fileMap },
+      { role: "system", content: this.context.projectInstructions },
+      { role: "system", content: this.context.projectMemory },
+      { role: "system", content: this.context.gitStatus },
+    ] as any, "default");
+
+    const capabilities = this.llm.getCapabilities();
+    const compactCheck = shouldCompact(
+      { inputTokens: estimatedTokens, outputTokens: 0, totalTokens: estimatedTokens },
+      capabilities
+    );
+
+    if (compactCheck.shouldCompact) {
+      this.emitProgress("orchestrator", phase, `Auto-compacting context (level ${compactCheck.level}): ${compactCheck.reason}`);
+
+      // Update preservation rules from current context
+      this.preservationRules = extractPreservationRules([], {
+        fileMap: this.context.fileMap,
+        keyDecisions: Array.from(this.context.completedSteps.entries()).map(([id, data]) => ({ topic: id, decision: data.summary, rationale: "", timestamp: Date.now() })),
+        errorPatterns: [],
+        currentPlan: null,
+        originalGoal: this.context.projectInstructions,
+        projectInstructions: [this.context.projectInstructions],
+        userInstructions: [],
+      });
+
+      const compactResult = await autoCompactContext({
+        messages: [
+          { role: "system", content: this.context.fileMap },
+          { role: "system", content: this.context.projectInstructions },
+          { role: "system", content: this.context.projectMemory },
+          { role: "system", content: this.context.gitStatus },
+        ],
+        workingContext: {
+          fileMap: this.context.fileMap,
+          keyDecisions: Array.from(this.context.completedSteps.entries()).map(([id, data]) => ({ topic: id, decision: data.summary })),
+          errorPatterns: [],
+          tokenBudget: this.tokenBudget,
+          currentPlan: null,
+          originalGoal: this.context.projectInstructions,
+          projectInstructions: [this.context.projectInstructions],
+        },
+        tokenBudget: this.tokenBudget,
+        modelCapabilities: capabilities,
+        preserveRules: this.preservationRules,
+        llmAdapter: this.llm,
+      });
+
+      if (compactResult.compactionResults.length > 0) {
+        // Update context with compacted versions
+        const compactedMessages = compactResult.messages || [];
+        for (const msg of compactedMessages) {
+          if (msg.role === "system" && msg.content && typeof msg.content === "string") {
+            if (msg.content.includes("FILE MAP") || msg.content.includes("fileMap")) {
+              this.context.fileMap = msg.content;
+            } else if (msg.content.includes("PROJECT INSTRUCTIONS")) {
+              this.context.projectInstructions = msg.content;
+            } else if (msg.content.includes("PROJECT MEMORY")) {
+              this.context.projectMemory = msg.content;
+            }
+          }
+        }
+        this.tokenBudget = { ...this.tokenBudget, usedTokens: Math.max(0, this.tokenBudget.usedTokens - compactResult.totalTokensSaved) };
+
+        // Emit compaction event
+        this.emitProgress("orchestrator", phase, `Context compacted: saved ${compactResult.totalTokensSaved} tokens (level ${compactResult.finalLevel})`);
+
+        // Call callback if provided
+        this.onContextCompacted?.({
+          level: compactResult.finalLevel,
+          tokensSaved: compactResult.totalTokensSaved,
+          description: compactResult.compactionResults.map(r => r.description).join("; "),
+          phase,
+        });
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -362,6 +499,12 @@ export class BuildOrchestrator {
             summary: (result.value as any).summary || "Completed",
             files: (result.value as any).filesChanged || [],
           });
+          // Save checkpoint with compacted context after each step
+          if (this.enableAutoCompact) {
+            this.saveCheckpointWithCompactedContext(step.id).catch(e =>
+              this.emitProgress("orchestrator", step.id, `Checkpoint save failed: ${e}`)
+            );
+          }
         } else {
           results.set(step.id, { status: "failed", error: result.reason });
           this.emitProgress("coder", step.id, `Failed: ${result.reason}`);
@@ -416,6 +559,12 @@ export class BuildOrchestrator {
     plan: z.infer<typeof PlanSchema>,
     results: Map<string, unknown>
   ): Promise<unknown> {
+    // ===== PRE-STEP COMPACTION CHECK =====
+    if (this.enableAutoCompact) {
+      await this.checkAndCompactContext(`pre-step-${step.id}`);
+    }
+    // ===== END PRE-STEP COMPACTION =====
+
     this.emitProgress("coder", step.id, `Starting: ${step.title}`);
 
     // Gather context for this step
@@ -506,6 +655,39 @@ export class BuildOrchestrator {
     // Max iterations reached
     this.emitProgress("reviewer", step.id, `Failed after ${this.maxFixIterations} fix iterations`);
     return { status: "failed", review: currentReview, error: "Max fix iterations exceeded" };
+  }
+
+  /**
+   * Save checkpoint with compacted context for resume capability
+   */
+  private async saveCheckpointWithCompactedContext(stepId: string): Promise<void> {
+    if (!this.enableAutoCompact) return;
+
+    // Compact working context for checkpoint
+    const compactResult = compactWorkingContext({
+      fileMap: this.context.fileMap,
+      keyDecisions: Array.from(this.context.completedSteps.entries()).map(([id, data]) => ({ topic: id, decision: data.summary })),
+      errorPatterns: [],
+      tokenBudget: this.tokenBudget,
+      currentPlan: { step: stepId, criteria: [] },
+      originalGoal: this.context.projectInstructions,
+      projectInstructions: [this.context.projectInstructions],
+    }, COMPACTION_LEVELS.COMPRESS_WORKING, this.preservationRules);
+
+    // Store compacted context for resume
+    this.context.stepOutputs.set(`${stepId}-compacted-checkpoint`, {
+      compactedContext: compactResult.compacted,
+      timestamp: Date.now(),
+      tokensSaved: compactResult.tokensSaved,
+      level: compactResult.level,
+    });
+
+    this.emitProgress("orchestrator", stepId, `Checkpoint saved with compacted context (saved ${compactResult.tokensSaved} tokens)`);
+  }
+
+  // Expose checkpoint for external resume
+  getCheckpoint(stepId: string): any {
+    return this.context.stepOutputs.get(`${stepId}-compacted-checkpoint`);
   }
 
   // ---------------------------------------------------------------------------

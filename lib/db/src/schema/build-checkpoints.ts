@@ -16,6 +16,8 @@ export const buildCheckpoints = pgTable("build_checkpoints", {
   plan: jsonb("plan").notNull().default(sql`'{}'::jsonb`),
   completedSteps: jsonb("completed_steps").notNull().default(sql`'[]'::jsonb`),
   workingContext: jsonb("working_context").notNull().default(sql`'{}'::jsonb`),
+  /** Compacted version of workingContext when auto-compaction was applied */
+  compactedContext: jsonb("compacted_context"),
   fileSnapshots: jsonb("file_snapshots"), // path -> content hash (for diff)
   tokenUsage: jsonb("token_usage").notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").notNull().defaultNow(),
