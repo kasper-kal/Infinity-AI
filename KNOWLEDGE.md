@@ -11,6 +11,14 @@
 - **Memory rule: never store personal trivia** (titles, how to address the user, small talk). Only project state, change record, and how-it-works. Trivia like "sir" dies with the session by design.
 - User works in short, structured messages; dislikes stale/repetitive tracking noise.
 
+### MANDATORY: Phase Completion Protocol
+**When ALL implementation files for a phase are complete, BEFORE committing:**
+1. Update **PHASES.md** — change status to `✅ COMPLETE`, check all `[x]` requirement boxes, add full file list with line counts
+2. Update **session-brief.md** — `LAST_UPDATED`, Current Phase, Change record (newest first), Next Actions
+3. **Then** `git add -A && git commit -m "Phase X COMPLETE: ..." && git push`
+
+**This is not optional.** It is part of the implementation — no phase is "done" until docs reflect it. The CLAUDE.md routine (step 5) requires this; treat PHASES.md like any other implementation file.
+
 ## Repository map (reuse, don't rebuild)
 - Monorepo: `artifacts/api-server` (Express, port 8080) · `artifacts/Infinity` (React + Vite, port 5173) · `lib/db` (Drizzle package `@workspace/db`) · `Books/` (live style samples) · `scripts/` · `docs/` · `archive/` · `qa-report/`.
 - Stack: Drizzle ORM + Postgres (Neon), Express routers under `/api/Infinity/*`, React + Tailwind + framer-motion + lucide-react, i18n `en`/`nl` (type-enforced `nl: Record<keyof typeof en, string>`), Puppeteer (A5 PDFs, screenshots).
