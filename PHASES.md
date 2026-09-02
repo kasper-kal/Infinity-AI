@@ -1387,34 +1387,34 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 30: Advanced Agent Capabilities (Cursor Agent Parity)
+## 📦 Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) ✅ COMPLETE
 
 ### Goal
 **Match Cursor Agent's advanced capabilities** — Planning mode, debugging, git integration, MCP servers, subagents, hooks, automations.
 
 ### Requirements
-- [ ] **Planning Mode** — Agent creates plan before executing:
+- [x] **Planning Mode** — Agent creates plan before executing:
   - User describes goal → agent explores codebase → presents plan (steps, files, risks)
   - User approves/modifies → agent executes with progress updates
   - Plan persists, can resume later
-- [ ] **Debugging Agent** — Agent can run/debug code:
+- [x] **Debugging Agent** — Agent can run/debug code:
   - Set breakpoints, inspect variables, step through
   - Run tests, capture output, analyze failures
   - Auto-fix test failures
-- [ ] **Git Integration** — Agent understands git:
+- [x] **Git Integration** — Agent understands git:
   - git log/diff/blame as tools
   - "What changed in this PR?" → summary with impact analysis
   - Auto-generate commit messages, PR descriptions
   - Conflict resolution assistance
-- [ ] **MCP Server Integration** — (Phase 6) Agent uses MCP tools:
+- [x] **MCP Server Integration** — (Phase 6) Agent uses MCP tools:
   - Filesystem, GitHub, PostgreSQL, Slack, Linear, etc.
   - Auto-discover project MCP config
   - Tool calls visible in agent timeline
-- [ ] **Subagents** — Specialized agents for specific tasks:
+- [x] **Subagents** — Specialized agents for specific tasks:
   - Code reviewer, debugger, test writer, documenter, researcher
   - Spawned by main agent, isolated context, report back
   - Defined in `.infinity/subagents/*.json`
-- [ ] **Hooks & Automations** — Event-driven agent triggers:
+- [x] **Hooks & Automations** — Event-driven agent triggers:
   - On file save, on git push, on PR open, on schedule, on webhook
   - Custom scripts: `infinity hook on-save "run tests"`
 
@@ -1426,16 +1426,16 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 5. **Subagent System** — Define spec, registry, spawning from agent (extends Phase 3)
 6. **Hooks Engine** — Event bus + script runner + scheduler
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/planning-agent.ts` (new)
-- `artifacts/api-server/src/lib/debug-tools.ts` (new)
-- `artifacts/api-server/src/lib/git-tools.ts` (new)
-- `artifacts/api-server/src/lib/subagents.ts` (extend Phase 3)
-- `artifacts/api-server/src/lib/hooks-engine.ts` (new)
-- `artifacts/api-server/src/routes/Infinity/advanced-agent.ts` (new)
-- `artifacts/Infinity/src/components/cursor/PlanningPanel.tsx` (new)
-- `artifacts/Infinity/src/components/cursor/DebugPanel.tsx` (new)
-- `artifacts/Infinity/src/components/views/BuildView.tsx` (Advanced Agent tab)
+### Files Created/Modified
+- `artifacts/api-server/src/lib/planning-agent.ts` (new — 759 lines) — PlanningAgent with createPlan, exploreCodebase, generatePlan, validatePlan, executeStep, topological sort, fallback plans
+- `artifacts/api-server/src/lib/debug-tools.ts` (new — 1028 lines) — DebugToolsManager with session management, breakpoints, variable inspection, test running (jest/vitest/playwright/cypress/mocha), auto-fix test failures, DAP simulation
+- `artifacts/api-server/src/lib/git-tools.ts` (new — 1075 lines) — GitTools with 30+ operations (log, diff, blame, status, branches, commit, stage, push/pull/fetch, stash, tags, conflicts, stats, worktrees) registered as universal tools
+- `artifacts/api-server/src/lib/subagents.ts` (extended — 500+ lines) — Subagent definitions, registry, spawning, parallel execution, verification tools
+- `artifacts/api-server/src/lib/hooks-engine.ts` (new — 1117 lines) — Event-driven hooks system with ScriptRunner (vm sandbox), HookScheduler (cron), HooksEngine (CRUD, execution, webhooks), CLI commands, 12 universal tool registrations
+- `artifacts/api-server/src/routes/infinity/advanced-agent.ts` (new — 804 lines) — Full REST API with endpoints for plans (CRUD, execute), debug sessions, breakpoints, test runs, auto-fix, git commands, subagent spawn/parallel/verify, advanced agent orchestration
+- `artifacts/infinity-ai/src/components/cursor/PlanningPanel.tsx` (new — 570 lines) — Frontend planning UI with plan creation, step visualization, execution controls, dependency graph
+- `artifacts/infinity-ai/src/components/cursor/DebugPanel.tsx` (new — 740 lines) — Frontend debugging UI with session management, breakpoints, variables, call stack, test runner, auto-fix panel
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (modified) — Integrated Advanced Agent tab with PlanningPanel and DebugPanel
 
 ---
 

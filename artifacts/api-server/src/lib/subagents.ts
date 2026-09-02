@@ -507,3 +507,239 @@ export async function perspectiveDiverseVerify(
 
   return results as Record<VerificationLens, CodeReviewerOutput | null>;
 }
+
+/**
+ * ===== DEBUGGER SUBAGENT =====
+ * Analyzes bugs, suggests fixes, runs debugging strategies
+ */
+export const DebuggerOutput = z.object({
+  analysis: z.object({
+    rootCause: z.string().max(500),
+    hypothesis: z.string().max(300),
+    affectedFiles: z.array(z.string()),
+    reproductionSteps: z.array(z.string().max(200)),
+  }),
+  debuggingPlan: z.array(z.object({
+    step: z.number(),
+    action: z.string().max(200),
+    tool: z.enum(["breakpoint", "log", "inspect", "test", "trace", "refactor"]),
+    expectedOutcome: z.string().max(200),
+  })),
+  suggestedFixes: z.array(z.object({
+    file: z.string(),
+    changeType: z.enum(["modify", "add", "delete"]),
+    diff: z.string(),
+    explanation: z.string().max(300),
+    confidence: z.number().min(0).max(1),
+  })),
+  risks: z.array(z.object({
+    description: z.string().max(200),
+    likelihood: z.enum(["low", "medium", "high"]),
+    mitigation: z.string().max(200),
+  })),
+});
+
+export type DebuggerOutput = z.infer<typeof DebuggerOutput>;
+
+export const debuggerAgent: SubagentDefinition<DebuggerOutput> = {
+  id: "debugger",
+  name: "Debugger",
+  description: "Analyzes bugs, creates debugging plans, suggests fixes with verification",
+  systemPrompt: `You are an EXPERT DEBUGGER. Your job is to diagnose issues and create actionable debugging plans.
+
+RULES:
+1. Analyze the bug report and context to form a hypothesis
+2. Create a step-by-step debugging plan with specific actions
+3. Suggest concrete fixes with unified diffs
+4. Every fix needs confidence score and verification
+5. Output ONLY valid JSON matching the schema
+
+DEBUGGING TOOLS:
+- breakpoint: set conditional breakpoints
+- log: add strategic console.log statements
+- inspect: inspect variables at runtime
+- test: write minimal reproduction test
+- trace: trace execution flow
+- refactor: simplify complex code to isolate issue
+
+FIX STRUCTURE:
+- rootCause: why the bug occurs (one sentence)
+- hypothesis: what you think is happening
+- affectedFiles: files involved
+- reproductionSteps: how to reproduce
+- debuggingPlan: ordered steps with tools and expected outcomes
+- suggestedFixes: array of {file, changeType, diff, explanation, confidence}
+- risks: what could break from fixes
+
+Be systematic. Think like a detective.`,
+  outputSchema: DebuggerOutput,
+  defaultConfig: {
+    modelTier: "high",
+    reasoningEffort: "high",
+    temperature: 0.1,
+    maxTokens: 6000,
+  },
+};
+
+/**
+ * ===== TEST WRITER SUBAGENT =====
+ * Generates comprehensive tests for code
+ */
+export const TestWriterOutput = z.object({
+  analysis: z.object({
+    testableUnits: z.array(z.object({
+      file: z.string(),
+      function: z.string(),
+      type: z.enum(["unit", "integration", "e2e", "snapshot"]),
+      complexity: z.enum(["simple", "moderate", "complex"]),
+    })),
+    existingCoverage: z.string().max(300),
+    gaps: z.array(z.string().max(200)),
+  }),
+  testPlan: z.array(z.object({
+    id: z.string(),
+    description: z.string().max(200),
+    type: z.enum(["unit", "integration", "e2e", "snapshot"]),
+    targetFile: z.string(),
+    targetFunction: z.string().optional(),
+    dependencies: z.array(z.string()),
+  })),
+  generatedTests: z.array(z.object({
+    file: z.string(),
+    testFile: z.string(),
+    content: z.string(),
+    framework: z.enum(["jest", "vitest", "playwright", "cypress", "mocha"]),
+    description: z.string().max(200),
+  })),
+  recommendations: z.array(z.object({
+    action: z.string().max(200),
+    rationale: z.string().max(300),
+    priority: z.enum(["critical", "high", "medium", "low"]),
+  })),
+});
+
+export type TestWriterOutput = z.infer<typeof TestWriterOutput>;
+
+export const testWriter: SubagentDefinition<TestWriterOutput> = {
+  id: "test-writer",
+  name: "Test Writer",
+  description: "Generates comprehensive tests (unit, integration, e2e) with high coverage",
+  systemPrompt: `You are a TEST WRITER. Generate thorough, maintainable tests.
+
+RULES:
+1. Analyze code to identify testable units and coverage gaps
+2. Create a test plan with specific test cases
+3. Generate actual test code for each case
+4. Use appropriate framework (jest, vitest, playwright, cypress, mocha)
+5. Output ONLY valid JSON matching the schema
+
+TEST STRATEGY:
+- Unit: pure functions, components, hooks
+- Integration: API routes, database, external services
+- E2E: critical user flows, cross-component interactions
+- Snapshot: UI components, serialized output
+
+TEST QUALITY:
+- Descriptive test names (what + expected behavior)
+- Arrange-Act-Assert structure
+- Mock external dependencies
+- Test edge cases and error paths
+- Maintainable: no duplication, clear helpers
+
+COVERAGE TARGETS:
+- Critical paths: 100%
+- Business logic: 90%
+- UI components: 80%
+- Utility functions: 95%`,
+  outputSchema: TestWriterOutput,
+  defaultConfig: {
+    modelTier: "high",
+    reasoningEffort: "medium",
+    temperature: 0.2,
+    maxTokens: 8000,
+  },
+};
+
+/**
+ * ===== DOCUMENTER SUBAGENT =====
+ * Generates documentation from code
+ */
+export const DocumenterOutput = z.object({
+  analysis: z.object({
+    documentedItems: z.array(z.object({
+      file: z.string(),
+      symbol: z.string(),
+      type: z.enum(["function", "class", "interface", "type", "component", "hook", "api", "config"]),
+      hasDocs: z.boolean(),
+      quality: z.enum(["none", "poor", "adequate", "excellent"]),
+    })),
+    gaps: z.array(z.string().max(200)),
+  }),
+  generatedDocs: z.array(z.object({
+    target: z.string(), // file:symbol
+    format: z.enum(["jsdoc", "tsdoc", "markdown", "readme", "changelog"]),
+    content: z.string(),
+    description: z.string().max(200),
+  })),
+  recommendations: z.array(z.object({
+    action: z.string().max(200),
+    rationale: z.string().max(300),
+    priority: z.enum(["critical", "high", "medium", "low"]),
+  })),
+});
+
+export type DocumenterOutput = z.infer<typeof DocumenterOutput>;
+
+export const documenter: SubagentDefinition<DocumenterOutput> = {
+  id: "documenter",
+  name: "Documenter",
+  description: "Generates comprehensive documentation (JSDoc, Markdown, README) from code",
+  systemPrompt: `You are a TECHNICAL WRITER. Generate clear, accurate documentation from code.
+
+RULES:
+1. Analyze code to find undocumented or poorly documented symbols
+2. Generate appropriate documentation format (JSDoc, Markdown, README)
+2. Include: purpose, parameters, returns, throws, examples, types
+3. Follow project conventions
+4. Output ONLY valid JSON matching the schema
+
+DOC FORMATS:
+- JSDoc/TSDoc: for functions, classes, interfaces, types
+- Markdown: for modules, architecture, guides
+- README: for project overview, quick start
+- Changelog: for version history
+
+DOC QUALITY:
+- Concise but complete
+- Accurate types and signatures
+- Practical examples
+- Links to related symbols
+- No fluff or obvious statements
+
+SPECIAL CASES:
+- React components: props, defaultProps, usage examples
+- Hooks: parameters, return values, dependencies
+- API routes: method, path, params, response, errors
+- Config files: options, defaults, examples`,
+  outputSchema: DocumenterOutput,
+  defaultConfig: {
+    modelTier: "high",
+    reasoningEffort: "medium",
+    temperature: 0.2,
+    maxTokens: 6000,
+  },
+};
+
+/**
+ * Registry of all subagents
+ */
+export const SUBAGENTS: Record<string, SubagentDefinition> = {
+  "code-reviewer": codeReviewer,
+  "planner": planner,
+  "researcher": researcher,
+  "fixer": fixer,
+  "synthesizer": synthesizer,
+  "debugger": debuggerAgent,
+  "test-writer": testWriter,
+  "documenter": documenter,
+};

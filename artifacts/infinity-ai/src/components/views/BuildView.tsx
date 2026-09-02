@@ -44,6 +44,8 @@ import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
 import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
 import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
+import { PlanningPanel } from "@/components/cursor/PlanningPanel";
+import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2 } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
@@ -93,8 +95,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // ONLY 2 TABS: Preview + Overview
-  const [buildTab, setBuildTab] = useState<'preview' | 'overview'>('preview');
+  // TABS: Preview + Overview + Advanced Agent
+  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'advancedAgent'>('preview');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -456,14 +458,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <h1 className="text-xl font-semibold text-foreground">{t('build.title')}</h1>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            {/* ONLY 2 TABS: Preview + Overview */}
+            {/* TABS: Preview + Overview + Advanced Agent */}
             <Tabs
               tabs={[
                 { id: 'preview', label: t('build.tabs.preview'), icon: <Monitor className="w-4 h-4" /> },
                 { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" /> },
+                { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" /> },
               ]}
               activeTab={buildTab}
-              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview')}
+              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview' | 'advancedAgent')}
               variant="pills"
               className="max-w-md"
             />
@@ -622,6 +625,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
               onCreateCheckpoint={onCreateCheckpoint}
               onRollback={onRollback}
             />
+          )}
+          {buildTab === 'advancedAgent' && (
+            <div className="flex flex-col h-full">
+              <AdvancedAgentPanel projectId={projectId ?? ''} />
+            </div>
           )}
         </div>
 
@@ -1031,6 +1039,45 @@ const DeployVisualPanel: React.FC<{ projectId: string }> = ({ projectId }) => {
            deployStage === 'failed' ? t('deploy.retry') :
            t('deploy.running')}
         </Button>
+      </div>
+    </div>
+  );
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Advanced Agent Panel — Planning Mode + Debugging Agent
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const AdvancedAgentPanel: React.FC<{ projectId: string }> = ({ projectId }) => {
+  const { t } = useI18n();
+  const [advancedTab, setAdvancedTab] = useState<'planning' | 'debugging'>('planning');
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 border-b border-border-primary bg-bg-elevated/50 backdrop-blur-sm">
+        <Tabs
+          tabs={[
+            { id: 'planning', label: t('advancedAgent.tabs.planning'), icon: <GitBranch className="w-4 h-4" /> },
+            { id: 'debugging', label: t('advancedAgent.tabs.debugging'), icon: <TerminalIcon className="w-4 h-4" /> },
+          ]}
+          activeTab={advancedTab}
+          onChange={(tab) => setAdvancedTab(tab as 'planning' | 'debugging')}
+          variant="pills"
+          className="mx-auto max-w-5xl px-4 py-2"
+        />
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {advancedTab === 'planning' && (
+          <div className="flex flex-col h-full">
+            <PlanningPanel workspaceId={projectId} />
+          </div>
+        )}
+        {advancedTab === 'debugging' && (
+          <div className="flex flex-col h-full">
+            <DebugPanel workspaceId={projectId} />
+          </div>
+        )}
       </div>
     </div>
   );

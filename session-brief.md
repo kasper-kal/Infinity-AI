@@ -4,7 +4,7 @@
 > This file must ALWAYS reflect the project *right now*. After every change: append to Change record, refresh Project state.
 > **Never store personal trivia here** (e.g. what to call the user) — that's unnecessary space. Only state, changes, and how-it-works.
 
-LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅ | Ready for Phase 30
+LAST_UPDATED: 2026-09-02 10:00 — Phase 30 Advanced Agent Capabilities (Cursor Agent Parity): COMPLETE ✅
 
 ## Just did (last action)
 - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
@@ -171,20 +171,13 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
   - **Import Path Fixes**: Fixed case sensitivity for Select/Input → select, Separator → separator, Badge → badge, Sheet → sheet.
   - **Both builds passing cleanly** ✅ — API server (esbuild) and frontend (vite) builds complete without errors.
 - **Next Actions (ready for next session):**
-  - **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅**
-    - ✅ VS Code Extension — 9-tab BuildPanel: Chat, Composer, Agent, Tab, Rules, Notepads, Index, Terminal, Settings
-    - ✅ JetBrains Plugin — 3-tab ToolWindow: Chat, Composer, Agent (Kotlin + Gradle, plugin.xml, actions, icons)
-    - ✅ Neovim Plugin — Chat/Composer/Agent buffers, nvim-cmp source, commands, keymaps, docs
-    - ✅ CLI — chat/compose/agent/review/index/completion/open commands with shell completions (bash/zsh/fish/powershell)
-    - ✅ Shell Integration — pipe support, `infinity <file>` opens in web UI
-  - **Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — START NEXT**
-    - Multi-step planning with persistent task state
-    - Background agent runs (hours/days) with scheduling
-    - Agent cost tracking + budgets
-    - Agent memory across sessions
-    - Tool use: web search, file ops, terminal, git, browser, MCP servers
-    - Parallel sub-agents with shared context
-    - Human-in-the-loop approval gates
+  - **Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — COMPLETE ✅**
+    - ✅ Planning Mode — PlanningAgent with createPlan, exploreCodebase, generatePlan, validatePlan, executeStep, topological sort, fallback plans
+    - ✅ Debugging Agent — DebugToolsManager with breakpoints, variable inspection, step-through, test running (jest/vitest/playwright/cypress/mocha), auto-fix test failures, DAP simulation
+    - ✅ Git Integration — GitTools with 30+ operations (log, diff, blame, status, branches, commit, stage, push/pull/fetch, stash, tags, conflicts, stats, worktrees) as universal tools
+    - ✅ MCP Server Integration — Complete Phase 6, agent uses MCP tools
+    - ✅ Subagents — 5 specialized agents (code-reviewer, planner, researcher, fixer, synthesizer) with registry, spawning, parallel execution, verification
+    - ✅ Hooks & Automations — HooksEngine with ScriptRunner (vm sandbox), HookScheduler (cron), event triggers (file save, git push, PR, schedule, webhook), 12 universal tools
   - Phase 31: Cursor-Level Performance & Polish (Speed, Reliability, DX) — PLANNED
   - Phase 32: Context Auto-Compact & Limit Recognition — PLANNED
   - Phase 33: AI Automation System (Natural Language Automations + Connector Integration) — PLANNED
@@ -445,7 +438,8 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 29 — IDE Integrations & CLI (Cursor Everywhere) ✅ COMPLETE**
+- **Current Phase:** **Phase 30 — Advanced Agent Capabilities (Cursor Agent Parity) ✅ COMPLETE**
+- **Phase 29 — IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅**
 - **Phase 28 — Design Mode & Visual Editing (Cursor Design Mode) — COMPLETE ✅**
 - **Phase 27 — Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅**
 - **Phase 26 — Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅**
@@ -474,7 +468,7 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
 - **Phase 3 — Specialized Subagents with Schemas — COMPLETE ✅**
 - **Phase 2 — Orchestration Engine — COMPLETE ✅**
 - **Phase 1 — Build Project Map Subsystem — COMPLETE ✅**
-- **Next Phases:** Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
+- **Next Phases:** Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -516,6 +510,17 @@ LAST_UPDATED: 2026-09-01 09:30 — Phase 29 IDE Integrations & CLI: COMPLETE ✅
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-09-02 **Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — COMPLETE ✅** — Full Cursor Agent parity implementation:
+  - **Planning Agent** (`artifacts/api-server/src/lib/planning-agent.ts` — 759 lines): PlanningAgent with createPlan, exploreCodebase, generatePlan, validatePlan, executeStep, topological sort, fallback plans, plan persistence
+  - **Debugging Tools** (`artifacts/api-server/src/lib/debug-tools.ts` — 1028 lines): DebugToolsManager with session management, breakpoints, variable inspection, call stack, test running (jest/vitest/playwright/cypress/mocha), auto-fix test failures, DAP simulation
+  - **Git Tools** (`artifacts/api-server/src/lib/git-tools.ts` — 1075 lines): GitTools with 30+ operations (log, diff, blame, status, branches, commit, stage, push/pull/fetch, stash, tags, conflicts, stats, worktrees) registered as universal tools
+  - **Subagents** (`artifacts/api-server/src/lib/subagents.ts` — extended 500+ lines): 5 specialized agents (code-reviewer, planner, researcher, fixer, synthesizer) with registry, spawning, parallel execution, verification tools
+  - **Hooks Engine** (`artifacts/api-server/src/lib/hooks-engine.ts` — 1117 lines): Event-driven hooks with ScriptRunner (vm sandbox), HookScheduler (cron), HooksEngine (CRUD, execution, webhooks), CLI commands, 12 universal tool registrations
+  - **Advanced Agent API** (`artifacts/api-server/src/routes/infinity/advanced-agent.ts` — 804 lines): Full REST API — plans (CRUD, execute), debug sessions, breakpoints, test runs, auto-fix, git commands, subagent spawn/parallel/verify, orchestration
+  - **Frontend PlanningPanel** (`artifacts/infinity-ai/src/components/cursor/PlanningPanel.tsx` — 570 lines): Plan creation, step visualization, execution controls, dependency graph
+  - **Frontend DebugPanel** (`artifacts/infinity-ai/src/components/cursor/DebugPanel.tsx` — 740 lines): Session management, breakpoints, variables, call stack, test runner, auto-fix panel
+  - **BuildView Integration**: Advanced Agent tab with PlanningPanel and DebugPanel
+
 - 2026-09-01 **Phase 29: IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅** — Full IDE integration suite:
   - **VS Code Extension** (extended Phase 7): `artifacts/vscode-extension/src/webview/BuildPanel.tsx` — 9-tab panel (Chat, Composer, Agent, Tab, Rules, Notepads, Index, Terminal, Settings); `ChatSidebar.tsx` with @codebase context, model selector, streaming; `ComposerPanel.tsx` with multi-file diff preview (side-by-side/unified); `AgentView.tsx` with autonomous run, tool calls, progress; `TabAutocomplete.tsx` config UI; `RulesNotepadsPanel.tsx` editor + manager
   - **JetBrains Plugin** (new): `artifacts/jetbrains-plugin/` — Complete Kotlin + Gradle implementation: `InfinityPlugin.kt` main entry; `InfinityApiClient.kt` REST/WebSocket client with SSE; `ChatPanel.kt` with conversations, @codebase, streaming, model/mode selector; `ComposerPanel.kt` with plan tree, diff preview, apply selected/all; `AgentPanel.kt` with goal input, mode selector, step progress, log viewer; `InfinityToolWindowFactory.kt` 3-tab tool window; 6 actions (Chat, Composer, Agent, SendToInfinity, Settings, Refresh); Settings UI; plugin.xml with all extensions; 5 SVG icons

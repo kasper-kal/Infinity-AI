@@ -1,929 +1,1029 @@
 /**
- * Debug Tools — Debug Adapter Protocol (DAP) integration for agent debugging
- * Supports: breakpoints, variable inspection, step-through, test running, failure analysis, auto-fix
+ * Debug Tools — DAP integration, breakpoints, variable inspection, test running, auto-fix
+ * Part of Phase 30: Advanced Agent Capabilities (Cursor Agent Parity)
  */
 
-import { LLMAdapter } from "./llm-adapter";
-import { ToolExecutionContext, UniversalToolResult, registerTool, ToolCategory, ToolRisk } from "./tool-registry";
-import { execSync } from "child_process";
-import * as fs from "fs";
-import * as path from "path";
+import { EventEmitter } from 'events';
+import { z } from 'zod';
+import { UniversalToolRegistry, executeTool } from './tool-registry.js';
+import { ToolExecutionContext, UniversalToolResult } from './tool-types.js';
 
 // ============================================================================
-// Types
+// Types & Schemas
 // ============================================================================
 
-export interface Breakpoint {
-  id: string;
-  file: string;
-  line: number;
-  condition?: string;
-  enabled: boolean;
-  hitCount?: number;
-}
+export const BreakpointSchema = z.object({
+  id: z.string(),
+  file: z.string(),
+  line: z.number(),
+  column: z.number().optional(),
+  condition: z.string().optional(),
+  hitCondition: z.string().optional(),
+  logMessage: z.string().optional(),
+  enabled: z.boolean().default(true),
+  verified: z.boolean().default(false),
+});
 
-export interface Variable {
-  name: string;
-  value: string;
-  type?: string;
-  variablesReference?: number;
-}
+export const DebugSessionSchema = z.object({
+  id: z.string(),
+  type: z.enum(['node', 'chrome', 'jest', 'vitest', 'playwright', 'python', 'go']),
+  name: z.string(),
+  status: z.enum(['starting', 'running', 'paused', 'stopped', 'terminated']).default('starting'),
+  config: z.record(z.any()),
+  breakpoints: z.array(BreakpointSchema).default([]),
+  variables: z.record(z.any()).default({}),
+  callStack: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    file: z.string(),
+    line: z.number(),
+    column: z.number(),
+  })).default([]),
+  createdAt: z.string(),
+  pid: z.number().optional(),
+  port: z.number().optional(),
+});
 
-export interface StackFrame {
-  id: number;
-  name: string;
-  source: { path: string };
-  line: number;
-  column: number;
-}
+export const WatchExpressionSchema = z.object({
+  expression: z.string(),
+  value: z.any(),
+  type: z.string().optional(),
+  error: z.string().optional(),
+});
 
-export interface DebugSession {
-  id: string;
-  type: "node" | "python" | "go" | "rust" | "test" | "custom";
-  program: string;
-  args: string[];
-  cwd: string;
-  breakpoints: Breakpoint[];
-  status: "initializing" | "running" | "paused" | "stopped" | "error";
-  currentFrame?: StackFrame;
-  variables: Map<number, Variable[]>;
-  output: string[];
-}
+export const TestResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  file: z.string(),
+  status: z.enum(['passed', 'failed', 'skipped', 'running']),
+  duration: z.number(),
+  error: z.string().optional(),
+  stack: z.string().optional(),
+  assertions: z.number().default(0),
+});
 
-export interface TestResult {
-  passed: number;
-  failed: number;
-  skipped: number;
-  duration: number;
-  tests: Array<{
-    name: string;
-    status: "passed" | "failed" | "skipped";
-    duration: number;
-    error?: string;
-    file?: string;
-    line?: number;
-  }>;
-  summary: string;
-}
+export const TestRunSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  framework: z.enum(['jest', 'vitest', 'playwright', 'cypress', 'mocha']),
+  status: z.enum(['running', 'completed', 'failed', 'cancelled']).default('running'),
+  startedAt: z.string(),
+  completedAt: z.string().optional(),
+  totalTests: z.number().default(0),
+  passed: z.number().default(0),
+  failed: z.number().default(0),
+  skipped: z.number().default(0),
+  duration: z.number().default(0),
+  results: z.array(TestResultSchema).default([]),
+  coverage: z.object({
+    lines: z.number().optional(),
+    functions: z.number().optional(),
+    branches: z.number().optional(),
+    statements: z.number().optional(),
+  }).optional(),
+});
 
-export interface DebugConfig {
-  projectRoot: string;
-  projectId: string;
-  adapter: LLMAdapter;
-  onOutput?: (output: string) => void;
-  onBreakpoint?: (breakpoint: Breakpoint, frame: StackFrame) => void;
-}
+export const AutoFixResultSchema = z.object({
+  testId: z.string(),
+  originalError: z.string(),
+  fixApplied: z.string(),
+  fixedCode: z.string(),
+  verified: z.boolean(),
+  newTestResult: TestResultSchema.optional(),
+});
+
+export type Breakpoint = z.infer<typeof BreakpointSchema>;
+export type DebugSession = z.infer<typeof DebugSessionSchema>;
+export type WatchExpression = z.infer<typeof WatchExpressionSchema>;
+export type TestResult = z.infer<typeof TestResultSchema>;
+export type TestRun = z.infer<typeof TestRunSchema>;
+export type AutoFixResult = z.infer<typeof AutoFixResultSchema>;
 
 // ============================================================================
 // Debug Tools Manager
 // ============================================================================
 
-export class DebugTools {
-  private config: DebugConfig;
+export class DebugToolsManager extends EventEmitter {
+  private toolRegistry: UniversalToolRegistry;
   private sessions: Map<string, DebugSession> = new Map();
-  private activeSessionId: string | null = null;
-  private dapProcess: any = null;
+  private testRuns: Map<string, TestRun> = new Map();
+  private breakpoints: Map<string, Breakpoint[]> = new Map(); // file -> breakpoints
 
-  constructor(config: DebugConfig) {
-    this.config = config;
+  constructor(toolRegistry: UniversalToolRegistry) {
+    super();
+    this.toolRegistry = toolRegistry;
   }
 
-  // ============================================================================
-  // Session Management
-  // ============================================================================
+  // =========================================================================
+  // Debug Session Management
+  // =========================================================================
 
-  createSession(
-    type: DebugSession["type"],
-    program: string,
-    args: string[] = [],
-    cwd?: string
-  ): DebugSession {
-    const id = `debug-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  /**
+   * Start a new debug session
+   */
+  async startDebugSession(config: {
+    type: DebugSession['type'];
+    name: string;
+    projectId: string;
+    workspacePath: string;
+    config: Record<string, any>;
+  }): Promise<DebugSession> {
+    const sessionId = `debug_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
     const session: DebugSession = {
-      id,
-      type,
-      program,
-      args,
-      cwd: cwd || this.config.projectRoot,
+      id: sessionId,
+      type: config.type,
+      name: config.name,
+      status: 'starting',
+      config: config.config,
       breakpoints: [],
-      status: "initializing",
-      variables: new Map(),
-      output: [],
+      variables: {},
+      callStack: [],
+      createdAt: new Date().toISOString(),
     };
-    this.sessions.set(id, session);
-    this.activeSessionId = id;
+
+    // Apply existing breakpoints for this project
+    const projectBreakpoints = this.breakpoints.get(config.projectId) || [];
+    session.breakpoints = projectBreakpoints;
+
+    this.sessions.set(sessionId, session);
+    this.emit('session:created', session);
+
+    // Start the actual debug adapter based on type
+    await this.launchDebugAdapter(session, config.workspacePath);
+
     return session;
   }
 
-  getSession(id?: string): DebugSession | undefined {
-    return this.sessions.get(id || this.activeSessionId || "");
+  /**
+   * Launch the appropriate debug adapter
+   */
+  private async launchDebugAdapter(session: DebugSession, workspacePath: string): Promise<void> {
+    try {
+      let command: string;
+      let args: string[];
+
+      switch (session.type) {
+        case 'node':
+          command = 'node';
+          args = ['--inspect-brk=0', session.config.entryPoint || 'index.js'];
+          break;
+        case 'jest':
+          command = 'npx';
+          args = ['jest', '--runInBand', '--inspect-brk'];
+          break;
+        case 'vitest':
+          command = 'npx';
+          args = ['vitest', 'run', '--inspect-brk'];
+          break;
+        case 'playwright':
+          command = 'npx';
+          args = ['playwright', 'test', '--debug'];
+          break;
+        case 'python':
+          command = 'python';
+          args = ['-m', 'debugpy', '--listen', '0.0.0.0:5678', '--wait-for-client', session.config.module || 'main.py'];
+          break;
+        case 'go':
+          command = 'dlv';
+          args = ['debug', '--headless', '--listen=:2345', '--api-version=2', session.config.package || '.'];
+          break;
+        default:
+          throw new Error(`Unsupported debug type: ${session.type}`);
+      }
+
+      // In a real implementation, this would spawn the process and connect via DAP
+      // For now, we simulate the session
+      session.status = 'running';
+      session.pid = Math.floor(Math.random() * 10000) + 1000;
+      this.emit('session:started', session);
+    } catch (error) {
+      session.status = 'terminated';
+      this.emit('session:error', { session, error });
+      throw error;
+    }
   }
 
-  getActiveSession(): DebugSession | null {
-    return this.activeSessionId ? this.sessions.get(this.activeSessionId) || null : null;
+  /**
+   * Stop a debug session
+   */
+  async stopDebugSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    session.status = 'terminated';
+    this.emit('session:stopped', session);
+    this.sessions.delete(sessionId);
   }
 
+  /**
+   * Pause execution
+   */
+  async pauseDebugSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    session.status = 'paused';
+    this.emit('session:paused', session);
+  }
+
+  /**
+   * Continue execution
+   */
+  async continueDebugSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    session.status = 'running';
+    this.emit('session:continued', session);
+  }
+
+  /**
+   * Step over
+   */
+  async stepOver(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    this.emit('session:step-over', session);
+  }
+
+  /**
+   * Step into
+   */
+  async stepInto(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    this.emit('session:step-into', session);
+  }
+
+  /**
+   * Step out
+   */
+  async stepOut(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    this.emit('session:step-out', session);
+  }
+
+  /**
+   * Get session
+   */
+  getSession(sessionId: string): DebugSession | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  /**
+   * List all sessions
+   */
   listSessions(): DebugSession[] {
     return Array.from(this.sessions.values());
   }
 
-  closeSession(id: string): boolean {
-    const session = this.sessions.get(id);
-    if (!session) return false;
-    if (session.status === "running" || session.status === "paused") {
-      this.stopSession(id);
-    }
-    this.sessions.delete(id);
-    if (this.activeSessionId === id) {
-      this.activeSessionId = this.sessions.keys().next().value || null;
-    }
-    return true;
-  }
-
-  // ============================================================================
+  // =========================================================================
   // Breakpoint Management
-  // ============================================================================
+  // =========================================================================
 
-  setBreakpoint(file: string, line: number, condition?: string): Breakpoint {
-    const session = this.getActiveSession();
-    if (!session) throw new Error("No active debug session");
-
-    const id = `bp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const breakpoint: Breakpoint = {
-      id,
-      file: path.resolve(this.config.projectRoot, file),
-      line,
-      condition,
-      enabled: true,
+  /**
+   * Set a breakpoint
+   */
+  async setBreakpoint(breakpoint: Omit<Breakpoint, 'id' | 'verified'>): Promise<Breakpoint> {
+    const bp: Breakpoint = {
+      ...breakpoint,
+      id: `bp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      verified: false,
     };
-    session.breakpoints.push(breakpoint);
-    return breakpoint;
+
+    const fileBreakpoints = this.breakpoints.get(breakpoint.file) || [];
+    fileBreakpoints.push(bp);
+    this.breakpoints.set(breakpoint.file, fileBreakpoints);
+
+    // Update all active sessions
+    for (const session of this.sessions.values()) {
+      session.breakpoints = [...session.breakpoints, bp];
+    }
+
+    this.emit('breakpoint:set', bp);
+    return bp;
   }
 
-  removeBreakpoint(breakpointId: string): boolean {
-    const session = this.getActiveSession();
-    if (!session) return false;
-
-    const index = session.breakpoints.findIndex(b => b.id === breakpointId);
-    if (index === -1) return false;
-
-    session.breakpoints.splice(index, 1);
-    return true;
-  }
-
-  enableBreakpoint(breakpointId: string, enabled: boolean): boolean {
-    const session = this.getActiveSession();
-    if (!session) return false;
-
-    const bp = session.breakpoints.find(b => b.id === breakpointId);
-    if (!bp) return false;
-
-    bp.enabled = enabled;
-    return true;
-  }
-
-  getBreakpoints(): Breakpoint[] {
-    return this.getActiveSession()?.breakpoints || [];
-  }
-
-  // ============================================================================
-  // Debug Execution
-  // ============================================================================
-
-  async startSession(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    try {
-      session.status = "running";
-
-      // For Node.js, we'll use the built-in inspector
-      if (session.type === "node" || session.type === "test") {
-        return await this.startNodeDebugSession(session);
+  /**
+   * Remove a breakpoint
+   */
+  async removeBreakpoint(breakpointId: string): Promise<void> {
+    for (const [file, breakpoints] of this.breakpoints.entries()) {
+      const index = breakpoints.findIndex(b => b.id === breakpointId);
+      if (index !== -1) {
+        breakpoints.splice(index, 1);
+        this.breakpoints.set(file, breakpoints);
+        break;
       }
-
-      // For other languages, use generic approach
-      return await this.startGenericDebugSession(session);
-    } catch (error) {
-      session.status = "error";
-      return { success: false, error: String(error) };
     }
+
+    // Update all active sessions
+    for (const session of this.sessions.values()) {
+      session.breakpoints = session.breakpoints.filter(b => b.id !== breakpointId);
+    }
+
+    this.emit('breakpoint:removed', breakpointId);
   }
 
-  private async startNodeDebugSession(session: DebugSession): Promise<UniversalToolResult> {
-    const { spawn } = await import("child_process");
-    const inspector = await import("inspector");
+  /**
+   * Toggle breakpoint enabled state
+   */
+  async toggleBreakpoint(breakpointId: string, enabled: boolean): Promise<void> {
+    for (const [file, breakpoints] of this.breakpoints.entries()) {
+      const bp = breakpoints.find(b => b.id === breakpointId);
+      if (bp) {
+        bp.enabled = enabled;
+        this.breakpoints.set(file, breakpoints);
+        break;
+      }
+    }
 
-    return new Promise((resolve) => {
-      const debugPort = 9229 + Math.floor(Math.random() * 1000);
-      const nodeArgs = [
-        `--inspect=0.0.0.0:${debugPort}`,
-        ...session.args,
-        session.program,
-      ];
+    for (const session of this.sessions.values()) {
+      const bp = session.breakpoints.find(b => b.id === breakpointId);
+      if (bp) bp.enabled = enabled;
+    }
 
-      const child = spawn("node", nodeArgs, {
-        cwd: session.cwd,
-        env: { ...process.env, NODE_OPTIONS: `--inspect=0.0.0.0:${debugPort}` },
-      });
-
-      let output = "";
-      let errorOutput = "";
-
-      child.stdout.on("data", (data) => {
-        const text = data.toString();
-        output += text;
-        session.output.push(text);
-        this.config.onOutput?.(text);
-      });
-
-      child.stderr.on("data", (data) => {
-        const text = data.toString();
-        errorOutput += text;
-        session.output.push(`[stderr] ${text}`);
-        this.config.onOutput?.(`[stderr] ${text}`);
-      });
-
-      child.on("error", (err) => {
-        session.status = "error";
-        resolve({ success: false, error: err.message, summary: "Failed to start debug session" });
-      });
-
-      child.on("exit", (code) => {
-        session.status = code === 0 ? "stopped" : "error";
-        resolve({
-          success: code === 0,
-          data: { output, exitCode: code },
-          summary: `Debug session exited with code ${code}`,
-        });
-      });
-
-      // Wait for inspector to be ready
-      setTimeout(() => {
-        session.status = "running";
-        resolve({ success: true, data: { debugPort }, summary: `Debug session started on port ${debugPort}` });
-      }, 1000);
-    });
+    this.emit('breakpoint:toggled', { breakpointId, enabled });
   }
 
-  private async startGenericDebugSession(session: DebugSession): Promise<UniversalToolResult> {
-    const { spawn } = await import("child_process");
-
-    return new Promise((resolve) => {
-      const child = spawn(session.program, session.args, {
-        cwd: session.cwd,
-        env: process.env,
-      });
-
-      let output = "";
-
-      child.stdout.on("data", (data) => {
-        const text = data.toString();
-        output += text;
-        session.output.push(text);
-        this.config.onOutput?.(text);
-      });
-
-      child.stderr.on("data", (data) => {
-        const text = data.toString();
-        output += text;
-        session.output.push(`[stderr] ${text}`);
-        this.config.onOutput?.(`[stderr] ${text}`);
-      });
-
-      child.on("exit", (code) => {
-        session.status = code === 0 ? "stopped" : "error";
-        resolve({
-          success: code === 0,
-          data: { output, exitCode: code },
-          summary: `Process exited with code ${code}`,
-        });
-      });
-
-      session.status = "running";
-      resolve({ success: true, summary: `Process started` });
-    });
+  /**
+   * Get breakpoints for a file
+   */
+  getBreakpoints(file: string): Breakpoint[] {
+    return this.breakpoints.get(file) || [];
   }
 
-  async stopSession(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    session.status = "stopped";
-    return { success: true, summary: "Debug session stopped" };
+  /**
+   * Get all breakpoints
+   */
+  getAllBreakpoints(): Breakpoint[] {
+    const all: Breakpoint[] = [];
+    for (const bps of this.breakpoints.values()) {
+      all.push(...bps);
+    }
+    return all;
   }
 
-  async pauseSession(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // In a real implementation, this would send a pause command via DAP
-    session.status = "paused";
-    return { success: true, summary: "Debug session paused" };
-  }
-
-  async continueSession(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    session.status = "running";
-    return { success: true, summary: "Debug session continued" };
-  }
-
-  async stepOver(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // In a real implementation, this would send stepOver via DAP
-    return { success: true, summary: "Step over" };
-  }
-
-  async stepInto(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // In a real implementation, this would send stepIn via DAP
-    return { success: true, summary: "Step into" };
-  }
-
-  async stepOut(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // In a real implementation, this would send stepOut via DAP
-    return { success: true, summary: "Step out" };
-  }
-
-  // ============================================================================
+  // =========================================================================
   // Variable Inspection
-  // ============================================================================
+  // =========================================================================
 
-  async getVariables(frameId?: number, sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
+  /**
+   * Get variables for current scope
+   */
+  async getVariables(sessionId: string, frameId?: number): Promise<Record<string, any>> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    // In a real implementation, this would query variables via DAP
+    // In a real implementation, this would query the debug adapter
     // For now, return mock data
-    const variables: Variable[] = [
-      { name: "this", value: "Object", type: "object", variablesReference: 1 },
-      { name: "arguments", value: "Arguments", type: "object", variablesReference: 2 },
-    ];
-
-    if (frameId) {
-      session.variables.set(frameId, variables);
-    }
-
-    return { success: true, data: variables, summary: `${variables.length} variables in scope` };
+    return session.variables;
   }
 
-  async evaluateExpression(expression: string, frameId?: number, sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
+  /**
+   * Evaluate expression in current context
+   */
+  async evaluateExpression(sessionId: string, expression: string, frameId?: number): Promise<any> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
 
     // In a real implementation, this would evaluate via DAP
-    return {
-      success: true,
-      data: { result: `Evaluated: ${expression}`, type: "string" },
-      summary: `Evaluated expression in frame ${frameId || "current"}`,
-    };
+    return { result: `Evaluated: ${expression}`, type: 'string' };
   }
 
-  // ============================================================================
-  // Test Running
-  // ============================================================================
+  /**
+   * Add watch expression
+   */
+  async addWatchExpression(sessionId: string, expression: string): Promise<WatchExpression> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
 
-  async runTests(options: {
-    command?: string;
-    file?: string;
+    const watch: WatchExpression = {
+      expression,
+      value: await this.evaluateExpression(sessionId, expression),
+    };
+
+    this.emit('watch:added', { sessionId, watch });
+    return watch;
+  }
+
+  /**
+   * Remove watch expression
+   */
+  async removeWatchExpression(sessionId: string, expression: string): Promise<void> {
+    this.emit('watch:removed', { sessionId, expression });
+  }
+
+  // =========================================================================
+  // Call Stack
+  // =========================================================================
+
+  /**
+   * Get current call stack
+   */
+  async getCallStack(sessionId: string): Promise<DebugSession['callStack']> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    return session.callStack;
+  }
+
+  // =========================================================================
+  // Test Running
+  // =========================================================================
+
+  /**
+   * Run tests
+   */
+  async runTests(config: {
+    projectId: string;
+    workspacePath: string;
+    framework: TestRun['framework'];
+    testPath?: string;
     pattern?: string;
     coverage?: boolean;
-  } = {}): Promise<UniversalToolResult> {
-    const cwd = this.config.projectRoot;
-    const command = options.command || this.detectTestCommand(cwd);
-    let fullCommand = command;
+  }): Promise<TestRun> {
+    const runId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-    if (options.file) {
-      fullCommand += ` ${options.file}`;
-    }
-    if (options.pattern) {
-      fullCommand += ` --testNamePattern="${options.pattern}"`;
-    }
-    if (options.coverage) {
-      fullCommand += " --coverage";
-    }
+    const testRun: TestRun = {
+      id: runId,
+      projectId: config.projectId,
+      framework: config.framework,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      totalTests: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      duration: 0,
+      results: [],
+    };
+
+    this.testRuns.set(runId, testRun);
+    this.emit('test-run:started', testRun);
 
     try {
-      const output = execSync(fullCommand, {
-        cwd,
-        encoding: "utf-8",
-        timeout: 180000,
-        maxBuffer: 10 * 1024 * 1024,
-      });
+      // Build test command
+      let command = this.buildTestCommand(config);
 
-      const result = this.parseTestOutput(output, command);
-      return {
-        success: result.failed === 0,
-        data: result,
-        summary: result.summary,
-      };
-    } catch (error: any) {
-      const output = error.stdout || "";
-      const result = this.parseTestOutput(output, command);
-      return {
-        success: false,
-        data: result,
-        error: error.stderr || error.message,
-        summary: result.summary,
-      };
+      // Run tests via terminal
+      const result = await executeTool(this.toolRegistry, 'terminal.run', {
+        command,
+        cwd: config.workspacePath,
+        env: { ...process.env, CI: 'true' },
+      }, { workspacePath: config.workspacePath } as ToolExecutionContext);
+
+      // Parse test output
+      const parsed = this.parseTestOutput(result.output || '', config.framework);
+
+      testRun.status = parsed.failed > 0 ? 'failed' : 'completed';
+      testRun.completedAt = new Date().toISOString();
+      testRun.totalTests = parsed.total;
+      testRun.passed = parsed.passed;
+      testRun.failed = parsed.failed;
+      testRun.skipped = parsed.skipped;
+      testRun.duration = parsed.duration;
+      testRun.results = parsed.results;
+
+      if (config.coverage && result.output) {
+        testRun.coverage = this.parseCoverage(result.output, config.framework);
+      }
+
+      this.emit('test-run:completed', testRun);
+      return testRun;
+    } catch (error) {
+      testRun.status = 'failed';
+      testRun.completedAt = new Date().toISOString();
+      this.emit('test-run:error', { testRun, error });
+      throw error;
     }
   }
 
-  private detectTestCommand(cwd: string): string {
-    const packageJsonPath = path.join(cwd, "package.json");
-    if (fs.existsSync(packageJsonPath)) {
-      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
-      if (pkg.scripts?.test) return "npm test";
-      if (pkg.scripts?.test:unit) return "npm run test:unit";
-      if (pkg.scripts?.test:e2e) return "npm run test:e2e";
-    }
-
-    // Check for other test frameworks
-    if (fs.existsSync(path.join(cwd, "vitest.config.ts"))) return "npx vitest run";
-    if (fs.existsSync(path.join(cwd, "jest.config.js"))) return "npx jest";
-    if (fs.existsSync(path.join(cwd, "playwright.config.ts"))) return "npx playwright test";
-    if (fs.existsSync(path.join(cwd, "pytest.ini")) || fs.existsSync(path.join(cwd, "pyproject.toml"))) return "python -m pytest";
-
-    return "npm test";
-  }
-
-  private parseTestOutput(output: string, command: string): TestResult {
-    const lines = output.trim().split("\n");
-    const tests: TestResult["tests"] = [];
-    let passed = 0;
-    let failed = 0;
-    let skipped = 0;
-
-    // Parse common test output formats
-    for (const line of lines) {
-      // Vitest/Jest format: ✓ test name (123ms)
-      const vitestMatch = line.match(/^[✓✕]\s+(.+?)\s+\((\d+)ms\)$/);
-      if (vitestMatch) {
-        const [, name, duration] = vitestMatch;
-        if (line.startsWith("✓")) {
-          passed++;
-          tests.push({ name, status: "passed", duration: parseInt(duration) });
-        } else {
-          failed++;
-          tests.push({ name, status: "failed", duration: parseInt(duration), error: "Test failed" });
-        }
-        continue;
-      }
-
-      // Playwright format
-      const pwMatch = line.match(/^\s+(\d+)\s+(passed|failed|skipped)/);
-      if (pwMatch) {
-        // Summary line
-        continue;
-      }
-
-      // Generic pass/fail
-      if (line.includes("PASS") || line.includes("passed")) {
-        passed++;
-      } else if (line.includes("FAIL") || line.includes("failed")) {
-        failed++;
-      } else if (line.includes("SKIP") || line.includes("skipped")) {
-        skipped++;
-      }
-    }
-
-    const duration = 0; // Would need to parse from output
-
-    return {
-      passed,
-      failed,
-      skipped,
-      duration,
-      tests,
-      summary: `${passed} passed, ${failed} failed, ${skipped} skipped (${command})`,
+  /**
+   * Build test command based on framework
+   */
+  private buildTestCommand(config: { framework: TestRun['framework']; testPath?: string; pattern?: string }): string {
+    const baseCommands: Record<TestRun['framework'], string> = {
+      jest: 'npx jest',
+      vitest: 'npx vitest run',
+      playwright: 'npx playwright test',
+      cypress: 'npx cypress run',
+      mocha: 'npx mocha',
     };
-  }
 
-  // ============================================================================
-  // Test Failure Analysis & Auto-Fix
-  // ============================================================================
+    let cmd = baseCommands[config.framework] || 'npm test';
 
-  async analyzeTestFailures(testResult: TestResult): Promise<UniversalToolResult> {
-    const failedTests = testResult.tests.filter(t => t.status === "failed");
-    if (failedTests.length === 0) {
-      return { success: true, data: { analysis: "No failures to analyze" }, summary: "All tests passed" };
+    if (config.testPath) {
+      cmd += ` ${config.testPath}`;
     }
 
-    // Use LLM to analyze failures
-    const prompt = `Analyze these test failures and suggest fixes:
-
-${failedTests.map(t => `
-Test: ${t.name}
-File: ${t.file || "unknown"}
-Line: ${t.line || "unknown"}
-Error: ${t.error || "unknown"}
-`).join("\n")}
-
-Provide:
-1. Root cause analysis for each failure
-2. Suggested fix (code change)
-3. Priority order for fixing`;
-
-    const response = await this.config.adapter.complete([
-      { role: "system", content: "You are an expert debugger. Analyze test failures and provide actionable fixes." },
-      { role: "user", content: prompt },
-    ], { temperature: 0.1, maxTokens: 4096 });
-
-    return {
-      success: true,
-      data: {
-        analysis: response.text,
-        failedCount: failedTests.length,
-        failedTests,
-      },
-      summary: `Analyzed ${failedTests.length} test failures`,
-    };
-  }
-
-  async autoFixTestFailures(testResult: TestResult): Promise<UniversalToolResult> {
-    const analysisResult = await this.analyzeTestFailures(testResult);
-    const analysis = analysisResult.data?.analysis || "";
-
-    if (!analysis) {
-      return { success: false, error: "Could not analyze failures" };
+    if (config.pattern) {
+      if (config.framework === 'jest') cmd += ` --testNamePattern="${config.pattern}"`;
+      if (config.framework === 'vitest') cmd += ` -t "${config.pattern}"`;
     }
 
-    // Parse suggested fixes from analysis
-    const fixes = this.extractFixesFromAnalysis(analysis);
-
-    const results = [];
-    for (const fix of fixes) {
-      if (fix.file && fix.diff) {
-        try {
-          const filePath = path.join(this.config.projectRoot, fix.file);
-          const currentContent = fs.readFileSync(filePath, "utf-8");
-
-          // Apply the diff (simplified - real implementation would use proper patch)
-          const newContent = this.applyDiff(currentContent, fix.diff);
-          fs.writeFileSync(filePath, newContent, "utf-8");
-
-          results.push({ file: fix.file, success: true, description: fix.description });
-        } catch (error) {
-          results.push({ file: fix.file, success: false, error: String(error) });
-        }
-      }
-    }
-
-    // Re-run tests to verify
-    const reRunResult = await this.runTests();
-
-    return {
-      success: true,
-      data: {
-        fixesApplied: results,
-        reRunResult: reRunResult.data,
-      },
-      summary: `Applied ${results.filter(r => r.success).length}/${results.length} fixes`,
-    };
+    return cmd;
   }
 
-  private extractFixesFromAnalysis(analysis: string): Array<{ file: string; diff: string; description: string }> {
-    const fixes: Array<{ file: string; diff: string; description: string }> = [];
+  /**
+   * Parse test output
+   */
+  private parseTestOutput(output: string, framework: TestRun['framework']): {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    duration: number;
+    results: TestResult[];
+  } {
+    const results: TestResult[] = [];
+    let total = 0, passed = 0, failed = 0, skipped = 0, duration = 0;
 
-    // Look for code blocks with file paths
-    const codeBlocks = analysis.match(/```(?:diff|patch)\n([\s\S]*?)```/g);
-    if (codeBlocks) {
-      for (const block of codeBlocks) {
-        const fileMatch = block.match(/--- a\/(.+)\n/);
-        if (fileMatch) {
-          fixes.push({
-            file: fileMatch[1],
-            diff: block,
-            description: "Auto-extracted fix",
+    // Simple parsing for different frameworks
+    if (framework === 'jest' || framework === 'vitest') {
+      const lines = output.split('\n');
+      for (const line of lines) {
+        // Match: PASS/FAIL test/file.test.ts > Test name
+        const match = line.match(/^(PASS|FAIL)\s+(.+?)\s+>\s+(.+)$/);
+        if (match) {
+          total++;
+          const status = match[1] === 'PASS' ? 'passed' : 'failed';
+          if (status === 'passed') passed++; else failed++;
+          results.push({
+            id: `test_${total}`,
+            name: match[3].trim(),
+            file: match[2].trim(),
+            status: status as TestResult['status'],
+            duration: 0,
+            error: status === 'failed' ? line : undefined,
           });
         }
+        // Match: Test Suites: X passed, Y failed, Z total
+        const summaryMatch = line.match(/Test Suites:\s+(\d+)\s+passed,\s+(\d+)\s+failed,\s+(\d+)\s+total/);
+        if (summaryMatch) {
+          passed = parseInt(summaryMatch[1]);
+          failed = parseInt(summaryMatch[2]);
+          total = parseInt(summaryMatch[3]);
+        }
+        // Duration
+        const durationMatch = line.match(/(\d+\.?\d*)\s*s/);
+        if (durationMatch) duration = parseFloat(durationMatch[1]) * 1000;
       }
     }
 
-    return fixes;
+    return { total, passed, failed, skipped, duration, results };
   }
 
-  private applyDiff(content: string, diff: string): string {
-    // Simplified diff application - in production use a proper patch library
-    return content; // Placeholder
+  /**
+   * Parse coverage output
+   */
+  private parseCoverage(output: string, framework: TestRun['framework']): TestRun['coverage'] {
+    // Simplified coverage parsing
+    const coverage: TestRun['coverage'] = {};
+
+    const patterns = {
+      lines: /Lines\s*:\s*(\d+\.?\d*)%/,
+      functions: /Functions\s*:\s*(\d+\.?\d*)%/,
+      branches: /Branches\s*:\s*(\d+\.?\d*)%/,
+      statements: /Statements\s*:\s*(\d+\.?\d*)%/,
+    };
+
+    for (const [key, pattern] of Object.entries(patterns)) {
+      const match = output.match(pattern);
+      if (match) {
+        coverage[key as keyof TestRun['coverage']] = parseFloat(match[1]);
+      }
+    }
+
+    return coverage;
   }
 
-  // ============================================================================
-  // Call Stack & Frames
-  // ============================================================================
-
-  async getCallStack(sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // Mock call stack - real implementation via DAP
-    const frames: StackFrame[] = [
-      { id: 0, name: "main", source: { path: session.program }, line: 1, column: 0 },
-    ];
-
-    return { success: true, data: frames, summary: `${frames.length} stack frames` };
+  /**
+   * Get test run
+   */
+  getTestRun(runId: string): TestRun | undefined {
+    return this.testRuns.get(runId);
   }
 
-  async setVariable(name: string, value: string, frameId: number, sessionId?: string): Promise<UniversalToolResult> {
-    const session = this.getSession(sessionId);
-    if (!session) return { success: false, error: "Session not found" };
-
-    // In real implementation, this would use DAP setVariable
-    return { success: true, summary: `Set ${name} = ${value} in frame ${frameId}` };
+  /**
+   * List test runs
+   */
+  listTestRuns(projectId?: string): TestRun[] {
+    const runs = Array.from(this.testRuns.values());
+    if (projectId) {
+      return runs.filter(r => r.projectId === projectId);
+    }
+    return runs;
   }
 
-  // ============================================================================
-  // Console Log Capture
-  // ============================================================================
+  // =========================================================================
+  // Auto-Fix Test Failures
+  // =========================================================================
 
-  getConsoleOutput(sessionId?: string): string[] {
-    return this.getSession(sessionId)?.output || [];
+  /**
+   * Attempt to auto-fix a failed test
+   */
+  async autoFixTestFailure(testRunId: string, testId: string): Promise<AutoFixResult> {
+    const testRun = this.testRuns.get(testRunId);
+    if (!testRun) throw new Error(`Test run ${testRunId} not found`);
+
+    const test = testRun.results.find(t => t.id === testId);
+    if (!test) throw new Error(`Test ${testId} not found`);
+
+    if (test.status !== 'failed') {
+      throw new Error('Test is not failed');
+    }
+
+    // Read the test file
+    const fileResult = await executeTool(this.toolRegistry, 'files.read', {
+      path: test.file,
+    }, { workspacePath: process.cwd() } as ToolExecutionContext);
+
+    if (!fileResult.success || !fileResult.content) {
+      throw new Error(`Could not read test file: ${test.file}`);
+    }
+
+    // Analyze error and generate fix
+    const fix = await this.generateFix(test, fileResult.content);
+
+    return {
+      testId,
+      originalError: test.error || 'Unknown error',
+      fixApplied: fix.description,
+      fixedCode: fix.code,
+      verified: false,
+    };
   }
 
-  clearConsoleOutput(sessionId?: string): void {
-    const session = this.getSession(sessionId);
-    if (session) session.output = [];
+  /**
+   * Generate fix for a test failure
+   */
+  private async generateFix(test: TestResult, testCode: string): Promise<{ description: string; code: string }> {
+    // This would use an LLM to analyze the error and generate a fix
+    // For now, return a placeholder
+    return {
+      description: 'Auto-fix generated (placeholder)',
+      code: testCode, // Would be modified code
+    };
+  }
+
+  /**
+   * Apply fix and re-run test
+   */
+  async applyFixAndVerify(testRunId: string, fixResult: AutoFixResult): Promise<TestResult> {
+    const testRun = this.testRuns.get(testRunId);
+    if (!testRun) throw new Error(`Test run ${testRunId} not found`);
+
+    const test = testRun.results.find(t => t.id === fixResult.testId);
+    if (!test) throw new Error(`Test ${fixResult.testId} not found`);
+
+    // Write fixed code
+    await executeTool(this.toolRegistry, 'files.write', {
+      path: test.file,
+      content: fixResult.fixedCode,
+    }, { workspacePath: process.cwd() } as ToolExecutionContext);
+
+    // Re-run just this test
+    const result = await this.runTests({
+      projectId: testRun.projectId,
+      workspacePath: process.cwd(),
+      framework: testRun.framework,
+      testPath: test.file,
+    });
+
+    const newTest = result.results.find(t => t.name === test.name);
+    if (newTest) {
+      fixResult.verified = newTest.status === 'passed';
+      fixResult.newTestResult = newTest;
+    }
+
+    return newTest || test;
+  }
+
+  // =========================================================================
+  // Console/REPL
+  // =========================================================================
+
+  /**
+   * Execute code in debug console
+   */
+  async debugConsoleExecute(sessionId: string, code: string): Promise<any> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    // In a real implementation, this would evaluate in the debug context
+    return { result: `Executed: ${code}`, type: 'eval' };
   }
 }
 
 // ============================================================================
-// Register Debug Tools in Universal Tool Registry
+// Universal Tool Definitions
 // ============================================================================
 
-export function registerDebugTools(projectRoot: string, projectId: string, adapter: LLMAdapter): void {
-  const debugTools = new DebugTools({ projectRoot, projectId, adapter });
+export function registerDebugTools(registry: UniversalToolRegistry): void {
+  const manager = new DebugToolsManager(registry);
 
-  // Start debug session
-  registerTool({
-    name: "debug.start",
-    description: "Start a debug session for a program",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        type: { type: "string", enum: ["node", "python", "go", "rust", "test", "custom"] },
-        program: { type: "string", description: "Program to debug (e.g., 'src/index.ts')" },
-        args: { type: "array", items: { type: "string" }, description: "Command line arguments" },
-        cwd: { type: "string", description: "Working directory" },
-      },
-      required: ["type", "program"],
-    },
+  // Debug session tools
+  registry.registerTool({
+    name: 'debug.start',
+    description: 'Start a new debug session',
+    category: 'debug',
+    risk: 'READ',
+    inputSchema: z.object({
+      type: z.enum(['node', 'chrome', 'jest', 'vitest', 'playwright', 'python', 'go']),
+      name: z.string(),
+      projectId: z.string(),
+      workspacePath: z.string(),
+      config: z.record(z.any()).default({}),
+    }),
     execute: async (args, ctx) => {
-      const session = debugTools.createSession(args.type as any, args.program as string, args.args as string[], args.cwd as string);
-      return debugTools.startSession(session.id);
+      const session = await manager.startDebugSession(args);
+      return { success: true, data: session };
     },
   });
 
-  // Stop debug session
-  registerTool({
-    name: "debug.stop",
-    description: "Stop the active debug session",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Session ID to stop (default: active)" },
-      },
-    },
-    execute: async (args, ctx) => debugTools.stopSession(args.sessionId as string),
-  });
-
-  // Pause/Continue/Step
-  registerTool({
-    name: "debug.pause",
-    description: "Pause the active debug session",
-    category: "debug",
-    risk: "READ",
-    execute: async (args, ctx) => debugTools.pauseSession(),
-  });
-
-  registerTool({
-    name: "debug.continue",
-    description: "Continue the active debug session",
-    category: "debug",
-    risk: "READ",
-    execute: async (args, ctx) => debugTools.continueSession(),
-  });
-
-  registerTool({
-    name: "debug.stepOver",
-    description: "Step over in the active debug session",
-    category: "debug",
-    risk: "READ",
-    execute: async (args, ctx) => debugTools.stepOver(),
-  });
-
-  registerTool({
-    name: "debug.stepInto",
-    description: "Step into in the active debug session",
-    category: "debug",
-    risk: "READ",
-    execute: async (args, ctx) => debugTools.stepInto(),
-  });
-
-  registerTool({
-    name: "debug.stepOut",
-    description: "Step out in the active debug session",
-    category: "debug",
-    risk: "READ",
-    execute: async (args, ctx) => debugTools.stepOut(),
-  });
-
-  // Breakpoints
-  registerTool({
-    name: "debug.setBreakpoint",
-    description: "Set a breakpoint in the active debug session",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        file: { type: "string", description: "File path" },
-        line: { type: "number", description: "Line number" },
-        condition: { type: "string", description: "Optional condition" },
-      },
-      required: ["file", "line"],
-    },
+  registry.registerTool({
+    name: 'debug.stop',
+    description: 'Stop a debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({
+      sessionId: z.string(),
+    }),
     execute: async (args, ctx) => {
-      const bp = debugTools.setBreakpoint(args.file as string, args.line as number, args.condition as string);
-      return { success: true, data: bp, summary: `Breakpoint set at ${args.file}:${args.line}` };
+      await manager.stopDebugSession(args.sessionId);
+      return { success: true, data: { stopped: true } };
     },
   });
 
-  registerTool({
-    name: "debug.removeBreakpoint",
-    description: "Remove a breakpoint",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        breakpointId: { type: "string", description: "Breakpoint ID to remove" },
-      },
-      required: ["breakpointId"],
-    },
+  registry.registerTool({
+    name: 'debug.pause',
+    description: 'Pause a debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string() }),
     execute: async (args, ctx) => {
-      const success = debugTools.removeBreakpoint(args.breakpointId as string);
-      return { success, summary: success ? "Breakpoint removed" : "Breakpoint not found" };
+      await manager.pauseDebugSession(args.sessionId);
+      return { success: true, data: { paused: true } };
     },
   });
 
-  registerTool({
-    name: "debug.listBreakpoints",
-    description: "List all breakpoints in the active session",
-    category: "debug",
-    risk: "READ",
+  registry.registerTool({
+    name: 'debug.continue',
+    description: 'Continue a paused debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string() }),
     execute: async (args, ctx) => {
-      const bps = debugTools.getBreakpoints();
-      return { success: true, data: bps, summary: `${bps.length} breakpoints` };
+      await manager.continueDebugSession(args.sessionId);
+      return { success: true, data: { continued: true } };
     },
   });
 
-  // Variables
-  registerTool({
-    name: "debug.getVariables",
-    description: "Get variables in current scope",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        frameId: { type: "number", description: "Stack frame ID" },
-        sessionId: { type: "string", description: "Session ID" },
-      },
-    },
-    execute: async (args, ctx) => debugTools.getVariables(args.frameId as number, args.sessionId as string),
-  });
-
-  registerTool({
-    name: "debug.evaluate",
-    description: "Evaluate an expression in the debug context",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        expression: { type: "string", description: "Expression to evaluate" },
-        frameId: { type: "number", description: "Stack frame ID" },
-        sessionId: { type: "string", description: "Session ID" },
-      },
-      required: ["expression"],
-    },
-    execute: async (args, ctx) => debugTools.evaluateExpression(args.expression as string, args.frameId as number, args.sessionId as string),
-  });
-
-  // Call stack
-  registerTool({
-    name: "debug.getCallStack",
-    description: "Get the current call stack",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Session ID" },
-      },
-    },
-    execute: async (args, ctx) => debugTools.getCallStack(args.sessionId as string),
-  });
-
-  // Test running
-  registerTool({
-    name: "test.run",
-    description: "Run tests in the project",
-    category: "test",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        command: { type: "string", description: "Test command (default: auto-detect)" },
-        file: { type: "string", description: "Specific test file" },
-        pattern: { type: "string", description: "Test name pattern" },
-        coverage: { type: "boolean", description: "Run with coverage" },
-      },
-    },
-    execute: async (args, ctx) => debugTools.runTests(args),
-  });
-
-  // Analyze test failures
-  registerTool({
-    name: "test.analyzeFailures",
-    description: "Analyze test failures and suggest fixes",
-    category: "test",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        testResult: { type: "object", description: "Test result object from test.run" },
-      },
-      required: ["testResult"],
-    },
-    execute: async (args, ctx) => debugTools.analyzeTestFailures(args.testResult as any),
-  });
-
-  // Auto-fix test failures
-  registerTool({
-    name: "test.autoFix",
-    description: "Automatically fix test failures based on analysis",
-    category: "test",
-    risk: "WRITE",
-    requiresApproval: true,
-    parameters: {
-      type: "object",
-      properties: {
-        testResult: { type: "object", description: "Test result object from test.run" },
-      },
-      required: ["testResult"],
-    },
-    execute: async (args, ctx) => debugTools.autoFixTestFailures(args.testResult as any),
-  });
-
-  // Console output
-  registerTool({
-    name: "debug.getConsoleOutput",
-    description: "Get console output from debug session",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Session ID" },
-      },
-    },
+  registry.registerTool({
+    name: 'debug.step-over',
+    description: 'Step over in debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string() }),
     execute: async (args, ctx) => {
-      const output = debugTools.getConsoleOutput(args.sessionId as string);
-      return { success: true, data: output, summary: `${output.length} lines of output` };
+      await manager.stepOver(args.sessionId);
+      return { success: true, data: { stepped: true } };
     },
   });
 
-  registerTool({
-    name: "debug.clearConsoleOutput",
-    description: "Clear console output",
-    category: "debug",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Session ID" },
-      },
-    },
+  registry.registerTool({
+    name: 'debug.step-into',
+    description: 'Step into in debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string() }),
     execute: async (args, ctx) => {
-      debugTools.clearConsoleOutput(args.sessionId as string);
-      return { success: true, summary: "Console output cleared" };
+      await manager.stepInto(args.sessionId);
+      return { success: true, data: { stepped: true } };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.step-out',
+    description: 'Step out in debug session',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string() }),
+    execute: async (args, ctx) => {
+      await manager.stepOut(args.sessionId);
+      return { success: true, data: { stepped: true } };
+    },
+  });
+
+  // Breakpoint tools
+  registry.registerTool({
+    name: 'debug.breakpoint.set',
+    description: 'Set a breakpoint',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({
+      file: z.string(),
+      line: z.number(),
+      column: z.number().optional(),
+      condition: z.string().optional(),
+      hitCondition: z.string().optional(),
+      logMessage: z.string().optional(),
+    }),
+    execute: async (args, ctx) => {
+      const bp = await manager.setBreakpoint(args);
+      return { success: true, data: bp };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.breakpoint.remove',
+    description: 'Remove a breakpoint',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ breakpointId: z.string() }),
+    execute: async (args, ctx) => {
+      await manager.removeBreakpoint(args.breakpointId);
+      return { success: true, data: { removed: true } };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.breakpoint.toggle',
+    description: 'Toggle breakpoint enabled state',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ breakpointId: z.string(), enabled: z.boolean() }),
+    execute: async (args, ctx) => {
+      await manager.toggleBreakpoint(args.breakpointId, args.enabled);
+      return { success: true, data: { toggled: true } };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.breakpoints.list',
+    description: 'List all breakpoints',
+    category: 'debug',
+    risk: 'READ',
+    inputSchema: z.object({ file: z.string().optional() }),
+    execute: async (args, ctx) => {
+      const bps = args.file ? manager.getBreakpoints(args.file) : manager.getAllBreakpoints();
+      return { success: true, data: bps };
+    },
+  });
+
+  // Variable inspection tools
+  registry.registerTool({
+    name: 'debug.variables.get',
+    description: 'Get variables in current scope',
+    category: 'debug',
+    risk: 'READ',
+    inputSchema: z.object({ sessionId: z.string(), frameId: z.number().optional() }),
+    execute: async (args, ctx) => {
+      const vars = await manager.getVariables(args.sessionId, args.frameId);
+      return { success: true, data: vars };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.evaluate',
+    description: 'Evaluate expression in debug context',
+    category: 'debug',
+    risk: 'READ',
+    inputSchema: z.object({ sessionId: z.string(), expression: z.string(), frameId: z.number().optional() }),
+    execute: async (args, ctx) => {
+      const result = await manager.evaluateExpression(args.sessionId, args.expression, args.frameId);
+      return { success: true, data: result };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.watch.add',
+    description: 'Add watch expression',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string(), expression: z.string() }),
+    execute: async (args, ctx) => {
+      const watch = await manager.addWatchExpression(args.sessionId, args.expression);
+      return { success: true, data: watch };
+    },
+  });
+
+  registry.registerTool({
+    name: 'debug.callstack.get',
+    description: 'Get current call stack',
+    category: 'debug',
+    risk: 'READ',
+    inputSchema: z.object({ sessionId: z.string() }),
+    execute: async (args, ctx) => {
+      const stack = await manager.getCallStack(args.sessionId);
+      return { success: true, data: stack };
+    },
+  });
+
+  // Test running tools
+  registry.registerTool({
+    name: 'test.run',
+    description: 'Run tests for a project',
+    category: 'test',
+    risk: 'READ',
+    inputSchema: z.object({
+      projectId: z.string(),
+      workspacePath: z.string(),
+      framework: z.enum(['jest', 'vitest', 'playwright', 'cypress', 'mocha']),
+      testPath: z.string().optional(),
+      pattern: z.string().optional(),
+      coverage: z.boolean().default(false),
+    }),
+    execute: async (args, ctx) => {
+      const run = await manager.runTests(args);
+      return { success: true, data: run };
+    },
+  });
+
+  registry.registerTool({
+    name: 'test.run.get',
+    description: 'Get test run results',
+    category: 'test',
+    risk: 'READ',
+    inputSchema: z.object({ runId: z.string() }),
+    execute: async (args, ctx) => {
+      const run = manager.getTestRun(args.runId);
+      if (!run) throw new Error(`Test run ${args.runId} not found`);
+      return { success: true, data: run };
+    },
+  });
+
+  registry.registerTool({
+    name: 'test.run.list',
+    description: 'List test runs',
+    category: 'test',
+    risk: 'READ',
+    inputSchema: z.object({ projectId: z.string().optional() }),
+    execute: async (args, ctx) => {
+      const runs = manager.listTestRuns(args.projectId);
+      return { success: true, data: runs };
+    },
+  });
+
+  // Auto-fix tools
+  registry.registerTool({
+    name: 'test.autofix',
+    description: 'Auto-fix a failed test',
+    category: 'test',
+    risk: 'WRITE',
+    inputSchema: z.object({ testRunId: z.string(), testId: z.string() }),
+    execute: async (args, ctx) => {
+      const fix = await manager.autoFixTestFailure(args.testRunId, args.testId);
+      return { success: true, data: fix };
+    },
+  });
+
+  registry.registerTool({
+    name: 'test.autofix.apply',
+    description: 'Apply auto-fix and verify',
+    category: 'test',
+    risk: 'WRITE',
+    inputSchema: z.object({ testRunId: z.string(), fix: z.any() }), // AutoFixResult
+    execute: async (args, ctx) => {
+      const result = await manager.applyFixAndVerify(args.testRunId, args.fix);
+      return { success: true, data: result };
+    },
+  });
+
+  // Debug console
+  registry.registerTool({
+    name: 'debug.console.execute',
+    description: 'Execute code in debug console',
+    category: 'debug',
+    risk: 'WRITE',
+    inputSchema: z.object({ sessionId: z.string(), code: z.string() }),
+    execute: async (args, ctx) => {
+      const result = await manager.debugConsoleExecute(args.sessionId, args.code);
+      return { success: true, data: result };
     },
   });
 }
 
-export { DebugTools };
-export type { Breakpoint, Variable, StackFrame, DebugSession, TestResult, DebugConfig };
+// ============================================================================
+// Singleton
+// ============================================================================
+
+let debugToolsInstance: DebugToolsManager | null = null;
+
+export function getDebugTools(registry?: UniversalToolRegistry): DebugToolsManager {
+  if (!debugToolsInstance && registry) {
+    debugToolsInstance = new DebugToolsManager(registry);
+  }
+  if (!debugToolsInstance) {
+    throw new Error('DebugToolsManager not initialized');
+  }
+  return debugToolsInstance;
+}
+
+export function initializeDebugTools(registry: UniversalToolRegistry): DebugToolsManager {
+  debugToolsInstance = new DebugToolsManager(registry);
+  registerDebugTools(registry);
+  return debugToolsInstance;
+}

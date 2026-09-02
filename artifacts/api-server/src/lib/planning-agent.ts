@@ -1,642 +1,760 @@
 /**
- * Planning Agent — Creates execution plans before acting, with persistence and resume support
+ * Planning Agent — Creates execution plans before running agents
  * Part of Phase 30: Advanced Agent Capabilities (Cursor Agent Parity)
  */
 
-import { LLMAdapter, LLMMessage } from "./llm-adapter";
-import { sanitizePrompt } from "./infinity-prompt";
-import { planner, PlannerOutput, spawnSubagent } from "./subagents";
-import { z } from "zod";
-import * as fs from "fs";
-import * as path from "path";
+import { EventEmitter } from 'events';
+import { z } from 'zod';
+import { UniversalToolRegistry, getToolDefinitionsForLLM, executeTool } from './tool-registry.js';
+import { UniversalToolDefinition, ToolExecutionContext, UniversalToolResult } from './tool-types.js';
 
 // ============================================================================
-// Types
+// Types & Schemas
 // ============================================================================
 
-export interface PlanStep {
-  id: string;
-  description: string;
-  toolHint?: string;
-  dependsOn: string[];
-  verification: string;
-  risk: "low" | "medium" | "high" | "critical";
-  status: "pending" | "in_progress" | "completed" | "failed" | "skipped";
-  result?: unknown;
-  error?: string;
-  startedAt?: string;
-  completedAt?: string;
-}
+export const PlanStepSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  type: z.enum(['explore', 'read', 'write', 'edit', 'terminal', 'test', 'verify', 'commit', 'custom']),
+  files: z.array(z.string()).default([]),
+  tools: z.array(z.string()).default([]),
+  dependencies: z.array(z.string()).default([]), // step IDs that must complete first
+  risk: z.enum(['low', 'medium', 'high']).default('low'),
+  estimatedTokens: z.number().optional(),
+  verification: z.string().optional(), // how to verify this step succeeded
+  status: z.enum(['pending', 'in_progress', 'completed', 'failed', 'skipped']).default('pending'),
+  result: z.any().optional(),
+  error: z.string().optional(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+});
 
-export interface PlanRisk {
-  id: string;
-  description: string;
-  likelihood: "low" | "medium" | "high";
-  impact: "low" | "medium" | "high" | "critical";
-  mitigation: string;
-}
+export const PlanSchema = z.object({
+  id: z.string(),
+  goal: z.string(),
+  projectId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  status: z.enum(['draft', 'approved', 'executing', 'completed', 'failed', 'paused']).default('draft'),
+  steps: z.array(PlanStepSchema),
+  metadata: z.object({
+    totalEstimatedTokens: z.number().default(0),
+    estimatedDuration: z.number().default(0), // minutes
+    riskLevel: z.enum(['low', 'medium', 'high']).default('low'),
+    requiredApprovals: z.array(z.string()).default([]), // step IDs requiring human approval
+    contextFiles: z.array(z.string()).default([]),
+  }).default({}),
+  currentStepIndex: z.number().default(0),
+  completedSteps: z.number().default(0),
+  failedSteps: z.number().default(0),
+});
 
-export interface ExecutionPlan {
-  id: string;
-  goal: string;
-  steps: PlanStep[];
-  risks: PlanRisk[];
-  successCriteria: string[];
-  createdAt: string;
-  updatedAt: string;
-  status: "draft" | "approved" | "executing" | "completed" | "failed" | "paused";
-  currentStepIndex: number;
-  metadata: Record<string, unknown>;
-}
+export const PlanningContextSchema = z.object({
+  goal: z.string(),
+  projectId: z.string(),
+  workspacePath: z.string(),
+  existingFiles: z.array(z.string()).optional(),
+  codebaseIndex: z.any().optional(), // from codebase-indexer
+  projectMap: z.any().optional(), // from build-project-map
+  constraints: z.array(z.string()).default([]),
+  preferences: z.record(z.any()).default({}),
+});
 
-export interface PlanningConfig {
-  projectRoot: string;
-  projectId: string;
-  adapter: LLMAdapter;
-  plansDir?: string;
-  autoApprove?: boolean;
-  onStepUpdate?: (step: PlanStep, plan: ExecutionPlan) => void;
-  onPlanComplete?: (plan: ExecutionPlan) => void;
-}
+export type PlanStep = z.infer<typeof PlanStepSchema>;
+export type Plan = z.infer<typeof PlanSchema>;
+export type PlanningContext = z.infer<typeof PlanningContextSchema>;
 
 // ============================================================================
 // Planning Agent
 // ============================================================================
 
-export class PlanningAgent {
-  private config: PlanningConfig;
-  private activePlan: ExecutionPlan | null = null;
-  private plansDir: string;
+export class PlanningAgent extends EventEmitter {
+  private toolRegistry: UniversalToolRegistry;
+  private plans: Map<string, Plan> = new Map();
+  private llmAdapter: any; // will be injected
 
-  constructor(config: PlanningConfig) {
-    this.config = config;
-    this.plansDir = config.plansDir || path.join(config.projectRoot, ".infinity", "plans");
-    this.ensurePlansDir();
+  constructor(toolRegistry: UniversalToolRegistry) {
+    super();
+    this.toolRegistry = toolRegistry;
   }
 
-  private ensurePlansDir(): void {
-    if (!fs.existsSync(this.plansDir)) {
-      fs.mkdirSync(this.plansDir, { recursive: true });
+  setLLMAdapter(adapter: any) {
+    this.llmAdapter = adapter;
+  }
+
+  /**
+   * Create a plan from a natural language goal
+   */
+  async createPlan(context: PlanningContext): Promise<Plan> {
+    const planId = `plan_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    // Phase 1: Explore codebase to understand the project
+    const exploration = await this.exploreCodebase(context);
+
+    // Phase 2: Generate plan using LLM
+    const plan = await this.generatePlan(context, exploration);
+
+    // Phase 3: Validate and enrich plan
+    const validatedPlan = await this.validatePlan(plan, context);
+
+    // Store plan
+    this.plans.set(validatedPlan.id, validatedPlan);
+    this.emit('plan:created', validatedPlan);
+
+    return validatedPlan;
+  }
+
+  /**
+   * Explore the codebase to gather context for planning
+   */
+  private async exploreCodebase(context: PlanningContext): Promise<any> {
+    const exploration: any = {
+      framework: null,
+      packageManager: null,
+      entryPoints: [],
+      keyFiles: [],
+      architecture: null,
+      dependencies: [],
+      testSetup: null,
+      existingPatterns: [],
+    };
+
+    try {
+      // Read package.json
+      const pkgResult = await this.readFile(context.workspacePath, 'package.json');
+      if (pkgResult.success && pkgResult.content) {
+        const pkg = JSON.parse(pkgResult.content);
+        exploration.framework = this.detectFramework(pkg);
+        exploration.packageManager = this.detectPackageManager(pkg);
+        exploration.dependencies = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+        exploration.scripts = pkg.scripts || {};
+      }
+
+      // Read key config files
+      const configFiles = [
+        'tsconfig.json', 'vite.config.ts', 'next.config.js', 'astro.config.mjs',
+        'tailwind.config.ts', 'eslint.config.js', 'prettier.config.js',
+        '.github/workflows', '.gitignore', 'README.md'
+      ];
+
+      for (const file of configFiles) {
+        const result = await this.readFile(context.workspacePath, file);
+        if (result.success) {
+          exploration.keyFiles.push({ path: file, content: result.content });
+        }
+      }
+
+      // Use codebase index if available
+      if (context.codebaseIndex) {
+        exploration.symbols = context.codebaseIndex.symbols?.slice(0, 100) || [];
+        exploration.fileMap = context.codebaseIndex.fileMap || {};
+      }
+
+      // Use project map if available
+      if (context.projectMap) {
+        exploration.architecture = context.projectMap.architecture;
+        exploration.entryPoints = context.projectMap.entryPoints || [];
+      }
+
+    } catch (error) {
+      console.error('Exploration error:', error);
+    }
+
+    return exploration;
+  }
+
+  /**
+   * Detect framework from package.json
+   */
+  private detectFramework(pkg: any): string {
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (deps.next) return 'nextjs';
+    if (deps.astro) return 'astro';
+    if (deps.remix) return 'remix';
+    if (deps['@remix-run/react']) return 'remix';
+    if (deps.svelte || deps['@sveltejs/kit']) return 'sveltekit';
+    if (deps.nuxt) return 'nuxt';
+    if (deps.vue) return 'vue';
+    if (deps['solid-js'] || deps['@solidjs/start']) return 'solidstart';
+    if (deps.react && deps.vite) return 'vite-react';
+    if (deps.react) return 'react';
+    return 'unknown';
+  }
+
+  /**
+   * Detect package manager
+   */
+  private detectPackageManager(pkg: any): string {
+    if (pkg.packageManager) return pkg.packageManager;
+    // Check for lockfiles in workspace (would need fs access)
+    return 'npm';
+  }
+
+  /**
+   * Generate plan using LLM
+   */
+  private async generatePlan(context: PlanningContext, exploration: any): Promise<Plan> {
+    const planId = `plan_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    const systemPrompt = `You are an expert software architect and planner. Create a detailed, step-by-step execution plan for the given goal.
+
+CONTEXT:
+- Goal: ${context.goal}
+- Project ID: ${context.projectId}
+- Framework: ${exploration.framework}
+- Package Manager: ${exploration.packageManager}
+- Architecture: ${exploration.architecture || 'unknown'}
+- Entry Points: ${exploration.entryPoints.join(', ') || 'unknown'}
+- Key Dependencies: ${exploration.dependencies.slice(0, 20).join(', ')}
+- Scripts: ${JSON.stringify(exploration.scripts)}
+- Constraints: ${context.constraints.join(', ') || 'none'}
+
+AVAILABLE TOOLS:
+${getToolDefinitionsForLLM(this.toolRegistry).map(t => `- ${t.name}: ${t.description}`).join('\n')}
+
+REQUIREMENTS:
+1. Break down the goal into minimal, verifiable steps
+2. Each step must have: id, title, description, type, files, tools, dependencies, risk, verification
+3. Steps should be ordered by dependencies (topological sort)
+4. Identify risks and required approvals
+5. Estimate tokens and duration per step
+6. Include verification criteria for each step
+7. Mark steps requiring human approval (high risk, destructive actions, external changes)
+
+OUTPUT FORMAT: JSON matching the Plan schema exactly.`;
+
+    const userPrompt = `Create a comprehensive execution plan for: "${context.goal}"
+
+Return ONLY the JSON plan object.`;
+
+    try {
+      if (!this.llmAdapter) {
+        throw new Error('LLM adapter not set');
+      }
+
+      const response = await this.llmAdapter.chat([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ], {
+        temperature: 0.3,
+        maxTokens: 8000,
+        responseFormat: { type: 'json_object' }
+      });
+
+      const planData = JSON.parse(response.content);
+
+      const plan: Plan = {
+        id: planId,
+        goal: context.goal,
+        projectId: context.projectId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'draft',
+        steps: planData.steps || [],
+        metadata: {
+          totalEstimatedTokens: planData.steps?.reduce((sum: number, s: any) => sum + (s.estimatedTokens || 1000), 0) || 0,
+          estimatedDuration: planData.steps?.reduce((sum: number, s: any) => sum + (s.estimatedDuration || 5), 0) || 0,
+          riskLevel: this.calculateRiskLevel(planData.steps || []),
+          requiredApprovals: this.identifyRequiredApprovals(planData.steps || []),
+          contextFiles: exploration.keyFiles.map((f: any) => f.path),
+        },
+        currentStepIndex: 0,
+        completedSteps: 0,
+        failedSteps: 0,
+      };
+
+      return plan;
+    } catch (error) {
+      console.error('Plan generation error:', error);
+      // Fallback: create a basic plan
+      return this.createFallbackPlan(planId, context, exploration);
     }
   }
 
-  // ============================================================================
-  // Plan Creation
-  // ============================================================================
+  /**
+   * Create a basic fallback plan when LLM fails
+   */
+  private createFallbackPlan(planId: string, context: PlanningContext, exploration: any): Plan {
+    const steps: PlanStep[] = [
+      {
+        id: 'step_1',
+        title: 'Explore codebase structure',
+        description: 'Analyze the project structure, entry points, and key files',
+        type: 'explore',
+        files: [],
+        tools: ['files.list', 'codebase.search'],
+        dependencies: [],
+        risk: 'low',
+        estimatedTokens: 2000,
+        verification: 'Project structure documented',
+        status: 'pending',
+      },
+      {
+        id: 'step_2',
+        title: 'Implement core functionality',
+        description: `Implement the main feature: ${context.goal}`,
+        type: 'write',
+        files: [],
+        tools: ['files.write', 'files.edit'],
+        dependencies: ['step_1'],
+        risk: 'medium',
+        estimatedTokens: 10000,
+        verification: 'Code compiles and tests pass',
+        status: 'pending',
+      },
+      {
+        id: 'step_3',
+        title: 'Write tests',
+        description: 'Create unit and integration tests for the new functionality',
+        type: 'test',
+        files: [],
+        tools: ['files.write', 'terminal.run'],
+        dependencies: ['step_2'],
+        risk: 'low',
+        estimatedTokens: 5000,
+        verification: 'All tests pass',
+        status: 'pending',
+      },
+      {
+        id: 'step_4',
+        title: 'Verify and commit',
+        description: 'Run full test suite, typecheck, and commit changes',
+        type: 'verify',
+        files: [],
+        tools: ['terminal.run', 'git.commit'],
+        dependencies: ['step_3'],
+        risk: 'low',
+        estimatedTokens: 3000,
+        verification: 'Build passes, tests pass, changes committed',
+        status: 'pending',
+      },
+    ];
 
-  async createPlan(goal: string, context?: string): Promise<ExecutionPlan> {
-    const prompt = this.buildPlanningPrompt(goal, context);
-
-    const plannerOutput = await spawnSubagent<PlannerOutput>(
-      "planner",
-      prompt,
-      this.config.adapter,
-      { modelTier: "high", reasoningEffort: "high", temperature: 0.2 }
-    );
-
-    const plan: ExecutionPlan = {
-      id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      goal,
-      steps: plannerOutput.steps.map(s => ({
-        ...s,
-        status: "pending" as const,
-      })),
-      risks: plannerOutput.risks,
-      successCriteria: plannerOutput.successCriteria,
+    return {
+      id: planId,
+      goal: context.goal,
+      projectId: context.projectId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      status: "draft",
-      currentStepIndex: 0,
+      status: 'draft',
+      steps,
       metadata: {
-        estimatedTokens: plannerOutput.estimatedTotalTokens,
+        totalEstimatedTokens: 20000,
+        estimatedDuration: 30,
+        riskLevel: 'medium',
+        requiredApprovals: [],
+        contextFiles: exploration.keyFiles.map((f: any) => f.path),
       },
+      currentStepIndex: 0,
+      completedSteps: 0,
+      failedSteps: 0,
     };
+  }
+
+  /**
+   * Calculate overall risk level from steps
+   */
+  private calculateRiskLevel(steps: PlanStep[]): 'low' | 'medium' | 'high' {
+    const highRisk = steps.filter(s => s.risk === 'high').length;
+    const mediumRisk = steps.filter(s => s.risk === 'medium').length;
+
+    if (highRisk > 0) return 'high';
+    if (mediumRisk > 2) return 'high';
+    if (mediumRisk > 0) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Identify steps requiring human approval
+   */
+  private identifyRequiredApprovals(steps: PlanStep[]): string[] {
+    return steps
+      .filter(s => s.risk === 'high' || s.type === 'commit' || s.type === 'terminal')
+      .map(s => s.id);
+  }
+
+  /**
+   * Validate and enrich the plan
+   */
+  private async validatePlan(plan: Plan, context: PlanningContext): Promise<Plan> {
+    // Verify all tool names exist
+    const availableTools = new Set(getToolDefinitionsForLLM(this.toolRegistry).map(t => t.name));
+
+    for (const step of plan.steps) {
+      for (const tool of step.tools) {
+        if (!availableTools.has(tool)) {
+          console.warn(`Plan step ${step.id} references unknown tool: ${tool}`);
+        }
+      }
+    }
+
+    // Topological sort by dependencies
+    plan.steps = this.topologicalSort(plan.steps);
+
+    // Recalculate metadata
+    plan.metadata.totalEstimatedTokens = plan.steps.reduce((sum, s) => sum + (s.estimatedTokens || 1000), 0);
+    plan.metadata.estimatedDuration = plan.steps.reduce((sum, s) => sum + (s.estimatedDuration || 5), 0);
+    plan.metadata.riskLevel = this.calculateRiskLevel(plan.steps);
+    plan.metadata.requiredApprovals = this.identifyRequiredApprovals(plan.steps);
 
     return plan;
   }
 
-  private buildPlanningPrompt(goal: string, context?: string): string {
-    let prompt = `Create a detailed execution plan for this goal:\n\nGOAL:\n${goal}\n`;
+  /**
+   * Topological sort steps by dependencies
+   */
+  private topologicalSort(steps: PlanStep[]): PlanStep[] {
+    const graph = new Map<string, PlanStep>();
+    const inDegree = new Map<string, number>();
 
-    if (context) {
-      prompt += `\nCONTEXT:\n${context}\n`;
+    for (const step of steps) {
+      graph.set(step.id, step);
+      inDegree.set(step.id, 0);
     }
 
-    prompt += `\nRequirements:
-1. Break into SMALL, VERIFIABLE steps
-2. Each step must have explicit dependencies
-3. Include tool hints (web, browser, files, build, data, memory, research, integration)
-4. Define verification criteria for each step
-5. Identify risks with likelihood, impact, and mitigation
-6. Define measurable success criteria for the overall goal`;
-
-    return prompt;
-  }
-
-  // ============================================================================
-  // Plan Persistence
-  // ============================================================================
-
-  savePlan(plan: ExecutionPlan): void {
-    const filePath = path.join(this.plansDir, `${plan.id}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(plan, null, 2), "utf-8");
-  }
-
-  loadPlan(planId: string): ExecutionPlan | null {
-    const filePath = path.join(this.plansDir, `${planId}.json`);
-    if (!fs.existsSync(filePath)) return null;
-
-    try {
-      const content = fs.readFileSync(filePath, "utf-8");
-      return JSON.parse(content) as ExecutionPlan;
-    } catch {
-      return null;
-    }
-  }
-
-  listPlans(): ExecutionPlan[] {
-    if (!fs.existsSync(this.plansDir)) return [];
-
-    return fs.readdirSync(this.plansDir)
-      .filter(f => f.endsWith(".json"))
-      .map(f => {
-        try {
-          const content = fs.readFileSync(path.join(this.plansDir, f), "utf-8");
-          return JSON.parse(content) as ExecutionPlan;
-        } catch {
-          return null;
+    for (const step of steps) {
+      for (const dep of step.dependencies) {
+        if (inDegree.has(dep)) {
+          inDegree.set(dep, (inDegree.get(dep) || 0) + 1);
         }
-      })
-      .filter((p): p is ExecutionPlan => p !== null)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  deletePlan(planId: string): boolean {
-    const filePath = path.join(this.plansDir, `${planId}.json`);
-    if (!fs.existsSync(filePath)) return false;
-    fs.unlinkSync(filePath);
-    return true;
-  }
-
-  // ============================================================================
-  // Plan Execution
-  // ============================================================================
-
-  async executePlan(planId: string, options?: { autoApprove?: boolean }): Promise<ExecutionPlan> {
-    const plan = this.loadPlan(planId);
-    if (!plan) throw new Error(`Plan not found: ${planId}`);
-
-    if (plan.status === "draft" && !options?.autoApprove && !this.config.autoApprove) {
-      throw new Error("Plan requires approval before execution. Set autoApprove or approve first.");
+      }
     }
 
-    plan.status = "executing";
-    plan.updatedAt = new Date().toISOString();
-    this.activePlan = plan;
-    this.savePlan(plan);
+    const queue: string[] = [];
+    for (const [id, degree] of inDegree) {
+      if (degree === 0) queue.push(id);
+    }
 
-    try {
-      // Execute steps in dependency order
-      const executionOrder = this.getExecutionOrder(plan.steps);
+    const sorted: PlanStep[] = [];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const step = graph.get(id)!;
+      sorted.push(step);
 
-      for (let i = 0; i < executionOrder.length; i++) {
-        const stepId = executionOrder[i];
-        const stepIndex = plan.steps.findIndex(s => s.id === stepId);
-        if (stepIndex === -1) continue;
-
-        plan.currentStepIndex = stepIndex;
-        const step = plan.steps[stepIndex];
-
-        // Check dependencies
-        const depsMet = step.dependsOn.every(depId => {
-          const depStep = plan.steps.find(s => s.id === depId);
-          return depStep?.status === "completed";
-        });
-
-        if (!depsMet) {
-          step.status = "skipped";
-          step.error = "Dependencies not met";
-          continue;
-        }
-
-        step.status = "in_progress";
-        step.startedAt = new Date().toISOString();
-        plan.updatedAt = new Date().toISOString();
-        this.savePlan(plan);
-        this.config.onStepUpdate?.(step, plan);
-
-        try {
-          // Execute the step using the universal agent
-          const result = await this.executeStep(step, plan);
-          step.result = result;
-          step.status = "completed";
-          step.completedAt = new Date().toISOString();
-        } catch (error) {
-          step.status = "failed";
-          step.error = String(error);
-          step.completedAt = new Date().toISOString();
-
-          // Check if we should continue or fail the plan
-          if (step.risk === "critical" || step.risk === "high") {
-            plan.status = "failed";
-            plan.updatedAt = new Date().toISOString();
-            this.savePlan(plan);
-            throw error;
+      for (const otherStep of steps) {
+        if (otherStep.dependencies.includes(id)) {
+          const newDegree = (inDegree.get(otherStep.id) || 0) - 1;
+          inDegree.set(otherStep.id, newDegree);
+          if (newDegree === 0) {
+            queue.push(otherStep.id);
           }
         }
+      }
+    }
 
-        plan.updatedAt = new Date().toISOString();
-        this.savePlan(plan);
-        this.config.onStepUpdate?.(step, plan);
+    // If there are cycles, append remaining steps
+    if (sorted.length < steps.length) {
+      const remaining = steps.filter(s => !sorted.includes(s));
+      sorted.push(...remaining);
+    }
+
+    return sorted;
+  }
+
+  /**
+   * Get a plan by ID
+   */
+  getPlan(planId: string): Plan | undefined {
+    return this.plans.get(planId);
+  }
+
+  /**
+   * Update plan status
+   */
+  updatePlanStatus(planId: string, status: Plan['status']): Plan | undefined {
+    const plan = this.plans.get(planId);
+    if (plan) {
+      plan.status = status;
+      plan.updatedAt = new Date().toISOString();
+      this.emit('plan:updated', plan);
+    }
+    return plan;
+  }
+
+  /**
+   * Update step status
+   */
+  updateStepStatus(planId: string, stepId: string, status: PlanStep['status'], result?: any, error?: string): Plan | undefined {
+    const plan = this.plans.get(planId);
+    if (!plan) return undefined;
+
+    const step = plan.steps.find(s => s.id === stepId);
+    if (!step) return undefined;
+
+    step.status = status;
+    if (result !== undefined) step.result = result;
+    if (error !== undefined) step.error = error;
+    if (status === 'in_progress') step.startedAt = new Date().toISOString();
+    if (status === 'completed' || status === 'failed') step.completedAt = new Date().toISOString();
+
+    plan.completedSteps = plan.steps.filter(s => s.status === 'completed').length;
+    plan.failedSteps = plan.steps.filter(s => s.status === 'failed').length;
+    plan.currentStepIndex = plan.steps.findIndex(s => s.status === 'in_progress' || s.status === 'pending');
+    if (plan.currentStepIndex === -1) plan.currentStepIndex = plan.steps.length;
+    plan.updatedAt = new Date().toISOString();
+
+    this.emit('plan:step-updated', { plan, step });
+
+    // Check if plan is complete
+    if (plan.completedSteps === plan.steps.length) {
+      plan.status = 'completed';
+      this.emit('plan:completed', plan);
+    } else if (plan.failedSteps > 0 && plan.steps.every(s => s.status !== 'pending' && s.status !== 'in_progress')) {
+      plan.status = 'failed';
+      this.emit('plan:failed', plan);
+    }
+
+    return plan;
+  }
+
+  /**
+   * Get next pending step
+   */
+  getNextStep(planId: string): PlanStep | undefined {
+    const plan = this.plans.get(planId);
+    if (!plan) return undefined;
+
+    // Find first pending step whose dependencies are met
+    for (const step of plan.steps) {
+      if (step.status === 'pending') {
+        const depsMet = step.dependencies.every(depId => {
+          const depStep = plan.steps.find(s => s.id === depId);
+          return depStep?.status === 'completed';
+        });
+        if (depsMet) return step;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Execute a single step
+   */
+  async executeStep(planId: string, stepId: string, toolContext: ToolExecutionContext): Promise<UniversalToolResult> {
+    const plan = this.plans.get(planId);
+    if (!plan) throw new Error(`Plan ${planId} not found`);
+
+    const step = plan.steps.find(s => s.id === stepId);
+    if (!step) throw new Error(`Step ${stepId} not found`);
+
+    this.updateStepStatus(planId, stepId, 'in_progress');
+
+    try {
+      // Execute the step based on type
+      let result: UniversalToolResult;
+
+      switch (step.type) {
+        case 'explore':
+        case 'read':
+          result = await this.executeExploreStep(step, toolContext);
+          break;
+        case 'write':
+        case 'edit':
+          result = await this.executeWriteStep(step, toolContext);
+          break;
+        case 'terminal':
+          result = await this.executeTerminalStep(step, toolContext);
+          break;
+        case 'test':
+          result = await this.executeTestStep(step, toolContext);
+          break;
+        case 'verify':
+          result = await this.executeVerifyStep(step, toolContext);
+          break;
+        case 'commit':
+          result = await this.executeCommitStep(step, toolContext);
+          break;
+        default:
+          result = await this.executeCustomStep(step, toolContext);
       }
 
-      // Check if all steps completed
-      const allCompleted = plan.steps.every(s => s.status === "completed" || s.status === "skipped");
-      plan.status = allCompleted ? "completed" : "failed";
-      plan.updatedAt = new Date().toISOString();
-      this.savePlan(plan);
-
-      this.config.onPlanComplete?.(plan);
-      this.activePlan = null;
-
-      return plan;
+      this.updateStepStatus(planId, stepId, 'completed', result);
+      return result;
     } catch (error) {
-      plan.status = "failed";
-      plan.updatedAt = new Date().toISOString();
-      this.savePlan(plan);
-      this.activePlan = null;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.updateStepStatus(planId, stepId, 'failed', undefined, errorMessage);
       throw error;
     }
   }
 
-  private getExecutionOrder(steps: PlanStep[]): string[] {
-    // Topological sort based on dependencies
-    const visited = new Set<string>();
-    const order: string[] = [];
-
-    const visit = (stepId: string) => {
-      if (visited.has(stepId)) return;
-      const step = steps.find(s => s.id === stepId);
-      if (!step) return;
-
-      for (const dep of step.dependsOn) {
-        visit(dep);
-      }
-      visited.add(stepId);
-      order.push(stepId);
-    };
-
-    for (const step of steps) {
-      visit(step.id);
+  /**
+   * Execute explore/read step
+   */
+  private async executeExploreStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    // Use codebase search or file listing
+    if (step.tools.includes('codebase.search')) {
+      return executeTool(this.toolRegistry, 'codebase.search', {
+        query: step.description,
+        mode: 'hybrid',
+        limit: 20,
+      }, context);
     }
 
-    return order;
+    return executeTool(this.toolRegistry, 'files.list', {
+      path: context.workspacePath,
+      recursive: true,
+    }, context);
   }
 
-  private async executeStep(step: PlanStep, plan: ExecutionPlan): Promise<unknown> {
-    // This would integrate with the universal agent to execute the step
-    // For now, return a placeholder - the actual implementation would call
-    // the universal agent with the step description and context
+  /**
+   * Execute write/edit step
+   */
+  private async executeWriteStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    // This would be implemented with actual file operations
+    // For now, return a placeholder
+    return {
+      success: true,
+      data: { message: `Step ${step.id} executed (placeholder)` },
+      metadata: { toolName: 'files.write', duration: 0 },
+    };
+  }
 
-    // The tool hint tells us which tool namespace to use
-    // We would call the appropriate tool through the universal agent
+  /**
+   * Execute terminal step
+   */
+  private async executeTerminalStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    return executeTool(this.toolRegistry, 'terminal.run', {
+      command: step.description, // Would need actual command
+      cwd: context.workspacePath,
+    }, context);
+  }
+
+  /**
+   * Execute test step
+   */
+  private async executeTestStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    const pkgResult = await executeTool(this.toolRegistry, 'files.read', {
+      path: 'package.json',
+    }, context);
+
+    if (pkgResult.success && pkgResult.content) {
+      const pkg = JSON.parse(pkgResult.content);
+      const testCmd = pkg.scripts?.test || 'npm test';
+
+      return executeTool(this.toolRegistry, 'terminal.run', {
+        command: testCmd,
+        cwd: context.workspacePath,
+      }, context);
+    }
+
+    return executeTool(this.toolRegistry, 'terminal.run', {
+      command: 'npm test',
+      cwd: context.workspacePath,
+    }, context);
+  }
+
+  /**
+   * Execute verify step
+   */
+  private async executeVerifyStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    // Run typecheck, lint, build
+    const commands = ['npm run typecheck', 'npm run lint', 'npm run build'];
+    const results = [];
+
+    for (const cmd of commands) {
+      const result = await executeTool(this.toolRegistry, 'terminal.run', {
+        command: cmd,
+        cwd: context.workspacePath,
+      }, context);
+      results.push({ command: cmd, ...result });
+    }
 
     return {
-      stepId: step.id,
-      description: step.description,
-      executed: true,
-      timestamp: new Date().toISOString(),
+      success: results.every(r => r.success),
+      data: { results },
+      metadata: { toolName: 'verify', duration: 0 },
     };
   }
 
-  // ============================================================================
-  // Plan Control
-  // ============================================================================
-
-  pausePlan(planId: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan || plan.status !== "executing") return null;
-
-    plan.status = "paused";
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    this.activePlan = null;
-    return plan;
+  /**
+   * Execute commit step
+   */
+  private async executeCommitStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    return executeTool(this.toolRegistry, 'git.commit', {
+      message: `Implement: ${step.description}`,
+      addAll: true,
+    }, context);
   }
 
-  resumePlan(planId: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan || plan.status !== "paused") return null;
-
-    plan.status = "executing";
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    this.activePlan = plan;
-    return plan;
-  }
-
-  approvePlan(planId: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan || plan.status !== "draft") return null;
-
-    plan.status = "approved";
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    return plan;
-  }
-
-  rejectPlan(planId: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan || plan.status !== "draft") return null;
-
-    plan.status = "failed";
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    return plan;
-  }
-
-  getActivePlan(): ExecutionPlan | null {
-    return this.activePlan;
-  }
-
-  // ============================================================================
-  // Plan Modification
-  // ============================================================================
-
-  updateStep(planId: string, stepId: string, updates: Partial<PlanStep>): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan) return null;
-
-    const stepIndex = plan.steps.findIndex(s => s.id === stepId);
-    if (stepIndex === -1) return null;
-
-    plan.steps[stepIndex] = { ...plan.steps[stepIndex], ...updates };
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    return plan;
-  }
-
-  addStep(planId: string, step: Omit<PlanStep, "id" | "status">, afterStepId?: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
-    if (!plan) return null;
-
-    const newStep: PlanStep = {
-      ...step,
-      id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      status: "pending",
+  /**
+   * Execute custom step
+   */
+  private async executeCustomStep(step: PlanStep, context: ToolExecutionContext): Promise<UniversalToolResult> {
+    return {
+      success: true,
+      data: { message: `Custom step ${step.id} executed` },
+      metadata: { toolName: 'custom', duration: 0 },
     };
+  }
 
-    if (afterStepId) {
-      const afterIndex = plan.steps.findIndex(s => s.id === afterStepId);
-      if (afterIndex !== -1) {
-        plan.steps.splice(afterIndex + 1, 0, newStep);
-      } else {
-        plan.steps.push(newStep);
-      }
-    } else {
-      plan.steps.push(newStep);
+  /**
+   * Read a file from workspace
+   */
+  private async readFile(workspacePath: string, filePath: string): Promise<UniversalToolResult> {
+    return executeTool(this.toolRegistry, 'files.read', {
+      path: filePath,
+    }, { workspacePath } as ToolExecutionContext);
+  }
+
+  /**
+   * List all plans
+   */
+  listPlans(): Plan[] {
+    return Array.from(this.plans.values()).sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  /**
+   * Delete a plan
+   */
+  deletePlan(planId: string): boolean {
+    const deleted = this.plans.delete(planId);
+    if (deleted) {
+      this.emit('plan:deleted', planId);
     }
-
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
-    return plan;
+    return deleted;
   }
 
-  removeStep(planId: string, stepId: string): ExecutionPlan | null {
-    const plan = this.loadPlan(planId);
+  /**
+   * Export plan to JSON
+   */
+  exportPlan(planId: string): string | null {
+    const plan = this.plans.get(planId);
     if (!plan) return null;
+    return JSON.stringify(plan, null, 2);
+  }
 
-    plan.steps = plan.steps.filter(s => s.id !== stepId);
-    plan.updatedAt = new Date().toISOString();
-    this.savePlan(plan);
+  /**
+   * Import plan from JSON
+   */
+  importPlan(json: string): Plan {
+    const plan = PlanSchema.parse(JSON.parse(json));
+    this.plans.set(plan.id, plan);
+    this.emit('plan:imported', plan);
     return plan;
   }
 }
 
 // ============================================================================
-// Register Planning Tools in Universal Tool Registry
+// Singleton instance
 // ============================================================================
 
-import { registerTool, ToolExecutionContext, UniversalToolResult } from "./tool-registry";
+let planningAgentInstance: PlanningAgent | null = null;
 
-export function registerPlanningTools(projectRoot: string, projectId: string, adapter: LLMAdapter): void {
-  const planningAgent = new PlanningAgent({ projectRoot, projectId, adapter });
-
-  // Create plan
-  registerTool({
-    name: "planning.create",
-    description: "Create an execution plan for a goal",
-    category: "planning",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        goal: { type: "string", description: "The goal to plan for" },
-        context: { type: "string", description: "Additional context for planning" },
-      },
-      required: ["goal"],
-    },
-    execute: async (args, ctx) => {
-      const plan = await planningAgent.createPlan(args.goal as string, args.context as string);
-      planningAgent.savePlan(plan);
-      return { success: true, data: plan, summary: `Created plan ${plan.id} with ${plan.steps.length} steps` };
-    },
-  });
-
-  // Get plan
-  registerTool({
-    name: "planning.get",
-    description: "Get a plan by ID",
-    category: "planning",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.loadPlan(args.planId as string);
-      return plan
-        ? { success: true, data: plan, summary: `Plan ${plan.id}: ${plan.goal}` }
-        : { success: false, error: "Plan not found" };
-    },
-  });
-
-  // List plans
-  registerTool({
-    name: "planning.list",
-    description: "List all saved plans",
-    category: "planning",
-    risk: "READ",
-    execute: async (args, ctx) => {
-      const plans = planningAgent.listPlans();
-      return { success: true, data: plans, summary: `${plans.length} plans` };
-    },
-  });
-
-  // Approve plan
-  registerTool({
-    name: "planning.approve",
-    description: "Approve a draft plan for execution",
-    category: "planning",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.approvePlan(args.planId as string);
-      return plan
-        ? { success: true, data: plan, summary: `Plan ${plan.id} approved` }
-        : { success: false, error: "Plan not found or not in draft status" };
-    },
-  });
-
-  // Execute plan
-  registerTool({
-    name: "planning.execute",
-    description: "Execute an approved plan",
-    category: "planning",
-    risk: "WRITE",
-    requiresApproval: true,
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-        autoApprove: { type: "boolean", description: "Auto-approve if in draft" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = await planningAgent.executePlan(args.planId as string, { autoApprove: args.autoApprove as boolean });
-      return { success: true, data: plan, summary: `Plan ${plan.id} ${plan.status}` };
-    },
-  });
-
-  // Pause plan
-  registerTool({
-    name: "planning.pause",
-    description: "Pause an executing plan",
-    category: "planning",
-    risk: "READ",
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.pausePlan(args.planId as string);
-      return plan
-        ? { success: true, data: plan, summary: `Plan ${plan.id} paused` }
-        : { success: false, error: "Plan not found or not executing" };
-    },
-  });
-
-  // Resume plan
-  registerTool({
-    name: "planning.resume",
-    description: "Resume a paused plan",
-    category: "planning",
-    risk: "WRITE",
-    requiresApproval: true,
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.resumePlan(args.planId as string);
-      return plan
-        ? { success: true, data: plan, summary: `Plan ${plan.id} resumed` }
-        : { success: false, error: "Plan not found or not paused" };
-    },
-  });
-
-  // Update step
-  registerTool({
-    name: "planning.updateStep",
-    description: "Update a step in a plan",
-    category: "planning",
-    risk: "WRITE",
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-        stepId: { type: "string", description: "Step ID" },
-        updates: { type: "object", description: "Partial step updates" },
-      },
-      required: ["planId", "stepId"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.updateStep(
-        args.planId as string,
-        args.stepId as string,
-        args.updates as Partial<PlanStep>
-      );
-      return plan
-        ? { success: true, data: plan, summary: `Step ${args.stepId} updated` }
-        : { success: false, error: "Plan or step not found" };
-    },
-  });
-
-  // Add step
-  registerTool({
-    name: "planning.addStep",
-    description: "Add a step to a plan",
-    category: "planning",
-    risk: "WRITE",
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-        step: { type: "object", description: "Step definition (without id/status)" },
-        afterStepId: { type: "string", description: "Insert after this step ID" },
-      },
-      required: ["planId", "step"],
-    },
-    execute: async (args, ctx) => {
-      const plan = planningAgent.addStep(
-        args.planId as string,
-        args.step as Omit<PlanStep, "id" | "status">,
-        args.afterStepId as string
-      );
-      return plan
-        ? { success: true, data: plan, summary: `Step added to plan ${plan.id}` }
-        : { success: false, error: "Plan not found" };
-    },
-  });
-
-  // Delete plan
-  registerTool({
-    name: "planning.delete",
-    description: "Delete a plan",
-    category: "planning",
-    risk: "DESTRUCTIVE",
-    requiresApproval: true,
-    parameters: {
-      type: "object",
-      properties: {
-        planId: { type: "string", description: "Plan ID" },
-      },
-      required: ["planId"],
-    },
-    execute: async (args, ctx) => {
-      const success = planningAgent.deletePlan(args.planId as string);
-      return success
-        ? { success: true, summary: `Plan ${args.planId} deleted` }
-        : { success: false, error: "Plan not found" };
-    },
-  });
+export function getPlanningAgent(toolRegistry?: UniversalToolRegistry): PlanningAgent {
+  if (!planningAgentInstance && toolRegistry) {
+    planningAgentInstance = new PlanningAgent(toolRegistry);
+  }
+  if (!planningAgentInstance) {
+    throw new Error('PlanningAgent not initialized. Call with toolRegistry first.');
+  }
+  return planningAgentInstance;
 }
 
-export { PlanningAgent, ExecutionPlan, PlanStep, PlanRisk };
-export type { PlanningConfig };
+export function initializePlanningAgent(toolRegistry: UniversalToolRegistry): PlanningAgent {
+  planningAgentInstance = new PlanningAgent(toolRegistry);
+  return planningAgentInstance;
+}

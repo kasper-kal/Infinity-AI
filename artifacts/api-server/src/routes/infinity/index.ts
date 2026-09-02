@@ -72,6 +72,7 @@ import localModelRouter from "./local-model";
 import deepResearchV2Router from "./deep-research-v2";
 import projectMapRouter from "./project-map";
 import designCanvasRouter from "./design-canvas";
+import advancedAgentRouter from "./advanced-agent";
 import mobileAppsRouter from "./mobile-apps";
 import artifactTemplatesRouter from "./artifact-templates";
 import enterpriseRouter from "./enterprise";
@@ -172,6 +173,7 @@ router.use(packageEditorRouter);
 router.use(extensionRouter);
 router.use("/codebase", codebaseIndexRouter);
 router.use("/cursor", cursorRouter);
+router.use("/advanced-agent", advancedAgentRouter);
 
 export { handleExtensionUpgrade };
 export default router;
