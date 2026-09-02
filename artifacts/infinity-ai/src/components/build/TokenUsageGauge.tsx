@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 
 interface TokenUsageGaugeProps {
-  /** Workspace/project ID to fetch token data for */
+  /** Workspace/project ID or conversation ID to fetch token data for */
   workspaceId: string;
+  /** Type of resource: 'build' for project/workspace, 'chat' for conversation */
+  type?: 'build' | 'chat';
   /** Optional: show detailed breakdown */
   showDetails?: boolean;
   /** Optional: show warning thresholds */
@@ -25,6 +27,7 @@ interface TokenUsageData {
 
 export function TokenUsageGauge({
   workspaceId,
+  type = 'build',
   showDetails = true,
   showThresholds = true,
   className = '',
@@ -39,7 +42,10 @@ export function TokenUsageGauge({
 
     const fetchTokenUsage = async () => {
       try {
-        const response = await fetch(`/api/infinity/build/${encodeURIComponent(workspaceId)}/token-usage`);
+        const endpoint = type === 'chat'
+          ? `/api/infinity/chat/${encodeURIComponent(workspaceId)}/token-usage`
+          : `/api/infinity/build/${encodeURIComponent(workspaceId)}/token-usage`;
+        const response = await fetch(endpoint);
         if (response.ok) {
           const result = await response.json();
           if (mounted) setData(result);
@@ -58,7 +64,7 @@ export function TokenUsageGauge({
       mounted = false;
       clearInterval(interval);
     };
-  }, [workspaceId]);
+  }, [workspaceId, type]);
 
   const used = data?.used ?? 0;
   const limit = data?.limit ?? (data?.contextWindow ?? 200000);

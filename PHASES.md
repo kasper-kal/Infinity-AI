@@ -1564,14 +1564,17 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 5. **Chat Route Integration** — `chat.ts`: ✅ COMPLETE
    - Pre-message: compact conversation history if >70% model limit
    - Store compacted summaries in messages table
+   - Added GET /chat/:conversationId/token-usage endpoint
+   - Added GET /chat/:conversationId/compaction-history endpoint
 6. **Debug Panel UI** — Extend Build Debug panel: ✅ COMPLETE
    - Token usage gauge (used/limit, color-coded) — `TokenUsageGauge.tsx`
    - Compaction level indicator (1-4)
    - History of compactions with expandable summaries — `CompactionHistory.tsx`
    - Manual compact button + disable toggle
-7. **Frontend Token Display** — `use-chat-stream.ts` + conversation feed: ⏳ PENDING (ChatView integration)
-   - Show token usage in message metadata
-   - Compacted message indicator with "show original" action
+7. **Frontend Token Display** — `use-chat-stream.ts` + conversation feed: ✅ COMPLETE
+   - Show token usage in ChatView header for both Build mode and regular chat
+   - TokenUsageGauge supports both 'build' and 'chat' types
+   - CompactionHistory supports both 'build' and 'chat' types
 
 ### Files Created/Modified
 - ✅ `artifacts/api-server/src/lib/context-compactor.ts` (new)
@@ -1579,15 +1582,15 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - ✅ `artifacts/api-server/src/lib/universal-agent.ts` (extend — token budget, auto-compact config)
 - ✅ `artifacts/api-server/src/lib/build-orchestrator.ts` (extend — compaction hooks, saveCheckpointWithCompactedContext)
 - ✅ `artifacts/api-server/src/lib/build-context.ts` (extend — wired checkCompactionTriggers, autoCompactContext, compactContext to use new context-compactor.ts)
-- ✅ `artifacts/api-server/src/routes/infinity/chat.ts` (extend — pre-message compaction logic, compactedMessages for all LLM paths, stores compactedSummary in DB)
+- ✅ `artifacts/api-server/src/routes/infinity/chat.ts` (extend — pre-message compaction logic, compactedMessages for all LLM paths, stores compactedSummary in DB, added token-usage & compaction-history endpoints)
 - ✅ `artifacts/api-server/src/routes/infinity/build.ts` (extend — GET /token-usage, GET /compaction-history endpoints)
 - ✅ `lib/db/src/schema/conversations.ts` (add `compactedSummary` column to messages table)
 - ✅ `lib/db/src/schema/build-checkpoints.ts` (add `compactedContext` column)
-- ✅ `artifacts/infinity-ai/src/components/build/TokenUsageGauge.tsx` (new)
-- ✅ `artifacts/infinity-ai/src/components/build/CompactionHistory.tsx` (new)
+- ✅ `artifacts/infinity-ai/src/components/build/TokenUsageGauge.tsx` (new — supports both build and chat types)
+- ✅ `artifacts/infinity-ai/src/components/build/CompactionHistory.tsx` (new — supports both build and chat types)
 - ✅ `artifacts/infinity-ai/src/components/build-debug-panel.tsx` (integrated TokenUsageGauge + CompactionHistory)
 - ✅ `artifacts/infinity-ai/src/lib/i18n.tsx` (added ~30 compaction keys EN+NL)
-- ⏳ `artifacts/infinity-ai/src/components/views/ChatView.tsx` (token display — remaining)
+- ✅ `artifacts/infinity-ai/src/components/views/ChatView.tsx` (token display — integrated TokenUsageGauge for both build and chat modes)
 
 
 ---

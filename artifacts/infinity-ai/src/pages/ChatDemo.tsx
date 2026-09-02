@@ -297,6 +297,7 @@ export function ChatDemoPage() {
         onSuggestionClick={handleSuggestionClick}
         onDeepResearchExpert={handleDeepResearchExpert}
         status={status}
+        projectId="demo-project"
       />
     </div>
   );

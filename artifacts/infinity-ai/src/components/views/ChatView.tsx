@@ -32,6 +32,7 @@ import { VisualInspector } from "@/components/ui-builder/VisualInspector";
 import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
+import { TokenUsageGauge } from "@/components/build/TokenUsageGauge";
 import { useConflictResolution, useAstHistory } from "@/hooks";
 
 export interface ChatViewProps {
@@ -49,6 +50,8 @@ export interface ChatViewProps {
   onSuggestionClick?: (text: string) => void;
   onDeepResearchExpert?: (conversationId: string) => void;
   status?: "idle" | "thinking" | "transcribing" | "recording" | "wake" | "speaking";
+  /** Project/workspace ID for token usage tracking and compaction */
+  projectId?: string;
 }
 
 export const ChatView: React.FC<ChatViewProps> = ({
@@ -66,6 +69,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSuggestionClick,
   onDeepResearchExpert,
   status = "idle",
+  projectId,
 }) => {
   const { t } = useI18n();
   const { theme, resolved, toggle: toggleTheme } = useTheme();
@@ -357,6 +361,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           </IconButton>
         </Tooltip>
+      )}
+
+      {/* Token Usage Gauge - shown when projectId is provided (Build mode) or conversationId for regular chat */}
+      {(projectId || activeConversationId) && (
+        <TokenUsageGauge
+          workspaceId={projectId || activeConversationId!}
+          type={projectId ? 'build' : 'chat'}
+          compact={true}
+          showDetails={false}
+          showThresholds={true}
+          className="ml-2"
+        />
       )}
 
       {/* Chat Menu - Mode Toggle + Tools */}

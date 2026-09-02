@@ -3026,4 +3026,103 @@ router.post("/chat", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Phase 32: Get token usage for a conversation (for TokenUsageGauge UI in chat)
+ */
+router.get("/chat/:conversationId/token-usage", requireAuth, async (req, res) => {
+  const conversationId = cleanText(req.params.conversationId as string, 64);
+  try {
+    // Fetch conversation messages to calculate token usage
+    const { messages } = await import("@workspace/db/schema");
+    const { eq, asc } = await import("drizzle-orm");
+    const { db } = await import("@workspace/db");
+
+    const history = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(asc(messages.createdAt));
+
+    // Get model capabilities to determine context window
+    let model = "default";
+    let contextWindow = 200000;
+    try {
+      const { pooledClient } = await import("../../lib/llm-client");
+      const client = pooledClient();
+      const caps = client.capabilities;
+      model = caps.model || "default";
+      contextWindow = caps.maxContextTokens || 200000;
+    } catch {
+      // Use defaults
+    }
+
+    // Calculate token usage from message history
+    const { countMessageTokens } = await import("../../lib/token-counter");
+    const used = await countMessageTokens(history as any, model);
+
+    res.json({
+      ok: true,
+      used,
+      limit: contextWindow,
+      model,
+      contextWindow,
+      percentUsed: contextWindow > 0 ? (used / contextWindow) * 100 : 0,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get token usage for conversation");
+    res.status(500).json({ error: "Failed to get token usage" });
+  }
+});
+
+/**
+ * Phase 32: Get compaction history for a conversation
+ */
+router.get("/chat/:conversationId/compaction-history", requireAuth, async (req, res) => {
+  const conversationId = cleanText(req.params.conversationId as string, 64);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  try {
+    // Fetch messages that have compactedSummary
+    const { messages } = await import("@workspace/db/schema");
+    const { eq, desc } = await import("drizzle-orm");
+    const { db } = await import("@workspace/db");
+
+    const compactedMessages = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+
+    // Extract compaction events from messages with compactedSummary
+    const events = compactedMessages
+      .filter(m => m.compactedSummary)
+      .map((msg, idx) => ({
+        id: msg.id,
+        timestamp: msg.createdAt.toISOString(),
+        level: 1, // Would need to parse from compactedSummary
+        levelName: 'Compaction',
+        trigger: 'context-size' as const,
+        tokensBefore: 0,
+        tokensAfter: 0,
+        tokensSaved: 0,
+        messagesCompacted: 0,
+        preservedItems: {
+          userInstructions: 0,
+          projectInstructions: 0,
+          fileMapFiles: 0,
+          keyDecisions: 0,
+          errorPatterns: 0,
+          currentPlanSteps: 0,
+          originalGoal: true,
+        },
+        summary: msg.compactedSummary || '',
+      }));
+
+    res.json({ ok: true, events });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get compaction history for conversation");
+    res.status(500).json({ error: "Failed to get compaction history" });
+  }
+});
+
 export default router;

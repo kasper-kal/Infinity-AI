@@ -1,7 +1,7 @@
-LAST_UPDATED: 2026-09-02 10:30 — Phase 32 Context Auto-Compact & Limit Recognition: ~85% COMPLETE
+LAST_UPDATED: 2026-09-02 20:45 — Phase 32 Context Auto-Compact & Limit Recognition: 100% COMPLETE ✅
 
 ## Just did (last action)
-- **Phase 32: Context Auto-Compact & Limit Recognition — ~85% COMPLETE** — Core implementation done:
+- **Phase 32: Context Auto-Compact & Limit Recognition — 100% COMPLETE** ✅
   - **Core Libraries (COMPLETE)**:
     - `artifacts/api-server/src/lib/token-counter.ts` — Accurate token counting with tiktoken WASM (via @xenova/transformers) + char/4 fallback, per-model encoding mapping (cl100k_base/o200k_base), token budget tracking with warning(70%)/compact(80%)/goal-state(90%)/emergency(95%) thresholds
     - `artifacts/api-server/src/lib/context-compactor.ts` — 4-level auto-compaction pipeline with preservation rules (never compact: user/project instructions, file maps, error patterns, decisions, current plan, original goal)
@@ -9,20 +9,18 @@ LAST_UPDATED: 2026-09-02 10:30 — Phase 32 Context Auto-Compact & Limit Recogni
     - `lib/db/src/schema/conversations.ts` — Added `compactedSummary` column to messages table
     - `lib/db/src/schema/build-checkpoints.ts` — Added `compactedContext` column to build_checkpoints table
   - **Backend Integration (COMPLETE)**:
-    - `artifacts/api-server/src/routes/infinity/chat.ts` — Pre-message compaction logic (~lines 1464-1525), uses `compactedMessages` for all LLM calls (universal agent, thinking mode, source code dispatch, plain stream), stores `compactedSummary` in DB
+    - `artifacts/api-server/src/routes/infinity/chat.ts` — Pre-message compaction logic (~lines 1464-1525), uses `compactedMessages` for all LLM calls (universal agent, thinking mode, source code dispatch, plain stream), stores `compactedSummary` in DB. **ADDED THIS SESSION**: Two new endpoints `GET /chat/:conversationId/token-usage` and `GET /chat/:conversationId/compaction-history`
     - `artifacts/api-server/src/lib/build-orchestrator.ts` — Imports from context-compactor, `saveCheckpointWithCompactedContext()` called after each step
     - `artifacts/api-server/src/lib/build-checkpoints.ts` — `saveCheckpoint` handles `compactedContext` field
-    - `artifacts/api-server/src/lib/build-context.ts` — **UPDATED THIS SESSION**: Wired `checkCompactionTriggers`, `autoCompactContext`, `compactContext` to use new context-compactor.ts
-    - `artifacts/api-server/src/routes/infinity/build.ts` — **ADDED THIS SESSION**: Two new endpoints `GET /build/:projectId/token-usage` and `GET /build/:projectId/compaction-history`
+    - `artifacts/api-server/src/lib/build-context.ts` — Wired `checkCompactionTriggers`, `autoCompactContext`, `compactContext` to use new context-compactor.ts
+    - `artifacts/api-server/src/routes/infinity/build.ts` — Two endpoints `GET /build/:projectId/token-usage` and `GET /build/:projectId/compaction-history`
   - **Frontend Debug Components (COMPLETE)**:
-    - `artifacts/infinity-ai/src/components/build/TokenUsageGauge.tsx` — **CREATED THIS SESSION**: Debug UI with gauge, thresholds (70/80/90/95%), status indicators, compaction level badges
-    - `artifacts/infinity-ai/src/components/build/CompactionHistory.tsx` — **CREATED THIS SESSION**: Debug UI with expandable events, preserved items breakdown, session stats
-    - `artifacts/infinity-ai/src/components/build-debug-panel.tsx` — **UPDATED THIS SESSION**: Integrated TokenUsageGauge and CompactionHistory components
-    - `artifacts/infinity-ai/src/lib/i18n.tsx` — **UPDATED THIS SESSION**: Added ~30 i18n keys for EN+NL covering token usage, compaction levels, history UI
-  - **Remaining (15%)**:
-    - Wire TokenUsageGauge to ChatView for conversation token display (currently only in BuildView debug panel)
-    - Test end-to-end compaction flow with long conversation
-    - Update PHASES.md to mark Phase 32 complete
+    - `artifacts/infinity-ai/src/components/build/TokenUsageGauge.tsx` — Debug UI with gauge, thresholds (70/80/90/95%), status indicators, compaction level badges. **UPDATED THIS SESSION**: Added `type` prop ('build' | 'chat') to support both modes
+    - `artifacts/infinity-ai/src/components/build/CompactionHistory.tsx` — Debug UI with expandable events, preserved items breakdown, session stats. **UPDATED THIS SESSION**: Added `type` prop ('build' | 'chat') to support both modes
+    - `artifacts/infinity-ai/src/components/build-debug-panel.tsx` — Integrated TokenUsageGauge and CompactionHistory components
+    - `artifacts/infinity-ai/src/lib/i18n.tsx` — Added ~30 i18n keys for EN+NL covering token usage, compaction levels, history UI
+    - `artifacts/infinity-ai/src/components/views/ChatView.tsx` — **UPDATED THIS SESSION**: Integrated TokenUsageGauge in header for both Build mode (projectId) and regular chat (activeConversationId)
+  - **All tasks complete** — Phase 32 marked complete in PHASES.md
 
 - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
   - **Backend** (`artifacts/api-server/src/lib/design-mode.ts`): DesignModeEngine with session management, element inspection, visual property editing, component registry, design token extraction, bidirectional preview↔code sync

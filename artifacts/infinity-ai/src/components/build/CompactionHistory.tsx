@@ -29,8 +29,10 @@ interface CompactionEvent {
 }
 
 interface CompactionHistoryProps {
-  /** Project/workspace ID */
+  /** Project/workspace ID or conversation ID */
   projectId: string;
+  /** Type of resource: 'build' for project/workspace, 'chat' for conversation */
+  type?: 'build' | 'chat';
   /** Optional: initial events (if pre-fetched) */
   initialEvents?: CompactionEvent[];
   /** Optional: custom className */
@@ -62,6 +64,7 @@ const TRIGGER_ICONS = {
 
 export function CompactionHistory({
   projectId,
+  type = 'build',
   initialEvents = [],
   className = '',
   maxInitialEvents = 10,
@@ -75,7 +78,10 @@ export function CompactionHistory({
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/infinity/build/${encodeURIComponent(projectId)}/compaction-history`);
+      const endpoint = type === 'chat'
+        ? `/api/infinity/chat/${encodeURIComponent(projectId)}/compaction-history`
+        : `/api/infinity/build/${encodeURIComponent(projectId)}/compaction-history`;
+      const response = await fetch(endpoint);
       if (response.ok) {
         const data = await response.json();
         setEvents(data.events ?? []);
