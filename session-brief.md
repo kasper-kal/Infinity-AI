@@ -1,4 +1,4 @@
-LAST_UPDATED: 2026-09-03 — PHASES.md and session-brief.md updated to reflect current phase: Phase 33 (AI Automation System) as IN PROGRESS
+LAST_UPDATED: 2026-09-03 — Phase 33 (AI Automation System) marked COMPLETE ✅ — Updated PHASES.md and session-brief.md: Phase 33 status changed from 🔲 PLANNED to ✅ COMPLETE, Current Phase advanced to Phase 34 (AI Self-Management). All Phase 33 implementation verified complete: automation-parser.ts (NL parsing with Zod schemas), automation-runtime.ts (execution engine with connector integration), automations.ts routes (REST API + webhooks for 6 connectors + cron), automation-registry.ts (DB operations, scheduling, webhooks, runs/logs), AutomationBuilder.tsx (5-step wizard), AutomationFlow.tsx (SVG flowchart), AutomationList.tsx (project-level list with status/enable/run/edit/delete), i18n keys (EN+NL). Build passing.
 
 ## Just did (last action)
 - **Updated PHASES.md and session-brief.md** — Corrected phase numbering and status:
@@ -459,7 +459,7 @@ LAST_UPDATED: 2026-09-03 — PHASES.md and session-brief.md updated to reflect c
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 33 — AI Automation System (Natural Language Automations + Connector Integration)** 🔲 **IN PROGRESS**
+- **Current Phase:** **Phase 34 — AI Self-Management (Secrets, Settings, API Keys)** 🔲 **PLANNED**
 - **Phase 32 — Context Auto-Compact & Limit Recognition — COMPLETE ✅**
 - **Phase 31 — Cursor-Level Performance & Polish (Speed, Reliability, DX) — COMPLETE ✅**
 - **Phase 30 — Advanced Agent Capabilities (Cursor Agent Parity) ✅ COMPLETE**
@@ -508,8 +508,8 @@ LAST_UPDATED: 2026-09-03 — PHASES.md and session-brief.md updated to reflect c
   - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
   - **i18n**: 100+ mobile.* translation keys in English and Dutch
 
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development)
-- **Next Phases:** Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors)
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), Phase 16 (v0-Level Generative UI Engine), Phase 17 (Visual Component Editor), Phase 18 (v0-Style Collaborative Workflows), Phase 19 (External API & Database Integration), Phase 20 (Multi-Framework Support), Phase 21 (AI-Powered Design Iteration), Phase 22 (Component Marketplace & Template Library), Phase 23 (v0-Level Polish), Phase 24 (Cursor-Level Code Intelligence), Phase 25 (Codebase Indexing & Semantic Search), Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact & Limit Recognition), Phase 33 (AI Automation System)
+- **Next Phases:** Phase 34 (AI Self-Management), Phase 35 (Dynamic Island), Phase 36 (Visual Build Map)
 
 **LAST_UPDATED:** 2026-08-27 16:45 — **Phase 17 100% COMPLETE** ✅ All components fully implemented + integrated. VisualInspector ↔ LivePreview postMessage bridge functional, PropEditor with design tokens, ComponentExtractor creates reusable components, useAstHistory (undo/redo + Cmd+Z/Cmd+Shift+Z), useConflictResolution (500ms window + UI), drag-drop reorder (@dnd-kit → /ast/reorder), keyboard shortcuts (Cmd+D, Delete, Escape, Arrows), 6 new AST sync API endpoints. Both builds passing cleanly. Ready for Phase 18.
 
@@ -534,6 +534,13 @@ LAST_UPDATED: 2026-09-03 — PHASES.md and session-brief.md updated to reflect c
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-09-03 **Phase 33: AI Automation System (Natural Language Automations + Connector Integration) — COMPLETE ✅** — Full AI Automation System implemented and verified:
+  - **Backend**: `automation-parser.ts` (NL→spec with Zod schemas, 7 trigger types, 10 action types, conditions, branching), `automation-runtime.ts` (execution engine with sandboxed code, connector integration, retries, idempotency), `automations.ts` routes (full CRUD + webhook endpoints for Linear/Slack/Notion/Sheets/GitHub + cron tick), `automation-registry.ts` (DB operations, schedule/webhook management, run/log tracking, stats)
+  - **Frontend**: `AutomationBuilder.tsx` (5-step wizard: input→preview→builder→test→saved), `AutomationFlow.tsx` (SVG flowchart with zoom/pan/download), `AutomationList.tsx` (project-level list with search/filter/tag/enable/run/edit/delete/view-runs)
+  - **Database**: automations, automation_runs, automation_logs, automation_schedules, automation_webhooks tables with full CRUD
+  - **i18n**: EN+NL translations for all automation UI
+  - Build passes cleanly
+
 - 2026-09-02 **Phase 30: Advanced Agent Capabilities (Cursor Agent Parity) — COMPLETE ✅** — Full Cursor Agent parity implementation:
   - **Planning Agent** (`artifacts/api-server/src/lib/planning-agent.ts` — 759 lines): PlanningAgent with createPlan, exploreCodebase, generatePlan, validatePlan, executeStep, topological sort, fallback plans, plan persistence
   - **Debugging Tools** (`artifacts/api-server/src/lib/debug-tools.ts` — 1028 lines): DebugToolsManager with session management, breakpoints, variable inspection, call stack, test running (jest/vitest/playwright/cypress/mocha), auto-fix test failures, DAP simulation
