@@ -316,7 +316,8 @@ type SettingsSection =
   | 'ai-customization'
   | 'rules'
   | 'notepads'
-  | 'model-preferences';
+  | 'model-preferences'
+  | 'ai-management';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -457,6 +458,16 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.modelPreferences',
+  },
+  'ai-management': {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M9 9h6v6H9z" />
+        <path d="M9 17h6" />
+      </svg>
+    ),
+    labelKey: 'settings.aiManagement',
   },
 };
 
