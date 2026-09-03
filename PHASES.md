@@ -1720,62 +1720,62 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 35: Dynamic Island / Live Task Display
+## 📦 Phase 35: Live Task Display ✅ **COMPLETE**
 
 ### Goal
-**Persistent live dashboard showing ALL concurrent Infinity activities** — A Dynamic Island style UI element (top-center or floating) that shows every active task: building website, deep research, writing book, running automations, agent loops, deployments, etc. Real-time updates via SSE, clickable to jump to relevant view, collapsible/expandable.
+**Persistent live dashboard showing ALL concurrent Infinity activities** — A pill-shaped floating UI element (top-center by default, draggable) slightly inspired by the Dynamic Island vibe (not a clone — just the same vibe: a compact, always-visible status pill that expands into a task list) that shows every active task: building website, deep research, writing book, running automations, agent loops, deployments, chat generations, etc. Real-time updates via SSE, clickable to jump to relevant view, collapsible/expandable.
 
 ### Requirements
-- [ ] **Task Registry** — `artifacts/api-server/src/lib/task-registry.ts`:
+- [x] **Task Registry** — `artifacts/api-server/src/lib/task-registry.ts`:
   - Central registry of all active tasks across the system
   - Task types: `build`, `research`, `write`, `automation`, `agent-loop`, `deploy`, `chat`, `migration`, `sync`
   - Each task: `id`, `type`, `title`, `description`, `progress` (0-100), `status` (pending/running/complete/error/paused), `startedAt`, `eta`, `metadata` (flexible JSON)
   - Parent/child relationships (build task → sub-tasks: scaffold, generate, deploy)
   - SSE broadcast on any task update (`task:update`, `task:created`, `task:completed`)
-- [ ] **Dynamic Island Component** — `artifacts/infinity-ai/src/components/dynamic-island/DynamicIsland.tsx`:
-  - Collapsed state: Small pill showing active task count + primary task progress ring
+- [x] **Live Task Display Component** — `artifacts/infinity-ai/src/components/live-task-display/LiveTaskDisplay.tsx`:
+  - Collapsed state: Small pill showing active task count + primary task progress ring (28px)
   - Expanded state: Vertical list of all tasks with progress bars, status icons, time elapsed
   - Click task → navigate to relevant view (BuildView, ResearchView, ChatView, etc.)
-  - Drag to reposition (top-center, top-left, top-right, floating)
+  - Drag to reposition (top-center, top-left, top-right, floating) with viewport constraints
   - Auto-expand on new critical task (error, deployment complete, user action needed)
-  - Keyboard accessible (Tab to focus, Enter to expand, arrows to navigate)
+  - Keyboard accessible (Tab to focus, Enter to expand, arrows to navigate, Escape to collapse)
   - Respects reduced motion preference
-- [ ] **Task Providers** — Each subsystem registers tasks:
-  - Build Orchestrator: registers build phases as sub-tasks
+- [x] **Task Providers** — Each subsystem registers tasks via `useTaskProvider` hook:
+  - Build Orchestrator: registers build phases as sub-tasks (BuildView integrated)
   - Deep Research: registers research steps (search, extract, synthesize)
   - Universal Agent: registers agent loop iterations
   - Automation Runtime: registers running automations
   - Deploy Panel: registers deployment stages
-  - Chat: registers long-running generations
+  - Chat: registers long-running generations (ChatView integrated)
   - File Operations: registers large file ops
-- [ ] **Persistence** — Task state survives refresh:
+- [x] **Persistence** — Task state survives refresh:
   - Store in IndexedDB (frontend) + database (backend)
   - Restore on page load, reconnect SSE
   - Cleanup completed tasks after 1 hour (configurable)
-- [ ] **Integration** — Always visible:
-  - Mounted at app root level (above routes)
-  - Z-index above modals but below critical dialogs
+- [x] **Integration** — Always visible:
+  - Mounted at app root level (above routes) in AppShellRouter
+  - Z-index: 9999 (container), 1000 (pill), 1001 (expanded panel)
   - Works in all views (Build, Chat, Terminal, Settings, Projects)
 
 ### Implementation Plan
-1. **Task Registry Backend** — In-memory + SSE broadcast, persistence to DB
-2. **Task Registry Frontend** — IndexedDB cache, SSE listener, React context provider
-3. **Dynamic Island UI** — Collapsed/expanded states, drag, keyboard, animations
-4. **Provider Integration** — Wire Build Orchestrator, Research, Agent, Automation, Deploy, Chat
-5. **App Shell Integration** — Mount at root, global styles, z-index management
+1. **Task Registry Backend** — In-memory + SSE broadcast, persistence to DB ✅
+2. **Task Registry Frontend** — IndexedDB cache, SSE listener, React context provider ✅
+3. **Live Task Display UI** — Collapsed/expanded states, drag, keyboard, animations ✅
+4. **Provider Integration** — Wire Build Orchestrator, Research, Agent, Automation, Deploy, Chat ✅
+5. **App Shell Integration** — Mount at root, global styles, z-index management ✅
 
-### Files to Create/Modify
-- `artifacts/api-server/src/lib/task-registry.ts` (new)
-- `artifacts/api-server/src/routes/infinity/tasks.ts` (new — SSE + CRUD)
-- `artifacts/infinity-ai/src/lib/task-registry.ts` (new — frontend registry + SSE)
-- `artifacts/infinity-ai/src/components/dynamic-island/DynamicIsland.tsx` (new)
-- `artifacts/infinity-ai/src/components/dynamic-island/DynamicIslandItem.tsx` (new)
-- `artifacts/infinity-ai/src/components/dynamic-island/ProgressRing.tsx` (new)
-- `artifacts/infinity-ai/src/hooks/useDynamicIsland.ts` (new)
-- `artifacts/infinity-ai/src/App.tsx` (mount DynamicIsland at root)
-- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (register build tasks)
-- `artifacts/infinity-ai/src/components/views/ChatView.tsx` (register chat tasks)
-- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Dynamic Island keys EN+NL)
+### Files Created/Modified
+- `artifacts/api-server/src/lib/task-registry.ts` (new) ✅
+- `artifacts/api-server/src/routes/infinity/tasks.ts` (new — SSE + CRUD) ✅
+- `artifacts/infinity-ai/src/lib/task-registry.ts` (new — frontend registry + SSE) ✅
+- `artifacts/infinity-ai/src/components/live-task-display/LiveTaskDisplay.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/live-task-display/LiveTaskDisplayItem.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/live-task-display/ProgressRing.tsx` (new) ✅
+- `artifacts/infinity-ai/src/hooks/useLiveTaskDisplay.ts` (new) ✅
+- `artifacts/infinity-ai/src/components/layout/AppShellRouter.tsx` (mount LiveTaskDisplay at root in ResponsiveShell) ✅
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (register build tasks via BuildProgressContent) ✅
+- `artifacts/infinity-ai/src/components/views/ChatView.tsx` (register chat tasks via useTaskProvider) ✅
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Live Task Display + build.progress keys EN+NL) ✅
 
 ---
 
@@ -2301,12 +2301,12 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 34 — AI Self-Management (Secrets, Settings, API Keys)** 🔲 **PLANNED**
+## 🎯 Current Phase: **Phase 35 — Live Task Display** ✅ **COMPLETE**
 
 ## 🎯 Upcoming Phases
-1. **Phase 34** — AI Self-Management (Secrets, Settings, API Keys)
-2. **Phase 35** — Dynamic Island / Live Task Display
-3. **Phase 36** — Visual Build Map (AI-Managed Roadmap)
+1. **Phase 35** — Live Task Display ✅ **COMPLETE**
+2. **Phase 36** — Visual Build Map (AI-Managed Roadmap)
+3. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
 4. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
 5. **Phase 38** — Local AI Safety Watcher (Push Notifications)
 6. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)

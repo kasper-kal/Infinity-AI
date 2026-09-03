@@ -25,6 +25,7 @@ import { BuildDiffPreview } from "@/components/build-diff-preview";
 import { BuildDebugPanel } from "@/components/build-debug-panel";
 import { BuildProgressPanel } from "@/components/build-progress-panel";
 import { BuildProgressRing } from "@/components/build-progress-ring";
+import { useTaskProvider } from "@/hooks/useLiveTaskDisplay";
 import { AgentPanel, type ParallelTask, type AgentProgressEvent, type Workstream } from "@/components/build/AgentPanel";
 import { PlusMenu, type PlusAction } from "@/components/plus-menu";
 import { BuildCommandPalette, type CommandPaletteItem } from "@/components/build-command-palette";
@@ -802,6 +803,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
   onRollback,
 }) => {
   const { t } = useI18n();
+  const { build: buildTaskProvider } = useTaskProvider('BuildOverviewPanel');
   const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations'>('progress');
 
   return (
@@ -832,12 +834,13 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
       {/* Overview tab content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {overviewTab === 'progress' && (
-          <BuildProgressPanel
-            workspaceId={projectId}
+          <BuildProgressContent
+            projectId={projectId}
             initialPrompt={initialPrompt}
             buildRunKey={buildRunKey}
             onStartParallel={onStartParallel}
             onCancelParallel={onCancelParallel}
+            buildTaskProvider={buildTaskProvider}
           />
         )}
         {overviewTab === 'plan' && (
@@ -907,6 +910,134 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
           <div className="flex flex-col h-full">
             <AutomationList projectId={projectId} />
           </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Build Progress Content — Progress view with Live Task Display integration
+ * ────────────────────────────────────────────────────────────────────────── */
+
+interface BuildProgressContentProps {
+  projectId: string;
+  initialPrompt?: string;
+  buildRunKey?: number;
+  onStartParallel?: (goal: string) => void;
+  onCancelParallel?: () => void;
+  buildTaskProvider: ReturnType<typeof useTaskProvider>['build'];
+}
+
+const BuildProgressContent: React.FC<BuildProgressContentProps> = ({
+  projectId,
+  initialPrompt,
+  buildRunKey,
+  onStartParallel,
+  onCancelParallel,
+  buildTaskProvider,
+}) => {
+  const { t } = useI18n();
+  const [buildTaskId, setBuildTaskId] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
+
+  const handleStartBuild = useCallback(async () => {
+    if (!initialPrompt || isBuilding) return;
+
+    setIsBuilding(true);
+    try {
+      // Create a build task in the Live Task Display
+      const task = await buildTaskProvider.start(
+        projectId,
+        `build-${buildRunKey || Date.now()}`,
+        'planning',
+        t('build.progress.planning'),
+        initialPrompt
+      );
+      setBuildTaskId(task.id);
+
+      // Start the actual build
+      onStartParallel?.(initialPrompt);
+    } catch (err) {
+      console.error('Failed to start build task:', err);
+      setIsBuilding(false);
+    }
+  }, [initialPrompt, isBuilding, buildRunKey, buildTaskProvider, onStartParallel, projectId, t]);
+
+  const handleCancelBuild = useCallback(async () => {
+    if (buildTaskId) {
+      await buildTaskProvider.error(buildTaskId, t('build.progress.cancelled'));
+      setBuildTaskId(null);
+    }
+    onCancelParallel?.();
+    setIsBuilding(false);
+  }, [buildTaskId, buildTaskProvider, onCancelParallel, t]);
+
+  // Build phases
+  const phases = [
+    { id: 'planning', label: t('build.progress.planning'), icon: <GitBranch className="w-4 h-4" /> },
+    { id: 'generating', label: t('build.progress.generating'), icon: <Wrench className="w-4 h-4" /> },
+    { id: 'reviewing', label: t('build.progress.reviewing'), icon: <GitPullRequest className="w-4 h-4" /> },
+    { id: 'deploying', label: t('build.progress.deploying'), icon: <Globe className="w-4 h-4" /> },
+  ];
+
+  return (
+    <div className="flex flex-col h-full p-4 space-y-6">
+      {/* Pipeline visualization */}
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold">{t('build.progress.pipeline')}</h2>
+
+        <div className="relative">
+          {/* Connecting line */}
+          <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-border-primary/30" />
+
+          <div className="space-y-4">
+            {phases.map((phase, index) => (
+              <div key={phase.id} className="relative flex items-start gap-4">
+                <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
+                  isBuilding && buildTaskId ? 'bg-brand-500 text-white ring-4 ring-brand-500/30' :
+                  'bg-muted text-muted-foreground'
+                }`}>
+                  {phase.icon}
+                  {isBuilding && buildTaskId && (
+                    <div className="absolute -inset-1 rounded-full bg-brand-500/30 animate-ping" />
+                  )}
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className={`font-medium transition-colors ${
+                    isBuilding && buildTaskId ? 'text-brand-400' : 'text-foreground'
+                  }`}>
+                    {phase.label}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {isBuilding && buildTaskId ? t('build.progress.running') : t('build.progress.pending')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Action button */}
+      <div className="flex justify-end">
+        {isBuilding ? (
+          <Button
+            onClick={handleCancelBuild}
+            variant="destructive"
+            size="lg"
+          >
+            {t('build.progress.cancel')}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleStartBuild}
+            disabled={!initialPrompt}
+            variant="primary"
+            size="lg"
+          >
+            {t('build.progress.start')}
+          </Button>
         )}
       </div>
     </div>

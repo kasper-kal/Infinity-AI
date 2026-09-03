@@ -1207,6 +1207,18 @@ const en = {
   "studio.build.localFixFailed": "Local AI could not generate a fix. Check that Ollama is running.",
   "studio.build.questionsFailed": "I could not prepare the optional questions. You can retry the request.",
 
+  /* Build Progress Panel - Live Task Display integration */
+  "build.progress.pipeline": "Build Pipeline",
+  "build.progress.planning": "Planning",
+  "build.progress.generating": "Generating",
+  "build.progress.reviewing": "Reviewing",
+  "build.progress.deploying": "Deploying",
+  "build.progress.running": "Running",
+  "build.progress.pending": "Pending",
+  "build.progress.start": "Start Build",
+  "build.progress.cancel": "Cancel Build",
+  "build.progress.cancelled": "Build cancelled",
+
   /* Build Studio - Phase 2.1 Diff Preview */
   "studio.build.progressFilesGenerated": "Generated {n} proposed file(s) for review.",
   "studio.build.activityDiffPreview": "Showing a diff preview of the proposed changes",
@@ -1919,6 +1931,21 @@ const en = {
   "uiBuilder.frameworkRecommended": "Recommended",
   "uiBuilder.currentFramework": "Current Framework:",
   "uiBuilder.frameworkWillApply": "Will apply to generated components and project scaffold",
+
+  /* Live Task Display (Phase 35) */
+  "liveTaskDisplay.title": "Live Tasks",
+  "liveTaskDisplay.collapse": "Collapse",
+  "liveTaskDisplay.expand": "Expand",
+  "liveTaskDisplay.activeTasks": "{count} active tasks",
+  "liveTaskDisplay.activeTask": "{count} active task",
+  "liveTaskDisplay.noActiveTasks": "No active tasks",
+  "liveTaskDisplay.running": "Running",
+  "liveTaskDisplay.pending": "Pending",
+  "liveTaskDisplay.error": "Error",
+  "liveTaskDisplay.complete": "Complete",
+  "liveTaskDisplay.paused": "Paused",
+  "liveTaskDisplay.realtime": "Updates in real-time via SSE",
+  "liveTaskDisplay.clickToNavigate": "Click task to navigate",
 } as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -2145,6 +2172,18 @@ const nl: Record<keyof typeof en, string> = {
   "studio.build.localFixProposed": "{n} fix(es) voorgesteld door lokale AI — bekijk ze in het Debug-paneel.",
   "studio.build.localFixFailed": "Lokale AI kon geen fix genereren. Controleer of Ollama draait.",
   "studio.build.questionsFailed": "De optionele vragen konden niet worden voorbereid. Je kunt het verzoek opnieuw proberen.",
+
+  /* Build Progress Panel - Live Task Display integration */
+  "build.progress.pipeline": "Bouwpijplijn",
+  "build.progress.planning": "Plannen",
+  "build.progress.generating": "Genereren",
+  "build.progress.reviewing": "Reviewen",
+  "build.progress.deploying": "Implementeren",
+  "build.progress.running": "Actief",
+  "build.progress.pending": "In wacht",
+  "build.progress.start": "Start Bouw",
+  "build.progress.cancel": "Annuleren",
+  "build.progress.cancelled": "Bouw geannuleerd",
 
   /* Build Studio - Missing keys from Phase0 */
   "studio.build.consoleTitle": "Console",
@@ -3702,6 +3741,21 @@ const nl: Record<keyof typeof en, string> = {
   "security.common.environment": "Omgeving",
   "security.common.project": "Project",
   "security.common.workspace": "Werkruimte",
+
+  /* Live Task Display (Phase 35) */
+  "liveTaskDisplay.title": "Live Taken",
+  "liveTaskDisplay.collapse": "Inklappen",
+  "liveTaskDisplay.expand": "Uitklappen",
+  "liveTaskDisplay.activeTasks": "{count} actieve taken",
+  "liveTaskDisplay.activeTask": "{count} actieve taak",
+  "liveTaskDisplay.noActiveTasks": "Geen actieve taken",
+  "liveTaskDisplay.running": "Bezig",
+  "liveTaskDisplay.pending": "Wachtend",
+  "liveTaskDisplay.error": "Fout",
+  "liveTaskDisplay.complete": "Klaar",
+  "liveTaskDisplay.paused": "Gepauzeerd",
+  "liveTaskDisplay.realtime": "Realtime updates via SSE",
+  "liveTaskDisplay.clickToNavigate": "Klik taak om te navigeren",
 
   /* Automation (Phase 33) */
   "automation.list.title": "Automatiseringen",

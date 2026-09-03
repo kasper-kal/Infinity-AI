@@ -9,6 +9,7 @@ import { Route, Switch, useLocation, useRoute } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell, type MobileView } from "@/components/mobile";
 import { DesktopShell, type DesktopView } from "./DesktopShell";
+import { LiveTaskDisplay } from "@/components/live-task-display/LiveTaskDisplay";
 
 export type View = 'chat' | 'build' | 'terminal' | 'projects' | 'settings';
 
@@ -98,6 +99,7 @@ function ResponsiveShell({ activeView, onNavigate, children }: { activeView: Vie
         onNavigate={onNavigate}
       >
         {content}
+        <LiveTaskDisplay />
       </MobileShell>
     );
   }
@@ -108,6 +110,7 @@ function ResponsiveShell({ activeView, onNavigate, children }: { activeView: Vie
       onNavigate={onNavigate}
     >
       {content}
+      <LiveTaskDisplay />
     </DesktopShell>
   );
 }

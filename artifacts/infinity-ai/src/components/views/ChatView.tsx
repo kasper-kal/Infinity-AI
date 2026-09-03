@@ -34,6 +34,7 @@ import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
 import { TokenUsageGauge } from "@/components/build/TokenUsageGauge";
 import { useConflictResolution, useAstHistory } from "@/hooks";
+import { useTaskProvider } from "@/hooks/useLiveTaskDisplay";
 
 export interface ChatViewProps {
   messages: ChatMessage[];
@@ -132,6 +133,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
       }
     },
   });
+
+  // Phase 35: Live Task Display - Register chat generations
+  const chatTaskProvider = useTaskProvider('ChatView');
+  const [currentChatTaskId, setCurrentChatTaskId] = useState<string | null>(null);
+  const wasBusyRef = useRef(false);
+
+  // Complete chat task when AI finishes responding
+  useEffect(() => {
+    if (wasBusyRef.current && !isBusy && currentChatTaskId) {
+      chatTaskProvider.chat.complete(currentChatTaskId);
+      setCurrentChatTaskId(null);
+    }
+    wasBusyRef.current = isBusy;
+  }, [isBusy, currentChatTaskId, chatTaskProvider]);
 
   // Keep astCode in sync with selectedComponent
   useEffect(() => {
@@ -241,13 +256,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }, [chatInput]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const text = chatInput.trim();
     if (!text) return;
     haptics.medium();
+
+    // Phase 35: Start chat task in Live Task Display
+    const chatTask = await chatTaskProvider.chat.start(
+      activeConversationId || 'new',
+      `msg-${Date.now()}`,
+      'default-model'
+    );
+    setCurrentChatTaskId(chatTask.id);
+
     setChatInput('');
     onSend(text);
-  }, [chatInput, onSend]);
+  }, [chatInput, onSend, activeConversationId, chatTaskProvider]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
