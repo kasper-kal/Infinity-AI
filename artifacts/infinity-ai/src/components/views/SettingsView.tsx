@@ -17,6 +17,7 @@ import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
 import { MCPConfigPanel } from "@/components/settings/MCPConfigPanel";
+import { AIManagementTab } from "@/components/settings/AIManagementTab";
 import { ReviewPanel, type ReviewRequest } from "@/components/ui-builder/ReviewPanel";
 import { APIWizard } from "@/components/ui-builder/APIWizard";
 import { DatabasePanel } from "@/components/ui-builder/DatabasePanel";
@@ -749,6 +750,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         return (
           <ModelPreferences projectRoot={projectId || ''} />
         );
+      case 'ai-management':
+        return (
+          <AIManagementTab projectId={projectId} />
+        );
     }
   };
 
@@ -827,6 +832,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'model-preferences',
       label: t('settings.modelPreferences'),
       icon: SECTION_CONFIG['model-preferences'].icon,
+    },
+    {
+      id: 'ai-management',
+      label: t('settings.aiManagement'),
+      icon: SECTION_CONFIG['ai-management'].icon,
     },
   ];
 
