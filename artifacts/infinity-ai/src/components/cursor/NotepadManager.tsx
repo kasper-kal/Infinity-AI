@@ -545,9 +545,9 @@ export function NotepadManager({ projectRoot, onNotepadsChange }: NotepadManager
           )}
         </ToastViewport>
       </Card>
+    </ToastProvider>
     );
   }
-}
 
 function NotepadCard({
   notepad,

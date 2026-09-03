@@ -522,7 +522,6 @@ export function RulesEditor({ projectRoot, onRulesChange }: RulesEditorProps) {
       </Card>
     );
   }
-}
 
 function RuleCard({
   rule,

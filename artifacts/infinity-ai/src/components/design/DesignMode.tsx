@@ -25,7 +25,7 @@ import { useI18n } from "../../lib/i18n";
 import { Button, IconButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/Tabs";
-import { ScrollArea } from "../ui/ScrollArea";
+import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Tooltip } from "../ui/Tooltip";
 import { Separator } from "../ui/Separator";
 import { Badge } from "../ui/Badge";

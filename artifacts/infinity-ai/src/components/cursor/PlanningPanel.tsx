@@ -4,17 +4,17 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest } from "../../lib/api";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { Textarea } from "../ui/Textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/Tabs";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../ui/Card";
-import { Badge } from "../ui/Badge";
-import { ScrollArea } from "../ui/ScrollArea";
-import { Separator } from "../ui/Separator";
-import { Checkbox } from "../ui/Checkbox";
-import { Label } from "../ui/Label";
+import { apiRequest } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { ScrollArea } from "@/components/ui/ScrollArea";
+import { Separator } from "@/components/ui/Separator";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { Label } from "@/components/ui/Label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
 import { Alert, AlertTitle, AlertDescription } from "../ui/Alert";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/Dialog";

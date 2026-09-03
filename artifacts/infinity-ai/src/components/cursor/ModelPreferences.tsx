@@ -508,7 +508,6 @@ export function ModelPreferences({ projectRoot, onPreferencesChange }: ModelPref
       </Card>
     );
   }
-}
 
 function PreferencesTable({
   preferences,

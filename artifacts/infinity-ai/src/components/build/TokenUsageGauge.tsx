@@ -68,7 +68,6 @@ export function TokenUsageGauge({
 
   const used = data?.used ?? 0;
   const limit = data?.limit ?? (data?.contextWindow ?? 200000);
-  const { t } = useI18n();
 
   const percentUsed = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
 

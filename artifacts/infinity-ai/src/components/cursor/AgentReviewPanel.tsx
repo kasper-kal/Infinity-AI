@@ -408,7 +408,7 @@ export function AgentReviewPanel({ projectId }: { projectId: string }) {
                         placeholder={t("agentReview.new.diffPlaceholder") || `Paste git diff format here...`}
                         rows={12}
                         className="font-mono text-sm"
-                      </Textarea>
+                      />
                     </div>
                   )}
 
