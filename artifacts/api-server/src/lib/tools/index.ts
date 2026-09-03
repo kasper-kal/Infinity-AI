@@ -13,6 +13,7 @@ import { registerMemoryTools } from "./memory";
 import { registerResearchTools } from "./research";
 import { registerEvolutionTools } from "./evolution";
 import { registerTimerTools } from "./timers";
+import { registerAIManagementTools } from "./ai-management";
 
 export { registerBuildTools } from "./build";
 export { registerWebTools } from "./web";
@@ -22,6 +23,7 @@ export { registerMemoryTools } from "./memory";
 export { registerResearchTools } from "./research";
 export { registerEvolutionTools } from "./evolution";
 export { registerTimerTools } from "./timers";
+export { registerAIManagementTools } from "./ai-management";
 // TODO: Add other category registrations as phases progress
 // export { registerVisionTools } from "./vision";
 // export { registerDataTools } from "./data";
@@ -40,5 +42,6 @@ export function registerAllTools(): void {
   registerResearchTools();
   registerEvolutionTools();
   registerTimerTools();
+  registerAIManagementTools();
   // Other categories will be added in future phases
 }

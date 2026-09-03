@@ -14,9 +14,7 @@
 
 import { createCipheriv, createDecipheriv, randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
-import { db } from '../db/index.js';
-import { llmKeys, settingChanges } from '../../db/src/schema/llm-keys.js';
-import { settings } from '../../db/src/schema/settings.js';
+import { db, secrets, settingChanges } from '@workspace/db';
 import { eq, and, desc, lt, gte, sql } from 'drizzle-orm';
 
 const scryptAsync = promisify(scrypt);
@@ -226,7 +224,7 @@ export class SecretManager {
       lastHealthCheck: new Date(),
     };
 
-    const [inserted] = await db.insert(llmKeys).values({
+    const [inserted] = await db.insert(secrets).values({
       projectId: keyData.projectId ?? null,
       provider: keyData.provider,
       model: keyData.model ?? null,
@@ -258,7 +256,7 @@ export class SecretManager {
    * Get a key by ID (with decryption)
    */
   async getKey(keyId: string, includeDecrypted = false): Promise<LLMKeyData | null> {
-    const [row] = await db.select().from(llmKeys).where(eq(llmKeys.id, keyId)).limit(1);
+    const [row] = await db.select().from(secrets).where(eq(secrets.id, keyId)).limit(1);
     if (!row) return null;
 
     const keyData = this.mapRowToKeyData(row);
@@ -284,33 +282,33 @@ export class SecretManager {
     source?: LLMKeySource;
     onlyHealthy?: boolean;
   }): Promise<LLMKeyData[]> {
-    let query = db.select().from(llmKeys);
+    let query = db.select().from(secrets);
 
     const conditions = [];
     if (projectId !== undefined) {
       conditions.push(projectId === null
-        ? sql`${llmKeys.projectId} IS NULL`
-        : eq(llmKeys.projectId, projectId));
+        ? sql`${secrets.projectId} IS NULL`
+        : eq(secrets.projectId, projectId));
     }
     if (filters?.provider) {
-      conditions.push(eq(llmKeys.provider, filters.provider));
+      conditions.push(eq(secrets.provider, filters.provider));
     }
     if (filters?.health) {
-      conditions.push(eq(llmKeys.health, filters.health));
+      conditions.push(eq(secrets.health, filters.health));
     }
     if (filters?.source) {
-      conditions.push(eq(llmKeys.source, filters.source));
+      conditions.push(eq(secrets.source, filters.source));
     }
     if (filters?.onlyHealthy) {
-      conditions.push(eq(llmKeys.health, 'healthy'));
-      conditions.push(sql`(${llmKeys.coolingUntil} IS NULL OR ${llmKeys.coolingUntil} < NOW())`);
+      conditions.push(eq(secrets.health, 'healthy'));
+      conditions.push(sql`(${secrets.coolingUntil} IS NULL OR ${secrets.coolingUntil} < NOW())`);
     }
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
 
-    query = query.orderBy(desc(llmKeys.priority), desc(llmKeys.createdAt));
+    query = query.orderBy(desc(secrets.priority), desc(secrets.createdAt));
 
     const rows = await query;
     return rows.map(this.mapRowToKeyData);
@@ -329,9 +327,9 @@ export class SecretManager {
     if (updates.model !== undefined) updateData.model = updates.model;
     if (updates.metadata !== undefined) updateData.metadata = updates.metadata;
 
-    const [updated] = await db.update(llmKeys)
+    const [updated] = await db.update(secrets)
       .set(updateData)
-      .where(eq(llmKeys.id, keyId))
+      .where(eq(secrets.id, keyId))
       .returning();
 
     if (!updated) return null;
@@ -363,7 +361,7 @@ export class SecretManager {
 
     const encryptedKey = await encryptSecret(newKey, current.projectId ?? undefined);
 
-    const [updated] = await db.update(llmKeys)
+    const [updated] = await db.update(secrets)
       .set({
         encryptedKey: encryptedKey as any,
         rotationCount: current.rotationCount + 1,
@@ -373,7 +371,7 @@ export class SecretManager {
         quarantineReason: null,
         updatedAt: new Date(),
       })
-      .where(eq(llmKeys.id, keyId))
+      .where(eq(secrets.id, keyId))
       .returning();
 
     await this.logAudit({
@@ -396,7 +394,7 @@ export class SecretManager {
     const current = await this.getKey(keyId);
     if (!current) return false;
 
-    await db.delete(llmKeys).where(eq(llmKeys.id, keyId));
+    await db.delete(secrets).where(eq(secrets.id, keyId));
 
     await this.logAudit({
       keyId,
@@ -496,7 +494,7 @@ export class SecretManager {
       }
     }
 
-    await db.update(llmKeys)
+    await db.update(secrets)
       .set({
         health: newHealth,
         lastHealthCheck: new Date(),
@@ -504,7 +502,7 @@ export class SecretManager {
         quarantineReason,
         updatedAt: new Date(),
       })
-      .where(eq(llmKeys.id, keyId));
+      .where(eq(secrets.id, keyId));
 
     await this.logAudit({
       keyId,
@@ -793,9 +791,9 @@ export class SecretManager {
    * Mark key as used (updates lastUsed timestamp)
    */
   async markKeyUsed(keyId: string): Promise<void> {
-    await db.update(llmKeys)
+    await db.update(secrets)
       .set({ lastUsed: new Date(), updatedAt: new Date() })
-      .where(eq(llmKeys.id, keyId));
+      .where(eq(secrets.id, keyId));
   }
 
   // ---------------------------------------------------------------------------

@@ -46,6 +46,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **31** | **Cursor-Level Performance & Polish (Speed, Reliability, DX)** | ✅ **COMPLETE** |
 | **32** | **Context Auto-Compact & Limit Recognition** | ✅ **COMPLETE** |
 | **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | ✅ **COMPLETE** |
+| **34** | **AI Self-Management (Secrets, Settings, API Keys)** | ✅ **COMPLETE** |
 
 Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**.
 
@@ -1666,37 +1667,37 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Infinity manages its own secrets and settings autonomously** — Infinity Build can create, rotate, and manage its own LLM API keys, change its own settings (accent color, profile picture, theme, etc.) with user confirmation, and maintain its own configuration without manual intervention. All changes require explicit user confirmation via a confirmation dialog.
 
 ### Requirements
-- [ ] **Secret Manager** — `artifacts/api-server/src/lib/secret-manager.ts`:
-  - Secure storage for LLM API keys (OpenRouter, Anthropic, OpenAI, Google, etc.) — encrypted at rest
-  - Key rotation: generate new keys, test them, swap atomically
-  - Per-model key overrides (different keys for different models/providers)
-  - Key health monitoring: track usage, rate limits, errors, auto-rotate on 401/429
-  - Audit log: every key operation logged with timestamp, actor (user/agent), reason
-  - Export/import for backup (encrypted)
-- [ ] **Settings Manager** — `artifacts/api-server/src/lib/settings-manager.ts`:
-  - Accent color: Infinity can propose/switch accent colors with user confirmation
-  - Profile picture: Upload/generate avatar, update with confirmation
-  - Theme preferences: light/dark/system, custom CSS variables
-  - UI density: compact/normal/comfortable
-  - Language/locale: EN, NL, etc.
-  - Notification preferences: in-app, email, push, webhook
-  - All changes require `confirmSettingChange(setting, newValue, reason)` → user dialog
-- [ ] **AI-Initiated Changes** — Universal Agent can propose changes:
-  - Tool: `settings.propose(key, value, reason)` → creates pending change
-  - Tool: `settings.confirm(changeId)` / `settings.reject(changeId)` — user action
-  - Tool: `secrets.rotate(provider, reason)` — proposes new key, tests, confirms
-  - Agent explains WHY it wants the change (e.g., "Current key hitting rate limits, rotating to backup")
-- [ ] **Frontend UI** — SettingsView integration:
-  - "AI Management" tab showing pending AI-proposed changes
-  - Secret health dashboard (green/yellow/red per provider)
-  - Accent color preview with "Let Infinity choose" button
-  - Profile picture with "Generate with AI" option
-  - Confirmation dialogs for all AI-proposed changes
-- [ ] **Security** — Zero-trust approach:
-  - Keys never exposed to frontend (only health status)
-  - Rotation happens server-side, tested before swap
-  - User must confirm every change (no silent updates)
-  - Rate limit: max 3 AI-proposed changes per hour per setting category
+- [x] **Secret Manager** — `artifacts/api-server/src/lib/secret-manager.ts`:
+  - [x] Secure storage for LLM API keys (OpenRouter, Anthropic, OpenAI, Google, etc.) — encrypted at rest
+  - [x] Key rotation: generate new keys, test them, swap atomically
+  - [x] Per-model key overrides (different keys for different models/providers)
+  - [x] Key health monitoring: track usage, rate limits, errors, auto-rotate on 401/429
+  - [x] Audit log: every key operation logged with timestamp, actor (user/agent), reason
+  - [x] Export/import for backup (encrypted)
+- [x] **Settings Manager** — `artifacts/api-server/src/lib/settings-manager.ts`:
+  - [x] Accent color: Infinity can propose/switch accent colors with user confirmation
+  - [x] Profile picture: Upload/generate avatar, update with confirmation
+  - [x] Theme preferences: light/dark/system, custom CSS variables
+  - [x] UI density: compact/normal/comfortable
+  - [x] Language/locale: EN, NL, etc.
+  - [x] Notification preferences: in-app, email, push, webhook
+  - [x] All changes require `confirmSettingChange(setting, newValue, reason)` → user dialog
+- [x] **AI-Initiated Changes** — Universal Agent can propose changes:
+  - [x] Tool: `settings.propose(key, value, reason)` → creates pending change
+  - [x] Tool: `settings.confirm(changeId)` / `settings.reject(changeId)` — user action
+  - [x] Tool: `secrets.rotate(provider, reason)` — proposes new key, tests, confirms
+  - [x] Agent explains WHY it wants the change (e.g., "Current key hitting rate limits, rotating to backup")
+- [x] **Frontend UI** — SettingsView integration:
+  - [x] "AI Management" tab showing pending AI-proposed changes
+  - [x] Secret health dashboard (green/yellow/red per provider)
+  - [x] Accent color preview with "Let Infinity choose" button
+  - [x] Profile picture with "Generate with AI" option
+  - [x] Confirmation dialogs for all AI-proposed changes
+- [x] **Security** — Zero-trust approach:
+  - [x] Keys never exposed to frontend (only health status)
+  - [x] Rotation happens server-side, tested before swap
+  - [x] User must confirm every change (no silent updates)
+  - [x] Rate limit: max 3 AI-proposed changes per hour per setting category
 
 ### Implementation Plan
 1. **Secret Manager Core** — Encrypted storage, rotation logic, health monitoring

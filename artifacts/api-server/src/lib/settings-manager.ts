@@ -11,8 +11,7 @@
  * - Per-user and global settings support
  */
 
-import { db } from '../db/index.js';
-import { settings, settingChanges } from '../../db/src/schema/settings.js';
+import { db, settings, settingChanges } from '@workspace/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { secretManager } from './secret-manager.js';
 
@@ -825,6 +824,3 @@ export class SettingsManager {
 
 // Export singleton instance
 export const settingsManager = SettingsManager.getInstance();
-
-// Export types and definitions
-export { SETTING_DEFINITIONS };
