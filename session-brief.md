@@ -1,7 +1,13 @@
-LAST_UPDATED: 2026-09-02 20:45 — Phase 32 Context Auto-Compact & Limit Recognition: 100% COMPLETE ✅
+LAST_UPDATED: 2026-09-03 — PHASES.md and session-brief.md updated to reflect current phase: Phase 33 (AI Automation System) as IN PROGRESS
 
 ## Just did (last action)
-- **Phase 32: Context Auto-Compact & Limit Recognition — 100% COMPLETE** ✅
+- **Updated PHASES.md and session-brief.md** — Corrected phase numbering and status:
+  - Phase 30 marked as **Advanced Agent Capabilities (Cursor Agent Parity) — COMPLETE** (was duplicate of Phase 31)
+  - Phase 31 marked as **Cursor-Level Performance & Polish — COMPLETE**
+  - Phase 32 marked as **Context Auto-Compact & Limit Recognition — COMPLETE**
+  - Phase 33 set as **CURRENT** (AI Automation System)
+  - Updated "Current Phase" marker in both files to Phase 33
+  - Updated "Upcoming Phases" list to start from Phase 34
   - **Core Libraries (COMPLETE)**:
     - `artifacts/api-server/src/lib/token-counter.ts` — Accurate token counting with tiktoken WASM (via @xenova/transformers) + char/4 fallback, per-model encoding mapping (cl100k_base/o200k_base), token budget tracking with warning(70%)/compact(80%)/goal-state(90%)/emergency(95%) thresholds
     - `artifacts/api-server/src/lib/context-compactor.ts` — 4-level auto-compaction pipeline with preservation rules (never compact: user/project instructions, file maps, error patterns, decisions, current plan, original goal)
@@ -453,7 +459,10 @@ LAST_UPDATED: 2026-09-02 20:45 — Phase 32 Context Auto-Compact & Limit Recogni
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 30 — Advanced Agent Capabilities (Cursor Agent Parity) ✅ COMPLETE**
+- **Current Phase:** **Phase 33 — AI Automation System (Natural Language Automations + Connector Integration)** 🔲 **IN PROGRESS**
+- **Phase 32 — Context Auto-Compact & Limit Recognition — COMPLETE ✅**
+- **Phase 31 — Cursor-Level Performance & Polish (Speed, Reliability, DX) — COMPLETE ✅**
+- **Phase 30 — Advanced Agent Capabilities (Cursor Agent Parity) ✅ COMPLETE**
 - **Phase 29 — IDE Integrations & CLI (Cursor Everywhere) — COMPLETE ✅**
 - **Phase 28 — Design Mode & Visual Editing (Cursor Design Mode) — COMPLETE ✅**
 - **Phase 27 — Shadow Workspaces & Agent Review (Cursor Autonomous QA) — COMPLETE ✅**
@@ -483,7 +492,7 @@ LAST_UPDATED: 2026-09-02 20:45 — Phase 32 Context Auto-Compact & Limit Recogni
 - **Phase 3 — Specialized Subagents with Schemas — COMPLETE ✅**
 - **Phase 2 — Orchestration Engine — COMPLETE ✅**
 - **Phase 1 — Build Project Map Subsystem — COMPLETE ✅**
-- **Next Phases:** Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact), Phase 33 (AI Automation System)
+- **Next Phases:** Phase 34 (AI Self-Management), Phase 35 (Dynamic Island), Phase 36 (Visual Build Map)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
