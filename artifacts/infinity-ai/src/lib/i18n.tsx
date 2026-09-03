@@ -468,6 +468,7 @@ const en = {
   "overview.tabs.codebase": "Codebase",
   "overview.tabs.shadowWorkspaces": "Shadow Workspaces",
   "overview.tabs.agentReview": "Agent Review",
+  "overview.tabs.automations": "Automations",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deployment Pipeline",
@@ -2791,6 +2792,7 @@ const nl: Record<keyof typeof en, string> = {
   "overview.tabs.deploy": "Deploy",
   "overview.tabs.agents": "Agents",
   "overview.tabs.codebase": "Codebase",
+  "overview.tabs.automations": "Automatiseringen",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deploy Pipeline",
@@ -3645,6 +3647,37 @@ const nl: Record<keyof typeof en, string> = {
   "security.common.environment": "Omgeving",
   "security.common.project": "Project",
   "security.common.workspace": "Werkruimte",
+
+  /* Automation (Phase 33) */
+  "automation.list.title": "Automatiseringen",
+  "automation.list.createNew": "Automatisering aanmaken",
+  "automation.list.searchPlaceholder": "Zoek automatiseringen...",
+  "automation.list.filterStatus": "Filter op status",
+  "automation.list.filterTags": "Filter op tags",
+  "automation.list.allStatus": "Alle",
+  "automation.list.enabled": "Ingeschakeld",
+  "automation.list.disabled": "Uitgeschakeld",
+  "automation.list.active": "Actief",
+  "automation.list.inactive": "Inactief",
+  "automation.list.actions": "Acties",
+  "automation.list.edit": "Bewerken",
+  "automation.list.viewRuns": "Runs bekijken",
+  "automation.list.runNow": "Nu uitvoeren",
+  "automation.list.running": "Bezig...",
+  "automation.list.disable": "Uitschakelen",
+  "automation.list.enable": "Inschakelen",
+  "automation.list.delete": "Verwijderen",
+  "automation.list.confirmDelete": "Automatisering \"{name}\" verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "automation.list.editAutomation": "Automatisering bewerken",
+  "automation.list.editDesc": "Wijzig de trigger, voorwaarden en acties van je automatisering.",
+  "automation.list.createAutomation": "Automatisering aanmaken",
+  "automation.list.createDesc": "Beschrijf wat je wilt automatiseren in natuurlijke taal.",
+  "automation.list.emptyTitle": "Nog geen automatiseringen",
+  "automation.list.emptyDesc": "Maak je eerste automatisering aan om workflows te automatiseren.",
+  "automation.list.createFirst": "Maak je eerste automatisering",
+  "automation.list.runHistory": "Uitvoeringsgeschiedenis voor {name}",
+  "automation.list.runHistoryDesc": "Bekijk de recente uitvoeringsgeschiedenis voor deze automatisering.",
+  "automation.list.noRuns": "Nog geen runs",
 };
 
 export type TranslationKey = keyof typeof en;
