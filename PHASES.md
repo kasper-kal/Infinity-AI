@@ -1779,7 +1779,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — **~90% COMPLETE**
+## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — ✅ **COMPLETE**
 
 ### Goal
 **Interactive visual graph of the entire project** — Independent from PHASES.md, Infinity Build maintains its own living roadmap as a node-based graph: nodes = features, components, pages, APIs, integrations, tests, docs; edges = dependencies, data flow, user flows, architectural relationships. AI updates it autonomously as it works. Fully interactive: zoom, pan, filter, search, click to navigate to code.
@@ -1813,18 +1813,21 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Edge: type, source/target, description
   - Actions: "Open in Editor", "Run Tests", "View Git History", "Create Task", "Assign to Agent"
   - AI suggestions badge: "AI suggests: add test node", "AI suggests: depends on Auth API"
-- [ ] **AI Autonomy** — Map updates without human prompting (agent exists, needs Build Orchestrator wiring):
+- [x] **AI Autonomy** — Map updates without human prompting (BuildOrchestrator wiring **COMPLETE**):
   - On build complete: mark feature nodes done, create test nodes if missing
   - On new component: add component node, link to parent page/feature
   - On API change: update API node, check dependent nodes for impact
   - On error: mark node blocked, create "fix" child node
   - User can approve/reject AI proposals via side panel
-- [x] **Integration** — **COMPLETE** (commit bfb68d2):
+- [x] **Integration** — **COMPLETE** (commit bfb68d2 + 509a01a):
   - BuildView: "Visual Map" tab (3rd tab alongside Preview/Overview/Advanced Agent)
   - Sidebar navigation: BuildMap item in AppShellSidebarNavItem
   - Mobile bottom nav: BuildMap with custom SVG icon
-  - Dynamic Island: Click "View Map" on build task (ready to wire)
-  - Command Palette: "Open Build Map" (ready to add)
+  - Dynamic Island: Click "View Map" on build task → navigates to buildMap tab
+  - Command Palette: "Open Build Map" (⌘M shortcut, GitBranch icon)
+  - BuildView: `initialTab` prop supports `'buildMap' | 'advancedAgent'`
+  - BuildStudio: `openBuildMap` command palette action
+  - BuildOrchestrator: BuildMapAgent wired for autonomous updates on every build step + completion
   - Full i18n support: English + Dutch translations (30+ keys)
 
 ### Implementation Plan
@@ -1832,8 +1835,8 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 2. **AI Roadmap Agent** — Subagent with graph analysis tools, scheduled runs ✅ COMPLETE
 3. **Graph Visualization Frontend** — Custom SVG renderer, interactions, layouts ✅ COMPLETE
 4. **Side Panel + Actions** — Detail view, file navigation, AI suggestions ✅ COMPLETE
-5. **Integration** — BuildView tab, sidebar, mobile nav, Dynamic Island link, Command Palette ✅ COMPLETE (BuildView + nav done)
-6. **Build Orchestrator Wiring** — Connect agent to auto-update map on build events (remaining)
+5. **Integration** — BuildView tab, sidebar, mobile nav, Dynamic Island link, Command Palette ✅ COMPLETE
+6. **Build Orchestrator Wiring** — Connect agent to auto-update map on build events ✅ COMPLETE (commit 509a01a)
 
 ### Files Created/Modified
 - ✅ `artifacts/api-server/src/lib/build-map.ts` (new — 800+ lines) — BuildMapManager with in-memory graph, reactive subscribers, Zod schemas
@@ -2307,13 +2310,13 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 35 — Live Task Display** ✅ **COMPLETE**
+## 🎯 Current Phase: **Phase 36 — Visual Build Map (AI-Managed Roadmap)** ✅ **COMPLETE**
 
 ## 🎯 Upcoming Phases
-1. **Phase 35** — Live Task Display ✅ **COMPLETE**
-2. **Phase 36** — Visual Build Map (AI-Managed Roadmap)
-3. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
-4. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
+1. **Phase 36** — Visual Build Map (AI-Managed Roadmap) ✅ **COMPLETE**
+2. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
+3. **Phase 38** — Local AI Safety Watcher (Push Notifications)
+4. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
 5. **Phase 38** — Local AI Safety Watcher (Push Notifications)
 6. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
 7. **Phase 40** — Recipe Widget (Standard + Deep Research)
