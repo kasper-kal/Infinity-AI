@@ -76,6 +76,8 @@ export interface BuildViewProps {
   onCreateCheckpoint?: (workstreamId: string, description: string) => void;
   /** Rollback to checkpoint */
   onRollback?: (checkpointId: string) => void;
+  /** Initial tab to open */
+  initialTab?: 'preview' | 'overview' | 'buildMap' | 'advancedAgent';
 }
 
 export const BuildView: React.FC<BuildViewProps> = ({
@@ -90,6 +92,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   onCancelParallel,
   onCreateCheckpoint,
   onRollback,
+  initialTab = 'preview',
 }) => {
   const isMobile = useIsMobile();
   const { t } = useI18n();
@@ -99,7 +102,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [collapsed, setCollapsed] = useState(false);
 
   // TABS: Preview + Overview + Build Map + Advanced Agent
-  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'buildMap' | 'advancedAgent'>('preview');
+  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'buildMap' | 'advancedAgent'>(initialTab);
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -112,7 +115,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state - simplified
-  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap'>('preview');
+  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap'>(initialTab === 'advancedAgent' ? 'preview' : initialTab);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);

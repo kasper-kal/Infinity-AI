@@ -1635,6 +1635,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       modelSettings: () => { /* settings */ },
       refreshFiles: loadFiles,
       openSettings: () => { /* settings */ },
+      openBuildMap: () => { /* open build map in BuildView */ },
     }), [beginScaffold, cancelBuild, previewUrl, createCheckpoint, loadFiles]);
 
   useEffect(() => {

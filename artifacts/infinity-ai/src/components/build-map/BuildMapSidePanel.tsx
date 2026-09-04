@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import { Button, IconButton, Tabs, Tab, Input, Select, SelectOption, Textarea, Checkbox, Label, ScrollArea } from "@/components/ui";
+import { Button, IconButton, Tabs, Tab, Input, Select, SelectItem, Textarea, Checkbox, Label, ScrollArea } from "@/components/ui";
 import {
   type BuildMapNode,
   type BuildMapEdge,
@@ -363,7 +363,7 @@ export const BuildMapSidePanel: React.FC<BuildMapSidePanelProps> = ({
             disabled={!editing}
           >
             {EDGE_TYPES.map(type => (
-              <SelectOption key={type.value} value={type.value}>{type.label}</SelectOption>
+              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
             ))}
           </Select>
         </div>

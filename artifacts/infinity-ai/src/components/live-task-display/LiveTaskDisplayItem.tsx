@@ -73,7 +73,7 @@ function getNavigationTarget(task: Task): { view: string; params?: Record<string
 
   switch (type) {
     case "build":
-      if (metadata.projectId) return { view: "build", params: { projectId: metadata.projectId as string } };
+      if (metadata.projectId) return { view: "build", params: { projectId: metadata.projectId as string, tab: "buildMap" } };
       break;
     case "research":
       if (metadata.reportId) return { view: "research", params: { reportId: metadata.reportId as string } };

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronRight, X, Terminal, Play, Sparkles, Monitor, FileText, RotateCcw, ChevronLeft, ChevronDown, History, Settings, Zap, Download, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Search, ChevronRight, X, Terminal, Play, Sparkles, Monitor, FileText, RotateCcw, ChevronLeft, ChevronDown, History, Settings, Zap, Download, Copy, Check, AlertTriangle, GitBranch } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import '@/lib/build-ui-theme.css';
 
@@ -316,6 +316,7 @@ export function createDefaultCommandPaletteItems(actions: {
   modelSettings?: () => void;
   refreshFiles?: () => void;
   openSettings?: () => void;
+  openBuildMap?: () => void;
 }): CommandPaletteItem[] {
   const items: CommandPaletteItem[] = [];
 
@@ -490,6 +491,20 @@ export function createDefaultCommandPaletteItems(actions: {
       icon: <Settings className="h-5 w-5" />,
       action: actions.openSettings,
       section: 'Settings',
+    });
+  }
+
+  // Visual Build Map
+  if (actions.openBuildMap) {
+    items.push({
+      id: 'open-build-map',
+      label: 'Open Build Map',
+      description: 'View visual project roadmap graph',
+      keywords: ['build', 'map', 'roadmap', 'graph', 'visual', 'plan'],
+      icon: <GitBranch className="h-5 w-5" />,
+      action: actions.openBuildMap,
+      shortcut: '⌘M',
+      section: 'Build Map',
     });
   }
 

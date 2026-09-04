@@ -54,6 +54,7 @@ import {
   COMPACTION_LEVELS,
   countMessageTokens,
 } from "./context-compactor";
+import { BuildMapAgent, type BuildStepContext } from "./build-map-agent";
 
 // ============================================================================
 // SCHEMAS
@@ -212,6 +213,9 @@ export class BuildOrchestrator {
   private enableAutoCompact = true;
   private onContextCompacted?: (result: { level: number; tokensSaved: number; description: string; phase: string }) => void;
 
+  // Build Map Agent for autonomous roadmap updates
+  private buildMapAgent: BuildMapAgent | null = null;
+
   private constructor(params: {
     projectId: string;
     workspaceId?: string;
@@ -272,6 +276,9 @@ export class BuildOrchestrator {
       );
     }
 
+    // Initialize Build Map Agent for autonomous roadmap updates
+    orch.buildMapAgent = new BuildMapAgent(params.projectId, orch.llm);
+
     return orch;
   }
 
@@ -292,7 +299,27 @@ export class BuildOrchestrator {
     // 3. Execute steps in dependency order with parallel groups
     const results = await this.executePlan(plan);
 
-    // 4. Final summary
+    // 4. Final Build Map update - mark features as done
+    if (this.buildMapAgent) {
+      try {
+        const allFilesChanged = Array.from(this.context.modifiedFiles.keys());
+        const finalContext: BuildStepContext = {
+          projectId: this.projectId,
+          stepId: "complete",
+          stepName: "complete",
+          goal: this.context.projectInstructions || "",
+          filesChanged: allFilesChanged,
+          diffSummary: "Build completed",
+          timestamp: new Date().toISOString(),
+        };
+        await this.buildMapAgent.onBuildStepComplete(finalContext);
+        this.emitProgress("orchestrator", "done", "Final Build Map update complete");
+      } catch (err) {
+        this.emitProgress("orchestrator", "done", `Final Build Map update failed (non-critical): ${err}`);
+      }
+    }
+
+    // 5. Final summary
     const success = Array.from(results.values()).every(r => {
       if (typeof r === "object" && r && "status" in r) {
         return (r as any).status === "completed" || (r as any).status === "all-fixed";
@@ -847,6 +874,35 @@ export class BuildOrchestrator {
 
     // Save updated project map
     await saveProjectMap(this.projectId);
+
+    // Update Build Map with changes from this step
+    await this.updateBuildMap(handoff.stepId, handoff);
+  }
+
+  /**
+   * Update the Visual Build Map after a build step completes
+   */
+  private async updateBuildMap(stepId: string, handoff: z.infer<typeof CoderHandoffSchema>): Promise<void> {
+    if (!this.buildMapAgent) return;
+
+    try {
+      const buildStepContext: BuildStepContext = {
+        projectId: this.projectId,
+        stepId,
+        stepName: stepId,
+        goal: this.context.projectInstructions || "",
+        filesChanged: handoff.changes.map(c => c.file),
+        diffSummary: handoff.notesForReviewer,
+        timestamp: new Date().toISOString(),
+      };
+
+      const result = await this.buildMapAgent.onBuildStepComplete(buildStepContext);
+
+      this.emitProgress("orchestrator", stepId, `Build Map updated: ${result.updates.nodes.length} nodes, ${result.updates.edges.length} edges, ${result.analysis.suggestions.length} suggestions`);
+    } catch (err) {
+      // Non-critical - don't fail the build if Build Map update fails
+      this.emitProgress("orchestrator", stepId, `Build Map update failed (non-critical): ${err}`);
+    }
   }
 
   private async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
