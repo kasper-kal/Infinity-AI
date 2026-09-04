@@ -1,19 +1,21 @@
 /**
- * Workflow Orchestrator — Fully Automated End-to-End Workflow (NL → Deployed Product)
+ * Workflow Orchestrator — Phase 37
  *
- * Takes a natural language goal and executes complete workflow:
- * discover → plan → scaffold → generate → test → deploy → verify
+ * Fully automated end-to-end workflow: Natural Language → Deployed Product
+ * Handles: discover → plan → scaffold → generate → test → deploy → verify
  */
 
 import { z } from "zod";
-import { UniversalAgent, runUniversalAgent } from "./universal-agent.js";
-import { toolRegistry } from "./tool-registry.js";
-import { LLMAdapter, getLLMAdapter } from "./llm-adapter.js";
 import { EventEmitter } from "events";
+import { UniversalAgent, runUniversalAgent, AgentConfig } from "./universal-agent.js";
+import { BuildOrchestrator } from "./build-orchestrator.js";
+import { BuildMapManager, BuildMapAgent } from "./build-map-agent.js";
+import { getLLMAdapter } from "./llm-adapter.js";
+import { DESIGN_MODEL_CONFIGS } from "./adapter-factory.js";
 
-// ============================================
+// ============================================================================
 // Types & Schemas
-// ============================================
+// ============================================================================
 
 export const WorkflowPhaseSchema = z.enum([
   "discover",
@@ -22,8 +24,11 @@ export const WorkflowPhaseSchema = z.enum([
   "generate",
   "test",
   "deploy",
-  "verify"
+  "verify",
+  "complete"
 ]);
+
+export type WorkflowPhase = z.infer<typeof WorkflowPhaseSchema>;
 
 export const WorkflowStatusSchema = z.enum([
   "pending",
@@ -31,680 +36,794 @@ export const WorkflowStatusSchema = z.enum([
   "awaiting_approval",
   "completed",
   "failed",
-  "cancelled"
+  "rolled_back"
 ]);
 
-export const ApprovalGateSchema = z.enum(["plan", "deploy", "high-risk"]);
-
-export const TechStackOptionSchema = z.object({
-  framework: z.string(),
-  database: z.string(),
-  auth: z.string(),
-  payments: z.string().optional(),
-  hosting: z.string(),
-  score: z.number(),
-  rationale: z.string(),
-});
+export type WorkflowStatus = z.infer<typeof WorkflowStatusSchema>;
 
 export const WorkflowStepSchema = z.object({
   id: z.string(),
   phase: WorkflowPhaseSchema,
-  title: string,
-  description: string,
-  agentType: z.string(),
-  dependsOn: z.array(z.string()),
-  estimatedTokens: z.number().optional(),
-  estimatedDurationMs: z.number().optional(),
+  title: z.string(),
+  description: z.string(),
+  agentType: z.enum(["planner", "coder", "reviewer", "tester", "deployer", "architect"]),
+  dependencies: z.array(z.string()).default([]),
+  estimatedTokens: z.number().default(50000),
+  estimatedDurationMs: z.number().default(60000),
   requiresApproval: z.boolean().default(false),
-  approvalGate: ApprovalGateSchema.optional(),
-  status: z.enum(["pending", "running", "completed", "failed", "skipped"]).default("pending"),
+  status: WorkflowStatusSchema.default("pending"),
   result: z.any().optional(),
   error: z.string().optional(),
-  startedAt: z.date().optional(),
-  completedAt: z.date().optional(),
+  startedAt: z.number().optional(),
+  completedAt: z.number().optional(),
 });
+
+export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 
 export const WorkflowPlanSchema = z.object({
   id: z.string(),
   goal: z.string(),
-  constraints: z.record(z.any()).optional(),
-  clarificationQuestions: z.array(z.object({
-    question: z.string(),
-    type: z.enum(["radio", "multi-select", "text"]),
-    options: z.array(z.string()).optional(),
-    required: z.boolean().default(true),
-  })).optional(),
-  prd: z.string().optional(),
-  techStack: TechStackOptionSchema.optional(),
-  steps: z.array(WorkflowStepSchema),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  currentStepIndex: z.number().default(0),
-  status: WorkflowStatusSchema.default("pending"),
-  checkpoints: z.array(z.object({
-    stepIndex: z.number(),
-    state: z.any(),
-    timestamp: z.date(),
-  })).default([]),
-});
-
-export const WorkflowExecutionSchema = z.object({
-  workflowId: z.string(),
-  plan: WorkflowPlanSchema,
-  status: WorkflowStatusSchema,
-  currentPhase: WorkflowPhaseSchema,
-  currentStepId: z.string().optional(),
-  progress: z.number().default(0),
-  logs: z.array(z.object({
-    timestamp: z.date(),
+  constraints: z.object({
+    framework: z.string().optional(),
+    database: z.string().optional(),
+    auth: z.string().optional(),
+    payments: z.string().optional(),
+    hosting: z.string().optional(),
+    budget: z.number().optional(),
+    timeline: z.string().optional(),
+  }).optional(),
+  phases: z.array(z.object({
     phase: WorkflowPhaseSchema,
-    stepId: z.string(),
-    message: z.string(),
-    level: z.enum(["info", "warning", "error", "success"]),
+    steps: z.array(WorkflowStepSchema),
+    approvalGate: z.boolean().default(false),
+  })),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  status: WorkflowStatusSchema.default("pending"),
+  currentPhase: WorkflowPhaseSchema.optional(),
+  checkpoints: z.array(z.object({
+    phase: WorkflowPhaseSchema,
+    state: z.any(),
+    timestamp: z.number(),
   })).default([]),
-  artifacts: z.array(z.object({
-    type: z.string(),
-    path: z.string(),
-    content: z.string().optional(),
-    metadata: z.record(z.any()).optional(),
-  })).default([]),
-  deployments: z.array(z.object({
-    environment: z.string(),
-    url: z.string(),
-    status: z.string(),
-    deployedAt: z.date(),
-  })).default([]),
-  handoffDoc: z.string().optional(),
-  startedAt: z.date(),
-  updatedAt: z.date(),
-  completedAt: z.date().optional(),
 });
 
-export type WorkflowPhase = z.infer<typeof WorkflowPhaseSchema>;
-export type WorkflowStatus = z.infer<typeof WorkflowStatusSchema>;
-export type ApprovalGate = z.infer<typeof ApprovalGateSchema>;
-export type TechStackOption = z.infer<typeof TechStackOptionSchema>;
-export type WorkflowStep = z.infer<typeof WorkflowStepSchema>;
 export type WorkflowPlan = z.infer<typeof WorkflowPlanSchema>;
-export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>;
 
-// ============================================
+export const RequirementQuestionSchema = z.object({
+  id: z.string(),
+  type: z.enum(["radio", "multi_select", "text", "number", "boolean"]),
+  question: z.string(),
+  options: z.array(z.object({
+    value: z.string(),
+    label: z.string(),
+    description: z.string().optional(),
+  })).optional(),
+  required: z.boolean().default(true),
+  dependsOn: z.string().optional(), // question id this depends on
+});
+
+export type RequirementQuestion = z.infer<typeof RequirementQuestionSchema>;
+
+export const PRDSchema = z.object({
+  id: z.string(),
+  goal: z.string(),
+  answers: z.record(z.any()),
+  requirements: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    priority: z.enum(["must", "should", "could", "wont"]),
+    category: z.enum(["functional", "non-functional", "technical", "ui", "security", "performance"]),
+    acceptanceCriteria: z.array(z.string()),
+  })),
+  techStack: z.object({
+    framework: z.string(),
+    database: z.string(),
+    auth: z.string(),
+    payments: z.string().optional(),
+    hosting: z.string(),
+    language: z.string().default("typescript"),
+    styling: z.string().default("tailwind"),
+    testing: z.string().default("vitest"),
+  }).optional(),
+  createdAt: z.number(),
+  approved: z.boolean().default(false),
+});
+
+export type PRD = z.infer<typeof PRDSchema>;
+
+export const TechStackOptionSchema = z.object({
+  category: z.string(),
+  option: z.string(),
+  score: z.number(),
+  rationale: z.string(),
+  pros: z.array(z.string()),
+  cons: z.array(z.string()),
+  estimatedCost: z.number().optional(),
+  complexity: z.enum(["low", "medium", "high"]),
+});
+
+export type TechStackOption = z.infer<typeof TechStackOptionSchema>;
+
+export const DeploymentConfigSchema = z.object({
+  provider: z.enum(["vercel", "netlify", "cloudflare", "railway", "fly", "render", "custom"]),
+  projectName: z.string(),
+  customDomain: z.string().optional(),
+  environmentVariables: z.record(z.string()),
+  buildCommand: z.string(),
+  outputDirectory: z.string(),
+  framework: z.string(),
+  region: z.string().optional(),
+  autoDeploy: z.boolean().default(true),
+  previewDeployments: z.boolean().default(true),
+});
+
+export type DeploymentConfig = z.infer<typeof DeploymentConfigSchema>;
+
+export const WorkflowEventSchema = z.object({
+  type: z.enum([
+    "phase_started",
+    "phase_completed",
+    "step_started",
+    "step_completed",
+    "step_failed",
+    "approval_required",
+    "approval_received",
+    "checkpoint_created",
+    "rollback_initiated",
+    "workflow_completed",
+    "workflow_failed"
+  ]),
+  workflowId: z.string(),
+  phase: WorkflowPhaseSchema.optional(),
+  stepId: z.string().optional(),
+  data: z.any().optional(),
+  timestamp: z.number().default(() => Date.now()),
+});
+
+export type WorkflowEvent = z.infer<typeof WorkflowEventSchema>;
+
+// ============================================================================
 // Workflow Orchestrator Class
-// ============================================
+// ============================================================================
 
 export class WorkflowOrchestrator extends EventEmitter {
-  private adapter: LLMAdapter;
-  private executions: Map<string, WorkflowExecution> = new Map();
   private plans: Map<string, WorkflowPlan> = new Map();
+  private runningWorkflows: Map<string, { abortController: AbortController; currentStep: string }> = new Map();
+  private buildOrchestrator: BuildOrchestrator;
+  private buildMapManager: BuildMapManager;
+  private buildMapAgent: BuildMapAgent;
 
-  constructor(adapter?: LLMAdapter) {
+  constructor() {
     super();
-    this.adapter = adapter || getLLMAdapter();
+    this.buildOrchestrator = new BuildOrchestrator();
+    this.buildMapManager = new BuildMapManager();
+    this.buildMapAgent = new BuildMapAgent(this.buildMapManager);
   }
 
-  // ============================================
+  // ---------------------------------------------------------------------------
   // Phase 1: Discover - Requirement Clarification
-  // ============================================
+  // ---------------------------------------------------------------------------
 
-  async discover(goal: string, constraints?: Record<string, any>): Promise<{
-    questions: WorkflowPlan["clarificationQuestions"];
-    prd: string;
-  }> {
-    const prompt = `You are a product manager clarifying requirements for a software project.
+  async discoverRequirements(goal: string, projectId: string): Promise<RequirementQuestion[]> {
+    const adapter = getLLMAdapter();
 
-GOAL: "${goal}"
-CONSTRAINTS: ${JSON.stringify(constraints || {}, null, 2)}
+    const prompt = `You are an expert product manager. The user wants to build: "${goal}"
 
-Your task: Ask up to 5 targeted questions to reduce ambiguity. Focus on:
-1. Core functionality (what exactly should it do?)
-2. Target users (who is this for?)
-3. Scale/performance requirements
-4. Integration requirements
-5. Timeline/budget constraints
+Analyze this goal and generate 3-5 targeted clarification questions to reduce ambiguity.
+Focus on: core features, user flows, technical constraints, integrations, success criteria.
 
-Return JSON with:
+Return ONLY a JSON array of questions with this schema:
 {
   "questions": [
-    {"question": "...", "type": "radio|multi-select|text", "options": ["..."], "required": true}
+    {
+      "id": "q1",
+      "type": "radio|multi_select|text|number|boolean",
+      "question": "Specific question",
+      "options": [{"value": "opt1", "label": "Option 1", "description": "..."}],
+      "required": true,
+      "dependsOn": "q1"
+    }
+  ]
+}
+
+Guidelines:
+- Max 5 questions
+- Each question must significantly reduce ambiguity
+- Use radio for single choice, multi_select for multiple
+- Include sensible defaults in options
+- Order from most to least critical`;
+
+    const response = await adapter.chat([
+      { role: "system", content: "You are an expert product manager. Output ONLY valid JSON." },
+      { role: "user", content: prompt }
+    ], { responseFormat: "json_object" });
+
+    const parsed = JSON.parse(response.content);
+    return parsed.questions.map((q: any, i: number) => ({
+      ...q,
+      id: q.id || `q${i + 1}`,
+    }));
+  }
+
+  async generatePRD(goal: string, answers: Record<string, any>, projectId: string): Promise<PRD> {
+    const adapter = getLLMAdapter();
+
+    const prompt = `You are an expert product manager. Create a comprehensive PRD (Product Requirements Document).
+
+GOAL: "${goal}"
+USER ANSWERS: ${JSON.stringify(answers, null, 2)}
+
+Generate a PRD with:
+1. Structured requirements (functional, non-functional, technical, UI, security, performance)
+2. Priority levels (must/should/could/wont)
+3. Acceptance criteria for each requirement
+4. Recommended tech stack with rationale
+
+Return ONLY valid JSON matching this schema:
+{
+  "id": "prd_...",
+  "goal": "...",
+  "answers": {...},
+  "requirements": [
+    {
+      "id": "req_1",
+      "title": "...",
+      "description": "...",
+      "priority": "must|should|could|wont",
+      "category": "functional|non-functional|technical|ui|security|performance",
+      "acceptanceCriteria": ["..."]
+    }
   ],
-  "prd": "Draft Product Requirements Document based on what we know so far"
+  "techStack": {
+    "framework": "nextjs|astro|remix|vite-react|sveltekit|nuxt|solidstart",
+    "database": "postgresql|sqlite|mongodb|firebase|none",
+    "auth": "clerk|authjs|supabase|firebase|custom",
+    "payments": "stripe|lemonsqueezy|paddle|none",
+    "hosting": "vercel|netlify|cloudflare|railway|fly|custom",
+    "language": "typescript",
+    "styling": "tailwind",
+    "testing": "vitest"
+  },
+  "createdAt": ${Date.now()},
+  "approved": false
 }`;
 
-    const response = await this.adapter.complete({
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      maxTokens: 2000,
-      responseFormat: { type: "json_object" },
-    });
+    const response = await adapter.chat([
+      { role: "system", content: "You are an expert product manager. Output ONLY valid JSON." },
+      { role: "user", content: prompt }
+    ], { responseFormat: "json_object" });
 
-    return JSON.parse(response.content);
+    const prd = JSON.parse(response.content);
+    return {
+      ...prd,
+      id: prd.id || `prd_${Date.now()}`,
+      createdAt: prd.createdAt || Date.now(),
+    };
   }
 
-  // ============================================
+  // ---------------------------------------------------------------------------
   // Phase 2: Plan - Tech Stack Selection & Architecture
-  // ============================================
+  // ---------------------------------------------------------------------------
 
-  async selectTechStack(goal: string, prd: string): Promise<TechStackOption[]> {
-    const prompt = `You are a senior architect selecting the optimal tech stack.
+  async selectTechStack(prd: PRD, constraints?: WorkflowPlan["constraints"]): Promise<TechStackOption[]> {
+    const adapter = getLLMAdapter();
 
-GOAL: "${goal}"
-PRD: "${prd}"
+    const prompt = `You are a principal architect. Recommend the optimal tech stack for this PRD.
 
-Score each option (0-100) and provide rationale. Consider: developer experience, ecosystem, scaling, cost ($0 budget), team familiarity.
+PRD: ${JSON.stringify(prd, null, 2)}
+CONSTRAINTS: ${JSON.stringify(constraints || {}, null, 2)}
 
-Return TOP 3 options as JSON array:
-[
-  {
-    "framework": "nextjs|astro|remix|vite-react|sveltekit|nuxt|solidstart",
-    "database": "postgresql|sqlite|mongodb|firebase|supabase|neon|planetscale|turso",
-    "auth": "clerk|authjs|supabase-auth|custom-jwt|firebase-auth",
-    "payments": "stripe|lemonsqueezy|paddle|none",
-    "hosting": "vercel|netlify|cloudflare-pages|railway|flyio|render",
-    "score": 95,
-    "rationale": "Why this combination..."
+For EACH category (framework, database, auth, payments, hosting), provide 3 ranked options with scores (0-100).
+
+Consider:
+- Project requirements from PRD
+- Team expertise (assume full-stack TypeScript)
+- Cost (prefer free tiers)
+- Performance & scalability
+- Developer experience
+- Ecosystem maturity
+
+Return ONLY valid JSON:
+{
+  "recommendations": [
+    {
+      "category": "framework",
+      "option": "nextjs",
+      "score": 95,
+      "rationale": "Best for SaaS with App Router, Server Components, built-in auth integration",
+      "pros": ["App Router", "Server Components", "Vercel native", "Great DX"],
+      "cons": ["Vendor lock-in to Vercel", "Learning curve"],
+      "estimatedCost": 0,
+      "complexity": "medium"
+    }
+  ]
+}`;
+
+    const response = await adapter.chat([
+      { role: "system", content: "You are a principal architect. Output ONLY valid JSON." },
+      { role: "user", content: prompt }
+    ], { responseFormat: "json_object" });
+
+    const parsed = JSON.parse(response.content);
+    return parsed.recommendations || [];
   }
-]`;
 
-    const response = await this.adapter.complete({
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      maxTokens: 2000,
-      responseFormat: { type: "json_object" },
-    });
+  async createExecutionPlan(prd: PRD, techStack: TechStackOption[], projectId: string): Promise<WorkflowPlan> {
+    const adapter = getLLMAdapter();
 
-    const result = JSON.parse(response.content);
-    return Array.isArray(result) ? result : result.options || [];
-  }
+    const selectedStack = {
+      framework: techStack.find(t => t.category === "framework")?.option || "nextjs",
+      database: techStack.find(t => t.category === "database")?.option || "postgresql",
+      auth: techStack.find(t => t.category === "auth")?.option || "clerk",
+      payments: techStack.find(t => t.category === "payments")?.option || "none",
+      hosting: techStack.find(t => t.category === "hosting")?.option || "vercel",
+    };
 
-  async createPlan(goal: string, prd: string, techStack: TechStackOption): Promise<WorkflowPlan> {
-    const prompt = `You are a lead engineer creating a detailed execution plan.
+    const prompt = `You are a principal engineer. Create a detailed execution plan for this PRD.
 
-GOAL: "${goal}"
-PRD: "${prd}"
-TECH STACK: ${JSON.stringify(techStack, null, 2)}
+PRD: ${JSON.stringify(prd, null, 2)}
+TECH STACK: ${JSON.stringify(selectedStack, null, 2)}
 
-Create a step-by-step plan with these phases:
-1. DISCOVER - Requirements already clarified
-2. PLAN - This step (architecture decisions)
-3. SCAFFOLD - Initialize repo, config, folder structure
-4. GENERATE - Code generation (UI, API, DB, Auth, Integrations)
-5. TEST - Unit, E2E, A11y, Typecheck, Lint, Build verification
-6. DEPLOY - Infra, DNS, SSL, monitoring, health checks
-7. VERIFY - Smoke tests, post-deploy validation
+Create a phased plan with these phases in order:
+1. discover - requirements clarification (DONE)
+2. plan - architecture & tech stack (DONE)
+3. scaffold - repo init, config, CI/CD, base project structure
+4. generate - code generation (database, auth, API, UI components, pages, integrations)
+5. test - unit, integration, e2e, a11y, typecheck, lint, build verification
+6. deploy - infrastructure, environment vars, DNS, SSL, monitoring
+7. verify - smoke tests, health checks, rollback readiness
 
-For each step, specify:
-- id, phase, title, description
-- agentType (planner, coder, reviewer, tester, deployer)
-- dependsOn (step IDs)
-- estimatedTokens, estimatedDurationMs
-- requiresApproval (true for plan, deploy, high-risk)
-- approvalGate (plan|deploy|high-risk)
+For each phase, create specific steps with:
+- Agent type (planner, coder, reviewer, tester, deployer, architect)
+- Dependencies between steps
+- Estimated tokens and duration
+- Approval gates at: plan, deploy, and high-risk steps
 
-Return as JSON matching WorkflowPlan schema (without id/createdAt/updatedAt).`;
+Return ONLY valid JSON matching WorkflowPlan schema.`;
 
-    const response = await this.adapter.complete({
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      maxTokens: 4000,
-      responseFormat: { type: "json_object" },
-    });
+    const response = await adapter.chat([
+      { role: "system", content: "You are a principal engineer. Output ONLY valid JSON matching the WorkflowPlan schema." },
+      { role: "user", content: prompt }
+    ], { responseFormat: "json_object" });
 
-    const planData = JSON.parse(response.content);
-    const plan: WorkflowPlan = {
-      id: `wf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      goal,
-      prd,
-      techStack,
-      steps: planData.steps || [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      currentStepIndex: 0,
+    const plan = JSON.parse(response.content);
+
+    const workflowPlan: WorkflowPlan = {
+      ...plan,
+      id: plan.id || `workflow_${Date.now()}`,
+      goal: prd.goal,
+      constraints: prd.techStack ? {} : undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
       status: "pending",
+      currentPhase: "scaffold",
       checkpoints: [],
     };
 
-    this.plans.set(plan.id, plan);
+    this.plans.set(workflowPlan.id, workflowPlan);
+    return workflowPlan;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 3: Scaffold - Project Initialization
+  // ---------------------------------------------------------------------------
+
+  async runScaffoldPhase(plan: WorkflowPlan, projectId: string): Promise<any> {
+    const scaffoldSteps = plan.phases.find(p => p.phase === "scaffold")?.steps || [];
+    const results: any = {};
+
+    for (const step of scaffoldSteps) {
+      if (step.status !== "pending") continue;
+
+      this.emit("step_started", { workflowId: plan.id, stepId: step.id, phase: "scaffold" });
+      step.status = "running";
+      step.startedAt = Date.now();
+
+      try {
+        const result = await this.executeStep(step, plan, projectId, results);
+        step.result = result;
+        step.status = "completed";
+        step.completedAt = Date.now();
+        results[step.id] = result;
+        this.emit("step_completed", { workflowId: plan.id, stepId: step.id, result });
+      } catch (error: any) {
+        step.status = "failed";
+        step.error = error.message;
+        this.emit("step_failed", { workflowId: plan.id, stepId: step.id, error });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 4: Generate - Code Generation
+  // ---------------------------------------------------------------------------
+
+  async runGeneratePhase(plan: WorkflowPlan, projectId: string, scaffoldResults: any): Promise<any> {
+    const generateSteps = plan.phases.find(p => p.phase === "generate")?.steps || [];
+    const results: any = { ...scaffoldResults };
+
+    for (const step of generateSteps) {
+      if (step.status !== "pending") continue;
+
+      this.emit("step_started", { workflowId: plan.id, stepId: step.id, phase: "generate" });
+      step.status = "running";
+      step.startedAt = Date.now();
+
+      try {
+        const result = await this.executeStep(step, plan, projectId, results);
+        step.result = result;
+        step.status = "completed";
+        step.completedAt = Date.now();
+        results[step.id] = result;
+        this.emit("step_completed", { workflowId: plan.id, stepId: step.id, result });
+      } catch (error: any) {
+        step.status = "failed";
+        step.error = error.message;
+        this.emit("step_failed", { workflowId: plan.id, stepId: step.id, error });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 5: Test - Automated Testing
+  // ---------------------------------------------------------------------------
+
+  async runTestPhase(plan: WorkflowPlan, projectId: string, generateResults: any): Promise<any> {
+    const testSteps = plan.phases.find(p => p.phase === "test")?.steps || [];
+    const results: any = { ...generateResults };
+
+    for (const step of testSteps) {
+      if (step.status !== "pending") continue;
+
+      this.emit("step_started", { workflowId: plan.id, stepId: step.id, phase: "test" });
+      step.status = "running";
+      step.startedAt = Date.now();
+
+      try {
+        const result = await this.executeStep(step, plan, projectId, results);
+        step.result = result;
+        step.status = "completed";
+        step.completedAt = Date.now();
+        results[step.id] = result;
+        this.emit("step_completed", { workflowId: plan.id, stepId: step.id, result });
+      } catch (error: any) {
+        step.status = "failed";
+        step.error = error.message;
+        this.emit("step_failed", { workflowId: plan.id, stepId: step.id, error });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 6: Deploy - Deployment Automation
+  // ---------------------------------------------------------------------------
+
+  async runDeployPhase(plan: WorkflowPlan, projectId: string, testResults: any): Promise<any> {
+    const deploySteps = plan.phases.find(p => p.phase === "deploy")?.steps || [];
+    const results: any = { ...testResults };
+
+    for (const step of deploySteps) {
+      if (step.status !== "pending") continue;
+
+      // Check for approval gate
+      if (step.requiresApproval) {
+        this.emit("approval_required", { workflowId: plan.id, stepId: step.id, phase: "deploy" });
+        step.status = "awaiting_approval";
+        // In real implementation, wait for approval via event
+        await this.waitForApproval(plan.id, step.id);
+      }
+
+      this.emit("step_started", { workflowId: plan.id, stepId: step.id, phase: "deploy" });
+      step.status = "running";
+      step.startedAt = Date.now();
+
+      try {
+        const result = await this.executeStep(step, plan, projectId, results);
+        step.result = result;
+        step.status = "completed";
+        step.completedAt = Date.now();
+        results[step.id] = result;
+        this.emit("step_completed", { workflowId: plan.id, stepId: step.id, result });
+      } catch (error: any) {
+        step.status = "failed";
+        step.error = error.message;
+        this.emit("step_failed", { workflowId: plan.id, stepId: step.id, error });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 7: Verify - Post-Deploy Verification
+  // ---------------------------------------------------------------------------
+
+  async runVerifyPhase(plan: WorkflowPlan, projectId: string, deployResults: any): Promise<any> {
+    const verifySteps = plan.phases.find(p => p.phase === "verify")?.steps || [];
+    const results: any = { ...deployResults };
+
+    for (const step of verifySteps) {
+      if (step.status !== "pending") continue;
+
+      this.emit("step_started", { workflowId: plan.id, stepId: step.id, phase: "verify" });
+      step.status = "running";
+      step.startedAt = Date.now();
+
+      try {
+        const result = await this.executeStep(step, plan, projectId, results);
+        step.result = result;
+        step.status = "completed";
+        step.completedAt = Date.now();
+        results[step.id] = result;
+        this.emit("step_completed", { workflowId: plan.id, stepId: step.id, result });
+      } catch (error: any) {
+        step.status = "failed";
+        step.error = error.message;
+        this.emit("step_failed", { workflowId: plan.id, stepId: step.id, error });
+        throw error;
+      }
+    }
+
+    return results;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Core Execution Engine
+  // ---------------------------------------------------------------------------
+
+  private async executeStep(step: WorkflowStep, plan: WorkflowPlan, projectId: string, context: any): Promise<any> {
+    const agentConfig: AgentConfig = this.getAgentConfigForStep(step);
+    const prompt = this.buildStepPrompt(step, plan, context);
+
+    const result = await runUniversalAgent({
+      ...agentConfig,
+      prompt,
+      projectId,
+      maxIterations: 10,
+      tokenBudget: step.estimatedTokens,
+      onToolCall: (toolCall) => {
+        this.emit("tool_call", { workflowId: plan.id, stepId: step.id, toolCall });
+      },
+    });
+
+    return result;
+  }
+
+  private getAgentConfigForStep(step: WorkflowStep): AgentConfig {
+    const baseConfig: AgentConfig = {
+      model: "claude-3-5-sonnet-20241022",
+      temperature: 0.3,
+      maxTokens: 8192,
+      enableOrchestration: true,
+      enableResilience: true,
+      autoCheckpoint: true,
+    };
+
+    switch (step.agentType) {
+      case "planner":
+        return { ...baseConfig, temperature: 0.2, systemPrompt: "You are a principal architect. Create detailed, actionable plans." };
+      case "coder":
+        return { ...baseConfig, temperature: 0.3, systemPrompt: "You are a senior full-stack engineer. Write production-ready code." };
+      case "reviewer":
+        return { ...baseConfig, temperature: 0.1, systemPrompt: "You are a code reviewer. Find bugs, security issues, performance problems." };
+      case "tester":
+        return { ...baseConfig, temperature: 0.2, systemPrompt: "You are a QA engineer. Write comprehensive tests." };
+      case "deployer":
+        return { ...baseConfig, temperature: 0.1, systemPrompt: "You are a DevOps engineer. Deploy reliably with zero-downtime." };
+      case "architect":
+        return { ...baseConfig, temperature: 0.2, systemPrompt: "You are a system architect. Design scalable, maintainable systems." };
+      default:
+        return baseConfig;
+    }
+  }
+
+  private buildStepPrompt(step: WorkflowStep, plan: WorkflowPlan, context: any): string {
+    return `WORKFLOW: ${plan.goal}
+PHASE: ${step.phase}
+STEP: ${step.title}
+DESCRIPTION: ${step.description}
+CONTEXT: ${JSON.stringify(context, null, 2).slice(0, 5000)}
+
+Execute this step and return the result. Use available tools as needed.`;
+  }
+
+  private async waitForApproval(workflowId: string, stepId: string): Promise<void> {
+    return new Promise((resolve) => {
+      const handler = (event: any) => {
+        if (event.workflowId === workflowId && event.stepId === stepId && event.approved) {
+          this.off("approval_received", handler);
+          resolve();
+        }
+      };
+      this.on("approval_received", handler);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Checkpointing & Rollback
+  // ---------------------------------------------------------------------------
+
+  async createCheckpoint(plan: WorkflowPlan, phase: WorkflowPhase, state: any): Promise<void> {
+    plan.checkpoints.push({
+      phase,
+      state: JSON.parse(JSON.stringify(state)), // Deep clone
+      timestamp: Date.now(),
+    });
+    plan.updatedAt = Date.now();
+    this.emit("checkpoint_created", { workflowId: plan.id, phase, timestamp: Date.now() });
+  }
+
+  async rollbackToCheckpoint(plan: WorkflowPlan, checkpointIndex: number): Promise<any> {
+    if (checkpointIndex < 0 || checkpointIndex >= plan.checkpoints.length) {
+      throw new Error("Invalid checkpoint index");
+    }
+
+    const checkpoint = plan.checkpoints[checkpointIndex];
+    this.emit("rollback_initiated", { workflowId: plan.id, checkpointIndex, phase: checkpoint.phase });
+
+    // Reset steps after checkpoint
+    for (const phaseObj of plan.phases) {
+      if (phaseObj.phase === checkpoint.phase) {
+        for (const step of phaseObj.steps) {
+          if (step.startedAt && step.startedAt > checkpoint.timestamp) {
+            step.status = "pending";
+            step.result = undefined;
+            step.error = undefined;
+            step.startedAt = undefined;
+            step.completedAt = undefined;
+          }
+        }
+      } else if (plan.phases.indexOf(phaseObj) > plan.phases.findIndex(p => p.phase === checkpoint.phase)) {
+        for (const step of phaseObj.steps) {
+          step.status = "pending";
+          step.result = undefined;
+          step.error = undefined;
+          step.startedAt = undefined;
+          step.completedAt = undefined;
+        }
+      }
+    }
+
+    plan.status = "running";
+    plan.currentPhase = checkpoint.phase;
+    plan.updatedAt = Date.now();
+
+    return checkpoint.state;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Main Workflow Execution
+  // ---------------------------------------------------------------------------
+
+  async executeWorkflow(plan: WorkflowPlan, projectId: string): Promise<WorkflowPlan> {
+    const abortController = new AbortController();
+    this.runningWorkflows.set(plan.id, { abortController, currentStep: "" });
+
+    plan.status = "running";
+    plan.updatedAt = Date.now();
+    this.emit("workflow_started", { workflowId: plan.id });
+
+    try {
+      // Phase 3: Scaffold
+      plan.currentPhase = "scaffold";
+      this.emit("phase_started", { workflowId: plan.id, phase: "scaffold" });
+      const scaffoldResults = await this.runScaffoldPhase(plan, projectId);
+      await this.createCheckpoint(plan, "scaffold", scaffoldResults);
+      this.emit("phase_completed", { workflowId: plan.id, phase: "scaffold" });
+
+      // Phase 4: Generate
+      plan.currentPhase = "generate";
+      this.emit("phase_started", { workflowId: plan.id, phase: "generate" });
+      const generateResults = await this.runGeneratePhase(plan, projectId, scaffoldResults);
+      await this.createCheckpoint(plan, "generate", generateResults);
+      this.emit("phase_completed", { workflowId: plan.id, phase: "generate" });
+
+      // Phase 5: Test
+      plan.currentPhase = "test";
+      this.emit("phase_started", { workflowId: plan.id, phase: "test" });
+      const testResults = await this.runTestPhase(plan, projectId, generateResults);
+      await this.createCheckpoint(plan, "test", testResults);
+      this.emit("phase_completed", { workflowId: plan.id, phase: "test" });
+
+      // Phase 6: Deploy (with approval gate)
+      plan.currentPhase = "deploy";
+      this.emit("phase_started", { workflowId: plan.id, phase: "deploy" });
+      const deployResults = await this.runDeployPhase(plan, projectId, testResults);
+      await this.createCheckpoint(plan, "deploy", deployResults);
+      this.emit("phase_completed", { workflowId: plan.id, phase: "deploy" });
+
+      // Phase 7: Verify
+      plan.currentPhase = "verify";
+      this.emit("phase_started", { workflowId: plan.id, phase: "verify" });
+      const verifyResults = await this.runVerifyPhase(plan, projectId, deployResults);
+      await this.createCheckpoint(plan, "verify", verifyResults);
+      this.emit("phase_completed", { workflowId: plan.id, phase: "verify" });
+
+      plan.status = "completed";
+      plan.currentPhase = "complete";
+      plan.updatedAt = Date.now();
+      this.emit("workflow_completed", { workflowId: plan.id, results: verifyResults });
+
+    } catch (error: any) {
+      plan.status = "failed";
+      plan.updatedAt = Date.now();
+      this.emit("workflow_failed", { workflowId: plan.id, error: error.message });
+      throw error;
+    } finally {
+      this.runningWorkflows.delete(plan.id);
+    }
+
     return plan;
   }
 
-  // ============================================
-  // Phase 3: Scaffold - Repository & Config Setup
-  // ============================================
-
-  async scaffold(plan: WorkflowPlan, execution: WorkflowExecution): Promise<void> {
-    const step = this.getCurrentStep(plan);
-    this.emit("log", { ...step, message: `Scaffolding ${plan.techStack?.framework} project...`, level: "info" });
-
-    // Use framework generator from Phase 20
-    const { FrameworkRegistry } = await import("./framework-generators/index.js");
-    const framework = FrameworkRegistry.get(plan.techStack?.framework || "nextjs");
-
-    if (!framework) {
-      throw new Error(`Framework ${plan.techStack?.framework} not found`);
-    }
-
-    // Generate scaffold
-    const scaffoldResult = await framework.generateScaffold({
-      projectName: this.slugify(plan.goal),
-      framework: plan.techStack?.framework,
-      database: plan.techStack?.database,
-      auth: plan.techStack?.auth,
-      styling: "tailwind",
-      typescript: true,
-      features: ["api", "auth", "database", "ui-components"],
-    });
-
-    execution.artifacts.push(...scaffoldResult.files.map(f => ({
-      type: "scaffold",
-      path: f.path,
-      content: f.content,
-    })));
-
-    this.emit("log", { ...step, message: "Scaffold complete", level: "success" });
-  }
-
-  // ============================================
-  // Phase 4: Generate - Code Generation Pipeline
-  // ============================================
-
-  async generate(plan: WorkflowPlan, execution: WorkflowExecution): Promise<void> {
-    const phases = [
-      { name: "Database Schema & Migrations", agent: "database-engineer" },
-      { name: "API Routes & Backend", agent: "api-engineer" },
-      { name: "Authentication Setup", agent: "auth-engineer" },
-      { name: "UI Components & Pages", agent: "ui-designer" },
-      { name: "Integrations (Payments, External APIs)", agent: "integration-engineer" },
-      { name: "Tests Generation", agent: "test-engineer" },
-    ];
-
-    for (const phase of phases) {
-      const step = this.getCurrentStep(plan);
-      this.emit("log", { ...step, message: `Generating: ${phase.name}...`, level: "info" });
-
-      // Use specialized subagents from Phase 3
-      const { spawnSubagent } = await import("./orchestration-engine.js");
-      const result = await spawnSubagent(phase.agent, {
-        goal: plan.goal,
-        prd: plan.prd,
-        techStack: plan.techStack,
-        existingFiles: execution.artifacts.map(a => ({ path: a.path, content: a.content })),
-        context: { phase: phase.name },
-      });
-
-      execution.artifacts.push(...(result.files || []).map(f => ({
-        type: phase.name.toLowerCase().replace(/\s+/g, "-"),
-        path: f.path,
-        content: f.content,
-      })));
-
-      this.emit("log", { ...step, message: `${phase.name} complete`, level: "success" });
-      this.advanceStep(plan);
-    }
-  }
-
-  // ============================================
-  // Phase 5: Test - Automated Testing & Quality
-  // ============================================
-
-  async test(plan: WorkflowPlan, execution: WorkflowExecution): Promise<void> {
-    const step = this.getCurrentStep(plan);
-    this.emit("log", { ...step, message: "Running automated tests...", level: "info" });
-
-    const testResults = {
-      unit: { passed: 0, failed: 0, coverage: 0 },
-      e2e: { passed: 0, failed: 0 },
-      a11y: { violations: 0, passed: true },
-      typecheck: { passed: true, errors: [] },
-      lint: { passed: true, errors: [] },
-      build: { passed: true, errors: [] },
-    };
-
-    // Run tests using debug tools from Phase 30
-    const { DebugToolsManager } = await import("./debug-tools.js");
-    const debugTools = new DebugToolsManager();
-
-    // Create a session for test running
-    const sessionId = await debugTools.createSession({
-      projectPath: execution.artifacts[0]?.path?.split("/").slice(0, -1).join("/") || "/workspace",
-    });
-
-    // Run unit tests
-    const unitResult = await debugTools.runTests(sessionId, {
-      testFramework: "vitest",
-      pattern: "**/*.test.ts",
-    });
-    testResults.unit = {
-      passed: unitResult.passed?.length || 0,
-      failed: unitResult.failed?.length || 0,
-      coverage: unitResult.coverage || 0,
-    };
-
-    // Run typecheck
-    const typecheckResult = await debugTools.runTypeCheck(sessionId, {
-      projectPath: sessionId,
-    });
-    testResults.typecheck = { passed: typecheckResult.success, errors: typecheckResult.errors };
-
-    // Run lint
-    const lintResult = await debugTools.runLint(sessionId, {
-      projectPath: sessionId,
-    });
-    testResults.lint = { passed: lintResult.success, errors: lintResult.errors };
-
-    // Run build verification
-    const buildResult = await debugTools.runBuild(sessionId, {
-      projectPath: sessionId,
-    });
-    testResults.build = { passed: buildResult.success, errors: buildResult.errors };
-
-    execution.artifacts.push({
-      type: "test-results",
-      path: "test-results.json",
-      content: JSON.stringify(testResults, null, 2),
-    });
-
-    const allPassed = testResults.unit.failed === 0 &&
-                       testResults.e2e.failed === 0 &&
-                       testResults.a11y.passed &&
-                       testResults.typecheck.passed &&
-                       testResults.lint.passed &&
-                       testResults.build.passed;
-
-    this.emit("log", {
-      ...step,
-      message: allPassed ? "All tests passed!" : "Some tests failed",
-      level: allPassed ? "success" : "error"
-    });
-
-    if (!allPassed) {
-      // Auto-fix attempt
-      await this.autoFixTests(plan, execution, testResults);
-    }
-  }
-
-  private async autoFixTests(plan: WorkflowPlan, execution: WorkflowExecution, results: any): Promise<void> {
-    const { spawnSubagent } = await import("./orchestration-engine.js");
-
-    const fixResult = await spawnSubagent("fixer", {
-      goal: "Fix failing tests and type errors",
-      errors: results,
-      files: execution.artifacts,
-      techStack: plan.techStack,
-    });
-
-    execution.artifacts.push(...(fixResult.files || []).map((f: any) => ({
-      type: "fix",
-      path: f.path,
-      content: f.content,
-    })));
-  }
-
-  // ============================================
-  // Phase 6: Deploy - Zero-Config Deployment
-  // ============================================
-
-  async deploy(plan: WorkflowPlan, execution: WorkflowExecution): Promise<void> {
-    const step = this.getCurrentStep(plan);
-    const hosting = plan.techStack?.hosting || "vercel";
-
-    this.emit("log", { ...step, message: `Deploying to ${hosting}...`, level: "info" });
-
-    const { DeploymentEngine } = await import("./deployment-engine.js");
-    const deployEngine = new DeploymentEngine();
-
-    const deployResult = await deployEngine.deploy({
-      projectPath: execution.artifacts[0]?.path?.split("/").slice(0, -1).join("/") || "/workspace",
-      framework: plan.techStack?.framework || "nextjs",
-      hosting,
-      envVars: await this.getSecretsForDeploy(plan),
-      customDomain: plan.constraints?.customDomain,
-    });
-
-    execution.deployments.push({
-      environment: "production",
-      url: deployResult.url,
-      status: deployResult.success ? "success" : "failed",
-      deployedAt: new Date(),
-    });
-
-    if (!deployResult.success) {
-      throw new Error(`Deployment failed: ${deployResult.error}`);
-    }
-
-    // Health checks
-    const healthCheck = await deployEngine.healthCheck(deployResult.url);
-    execution.deployments[execution.deployments.length - 1].status = healthCheck.healthy ? "healthy" : "unhealthy";
-
-    this.emit("log", { ...step, message: `Deployed to ${deployResult.url}`, level: "success" });
-  }
-
-  // ============================================
-  // Phase 7: Verify - Post-Deploy Validation
-  // ============================================
-
-  async verify(plan: WorkflowPlan, execution: WorkflowExecution): Promise<void> {
-    const step = this.getCurrentStep(plan);
-    this.emit("log", { ...step, message: "Running post-deploy verification...", level: "info" });
-
-    const deployment = execution.deployments[execution.deployments.length - 1];
-
-    // Smoke tests
-    const smokeTests = [
-      { name: "Homepage loads", path: "/" },
-      { name: "API health", path: "/api/health" },
-      { name: "Auth endpoints", path: "/api/auth/status" },
-    ];
-
-    for (const test of smokeTests) {
-      try {
-        const response = await fetch(`${deployment.url}${test.path}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        this.emit("log", { ...step, message: `✓ ${test.name}`, level: "success" });
-      } catch (e) {
-        this.emit("log", { ...step, message: `✗ ${test.name}: ${e}`, level: "error" });
-      }
-    }
-
-    // Generate HANDOFF.md
-    const handoffDoc = await this.generateHandoffDoc(plan, execution);
-    execution.handoffDoc = handoffDoc;
-    execution.artifacts.push({
-      type: "handoff",
-      path: "HANDOFF.md",
-      content: handoffDoc,
-    });
-
-    this.emit("log", { ...step, message: "Verification complete. HANDOFF.md generated.", level: "success" });
-  }
-
-  // ============================================
-  // Main Orchestration Loop
-  // ============================================
-
-  async execute(goal: string, constraints?: Record<string, any>): Promise<WorkflowExecution> {
-    const workflowId = `wf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const execution: WorkflowExecution = {
-      workflowId,
-      plan: {} as WorkflowPlan, // Will be set after planning
-      status: "running",
-      currentPhase: "discover",
-      progress: 0,
-      logs: [],
-      artifacts: [],
-      deployments: [],
-      startedAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    this.executions.set(workflowId, execution);
-    this.emit("started", execution);
-
-    try {
-      // Phase 1: Discover
-      execution.currentPhase = "discover";
-      this.emit("phase-change", { phase: "discover", execution });
-      const { questions, prd } = await this.discover(goal, constraints);
-
-      // If questions needed, we'd pause here for user input
-      // For now, proceed with PRD
-
-      // Phase 2: Plan
-      execution.currentPhase = "plan";
-      this.emit("phase-change", { phase: "plan", execution });
-      const techStackOptions = await this.selectTechStack(goal, prd);
-      const techStack = techStackOptions[0]; // Auto-select top for now
-      const plan = await this.createPlan(goal, prd, techStack);
-      execution.plan = plan;
-
-      // Phase 3: Scaffold
-      execution.currentPhase = "scaffold";
-      this.emit("phase-change", { phase: "scaffold", execution });
-      await this.scaffold(plan, execution);
-      this.advanceStep(plan);
-
-      // Phase 4: Generate
-      execution.currentPhase = "generate";
-      this.emit("phase-change", { phase: "generate", execution });
-      await this.generate(plan, execution);
-
-      // Phase 5: Test
-      execution.currentPhase = "test";
-      this.emit("phase-change", { phase: "test", execution });
-      await this.test(plan, execution);
-      this.advanceStep(plan);
-
-      // Phase 6: Deploy
-      execution.currentPhase = "deploy";
-      this.emit("phase-change", { phase: "deploy", execution });
-
-      // Check for deploy approval gate
-      if (plan.steps.some(s => s.approvalGate === "deploy" && s.status !== "completed")) {
-        execution.status = "awaiting_approval";
-        this.emit("awaiting-approval", { gate: "deploy", execution });
-        // Wait for approval (in real implementation)
-        // await this.waitForApproval(workflowId, "deploy");
-      }
-
-      await this.deploy(plan, execution);
-      this.advanceStep(plan);
-
-      // Phase 7: Verify
-      execution.currentPhase = "verify";
-      this.emit("phase-change", { phase: "verify", execution });
-      await this.verify(plan, execution);
-      this.advanceStep(plan);
-
-      // Complete
-      execution.status = "completed";
-      execution.progress = 100;
-      execution.completedAt = new Date();
-      execution.updatedAt = new Date();
-      this.emit("completed", execution);
-
-      return execution;
-    } catch (error) {
-      execution.status = "failed";
-      execution.error = error instanceof Error ? error.message : String(error);
-      execution.updatedAt = new Date();
-      this.emit("failed", { execution, error });
-      throw error;
-    }
-  }
-
-  // ============================================
-  // Helper Methods
-  // ============================================
-
-  private getCurrentStep(plan: WorkflowPlan): WorkflowStep {
-    return plan.steps[plan.currentStepIndex];
-  }
-
-  private advanceStep(plan: WorkflowPlan): void {
-    plan.currentStepIndex++;
-    plan.updatedAt = new Date();
-    const completed = plan.steps.filter(s => s.status === "completed").length;
-    plan.steps[plan.currentStepIndex - 1].status = "completed";
-    plan.steps[plan.currentStepIndex - 1].completedAt = new Date();
-  }
-
-  private slugify(str: string): string {
-    return str
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "")
-      .slice(0, 50);
-  }
-
-  private async getSecretsForDeploy(plan: WorkflowPlan): Promise<Record<string, string>> {
-    // Integrate with Secret Manager (Phase 34)
-    return {};
-  }
-
-  private async generateHandoffDoc(plan: WorkflowPlan, execution: WorkflowExecution): Promise<string> {
-    return `# HANDOFF DOCUMENT
-
-## Project: ${this.slugify(plan.goal)}
-## Generated: ${new Date().toISOString()}
-## Workflow ID: ${execution.workflowId}
-
-## Architecture
-- **Framework**: ${plan.techStack?.framework}
-- **Database**: ${plan.techStack?.database}
-- **Auth**: ${plan.techStack?.auth}
-- **Hosting**: ${plan.techStack?.hosting}
-
-## Deployment
-${execution.deployments.map(d => `- ${d.environment}: ${d.url} (${d.status})`).join("\n")}
-
-## Credentials (Encrypted)
-Stored in Infinity Secret Manager. Access via Settings → AI Management.
-
-## Runbook
-1. Clone repository
-2. Install dependencies: \`npm install\`
-3. Set environment variables from Secret Manager
-4. Run development: \`npm run dev\`
-5. Deploy: Push to main branch (auto-deploys)
-
-## Scaling Notes
-- Database: ${plan.techStack?.database} handles connection pooling
-- Auth: ${plan.techStack?.auth} manages sessions
-- Hosting: ${plan.techStack?.hosting} auto-scales
-
-## Monitoring
-- Error tracking: Sentry (configure DSN)
-- Analytics: Plausible/Umami (self-hosted)
-- Uptime: UptimeRobot (free tier)
-`;
-  }
-
-  // ============================================
+  // ---------------------------------------------------------------------------
   // Public API
-  // ============================================
+  // ---------------------------------------------------------------------------
 
-  getExecution(workflowId: string): WorkflowExecution | undefined {
-    return this.executions.get(workflowId);
+  getPlan(workflowId: string): WorkflowPlan | undefined {
+    return this.plans.get(workflowId);
   }
 
-  getPlan(planId: string): WorkflowPlan | undefined {
-    return this.plans.get(planId);
+  getAllPlans(): WorkflowPlan[] {
+    return Array.from(this.plans.values());
   }
 
-  listExecutions(): WorkflowExecution[] {
-    return Array.from(this.executions.values());
+  async approveStep(workflowId: string, stepId: string, approved: boolean): Promise<void> {
+    const plan = this.plans.get(workflowId);
+    if (!plan) throw new Error("Workflow not found");
+
+    const step = plan.phases.flatMap(p => p.steps).find(s => s.id === stepId);
+    if (!step) throw new Error("Step not found");
+
+    if (approved) {
+      step.status = "pending"; // Will be picked up by execution loop
+    } else {
+      step.status = "failed";
+      step.error = "User rejected approval";
+    }
+
+    this.emit("approval_received", { workflowId: plan.id, stepId, approved });
+  }
+
+  async cancelWorkflow(workflowId: string): Promise<void> {
+    const running = this.runningWorkflows.get(workflowId);
+    if (running) {
+      running.abortController.abort();
+    }
+
+    const plan = this.plans.get(workflowId);
+    if (plan) {
+      plan.status = "failed";
+      plan.updatedAt = Date.now();
+    }
   }
 }
 
-// ============================================
+// ============================================================================
 // Singleton Instance
-// ============================================
+// ============================================================================
 
-let orchestratorInstance: WorkflowOrchestrator | null = null;
+let workflowOrchestratorInstance: WorkflowOrchestrator | null = null;
 
 export function getWorkflowOrchestrator(): WorkflowOrchestrator {
-  if (!orchestratorInstance) {
-    orchestratorInstance = new WorkflowOrchestrator();
+  if (!workflowOrchestratorInstance) {
+    workflowOrchestratorInstance = new WorkflowOrchestrator();
   }
-  return orchestratorInstance;
+  return workflowOrchestratorInstance;
+}
+
+export function resetWorkflowOrchestrator(): void {
+  workflowOrchestratorInstance = null;
 }
