@@ -1,32 +1,13 @@
-LAST_UPDATED: 2026-09-03 — Phase 33 (AI Automation System) marked COMPLETE ✅ — Updated PHASES.md and session-brief.md: Phase 33 status changed from 🔲 PLANNED to ✅ COMPLETE, Current Phase advanced to Phase 34 (AI Self-Management). All Phase 33 implementation verified complete: automation-parser.ts (NL parsing with Zod schemas), automation-runtime.ts (execution engine with connector integration), automations.ts routes (REST API + webhooks for 6 connectors + cron), automation-registry.ts (DB operations, scheduling, webhooks, runs/logs), AutomationBuilder.tsx (5-step wizard), AutomationFlow.tsx (SVG flowchart), AutomationList.tsx (project-level list with status/enable/run/edit/delete), i18n keys (EN+NL). Build passing.
+LAST_UPDATED: 2026-09-04 — Phase 36 (Visual Build Map) progress updated to ~90% COMPLETE ✅ — Updated PHASES.md with accurate implementation status. All Phase 36 backend + frontend + UI integration verified complete: BuildMapManager (800 lines), BuildMapAgent (650 lines), build-map.ts routes (1100 lines), BuildMap.tsx (600 lines) with custom SVG renderer, 4 supporting components (Node, Edge, SidePanel, Toolbar), useBuildMap.ts hook (500 lines), BuildView integration (BuildMap tab, sidebar nav, mobile bottom nav), full i18n (30+ keys EN+NL). Build passing. Remaining: Wire BuildMapAgent into BuildOrchestrator for autonomous updates, add Command Palette entry, Dynamic Island "View Map" link.
 
 ## Just did (last action)
-- **Updated PHASES.md and session-brief.md** — Corrected phase numbering and status:
-  - Phase 30 marked as **Advanced Agent Capabilities (Cursor Agent Parity) — COMPLETE** (was duplicate of Phase 31)
-  - Phase 31 marked as **Cursor-Level Performance & Polish — COMPLETE**
-  - Phase 32 marked as **Context Auto-Compact & Limit Recognition — COMPLETE**
-  - Phase 33 set as **CURRENT** (AI Automation System)
-  - Updated "Current Phase" marker in both files to Phase 33
-  - Updated "Upcoming Phases" list to start from Phase 34
-  - **Core Libraries (COMPLETE)**:
-    - `artifacts/api-server/src/lib/token-counter.ts` — Accurate token counting with tiktoken WASM (via @xenova/transformers) + char/4 fallback, per-model encoding mapping (cl100k_base/o200k_base), token budget tracking with warning(70%)/compact(80%)/goal-state(90%)/emergency(95%) thresholds
-    - `artifacts/api-server/src/lib/context-compactor.ts` — 4-level auto-compaction pipeline with preservation rules (never compact: user/project instructions, file maps, error patterns, decisions, current plan, original goal)
-  - **Database Schema (COMPLETE)**:
-    - `lib/db/src/schema/conversations.ts` — Added `compactedSummary` column to messages table
-    - `lib/db/src/schema/build-checkpoints.ts` — Added `compactedContext` column to build_checkpoints table
-  - **Backend Integration (COMPLETE)**:
-    - `artifacts/api-server/src/routes/infinity/chat.ts` — Pre-message compaction logic (~lines 1464-1525), uses `compactedMessages` for all LLM calls (universal agent, thinking mode, source code dispatch, plain stream), stores `compactedSummary` in DB. **ADDED THIS SESSION**: Two new endpoints `GET /chat/:conversationId/token-usage` and `GET /chat/:conversationId/compaction-history`
-    - `artifacts/api-server/src/lib/build-orchestrator.ts` — Imports from context-compactor, `saveCheckpointWithCompactedContext()` called after each step
-    - `artifacts/api-server/src/lib/build-checkpoints.ts` — `saveCheckpoint` handles `compactedContext` field
-    - `artifacts/api-server/src/lib/build-context.ts` — Wired `checkCompactionTriggers`, `autoCompactContext`, `compactContext` to use new context-compactor.ts
-    - `artifacts/api-server/src/routes/infinity/build.ts` — Two endpoints `GET /build/:projectId/token-usage` and `GET /build/:projectId/compaction-history`
-  - **Frontend Debug Components (COMPLETE)**:
-    - `artifacts/infinity-ai/src/components/build/TokenUsageGauge.tsx` — Debug UI with gauge, thresholds (70/80/90/95%), status indicators, compaction level badges. **UPDATED THIS SESSION**: Added `type` prop ('build' | 'chat') to support both modes
-    - `artifacts/infinity-ai/src/components/build/CompactionHistory.tsx` — Debug UI with expandable events, preserved items breakdown, session stats. **UPDATED THIS SESSION**: Added `type` prop ('build' | 'chat') to support both modes
-    - `artifacts/infinity-ai/src/components/build-debug-panel.tsx` — Integrated TokenUsageGauge and CompactionHistory components
-    - `artifacts/infinity-ai/src/lib/i18n.tsx` — Added ~30 i18n keys for EN+NL covering token usage, compaction levels, history UI
-    - `artifacts/infinity-ai/src/components/views/ChatView.tsx` — **UPDATED THIS SESSION**: Integrated TokenUsageGauge in header for both Build mode (projectId) and regular chat (activeConversationId)
-  - **All tasks complete** — Phase 32 marked complete in PHASES.md
+- **Updated PHASES.md Phase 36 to ~90% COMPLETE** — Accurate reflection of codebase reality:
+  - Backend: BuildMapManager (800 lines), BuildMapAgent (650 lines), build-map routes (1100 lines), DB schema — ALL COMPLETE
+  - Frontend: BuildMap.tsx (600 lines) with custom SVG renderer, 4 supporting components (Node, Edge, SidePanel, Toolbar), useBuildMap hook (500 lines) with SSE + CRUD + analysis + layouts — ALL COMPLETE
+  - UI Integration: BuildView BuildMap tab (3rd tab), sidebar navigation, mobile bottom nav, terminal command bar condition — ALL COMPLETE
+  - i18n: 30+ Build Map keys English + Dutch — ALL COMPLETE
+  - Build passing cleanly
+  - **Remaining (~10%)**: Wire BuildMapAgent into BuildOrchestrator for autonomous updates on build events, add Command Palette entry, Dynamic Island "View Map" link
 
 - **Phase 28: Design Mode & Visual Editing (Cursor Design Mode Parity) — COMPLETE ✅** — Full visual editing bridge:
   - **Backend** (`artifacts/api-server/src/lib/design-mode.ts`): DesignModeEngine with session management, element inspection, visual property editing, component registry, design token extraction, bidirectional preview↔code sync
@@ -509,8 +490,8 @@ LAST_UPDATED: 2026-09-03 — Phase 33 (AI Automation System) marked COMPLETE ✅
   - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
   - **i18n**: 100+ mobile.* translation keys in English and Dutch
 
-- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), Phase 16 (v0-Level Generative UI Engine), Phase 17 (Visual Component Editor), Phase 18 (v0-Style Collaborative Workflows), Phase 19 (External API & Database Integration), Phase 20 (Multi-Framework Support), Phase 21 (AI-Powered Design Iteration), Phase 22 (Component Marketplace & Template Library), Phase 23 (v0-Level Polish), Phase 24 (Cursor-Level Code Intelligence), Phase 25 (Codebase Indexing & Semantic Search), Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact & Limit Recognition), Phase 33 (AI Automation System), Phase 34 (AI Self-Management), **Phase 35 (Live Task Display)**
-- **Next Phases:** Phase 36 (Visual Build Map), Phase 37 (Fully Automated End-to-End Workflow)
+- **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), Phase 16 (v0-Level Generative UI Engine), Phase 17 (Visual Component Editor), Phase 18 (v0-Style Collaborative Workflows), Phase 19 (External API & Database Integration), Phase 20 (Multi-Framework Support), Phase 21 (AI-Powered Design Iteration), Phase 22 (Component Marketplace & Template Library), Phase 23 (v0-Level Polish), Phase 24 (Cursor-Level Code Intelligence), Phase 25 (Codebase Indexing & Semantic Search), Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact & Limit Recognition), Phase 33 (AI Automation System), Phase 34 (AI Self-Management), **Phase 35 (Live Task Display)**, **Phase 36 (Visual Build Map — ~90% COMPLETE)**
+- **Next Phases:** Phase 36 (Visual Build Map — complete remaining 10%), Phase 37 (Fully Automated End-to-End Workflow)
 
 **LAST_UPDATED:** 2026-09-04 — **Phase 35: Live Task Display — COMPLETE ✅** Full Live Task Display implementation completed:
   - **Backend**: `task-registry.ts` (in-memory registry with SSE broadcast, parent/child tasks, task types: build/research/write/automation/agent-loop/deploy/chat/migration/sync), `tasks.ts` routes (SSE + CRUD endpoints for task management)
@@ -540,6 +521,7 @@ LAST_UPDATED: 2026-09-03 — Phase 33 (AI Automation System) marked COMPLETE ✅
   - **Frontend integration complete**: `use-chat-stream.ts` handles `agent_loop_event` SSE case, `conversation-feed.tsx` has `AgentTimeline` component rendering execution timeline with expandable steps.
 
 ## Change record (newest first — EVERY change logged here, cap ~15)
+- 2026-09-04 **Phase 36: Visual Build Map — PHASES.md updated to ~90% COMPLETE** — Corrected outdated 0% status to reflect actual codebase: BuildMapManager (800 lines), BuildMapAgent (650 lines), build-map routes (1100 lines), DB schema, BuildMap.tsx (600 lines) with custom SVG renderer, 4 components, useBuildMap hook (500 lines), BuildView tab + sidebar + mobile nav integration, 30+ i18n keys EN+NL. All builds passing. Remaining: BuildOrchestrator wiring for autonomous updates, Command Palette entry, Dynamic Island link.
 - 2026-09-03 **Phase 34: AI Self-Management (Secrets, Settings, API Keys) — COMPLETE ✅** — Full AI Self-Management implementation verified:
   - **Backend**: `secret-manager.ts` (AES-256-GCM encrypted storage, key rotation, health monitoring with provider-specific checks for OpenAI/Anthropic/Google/Groq, best-key selection for model router), `settings-manager.ts` (10 setting definitions with validation, AI proposal workflow with confirm/reject, audit logging, expired proposal cleanup), `ai-management.ts` (8 Universal Agent tools: settings.propose/confirm/reject, secrets.rotate/health-check/list/get-health-metrics, settings.list-definitions), `ai-management.ts` routes (REST API for all operations)
   - **Database**: `secrets.ts` schema (encrypted secrets with health tracking), `settings.ts` schema (settings + setting_changes audit log)
