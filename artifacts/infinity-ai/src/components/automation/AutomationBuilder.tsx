@@ -8,18 +8,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from "react";
-import { Button, IconButton } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Input";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/Card";
-import { Tabs, type Tab } from "@/components/ui/Tabs";
-import { Badge } from "@/components/ui/Badge";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
-import { Toast, Toaster } from "@/components/ui/Toast";
-import { Switch } from "@/components/ui/Switch";
-import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
-import { ScrollArea } from "@/components/ui/ScrollArea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { Button, IconButton, Input, Textarea, Card, CardHeader, CardTitle, CardContent, CardFooter, Tabs, type Tab, Badge, Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Toast, Toaster, Switch, Label, Separator, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import {
   Zap,

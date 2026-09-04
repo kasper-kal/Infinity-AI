@@ -5,6 +5,57 @@
 import React, { forwardRef, useState, useMemo, ReactNode, CSSProperties } from "react";
 import "./Table.css";
 
+// Sub-components for Radix-style compound component API
+export interface TableHeaderProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
+export const TableHeader = forwardRef<HTMLTableSectionElement, TableHeaderProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <thead ref={ref} className={`table__head ${className}`} {...props}>
+      {children}
+    </thead>
+  )
+);
+TableHeader.displayName = "TableHeader";
+
+export interface TableBodyProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
+export const TableBody = forwardRef<HTMLTableSectionElement, TableBodyProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <tbody ref={ref} className={`table__body ${className}`} {...props}>
+      {children}
+    </tbody>
+  )
+);
+TableBody.displayName = "TableBody";
+
+export interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {}
+export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <tr ref={ref} className={`table__row ${className}`} {...props}>
+      {children}
+    </tr>
+  )
+);
+TableRow.displayName = "TableRow";
+
+export interface TableCellProps extends React.HTMLAttributes<HTMLTableCellElement> {}
+export const TableCell = forwardRef<HTMLTableCellElement, TableCellProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <td ref={ref} className={`table__cell ${className}`} {...props}>
+      {children}
+    </td>
+  )
+);
+TableCell.displayName = "TableCell";
+
+export interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {}
+export const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <th ref={ref} className={`table__cell table__header-cell ${className}`} {...props}>
+      {children}
+    </th>
+  )
+);
+TableHead.displayName = "TableHead";
+
 export interface Column<T> {
   key: string;
   header: string;

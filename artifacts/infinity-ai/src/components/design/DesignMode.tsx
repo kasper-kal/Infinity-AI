@@ -22,18 +22,7 @@ import { VisualPropertyEditor } from "./VisualPropertyEditor";
 import { ComponentPlayground } from "./ComponentPlayground";
 import { useDesignMode } from "../../hooks/useDesignMode";
 import { useI18n } from "../../lib/i18n";
-import { Button, IconButton } from "../ui/Button";
-import { Card } from "../ui/Card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/Tabs";
-import { ScrollArea } from "@/components/ui/ScrollArea";
-import { Tooltip } from "../ui/Tooltip";
-import { Separator } from "../ui/Separator";
-import { Badge } from "../ui/Badge";
-import { Slider } from "../ui/Slider";
-import { Input } from "../ui/Input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
-import { Checkbox } from "../ui/Checkbox";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "../ui/Sheet";
+import { Button, IconButton, Card, Tabs, TabsList, TabsTrigger, TabsContent, ScrollArea, Tooltip, Separator, Badge, Slider, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Checkbox, Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui";
 
 // ============================================================================
 // Types

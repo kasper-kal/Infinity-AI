@@ -49,6 +49,7 @@ import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
 import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
+import { BuildMap } from "@/components/build-map/BuildMap";
 import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon } from "lucide-react";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -97,8 +98,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // TABS: Preview + Overview + Advanced Agent
-  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'advancedAgent'>('preview');
+  // TABS: Preview + Overview + Build Map + Advanced Agent
+  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'buildMap' | 'advancedAgent'>('preview');
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -111,7 +112,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state - simplified
-  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview'>('preview');
+  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap'>('preview');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -248,6 +249,16 @@ export const BuildView: React.FC<BuildViewProps> = ({
           </svg>
         ),
       },
+      {
+        id: 'buildMap',
+        label: t('build.tabs.buildMap'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M9 9h6v6H9z" />
+          </svg>
+        ),
+      },
     ];
 
     return (
@@ -324,10 +335,15 @@ export const BuildView: React.FC<BuildViewProps> = ({
               />
             </div>
           )}
+          {bottomNavTab === 'buildMap' && (
+            <div className="flex-1 flex flex-col h-full">
+              <BuildMap projectId={projectId ?? ''} />
+            </div>
+          )}
         </div>
 
         {/* Command input bar for terminal */}
-        {bottomNavTab === 'overview' && (
+        {(bottomNavTab === 'overview' || bottomNavTab === 'buildMap') && (
           <div className="shrink-0 border-t border-border-primary bg-bg-elevated/50 backdrop-blur-xl p-3 safe-area-inset-bottom">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-sm font-mono">$</span>
@@ -460,15 +476,16 @@ export const BuildView: React.FC<BuildViewProps> = ({
           <h1 className="text-xl font-semibold text-foreground">{t('build.title')}</h1>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            {/* TABS: Preview + Overview + Advanced Agent */}
+            {/* TABS: Preview + Overview + Build Map + Advanced Agent */}
             <Tabs
               tabs={[
                 { id: 'preview', label: t('build.tabs.preview'), icon: <Monitor className="w-4 h-4" /> },
                 { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" /> },
+                { id: 'buildMap', label: t('build.tabs.buildMap'), icon: <GitBranch className="w-4 h-4" /> },
                 { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" /> },
               ]}
               activeTab={buildTab}
-              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview' | 'advancedAgent')}
+              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview' | 'buildMap' | 'advancedAgent')}
               variant="pills"
               className="max-w-md"
             />
@@ -551,6 +568,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 active={buildTab === 'overview'}
               />
               <AppShellSidebarNavItem
+                label={t('build.tabs.buildMap')}
+                icon={<GitBranch className="w-4 h-4" />}
+                onClick={() => setBuildTab('buildMap')}
+                active={buildTab === 'buildMap'}
+              />
+              <AppShellSidebarNavItem
                 label={t('overview.tabs.security')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>}
                 onClick={() => { setBuildTab('overview'); }}
@@ -627,6 +650,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
               onCreateCheckpoint={onCreateCheckpoint}
               onRollback={onRollback}
             />
+          )}
+          {buildTab === 'buildMap' && (
+            <div className="flex-1 flex flex-col h-full">
+              <BuildMap projectId={projectId ?? ''} />
+            </div>
           )}
           {buildTab === 'advancedAgent' && (
             <div className="flex flex-col h-full">

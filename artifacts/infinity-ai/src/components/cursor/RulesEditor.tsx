@@ -520,8 +520,9 @@ export function RulesEditor({ projectRoot, onRulesChange }: RulesEditorProps) {
           )}
         </ToastViewport>
       </Card>
-    );
-  }
+    </ToastProvider>
+  );
+}
 
 function RuleCard({
   rule,

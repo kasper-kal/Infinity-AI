@@ -16,3 +16,5 @@ export { useMobile } from './use-mobile';
 export { useToast } from './use-toast';
 export { useTerminalBridge } from './useTerminalBridge';
 export { useDesignMode } from './useDesignMode';
+export { useLiveTaskDisplay } from './useLiveTaskDisplay';
+export { useBuildMap, type BuildMapGraph, type BuildMapNode, type BuildMapEdge, type BuildMapSuggestion, type BuildMapAnalysis, type BuildMapNodeType, type BuildMapNodeStatus, type BuildMapEdgeType, type BuildMapAssignee, type BuildMapLayoutAlgorithm } from './useBuildMap';

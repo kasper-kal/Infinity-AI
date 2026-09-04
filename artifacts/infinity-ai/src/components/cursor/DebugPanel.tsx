@@ -5,21 +5,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiRequest } from "@/lib/api";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { Textarea } from "../ui/Textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/Tabs";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../ui/Card";
-import { Badge } from "../ui/Badge";
-import { ScrollArea } from "../ui/ScrollArea";
-import { Separator } from "../ui/Separator";
-import { Checkbox } from "../ui/Checkbox";
-import { Label } from "../ui/Label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/Dialog";
-import { Alert, AlertTitle, AlertDescription } from "../ui/Alert";
-import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "../ui/Table";
-import { useToast } from "../../hooks/useToast";
+import { Button, Input, Textarea, Tabs, TabsList, TabsTrigger, TabsContent, Card, CardHeader, CardTitle, CardContent, CardFooter, Badge, ScrollArea, Separator, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Alert, AlertTitle, AlertDescription, Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui";
+import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "../../lib/i18n";
 
 interface DebugSession {

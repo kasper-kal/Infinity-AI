@@ -9,11 +9,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Button, IconButton } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { Slider } from '@/components/ui/Slider';
-import { Badge, Tabs, TabsList, TabsTrigger, TabsContent, Separator } from '@/components/ui';
+import { Button, IconButton, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Badge, Tabs, TabsList, TabsTrigger, TabsContent, Separator, ScrollArea } from '@/components/ui';
 import {
   Palette,
   Type,
@@ -293,8 +289,8 @@ export const VisualPropertyEditor: React.FC<VisualPropertyEditorProps> = ({
         <div className="header-left flex items-center gap-2">
           <h3>Properties</h3>
           <Badge variant="outline" className="element-type-badge">
-            <{element.tagName.toLowerCase()}>
-          </Badge>
+              {element.tagName.toLowerCase()}
+            </Badge>
         </div>
       </div>
 
@@ -686,8 +682,6 @@ const PropRow: React.FC<PropRowProps> = ({
   );
 };
 
-// Need to import ScrollArea
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { MousePointer } from 'lucide-react';
 
 export default VisualPropertyEditor;

@@ -506,8 +506,9 @@ export function ModelPreferences({ projectRoot, onPreferencesChange }: ModelPref
           )}
         </ToastViewport>
       </Card>
-    );
-  }
+    </ToastProvider>
+  );
+}
 
 function PreferencesTable({
   preferences,
@@ -758,7 +759,7 @@ function ModelsBrowser({
                   );
                 })}
               </div>
-            </CardContent          </Card>
+            </CardContent></Card>
         );
       })}
     </div>

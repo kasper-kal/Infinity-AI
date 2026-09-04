@@ -187,6 +187,61 @@ export const AlertDialog: React.FC<AlertDialogProps> = ({
   );
 };
 
+/** Dialog sub-components for Radix-compatible API */
+export interface DialogContentProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(
+  ({ children, className = "", ...props }, ref) => (
+    <div ref={ref} className={`dialog__content ${className}`} {...props}>
+      {children}
+    </div>
+  )
+);
+DialogContent.displayName = "DialogContent";
+
+export interface DialogHeaderProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const DialogHeader: React.FC<DialogHeaderProps> = ({ children, className = "" }) => (
+  <div className={`dialog__header ${className}`}>{children}</div>
+);
+
+export interface DialogTitleProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const DialogTitle: React.FC<DialogTitleProps> = ({ children, className = "" }) => (
+  <h2 id="dialog-title" className={`dialog__title ${className}`}>
+    {children}
+  </h2>
+);
+
+export interface DialogDescriptionProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const DialogDescription: React.FC<DialogDescriptionProps> = ({ children, className = "" }) => (
+  <p id="dialog-description" className={`dialog__description ${className}`}>
+    {children}
+  </p>
+);
+
+export interface DialogFooterProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const DialogFooter: React.FC<DialogFooterProps> = ({ children, className = "" }) => (
+  <div className={`dialog__footer ${className}`}>{children}</div>
+);
+
 /** Drawer — slide-in panel from edge */
 export interface DrawerProps {
   open: boolean;

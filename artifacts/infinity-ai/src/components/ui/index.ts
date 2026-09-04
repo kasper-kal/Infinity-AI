@@ -31,6 +31,18 @@ export {
   SelectScrollUpButton as RadixSelectScrollUpButton,
   SelectScrollDownButton as RadixSelectScrollDownButton,
 } from "./select";
+// Also export Select sub-components directly for Radix-compatible usage
+export {
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+} from "./select";
 export type {
   SelectProps as RadixSelectProps,
   SelectGroupProps as RadixSelectGroupProps,
@@ -43,20 +55,20 @@ export type {
 } from "./select";
 
 // Dialog
-export { Dialog, AlertDialog, Drawer } from "./Dialog";
-export type { DialogProps, AlertDialogProps, DrawerProps } from "./Dialog";
+export { Dialog, AlertDialog, Drawer, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./Dialog";
+export type { DialogProps, AlertDialogProps, DrawerProps, DialogContentProps, DialogHeaderProps, DialogTitleProps, DialogDescriptionProps, DialogFooterProps } from "./Dialog";
 
 // Sheet
 export { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription, SheetTrigger, SheetClose, SheetOverlay, SheetPortal } from "./sheet";
 export type { SheetProps, SheetContentProps, SheetHeaderProps, SheetFooterProps, SheetTitleProps, SheetDescriptionProps, SheetTriggerProps, SheetCloseProps, SheetOverlayProps, SheetPortalProps } from "./sheet";
 
 // Tooltip
-export { Tooltip, Toast, ToastContainer, useToast } from "./Tooltip";
+export { Tooltip, Toast, ToastContainer, useToast, ToastProvider, ToastViewport, ToastTitle, ToastDescription, ToastAction, ToastClose } from "./Tooltip";
 export type { TooltipProps, ToastProps, ToastContainerProps } from "./Tooltip";
 
 // Table
-export { Table, VirtualizedTable } from "./Table";
-export type { TableProps, VirtualizedTableProps, Column, RowAction } from "./Table";
+export { Table, VirtualizedTable, TableHeader, TableBody, TableRow, TableCell, TableHead } from "./Table";
+export type { TableProps, VirtualizedTableProps, Column, RowAction, TableHeaderProps, TableBodyProps, TableRowProps, TableCellProps, TableHeadProps } from "./Table";
 
 // Tree
 export { Tree, FileTree } from "./Tree";
@@ -102,9 +114,57 @@ export type { CheckboxProps } from "./checkbox";
 export { Label } from "./label";
 export type { LabelProps } from "./label";
 
+// DropdownMenu
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+} from "./dropdown-menu";
+export type {
+  DropdownMenuProps,
+  DropdownMenuTriggerProps,
+  DropdownMenuContentProps,
+  DropdownMenuItemProps,
+  DropdownMenuSeparatorProps,
+  DropdownMenuLabelProps,
+  DropdownMenuCheckboxItemProps,
+  DropdownMenuRadioItemProps,
+  DropdownMenuShortcutProps,
+  DropdownMenuGroupProps,
+  DropdownMenuPortalProps,
+  DropdownMenuSubProps,
+  DropdownMenuSubTriggerProps,
+  DropdownMenuSubContentProps,
+  DropdownMenuRadioGroupProps,
+} from "./dropdown-menu";
+
+// Popover
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./popover";
+export type { } from "./popover";
+
 // Alert
 export { Alert, AlertTitle, AlertDescription } from "./alert";
 export type { AlertProps, AlertTitleProps, AlertDescriptionProps } from "./alert";
+
+// Skeleton
+export { Skeleton } from "./skeleton";
+export type { SkeletonProps } from "./skeleton";
+
+// Switch
+export { Switch } from "./switch";
+export type { SwitchProps } from "./switch";
 
 // Mobile Components (re-export for convenience)
 export {

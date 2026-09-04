@@ -281,6 +281,59 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
     </div>
   );
 };
+/** Toast compound components (Radix UI compatible) */
+export const ToastProvider: React.FC<{
+  children: ReactNode;
+}> = ({ children }) => <>{children}</>;
+
+export const ToastViewport: React.FC<{
+  children: ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => (
+  <div className={`toast__viewport ${className}`} data-radix-toast-viewport>
+    {children}
+  </div>
+);
+
+export const ToastTitle: React.FC<{
+  children: ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => (
+  <div className={`toast__title ${className}`} data-radix-toast-title>
+    {children}
+  </div>
+);
+
+export const ToastDescription: React.FC<{
+  children: ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => (
+  <div className={`toast__description ${className}`} data-radix-toast-description>
+    {children}
+  </div>
+);
+
+export const ToastAction: React.FC<{
+  children: ReactNode;
+  className?: string;
+  onClick: () => void;
+}> = ({ children, className = "", onClick }) => (
+  <button className={`toast__action ${className}`} onClick={onClick}>
+    {children}
+  </button>
+);
+
+export const ToastClose: React.FC<{
+  className?: string;
+  onClick: () => void;
+}> = ({ className = "", onClick }) => (
+  <button className={`toast__close ${className}`} onClick={onClick} aria-label="Close">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  </button>
+);
+
 /** useToast hook — programmatic toast management */
 export function useToast() {
   const [toasts, setToasts] = useState<Array<ToastProps & { id: string }>>([]);

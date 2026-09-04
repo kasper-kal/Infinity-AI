@@ -453,9 +453,26 @@ const en = {
   "mode.build": "Build Mode",
   "mode.buildDesc": "Infinity Build — code generation, preview, deploy, security (auto codebase context)",
 
-  /* Build View — Two Tabs Only */
+  /* Build View — Three Tabs (Preview, Overview, Build Map) */
   "build.tabs.preview": "Preview",
   "build.tabs.overview": "Overview",
+  "build.tabs.buildMap": "Build Map",
+
+  /* Build Map (Phase 36) */
+  "buildMap.title": "Visual Build Map",
+  "buildMap.subtitle": "AI-managed visual roadmap of your entire project",
+  "buildMap.noProject": "No project selected",
+  "buildMap.loading": "Loading build map…",
+  "buildMap.error": "Failed to load build map",
+  "buildMap.retry": "Retry",
+  "buildMap.emptyTitle": "Empty Build Map",
+  "buildMap.emptyDescription": "No nodes yet. Add a feature or component to start mapping your project.",
+  "buildMap.addNode": "Add Node",
+  "buildMap.addFeature": "Add Feature",
+  "buildMap.details": "Details",
+  "buildMap.showDetails": "Show Details",
+  "buildMap.newNode": "New Node",
+  "buildMap.newFeature": "New Feature",
 
   /* Overview Sub-tabs */
   "overview.tabs.progress": "Progress",
@@ -2844,9 +2861,26 @@ const nl: Record<keyof typeof en, string> = {
   "mode.build": "Build Modus",
   "mode.buildDesc": "Infinity Build — code generatie, preview, deploy, beveiliging (auto codebase context)",
 
-  /* Build View — Two Tabs Only */
+  /* Build View — Three Tabs (Preview, Overview, Build Map) */
   "build.tabs.preview": "Preview",
   "build.tabs.overview": "Overzicht",
+  "build.tabs.buildMap": "Build Map",
+
+  /* Build Map (Phase 36) */
+  "buildMap.title": "Visuele Build Map",
+  "buildMap.subtitle": "AI-beheerde visuele roadmap van je hele project",
+  "buildMap.noProject": "Geen project geselecteerd",
+  "buildMap.loading": "Build map laden…",
+  "buildMap.error": "Kan build map niet laden",
+  "buildMap.retry": "Opnieuw proberen",
+  "buildMap.emptyTitle": "Lege Build Map",
+  "buildMap.emptyDescription": "Nog geen nodes. Voeg een feature of component toe om je project te mappen.",
+  "buildMap.addNode": "Node Toevoegen",
+  "buildMap.addFeature": "Feature Toevoegen",
+  "buildMap.details": "Details",
+  "buildMap.showDetails": "Details Tonen",
+  "buildMap.newNode": "Nieuwe Node",
+  "buildMap.newFeature": "Nieuwe Feature",
 
   /* Overview Sub-tabs */
   "overview.tabs.progress": "Voortgang",
