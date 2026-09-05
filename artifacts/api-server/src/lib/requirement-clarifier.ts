@@ -1,174 +1,172 @@
-/**
- * Requirement Clarifier — Phase 37
- *
- * Interactive requirement discovery: Natural language goal → targeted questions → PRD
- * AI asks max 5 questions to reduce ambiguity, generates structured PRD
- */
-
 import { z } from "zod";
-import { getLLMAdapter } from "./llm-adapter.js";
+import { subagents } from "./subagents.js";
+import { eventEmitter } from "./event-emitter.js";
 
 // ============================================================================
-// Schemas
+// SCHEMAS
 // ============================================================================
 
 export const ClarificationQuestionSchema = z.object({
   id: z.string(),
-  type: z.enum(["radio", "multi_select", "text", "number", "boolean", "scale"]),
+  type: z.enum(["single_choice", "multi_choice", "text", "number", "boolean", "scale"]),
   question: z.string(),
   description: z.string().optional(),
   options: z.array(z.object({
     value: z.string(),
     label: z.string(),
     description: z.string().optional(),
-    recommended: z.boolean().default(false),
   })).optional(),
   required: z.boolean().default(true),
-  dependsOn: z.string().optional(),
   validation: z.object({
     min: z.number().optional(),
     max: z.number().optional(),
     pattern: z.string().optional(),
-    customMessage: z.string().optional(),
+    custom: z.string().optional(), // JS expression for custom validation
   }).optional(),
+  dependsOn: z.object({
+    questionId: z.string(),
+    value: z.string(),
+  }).optional(), // Conditional question
 });
 
-export type ClarificationQuestion = z.infer<typeof ClarificationQuestionSchema>;
-
-export const PRDSchema = z.object({
+export const ClarificationSessionSchema = z.object({
   id: z.string(),
   goal: z.string(),
-  answers: z.record(z.any()),
-  requirements: z.array(z.object({
+  status: z.enum(["active", "completed", "abandoned"]),
+  questions: z.array(ClarificationQuestionSchema),
+  answers: z.record(z.unknown()),
+  prd: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  completedAt: z.date().optional(),
+});
+
+export const PRDSchema = z.object({
+  projectName: z.string(),
+  elevatorPitch: z.string(),
+  targetAudience: z.string(),
+  coreProblem: z.string(),
+  keyFeatures: z.array(z.object({
     id: z.string(),
     title: z.string(),
     description: z.string(),
     priority: z.enum(["must", "should", "could", "wont"]),
-    category: z.enum(["functional", "non-functional", "technical", "ui", "security", "performance", "accessibility", "integration"]),
+    userStory: z.string(),
     acceptanceCriteria: z.array(z.string()),
-    dependencies: z.array(z.string()).default([]),
-    estimatedEffort: z.enum(["xs", "s", "m", "l", "xl"]).optional(),
+    technicalNotes: z.string().optional(),
   })),
-  techStack: z.object({
-    framework: z.string(),
-    database: z.string(),
-    auth: z.string(),
-    payments: z.string().optional(),
-    hosting: z.string(),
-    language: z.string().default("typescript"),
-    styling: z.string().default("tailwind"),
-    testing: z.string().default("vitest"),
-    orm: z.string().optional(),
-    apiStyle: z.enum(["rest", "graphql", "trpc", "rpc"]).optional(),
-  }).optional(),
   userFlows: z.array(z.object({
-    id: z.string(),
     name: z.string(),
     steps: z.array(z.string()),
     entryPoints: z.array(z.string()),
-    successCriteria: z.string(),
-  })).default([]),
+    exitPoints: z.array(z.string()),
+  })),
   dataModel: z.array(z.object({
-    name: z.string(),
+    entity: z.string(),
     fields: z.array(z.object({
       name: z.string(),
       type: z.string(),
       required: z.boolean(),
-      unique: z.boolean().default(false),
-      indexed: z.boolean().default(false),
-      relation: z.string().optional(),
+      description: z.string().optional(),
+      relations: z.array(z.string()).optional(),
     })),
-  })).default([]),
+  })),
   apiEndpoints: z.array(z.object({
-    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+    method: z.string(),
     path: z.string(),
     description: z.string(),
+    requestBody: z.record(z.unknown()).optional(),
+    response: z.record(z.unknown()).optional(),
     auth: z.boolean().default(true),
-    requestSchema: z.string().optional(),
-    responseSchema: z.string().optional(),
-  })).default([]),
-  uiComponents: z.array(z.object({
-    name: z.string(),
-    type: z.enum(["page", "component", "layout", "hook", "utility"]),
-    description: z.string(),
-    props: z.array(z.string()).default([]),
-    dependencies: z.array(z.string()).default([]),
-  })).default([]),
+  })),
   nonFunctionalRequirements: z.object({
-    performance: z.array(z.string()).default([]),
-    security: z.array(z.string()).default([]),
-    accessibility: z.array(z.string()).default([]),
-    scalability: z.array(z.string()).default([]),
-    reliability: z.array(z.string()).default([]),
-    maintainability: z.array(z.string()).default([]),
-  }).default({}),
-  createdAt: z.number(),
-  updatedAt: z.number(),
-  version: z.number().default(1),
-  approved: z.boolean().default(false),
-  approvedAt: z.number().optional(),
-  approvedBy: z.string().optional(),
+    performance: z.array(z.string()).optional(),
+    security: z.array(z.string()).optional(),
+    scalability: z.array(z.string()).optional(),
+    accessibility: z.array(z.string()).optional(),
+    compliance: z.array(z.string()).optional(),
+  }).optional(),
+  constraints: z.object({
+    budget: z.string().optional(),
+    timeline: z.string().optional(),
+    team: z.string().optional(),
+    techStack: z.record(z.string()).optional(),
+    integrations: z.array(z.string()).optional(),
+  }).optional(),
+  risks: z.array(z.object({
+    risk: z.string(),
+    likelihood: z.enum(["low", "medium", "high"]),
+    impact: z.enum(["low", "medium", "high"]),
+    mitigation: z.string(),
+  })).optional(),
+  successMetrics: z.array(z.object({
+    metric: z.string(),
+    target: z.string(),
+    measurement: z.string(),
+  })).optional(),
 });
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export type ClarificationQuestion = z.infer<typeof ClarificationQuestionSchema>;
+export type ClarificationSession = z.infer<typeof ClarificationSessionSchema>;
 export type PRD = z.infer<typeof PRDSchema>;
 
-export const ClarificationSessionSchema = z.object({
-  id: z.string(),
-  goal: string,
-  projectId: string,
-  questions: z.array(ClarificationQuestionSchema),
-  answers: z.record(z.any()),
-  currentQuestionIndex: z.number().default(0),
-  status: z.enum(["active", "completed", "abandoned"]).default("active"),
-  prd: PRDSchema.optional(),
-  createdAt: z.number(),
-  updatedAt: z.number(),
-  completedAt: z.number().optional(),
-});
-
-export type ClarificationSession = z.infer<typeof ClarificationSessionSchema>;
-
 // ============================================================================
-// Question Templates by Domain
+// QUESTION TEMPLATES
 // ============================================================================
 
-const DOMAIN_QUESTION_TEMPLATES: Record<string, ClarificationQuestion[]> = {
+const QUESTION_TEMPLATES: Record<string, ClarificationQuestion[]> = {
   saas: [
     {
       id: "target_audience",
       type: "text",
-      question: "Who is the primary target audience for this SaaS?",
-      description: "e.g., freelancers, small businesses, enterprise teams, developers",
+      question: "Who is your primary target audience?",
+      description: "Describe the user persona: role, industry, company size, pain points",
       required: true,
     },
     {
-      id: "core_value_prop",
+      id: "core_problem",
       type: "text",
-      question: "What is the core value proposition in one sentence?",
-      description: "The primary problem you solve and for whom",
+      question: "What is the core problem you're solving?",
+      description: "One sentence describing the main pain point",
       required: true,
     },
     {
       id: "pricing_model",
-      type: "radio",
+      type: "single_choice",
       question: "What pricing model do you envision?",
       options: [
-        { value: "freemium", label: "Freemium", description: "Free tier + paid upgrades", recommended: true },
-        { value: "subscription", label: "Subscription", description: "Monthly/annual billing" },
+        { value: "freemium", label: "Freemium", description: "Free tier + paid upgrades" },
+        { value: "subscription", label: "Subscription", description: "Monthly/annual recurring" },
         { value: "usage", label: "Usage-based", description: "Pay per use/seat/action" },
-        { value: "one_time", label: "One-time", description: "Lifetime license" },
+        { value: "one_time", label: "One-time", description: "Single payment, lifetime access" },
+        { value: "enterprise", label: "Enterprise", description: "Custom contracts, sales-led" },
       ],
       required: true,
     },
     {
-      id: "team_size",
-      type: "radio",
-      question: "What's your expected team size at launch?",
+      id: "multi_tenant",
+      type: "boolean",
+      question: "Do you need multi-tenancy (organizations/workspaces)?",
+      description: "Multiple isolated customer environments in one deployment",
+      required: true,
+    },
+    {
+      id: "integrations",
+      type: "multi_choice",
+      question: "Which third-party integrations are essential?",
       options: [
-        { value: "solo", label: "Solo founder", description: "1 person", recommended: true },
-        { value: "small", label: "Small team", description: "2-5 people" },
-        { value: "medium", label: "Medium team", description: "6-20 people" },
-        { value: "large", label: "Large team", description: "20+ people" },
+        { value: "stripe", label: "Stripe", description: "Payments & subscriptions" },
+        { value: "github", label: "GitHub", description: "Repositories, issues, actions" },
+        { value: "slack", label: "Slack", description: "Notifications, bots, workflows" },
+        { value: "linear", label: "Linear", description: "Issue tracking, project management" },
+        { value: "notion", label: "Notion", description: "Documentation, wikis" },
+        { value: "sendgrid", label: "SendGrid/Resend", description: "Transactional email" },
+        { value: "twilio", label: "Twilio", description: "SMS, voice, video" },
+        { value: "segment", label: "Segment", description: "Analytics, event tracking" },
       ],
       required: false,
     },
@@ -176,25 +174,24 @@ const DOMAIN_QUESTION_TEMPLATES: Record<string, ClarificationQuestion[]> = {
   marketplace: [
     {
       id: "marketplace_type",
-      type: "radio",
+      type: "single_choice",
       question: "What type of marketplace?",
       options: [
-        { value: "service", label: "Service marketplace", description: "Freelancers, gig workers", recommended: true },
-        { value: "product", label: "Product marketplace", description: "Physical/digital goods" },
-        { value: "rental", label: "Rental marketplace", description: "Equipment, space, vehicles" },
+        { value: "service", label: "Service Marketplace", description: "Freelancers, gigs, bookings" },
+        { value: "product", label: "Product Marketplace", description: "Physical/digital goods" },
+        { value: "rental", label: "Rental/Sharing", description: "Equipment, space, vehicles" },
         { value: "hybrid", label: "Hybrid", description: "Multiple types" },
       ],
       required: true,
     },
     {
-      id: "transaction_flow",
-      type: "radio",
-      question: "How do transactions work?",
+      id: "payment_flow",
+      type: "single_choice",
+      question: "How should payments flow?",
       options: [
-        { value: "platform_fee", label: "Platform takes fee", description: "Percentage of each transaction", recommended: true },
-        { value: "subscription", label: "Subscription", description: "Sellers pay monthly" },
-        { value: "lead_gen", label: "Lead generation", description: "Charge for leads/contacts" },
-        { value: "featured", label: "Featured listings", description: "Pay for visibility" },
+        { value: "platform", label: "Platform takes commission", description: "Money flows through platform" },
+        { value: "direct", label: "Direct peer-to-peer", description: "Platform facilitates only" },
+        { value: "escrow", label: "Escrow", description: "Hold funds until delivery" },
       ],
       required: true,
     },
@@ -202,74 +199,49 @@ const DOMAIN_QUESTION_TEMPLATES: Record<string, ClarificationQuestion[]> = {
   dashboard: [
     {
       id: "data_sources",
-      type: "multi_select",
+      type: "multi_choice",
       question: "What data sources need to be visualized?",
       options: [
         { value: "database", label: "PostgreSQL/MySQL", description: "Direct database queries" },
         { value: "api", label: "REST/GraphQL APIs", description: "External or internal APIs" },
-        { value: "files", label: "CSV/Excel/JSON", description: "File uploads" },
-        { value: "realtime", label: "Real-time streams", description: "WebSockets, SSE, MQTT" },
-        { value: "warehouse", label: "Data warehouse", description: "Snowflake, BigQuery, ClickHouse" },
+        { value: "csv", label: "CSV/Excel Uploads", description: "User-uploaded files" },
+        { value: "realtime", label: "Real-time Streams", description: "WebSockets, SSE, MQTT" },
+        { value: "warehouse", label: "Data Warehouse", description: "BigQuery, Snowflake, Redshift" },
       ],
       required: true,
     },
     {
-      id: "user_roles",
-      type: "multi_select",
-      question: "What user roles need different views?",
-      options: [
-        { value: "admin", label: "Admin", description: "Full access, settings" },
-        { value: "manager", label: "Manager", description: "Team/department view" },
-        { value: "analyst", label: "Analyst", description: "Deep dive, exports" },
-        { value: "viewer", label: "Viewer", description: "Read-only dashboards" },
-      ],
-      required: true,
-    },
-  ],
-  ecommerce: [
-    {
-      id: "product_type",
-      type: "radio",
-      question: "What type of products?",
-      options: [
-        { value: "physical", label: "Physical goods", description: "Shipping, inventory", recommended: true },
-        { value: "digital", label: "Digital products", description: "Downloads, licenses" },
-        { value: "subscription", label: "Subscriptions", description: "Recurring deliveries" },
-        { value: "mixed", label: "Mixed", description: "Multiple types" },
-      ],
-      required: true,
-    },
-    {
-      id: "inventory_management",
+      id: "real_time",
       type: "boolean",
-      question: "Do you need inventory management?",
-      description: "Stock levels, variants, low-stock alerts",
+      question: "Do you need real-time updates?",
+      description: "Live data without refresh (WebSockets, Server-Sent Events)",
       required: true,
     },
   ],
-  social: [
+  ai_app: [
     {
-      id: "content_type",
-      type: "multi_select",
-      question: "What content types?",
+      id: "ai_features",
+      type: "multi_choice",
+      question: "What AI capabilities are needed?",
       options: [
-        { value: "posts", label: "Text posts", description: "Short/long form" },
-        { value: "images", label: "Images", description: "Photo sharing" },
-        { value: "video", label: "Video", description: "Short/form video" },
-        { value: "live", label: "Live streaming", description: "Real-time broadcasts" },
-        { value: "audio", label: "Audio", description: "Podcasts, voice notes" },
+        { value: "chat", label: "Chat/Conversational", description: "LLM chat interface" },
+        { value: "completion", label: "Text Completion", description: "Autocomplete, generation" },
+        { value: "embedding", label: "Embeddings/Search", description: "Semantic search, RAG" },
+        { value: "vision", label: "Vision/Image", description: "Image analysis, generation" },
+        { value: "audio", label: "Audio/Voice", description: "STT, TTS, voice chat" },
+        { value: "agents", label: "Autonomous Agents", description: "Multi-step task execution" },
+        { value: "fine_tune", label: "Fine-tuning", description: "Custom model training" },
       ],
       required: true,
     },
     {
-      id: "moderation",
-      type: "radio",
-      question: "Content moderation approach?",
+      id: "model_preference",
+      type: "single_choice",
+      question: "Preferred model strategy?",
       options: [
-        { value: "ai", label: "AI-first", description: "Automated with human review", recommended: true },
-        { value: "community", label: "Community", description: "Reports, voting" },
-        { value: "manual", label: "Manual", description: "Team reviews everything" },
-        { value: "hybrid", label: "Hybrid", description: "AI + community + manual" },
+        { value: "closed", label: "Closed Source (OpenAI, Anthropic)", description: "Best quality, higher cost" },
+        { value: "open", label: "Open Source (Llama, Mistral)", description: "Self-hosted, privacy, lower cost" },
+        { value: "hybrid", label: "Hybrid", description: "Mix based on task" },
       ],
       required: true,
     },
@@ -277,310 +249,378 @@ const DOMAIN_QUESTION_TEMPLATES: Record<string, ClarificationQuestion[]> = {
 };
 
 // ============================================================================
-// Requirement Clarifier Class
+// REQUIREMENT CLARIFIER CLASS
 // ============================================================================
 
 export class RequirementClarifier {
-  private sessions: Map<string, ClarificationSession> = new Map();
-  private maxQuestions = 5;
+  private sessions = new Map<string, ClarificationSession>();
 
-  // ---------------------------------------------------------------------------
-  // Session Management
-  // ---------------------------------------------------------------------------
+  /**
+   * Start a new clarification session
+   */
+  async startSession(goal: string, projectType?: string): Promise<ClarificationSession> {
+    const sessionId = `clarify_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-  async startSession(goal: string, projectId: string): Promise<ClarificationSession> {
-    // Analyze goal to determine domain and generate initial questions
-    const domain = await this.detectDomain(goal);
-    const templateQuestions = DOMAIN_QUESTION_TEMPLATES[domain] || [];
-    const aiQuestions = await this.generateAIQuestions(goal, domain);
+    // Detect project type from goal if not provided
+    const detectedType = projectType || this.detectProjectType(goal);
 
-    // Combine and deduplicate, limit to maxQuestions
-    const allQuestions = [...templateQuestions, ...aiQuestions]
-      .filter((q, i, arr) => arr.findIndex(q2 => q2.question === q.question) === i)
-      .slice(0, this.maxQuestions)
-      .map((q, i) => ({ ...q, id: q.id || `q${i + 1}` }));
+    // Get base questions for project type
+    const baseQuestions = QUESTION_TEMPLATES[detectedType] || [];
+
+    // Generate dynamic questions using AI
+    const dynamicQuestions = await this.generateDynamicQuestions(goal, detectedType);
+
+    // Combine and deduplicate
+    const allQuestions = this.mergeQuestions(baseQuestions, dynamicQuestions);
 
     const session: ClarificationSession = {
-      id: `clarify_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      id: sessionId,
       goal,
-      projectId,
+      status: "active",
       questions: allQuestions,
       answers: {},
-      currentQuestionIndex: 0,
-      status: "active",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
-    this.sessions.set(session.id, session);
+    this.sessions.set(sessionId, session);
+    eventEmitter.emit("clarification:session_started", { session });
+
     return session;
   }
 
+  /**
+   * Get session by ID
+   */
   getSession(sessionId: string): ClarificationSession | undefined {
     return this.sessions.get(sessionId);
   }
 
-  getAllSessions(projectId?: string): ClarificationSession[] {
-    const sessions = Array.from(this.sessions.values());
-    return projectId ? sessions.filter(s => s.projectId === projectId) : sessions;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Domain Detection
-  // ---------------------------------------------------------------------------
-
-  private async detectDomain(goal: string): Promise<string> {
-    const adapter = getLLMAdapter();
-
-    const prompt = `Classify this project goal into ONE domain: "${goal}"
-
-Domains: saas, marketplace, dashboard, ecommerce, social, productivity, devtool, content, fintech, health, education, other
-
-Return ONLY: {"domain": "saas"}`;
-
-    const response = await adapter.chat([
-      { role: "system", content: "You are a domain classifier. Output ONLY valid JSON." },
-      { role: "user", content: prompt }
-    ], { responseFormat: "json_object" });
-
-    const parsed = JSON.parse(response.content);
-    return parsed.domain || "saas";
-  }
-
-  // ---------------------------------------------------------------------------
-  // AI Question Generation
-  // ---------------------------------------------------------------------------
-
-  private async generateAIQuestions(goal: string, domain: string): Promise<ClarificationQuestion[]> {
-    const adapter = getLLMAdapter();
-
-    const prompt = `Generate 2-3 targeted clarification questions for this goal in the "${domain}" domain: "${goal}"
-
-Focus on aspects NOT covered by standard domain questions. Think about:
-- Unique constraints or requirements
-- Integration needs
-- Compliance/regulatory needs
-- Scale/performance requirements
-- User experience priorities
-- Technical debt tolerance
-
-Return ONLY valid JSON:
-{
-  "questions": [
-    {
-      "id": "ai_q1",
-      "type": "radio|multi_select|text|number|boolean|scale",
-      "question": "Specific question",
-      "description": "Why this matters",
-      "options": [{"value": "opt1", "label": "Option 1", "description": "...", "recommended": false}],
-      "required": true,
-      "dependsOn": "q1"
-    }
-  ]
-}`;
-
-    const response = await adapter.chat([
-      { role: "system", content: "You are an expert product manager. Output ONLY valid JSON." },
-      { role: "user", content: prompt }
-    ], { responseFormat: "json_object" });
-
-    const parsed = JSON.parse(response.content);
-    return (parsed.questions || []).map((q: any, i: number) => ({
-      ...q,
-      id: q.id || `ai_q${i + 1}`,
-    }));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Answer Handling
-  // ---------------------------------------------------------------------------
-
-  submitAnswer(sessionId: string, questionId: string, answer: any): ClarificationSession | null {
+  /**
+   * Submit answer to a question
+   */
+  async submitAnswer(sessionId: string, questionId: string, answer: unknown): Promise<{
+    session: ClarificationSession;
+    nextQuestion: ClarificationQuestion | null;
+    isComplete: boolean;
+  }> {
     const session = this.sessions.get(sessionId);
-    if (!session || session.status !== "active") return null;
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (session.status !== "active") throw new Error("Session not active");
 
     const question = session.questions.find(q => q.id === questionId);
-    if (!question) return null;
+    if (!question) throw new Error(`Question ${questionId} not found`);
 
     // Validate answer
-    if (question.required && (answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0))) {
-      throw new Error(`Question ${questionId} is required`);
+    this.validateAnswer(question, answer);
+
+    // Store answer
+    session.answers[questionId] = answer;
+    session.updatedAt = new Date();
+
+    // Check for conditional questions to unlock
+    this.unlockConditionalQuestions(session, questionId, answer);
+
+    // Find next unanswered question
+    const nextQuestion = session.questions.find(
+      q => !session.answers.hasOwnProperty(q.id) && this.isQuestionVisible(session, q)
+    ) || null;
+
+    const isComplete = !nextQuestion;
+
+    if (isComplete) {
+      session.status = "completed";
+      session.completedAt = new Date();
+      // Generate PRD
+      session.prd = await this.generatePRD(session);
+      eventEmitter.emit("clarification:completed", { session });
+    }
+
+    eventEmitter.emit("clarification:answer_submitted", { session, questionId, answer });
+
+    return { session, nextQuestion, isComplete };
+  }
+
+  /**
+   * Generate PRD from completed session
+   */
+  async generatePRD(session: ClarificationSession): Promise<string> {
+    const planner = subagents.getSubagent("planner") || subagents.getSubagent("architect");
+    if (!planner) throw new Error("Planner/Architect subagent not available");
+
+    const prompt = `
+Generate a comprehensive Product Requirements Document (PRD) based on this clarification session.
+
+Goal: ${session.goal}
+Answers: ${JSON.stringify(session.answers, null, 2)}
+
+Create a detailed PRD with:
+1. Project name & elevator pitch
+2. Target audience & core problem
+3. Key features with user stories & acceptance criteria (MoSCoW prioritization)
+4. User flows
+5. Data model (entities, fields, relations)
+6. API endpoints
+7. Non-functional requirements (performance, security, scalability, accessibility)
+8. Constraints (budget, timeline, tech stack, integrations)
+9. Risks & mitigations
+10. Success metrics
+
+Format as markdown with clear sections. Be specific and actionable.
+`;
+
+    const result = await planner.spawn({
+      prompt,
+      schema: PRDSchema,
+    });
+
+    // Convert structured PRD to markdown
+    return this.prdToMarkdown(result);
+  }
+
+  /**
+   * Get PRD for session
+   */
+  getPRD(sessionId: string): string | undefined {
+    return this.sessions.get(sessionId)?.prd;
+  }
+
+  // ============================================================================
+  // PRIVATE METHODS
+  // ============================================================================
+
+  private detectProjectType(goal: string): string {
+    const lower = goal.toLowerCase();
+
+    if (lower.includes("marketplace") || lower.includes("two-sided") || lower.includes("platform connecting")) {
+      return "marketplace";
+    }
+    if (lower.includes("dashboard") || lower.includes("analytics") || lower.includes("visualization") || lower.includes("metrics")) {
+      return "dashboard";
+    }
+    if (lower.includes("ai") || lower.includes("llm") || lower.includes("chatbot") || lower.includes("agent") || lower.includes("rag")) {
+      return "ai_app";
+    }
+    // Default to SaaS
+    return "saas";
+  }
+
+  private async generateDynamicQuestions(goal: string, projectType: string): Promise<ClarificationQuestion[]> {
+    const planner = subagents.getSubagent("planner") || subagents.getSubagent("architect");
+    if (!planner) return [];
+
+    const prompt = `
+Based on this project goal and type, generate 3-5 additional clarifying questions that would help reduce ambiguity.
+Focus on aspects NOT covered by standard ${projectType} questions.
+
+Goal: ${goal}
+Project Type: ${projectType}
+
+Return JSON array of questions with this schema:
+{
+  "id": "unique_id",
+  "type": "single_choice|multi_choice|text|number|boolean|scale",
+  "question": "Question text",
+  "description": "Optional help text",
+  "options": [{"value": "...", "label": "...", "description": "..."}], // for choice types
+  "required": true/false,
+  "validation": {"min": 0, "max": 100, "pattern": "^...$"} // optional
+}
+`;
+
+    try {
+      const result = await planner.spawn({
+        prompt,
+        schema: z.array(ClarificationQuestionSchema).max(5),
+      });
+      return result;
+    } catch {
+      return [];
+    }
+  }
+
+  private mergeQuestions(base: ClarificationQuestion[], dynamic: ClarificationQuestion[]): ClarificationQuestion[] {
+    const merged = [...base];
+    const baseIds = new Set(base.map(q => q.id));
+
+    for (const q of dynamic) {
+      if (!baseIds.has(q.id)) {
+        merged.push(q);
+      }
+    }
+
+    return merged;
+  }
+
+  private validateAnswer(question: ClarificationQuestion, answer: unknown): void {
+    if (question.required && (answer === undefined || answer === null || answer === "")) {
+      throw new Error(`Question ${question.id} is required`);
     }
 
     if (question.validation) {
-      if (question.validation.min !== undefined && typeof answer === "number" && answer < question.validation.min) {
-        throw new Error(question.validation.customMessage || `Value must be at least ${question.validation.min}`);
+      const { min, max, pattern } = question.validation;
+
+      if (typeof answer === "number") {
+        if (min !== undefined && answer < min) throw new Error(`Value must be >= ${min}`);
+        if (max !== undefined && answer > max) throw new Error(`Value must be <= ${max}`);
       }
-      if (question.validation.max !== undefined && typeof answer === "number" && answer > question.validation.max) {
-        throw new Error(question.validation.customMessage || `Value must be at most ${question.validation.max}`);
-      }
-      if (question.validation.pattern && typeof answer === "string" && !new RegExp(question.validation.pattern).test(answer)) {
-        throw new Error(question.validation.customMessage || "Invalid format");
+
+      if (typeof answer === "string" && pattern) {
+        const regex = new RegExp(pattern);
+        if (!regex.test(answer)) throw new Error(`Value does not match required pattern`);
       }
     }
 
-    session.answers[questionId] = answer;
-    session.updatedAt = Date.now();
-
-    // Move to next unanswered question
-    const nextIndex = session.questions.findIndex((q, i) =>
-      i > session.currentQuestionIndex && !(q.id in session.answers)
-    );
-    session.currentQuestionIndex = nextIndex >= 0 ? nextIndex : session.questions.length;
-
-    // Check if all required questions answered
-    const allRequiredAnswered = session.questions
-      .filter(q => q.required)
-      .every(q => q.id in session.answers);
-
-    if (allRequiredAnswered || session.currentQuestionIndex >= session.questions.length) {
-      session.status = "completed";
-      session.completedAt = Date.now();
+    if (question.type === "single_choice" && question.options) {
+      const validValues = question.options.map(o => o.value);
+      if (!validValues.includes(answer as string)) {
+        throw new Error(`Invalid option. Must be one of: ${validValues.join(", ")}`);
+      }
     }
 
-    return session;
+    if (question.type === "multi_choice" && question.options) {
+      const validValues = question.options.map(o => o.value);
+      const answers = (answer as string[] || []);
+      for (const a of answers) {
+        if (!validValues.includes(a)) {
+          throw new Error(`Invalid option: ${a}. Must be from: ${validValues.join(", ")}`);
+        }
+      }
+    }
   }
 
-  getCurrentQuestion(sessionId: string): ClarificationQuestion | null {
-    const session = this.sessions.get(sessionId);
-    if (!session || session.status !== "active") return null;
+  private unlockConditionalQuestions(session: ClarificationSession, answeredQuestionId: string, answer: unknown): void {
+    for (const question of session.questions) {
+      if (question.dependsOn?.questionId === answeredQuestionId) {
+        const expectedValue = question.dependsOn.value;
+        const actualValue = Array.isArray(answer) ? answer.includes(expectedValue) : answer === expectedValue;
 
-    // Find first unanswered required question
-    const unanswered = session.questions.find((q, i) =>
-      i >= session.currentQuestionIndex && q.required && !(q.id in session.answers)
-    );
-
-    return unanswered || null;
+        // The question is now visible if condition matches
+        // (visibility is checked in isQuestionVisible)
+      }
+    }
   }
 
-  getProgress(sessionId: string): { answered: number; total: number; percentage: number } {
-    const session = this.sessions.get(sessionId);
-    if (!session) return { answered: 0, total: 0, percentage: 0 };
+  private isQuestionVisible(session: ClarificationSession, question: ClarificationQuestion): boolean {
+    if (!question.dependsOn) return true;
 
-    const requiredQuestions = session.questions.filter(q => q.required);
-    const answered = requiredQuestions.filter(q => q.id in session.answers).length;
+    const answer = session.answers[question.dependsOn.questionId];
+    if (answer === undefined) return false;
 
-    return {
-      answered,
-      total: requiredQuestions.length,
-      percentage: requiredQuestions.length > 0 ? Math.round((answered / requiredQuestions.length) * 100) : 100,
-    };
+    if (Array.isArray(answer)) {
+      return answer.includes(question.dependsOn.value);
+    }
+    return answer === question.dependsOn.value;
   }
 
-  // ---------------------------------------------------------------------------
-  // PRD Generation
-  // ---------------------------------------------------------------------------
+  private prdToMarkdown(prd: PRD): string {
+    let md = `# ${prd.projectName}\n\n`;
+    md += `## Elevator Pitch\n${prd.elevatorPitch}\n\n`;
+    md += `## Target Audience\n${prd.targetAudience}\n\n`;
+    md += `## Core Problem\n${prd.coreProblem}\n\n`;
 
-  async generatePRD(sessionId: string): Promise<PRD> {
-    const session = this.sessions.get(sessionId);
-    if (!session) throw new Error("Session not found");
-    if (session.status !== "completed") throw new Error("Session not completed");
+    md += `## Key Features\n\n`;
+    for (const feature of prd.keyFeatures) {
+      md += `### ${feature.title} [${feature.priority.toUpperCase()}]\n`;
+      md += `${feature.description}\n\n`;
+      md += `**User Story:** ${feature.userStory}\n\n`;
+      md += `**Acceptance Criteria:**\n`;
+      for (const ac of feature.acceptanceCriteria) {
+        md += `- ${ac}\n`;
+      }
+      if (feature.technicalNotes) {
+        md += `\n**Technical Notes:** ${feature.technicalNotes}\n`;
+      }
+      md += `\n`;
+    }
 
-    const adapter = getLLMAdapter();
+    md += `## User Flows\n\n`;
+    for (const flow of prd.userFlows) {
+      md += `### ${flow.name}\n`;
+      md += `**Entry:** ${flow.entryPoints.join(", ")}\n`;
+      md += `**Steps:**\n`;
+      for (const step of flow.steps) {
+        md += `1. ${step}\n`;
+      }
+      md += `**Exit:** ${flow.exitPoints.join(", ")}\n\n`;
+    }
 
-    const prompt = `Create a comprehensive PRD (Product Requirements Document) from this clarification session.
+    md += `## Data Model\n\n`;
+    for (const entity of prd.dataModel) {
+      md += `### ${entity.entity}\n`;
+      md += `| Field | Type | Required | Description |\n`;
+      md += `|-------|------|----------|-------------|\n`;
+      for (const field of entity.fields) {
+        md += `| ${field.name} | ${field.type} | ${field.required ? "Yes" : "No"} | ${field.description || ""} |\n`;
+      }
+      if (entity.fields.some(f => f.relations && f.relations!.length > 0)) {
+        md += `\n**Relations:**\n`;
+        for (const field of entity.fields) {
+          if (field.relations && field.relations.length > 0) {
+            md += `- ${field.name} → ${field.relations.join(", ")}\n`;
+          }
+        }
+      }
+      md += `\n`;
+    }
 
-GOAL: "${session.goal}"
-ANSWERS: ${JSON.stringify(session.answers, null, 2)}
-DOMAIN: ${await this.detectDomain(session.goal)}
+    md += `## API Endpoints\n\n`;
+    md += `| Method | Path | Description | Auth |\n`;
+    md += `|--------|------|-------------|------|\n`;
+    for (const endpoint of prd.apiEndpoints) {
+      md += `| ${endpoint.method} | ${endpoint.path} | ${endpoint.description} | ${endpoint.auth ? "Yes" : "No"} |\n`;
+    }
+    md += `\n`;
 
-Generate a detailed PRD with:
-1. Structured requirements with priorities (must/should/could/wont) and categories
-2. Acceptance criteria for each requirement
-3. Recommended tech stack with rationale
-4. User flows with steps and success criteria
-5. Data model with entities, fields, relations
-6. API endpoints (REST/GraphQL/tRPC)
-7. UI components needed
-8. Non-functional requirements (performance, security, accessibility, scalability, reliability, maintainability)
+    if (prd.nonFunctionalRequirements) {
+      md += `## Non-Functional Requirements\n\n`;
+      for (const [category, items] of Object.entries(prd.nonFunctionalRequirements)) {
+        if (items && items.length > 0) {
+          md += `### ${category.charAt(0).toUpperCase() + category.slice(1)}\n`;
+          for (const item of items) {
+            md += `- ${item}\n`;
+          }
+          md += `\n`;
+        }
+      }
+    }
 
-Return ONLY valid JSON matching the PRD schema.`;
+    if (prd.constraints) {
+      md += `## Constraints\n\n`;
+      for (const [key, value] of Object.entries(prd.constraints)) {
+        if (value) {
+          md += `- **${key}:** ${value}\n`;
+        }
+      }
+      md += `\n`;
+    }
 
-    const response = await adapter.chat([
-      { role: "system", content: "You are an expert product manager creating a PRD. Output ONLY valid JSON." },
-      { role: "user", content: prompt }
-    ], { responseFormat: "json_object", maxTokens: 16384 });
+    if (prd.risks && prd.risks.length > 0) {
+      md += `## Risks & Mitigations\n\n`;
+      md += `| Risk | Likelihood | Impact | Mitigation |\n`;
+      md += `|------|------------|--------|------------|\n`;
+      for (const risk of prd.risks) {
+        md += `| ${risk.risk} | ${risk.likelihood} | ${risk.impact} | ${risk.mitigation} |\n`;
+      }
+      md += `\n`;
+    }
 
-    const prdData = JSON.parse(response.content);
+    if (prd.successMetrics && prd.successMetrics.length > 0) {
+      md += `## Success Metrics\n\n`;
+      md += `| Metric | Target | Measurement |\n`;
+      md += `|--------|--------|-------------|\n`;
+      for (const metric of prd.successMetrics) {
+        md += `| ${metric.metric} | ${metric.target} | ${metric.measurement} |\n`;
+      }
+      md += `\n`;
+    }
 
-    const prd: PRD = {
-      ...prdData,
-      id: prdData.id || `prd_${Date.now()}`,
-      goal: session.goal,
-      answers: session.answers,
-      createdAt: session.createdAt,
-      updatedAt: Date.now(),
-      version: 1,
-      approved: false,
-    };
-
-    // Store PRD in session
-    session.prd = prd;
-    session.updatedAt = Date.now();
-
-    return prd;
-  }
-
-  async updatePRD(sessionId: string, updates: Partial<PRD>): Promise<PRD> {
-    const session = this.sessions.get(sessionId);
-    if (!session || !session.prd) throw new Error("No PRD found for session");
-
-    session.prd = {
-      ...session.prd,
-      ...updates,
-      updatedAt: Date.now(),
-      version: session.prd.version + 1,
-    };
-
-    return session.prd;
-  }
-
-  approvePRD(sessionId: string, approvedBy: string): PRD {
-    const session = this.sessions.get(sessionId);
-    if (!session || !session.prd) throw new Error("No PRD found for session");
-
-    session.prd.approved = true;
-    session.prd.approvedAt = Date.now();
-    session.prd.approvedBy = approvedBy;
-    session.prd.updatedAt = Date.now();
-
-    return session.prd;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Utility
-  // ---------------------------------------------------------------------------
-
-  deleteSession(sessionId: string): boolean {
-    return this.sessions.delete(sessionId);
-  }
-
-  exportSession(sessionId: string): string {
-    const session = this.sessions.get(sessionId);
-    if (!session) throw new Error("Session not found");
-    return JSON.stringify(session, null, 2);
-  }
-
-  importSession(json: string): ClarificationSession {
-    const session = JSON.parse(json) as ClarificationSession;
-    this.sessions.set(session.id, session);
-    return session;
+    return md;
   }
 }
 
 // ============================================================================
-// Singleton Instance
+// SINGLETON EXPORT
 // ============================================================================
 
-let requirementClarifierInstance: RequirementClarifier | null = null;
-
-export function getRequirementClarifier(): RequirementClarifier {
-  if (!requirementClarifierInstance) {
-    requirementClarifierInstance = new RequirementClarifier();
-  }
-  return requirementClarifierInstance;
-}
-
-export function resetRequirementClarifier(): void {
-  requirementClarifierInstance = null;
-}
+export const requirementClarifier = new RequirementClarifier();

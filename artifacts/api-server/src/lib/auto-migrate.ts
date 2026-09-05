@@ -518,6 +518,76 @@ const CREATE_TABLES = [
   )`,
   `CREATE INDEX IF NOT EXISTS "project_databases_project_idx" ON "project_databases" ("project_id")`,
   `CREATE INDEX IF NOT EXISTS "project_databases_provider_idx" ON "project_databases" ("provider")`,
+
+  // ── Phase 37: Workflows (NL → Deployed Product) ──────────────────
+  `CREATE TABLE IF NOT EXISTS "workflows" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "goal" text NOT NULL,
+    "config" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "plan" jsonb,
+    "status" text NOT NULL DEFAULT 'pending',
+    "current_phase" text NOT NULL DEFAULT 'discover',
+    "current_step" text,
+    "total_estimated_duration" integer NOT NULL DEFAULT 0,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now(),
+    "completed_at" timestamp
+  )`,
+  `CREATE INDEX IF NOT EXISTS "workflows_project_id_idx" ON "workflows" ("project_id")`,
+  `CREATE INDEX IF NOT EXISTS "workflows_account_id_idx" ON "workflows" ("account_id")`,
+  `CREATE INDEX IF NOT EXISTS "workflows_status_idx" ON "workflows" ("status")`,
+
+  `CREATE TABLE IF NOT EXISTS "workflow_steps" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "workflow_id" uuid NOT NULL REFERENCES "workflows"("id") ON DELETE CASCADE,
+    "phase" text NOT NULL,
+    "name" text NOT NULL,
+    "description" text,
+    "agent" text,
+    "dependencies" jsonb NOT NULL DEFAULT '[]'::jsonb,
+    "estimated_duration" integer NOT NULL DEFAULT 0,
+    "status" text NOT NULL DEFAULT 'pending',
+    "result" jsonb,
+    "error" text,
+    "started_at" timestamp,
+    "completed_at" timestamp,
+    "requires_approval" boolean NOT NULL DEFAULT false,
+    "approval_gate" text,
+    "worktree_id" text,
+    "artifacts" jsonb NOT NULL DEFAULT '[]'::jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "workflow_steps_workflow_id_idx" ON "workflow_steps" ("workflow_id")`,
+  `CREATE INDEX IF NOT EXISTS "workflow_steps_status_idx" ON "workflow_steps" ("status")`,
+
+  `CREATE TABLE IF NOT EXISTS "workflow_checkpoints" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "workflow_id" uuid NOT NULL REFERENCES "workflows"("id") ON DELETE CASCADE,
+    "phase" text NOT NULL,
+    "step_id" text NOT NULL,
+    "timestamp" timestamp NOT NULL DEFAULT now(),
+    "state" jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "workflow_checkpoints_workflow_id_idx" ON "workflow_checkpoints" ("workflow_id")`,
+
+  `CREATE TABLE IF NOT EXISTS "workflow_approvals" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "workflow_id" uuid NOT NULL REFERENCES "workflows"("id") ON DELETE CASCADE,
+    "gate" text NOT NULL,
+    "step_id" text NOT NULL,
+    "status" text NOT NULL DEFAULT 'pending',
+    "requested_at" timestamp NOT NULL DEFAULT now(),
+    "responded_at" timestamp,
+    "feedback" text,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "workflow_approvals_workflow_id_idx" ON "workflow_approvals" ("workflow_id")`,
+  `CREATE INDEX IF NOT EXISTS "workflow_approvals_status_idx" ON "workflow_approvals" ("status")`,
 ];
 
 /**
