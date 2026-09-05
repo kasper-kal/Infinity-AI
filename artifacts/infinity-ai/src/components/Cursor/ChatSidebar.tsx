@@ -784,7 +784,7 @@ export function ChatSidebar({ projectId, projectRoot, isOpen, onClose, onNewConv
       )}
 
       {/* Input */}
-      <div
+      <Flex
         style={{
           padding: "12px 16px",
           borderTop: "1px solid var(--gray-5)",

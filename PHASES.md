@@ -47,8 +47,11 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **32** | **Context Auto-Compact & Limit Recognition** | ✅ **COMPLETE** |
 | **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | ✅ **COMPLETE** |
 | **34** | **AI Self-Management (Secrets, Settings, API Keys)** | ✅ **COMPLETE** |
+| **35** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
+| **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
+| **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend + Frontend Wizard + i18n) |
 
-Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**.
+Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**, **36+ = Infinity Autonomous Operations**.
 
 ---
 
@@ -1881,14 +1884,14 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Payments: Stripe, Lemon Squeezy, Paddle
   - Hosting: Vercel, Netlify, Cloudflare Pages, Railway, Fly.io
   - AI scores each option, presents top 3 with rationale
-- [ ] **Code Generation Pipeline** — Leverages all existing systems:
+- [x] **Code Generation Pipeline** — Leverages all existing systems:
   - UI Codegen (Phase 16) for frontend components
   - API Generation (Phase 13) for backend routes
   - Database Integration (Phase 19) for schema + migrations
   - Auth Integration (Phase 19) for auth setup
   - Component IR (Phase 20) for cross-framework components
   - Design Tokens (Phase 20) for consistent styling
-- [ ] **Testing & Quality** — Automated verification:
+- [x] **Testing & Quality** — Automated verification:
   - Unit tests: Vitest/Jest generated per component/API
   - E2E tests: Playwright for critical user flows
   - A11y: axe-core scan (Phase 23)
@@ -1918,13 +1921,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 1. **Workflow Orchestrator Core** — Phase definitions, agent spawning, checkpointing ✅ **COMPLETE**
 2. **Requirement Clarification Engine** — Question flow, PRD generation, approval ✅ **COMPLETE**
 3. **Tech Stack Selector** — Scoring engine, recommendation UI ✅ **COMPLETE**
-4. **Code Generation Pipeline** — Wire existing generators into phased execution 🔄 **IN PROGRESS**
-5. **Testing Pipeline** — Auto-generate + run tests, quality gates 🔄 **IN PROGRESS**
+4. **Code Generation Pipeline** — Wire existing generators into phased execution ✅ **COMPLETE**
+5. **Testing Pipeline** — Auto-generate + run tests, quality gates ✅ **COMPLETE**
 6. **Deployment Engine** — Multi-provider deploy, domain, SSL, health checks ✅ **COMPLETE**
 7. **Monitoring Setup** — Free tier integrations, HANDOFF.md generation ✅ **COMPLETE**
 8. **Workflow API Routes** — REST API + SSE for orchestration, status, approvals ✅ **COMPLETE**
 9. **Database Schema** — Workflow persistence tables ✅ **COMPLETE**
-10. **Frontend Wizard** — Step-by-step UI in BuildView "Automate" tab ❌ **NOT STARTED**
+10. **Frontend Wizard** — Step-by-step UI in BuildView "Automate" tab ✅ **COMPLETE**
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/workflow-orchestrator.ts` (new — **COMPLETE** 1311 lines)
@@ -1934,13 +1937,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/monitoring-setup.ts` (new — **COMPLETE** 415 lines)
 - `artifacts/api-server/src/routes/infinity/workflow.ts` (new — **COMPLETE** 28KB)
 - `lib/db/src/schema/workflows.ts` (new — **COMPLETE**)
-- `artifacts/infinity-ai/src/components/workflow/WorkflowWizard.tsx` (new — **NOT STARTED**)
-- `artifacts/infinity-ai/src/components/workflow/WorkflowPhase.tsx` (new — **NOT STARTED**)
-- `artifacts/infinity-ai/src/components/workflow/RequirementClarifier.tsx` (new — **NOT STARTED**)
-- `artifacts/infinity-ai/src/components/workflow/TechStackSelector.tsx` (new — **NOT STARTED**)
-- `artifacts/infinity-ai/src/components/workflow/DeploymentStatus.tsx` (new — **NOT STARTED**)
-- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (Automate tab — **NOT STARTED**)
-- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Workflow keys EN+NL — **NOT STARTED**)
+- `artifacts/infinity-ai/src/components/workflow/WorkflowWizard.tsx` (new — **COMPLETE** 637 lines)
+- `artifacts/infinity-ai/src/components/workflow/WorkflowPhase.tsx` (new — **COMPLETE** 270 lines)
+- `artifacts/infinity-ai/src/components/workflow/RequirementClarifier.tsx` (new — **COMPLETE** 415 lines)
+- `artifacts/infinity-ai/src/components/workflow/TechStackSelector.tsx` (new — **COMPLETE** 322 lines)
+- `artifacts/infinity-ai/src/components/workflow/DeploymentStatus.tsx` (new — **COMPLETE** 265 lines)
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (Automate tab — **COMPLETE** integrated)
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Workflow keys EN — **COMPLETE**, NL — **COMPLETE** ~80 keys each)
 
 ---
 
@@ -2318,15 +2321,14 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 36 — Visual Build Map (AI-Managed Roadmap)** ✅ **COMPLETE**
+## 🎯 Current Phase: **Phase 37 — Fully Automated End-to-End Workflow (NL → Deployed Product)** ✅ **COMPLETE**
 
 ## 🎯 Upcoming Phases
-1. **Phase 37** — Fully Automated End-to-End Workflow (NL → Deployed Product)
-2. **Phase 38** — Local AI Safety Watcher (Push Notifications)
-3. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
-4. **Phase 40** — Recipe Widget (Standard + Deep Research)
-5. **Phase 41** — File Format Conversion (@File Convert Command)
-6. **Phase 42** — Passkeys + TOTP (Authenticator App) Integration
+1. **Phase 38** — Local AI Safety Watcher (Push Notifications)
+2. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
+3. **Phase 40** — Recipe Widget (Standard + Deep Research)
+4. **Phase 41** — File Format Conversion (@File Convert Command)
+5. **Phase 42** — Passkeys + TOTP (Authenticator App) Integration
 
 ### Escalation Triggers (Stop and Notify)
 - [ ] 3 consecutive failures on same task

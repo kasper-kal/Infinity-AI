@@ -50,7 +50,8 @@ import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
-import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon } from "lucide-react";
+import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
+import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
 export interface BuildViewProps {
@@ -101,8 +102,8 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // TABS: Preview + Overview + Build Map + Advanced Agent
-  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'buildMap' | 'advancedAgent'>(initialTab);
+  // TABS: Preview + Overview + Build Map + Advanced Agent + Automate
+  const [buildTab, setBuildTab] = useState<'preview' | 'overview' | 'buildMap' | 'advancedAgent' | 'automate'>(initialTab);
   const [commandInput, setCommandInput] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -262,6 +263,16 @@ export const BuildView: React.FC<BuildViewProps> = ({
           </svg>
         ),
       },
+      {
+        id: 'automate',
+        label: t('workflow.wizard.title'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+        ),
+      },
     ];
 
     return (
@@ -341,6 +352,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'buildMap' && (
             <div className="flex-1 flex flex-col h-full">
               <BuildMap projectId={projectId ?? ''} />
+            </div>
+          )}
+          {bottomNavTab === 'automate' && (
+            <div className="flex-1 flex flex-col h-full">
+              <WorkflowWizard projectId={projectId ?? ''} />
             </div>
           )}
         </div>
@@ -486,9 +502,10 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" /> },
                 { id: 'buildMap', label: t('build.tabs.buildMap'), icon: <GitBranch className="w-4 h-4" /> },
                 { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" /> },
+                { id: 'automate', label: t('workflow.wizard.title'), icon: <Cpu className="w-4 h-4" /> },
               ]}
               activeTab={buildTab}
-              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview' | 'buildMap' | 'advancedAgent')}
+              onChange={(tab) => setBuildTab(tab as 'preview' | 'overview' | 'buildMap' | 'advancedAgent' | 'automate')}
               variant="pills"
               className="max-w-md"
             />
@@ -577,6 +594,12 @@ export const BuildView: React.FC<BuildViewProps> = ({
                 active={buildTab === 'buildMap'}
               />
               <AppShellSidebarNavItem
+                label={t('workflow.wizard.title')}
+                icon={<Cpu className="w-4 h-4" />}
+                onClick={() => setBuildTab('automate')}
+                active={buildTab === 'automate'}
+              />
+              <AppShellSidebarNavItem
                 label={t('overview.tabs.security')}
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>}
                 onClick={() => { setBuildTab('overview'); }}
@@ -662,6 +685,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {buildTab === 'advancedAgent' && (
             <div className="flex flex-col h-full">
               <AdvancedAgentPanel projectId={projectId ?? ''} />
+            </div>
+          )}
+          {buildTab === 'automate' && (
+            <div className="flex flex-col h-full">
+              <WorkflowWizard projectId={projectId ?? ''} />
             </div>
           )}
         </div>
@@ -756,6 +784,9 @@ export const BuildView: React.FC<BuildViewProps> = ({
         items={[
           { id: 'preview', label: t('build.tabs.preview'), icon: <Monitor className="w-4 h-4" />, action: () => setBuildTab('preview') },
           { id: 'overview', label: t('build.tabs.overview'), icon: <LayoutDashboard className="w-4 h-4" />, action: () => setBuildTab('overview') },
+          { id: 'buildMap', label: t('build.tabs.buildMap'), icon: <GitBranch className="w-4 h-4" />, action: () => setBuildTab('buildMap') },
+          { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" />, action: () => setBuildTab('advancedAgent') },
+          { id: 'automate', label: t('workflow.wizard.title'), icon: <Cpu className="w-4 h-4" />, action: () => setBuildTab('automate') },
           { id: 'terminal', label: t('overview.tabs.terminal'), icon: <TerminalIcon className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'mobile', label: t('mobile.title'), icon: <Smartphone className="w-4 h-4" />, action: () => setBuildTab('overview') },
