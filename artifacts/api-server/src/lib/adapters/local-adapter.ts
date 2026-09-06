@@ -342,6 +342,41 @@ export class LocalModelAdapter implements LLMAdapter {
   }
 
   /**
+   * Generate a structured output matching a JSON schema
+   * Note: Local model doesn't natively support structured output, so we prompt for JSON
+   */
+  async generateObject<T extends Record<string, unknown>>(
+    messages: LLMMessage[],
+    schema: Record<string, unknown>,
+    options: LLMCompletionOptions = {}
+  ): Promise<{ object: T }> {
+    const jsonPrompt = `\n\nIMPORTANT: You must respond with ONLY valid JSON that matches this schema:\n${JSON.stringify(schema, null, 2)}\n\nDo not include any explanation, markdown, or extra text.`;
+
+    const messagesWithSchema = [
+      ...messages,
+      { role: "user" as const, content: jsonPrompt }
+    ];
+
+    const result = await this.complete(messagesWithSchema, {
+      ...options,
+      jsonMode: true,
+      temperature: 0.1,
+    });
+
+    try {
+      const parsed = JSON.parse(result.content);
+      return { object: parsed as T };
+    } catch (error) {
+      throw new LLMAdapterError(
+        `Failed to parse structured output: ${result.content}`,
+        "STRUCTURED_OUTPUT_PARSE_ERROR",
+        true,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
    * Get model info for debugging
    */
   getModelInfo(): { baseUrl: string; modelName: string; loaded: boolean } {

@@ -8,7 +8,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/Select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, type Tab } from "@/components/ui/Tabs";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -311,13 +311,14 @@ export const WorkflowWizard: React.FC<WorkflowWizardProps> = ({
       {/* Progress indicator */}
       <div className="space-y-4">
         <div className="flex items-center gap-4">
-          <BuildProgressRing
-            total={steps.length}
-            completed={currentStepIndex + 1}
-            status="working"
-            currentLabel={stepLabels[currentStep]}
-            className="flex-shrink-0"
-          />
+          <div className="flex-shrink-0">
+            <BuildProgressRing
+              total={steps.length}
+              completed={currentStepIndex + 1}
+              status="working"
+              currentLabel={stepLabels[currentStep]}
+            />
+          </div>
           <div className="flex-1">
             <div className="flex items-center justify-between text-sm mb-2">
               <span className="font-medium">{stepLabels[currentStep]}</span>

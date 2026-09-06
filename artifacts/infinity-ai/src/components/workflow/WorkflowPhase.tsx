@@ -113,7 +113,7 @@ export const WorkflowPhase: React.FC<WorkflowPhaseProps> = ({
             <CardTitle className="text-lg">{phaseLabels[phase]}</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={isComplete ? 'success' : error ? 'destructive' : 'secondary'}>
+            <Badge variant={isComplete ? 'default' : error ? 'destructive' : 'secondary'}>
               {isComplete ? t('common.complete') : error ? t('common.error') : t('common.running')}
             </Badge>
             {progress > 0 && progress < 100 && (

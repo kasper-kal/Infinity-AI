@@ -237,7 +237,7 @@ export async function compactHistory(
       level: COMPACTION_LEVELS.NONE,
       preservedSummary: "No compaction needed",
       description: "Token usage below threshold",
-      compacted: false,
+      isCompacted: false,
     };
   }
 
@@ -256,7 +256,7 @@ export async function compactHistory(
       level: COMPACTION_LEVELS.NONE,
       preservedSummary: "Not enough history to compact",
       description: "No old messages to summarize",
-      compacted: false,
+      isCompacted: false,
     };
   }
 
@@ -369,7 +369,7 @@ export function compactWorkingContext(
   }
 
   const originalSize = JSON.stringify(context).length;
-  const compressed = { ...context };
+  let compressed = { ...context };
 
   // Level 2: Compress working context - keep structure, drop raw contents
   if (level >= COMPACTION_LEVELS.COMPRESS_WORKING) {
@@ -628,6 +628,5 @@ export {
   createTokenBudget,
   getCompactionLevel,
   getBudgetStatus,
-  COMPACTION_LEVELS,
 };
 export type { CompactionLevel, PreservationRules, CompactionResult };
