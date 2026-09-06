@@ -8,7 +8,8 @@
     "./schema": "./src/schema/index.ts",
     "./schema/project-secrets.js": "./src/schema/project-secrets.ts",
     "./schema/preview-shares.js": "./src/schema/preview-shares.ts",
-    "./schema/project-databases.js": "./src/schema/project-databases.ts"
+    "./schema/project-databases.js": "./src/schema/project-databases.ts",
+    "./schema/safety-watcher.js": "./src/schema/safety-watcher.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
