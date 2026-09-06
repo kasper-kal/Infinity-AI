@@ -974,10 +974,15 @@ export class SafetyWatcher extends EventEmitter {
   }
 
   private async callTransformers(prompt: string): Promise<string | null> {
-    // Would use Transformers.js (WASM) in browser or Node
-    // For server-side, we'd need @xenova/transformers with ONNX runtime
-    logger.info("[SafetyWatcher] Transformers.js fallback not yet implemented");
-    return null;
+    // Dynamic import to avoid bundling @xenova/transformers in server build
+    try {
+      const { analyzeWithTransformers } = await import("@infinity-ai/transformers-watcher");
+      const result = await analyzeWithTransformers(prompt);
+      return result ? `${result.severity}: ${result.reasoning} (confidence: ${Math.round(result.confidence * 100)}%)` : null;
+    } catch (error) {
+      logger.warn({ err: error }, "[SafetyWatcher] Transformers.js analysis failed");
+      return null;
+    }
   }
 
   private async callFreeApi(prompt: string): Promise<string | null> {
@@ -1062,6 +1067,7 @@ export class SafetyWatcher extends EventEmitter {
 // ============================================================================
 
 let watcherInstance: SafetyWatcher | null = null;
+let initPromise: Promise<SafetyWatcher> | null = null;
 
 export function getSafetyWatcher(config?: Partial<WatcherConfig>): SafetyWatcher {
   if (!watcherInstance) {
@@ -1071,8 +1077,16 @@ export function getSafetyWatcher(config?: Partial<WatcherConfig>): SafetyWatcher
 }
 
 export async function initializeSafetyWatcher(config?: Partial<WatcherConfig>): Promise<SafetyWatcher> {
+  if (initPromise) return initPromise;
   const watcher = getSafetyWatcher(config);
-  await watcher.start();
+  initPromise = watcher.start().then(() => watcher);
+  return initPromise;
+}
+
+async function ensureWatcherStarted(): Promise<SafetyWatcher> {
+  const watcher = getSafetyWatcher();
+  if (initPromise) await initPromise;
+  else if (!watcher.running) await watcher.start();
   return watcher;
 }
 
@@ -1091,27 +1105,22 @@ export async function shutdownSafetyWatcher(): Promise<void> {
  * Call this from Universal Agent to emit agent iteration events
  */
 export async function emitAgentIterationEvent(
-  agentId: string,
-  iteration: number,
-  goal: string,
-  tokensUsed: number,
-  tokenBudgetPercent: number,
-  toolsUsed: string[]
+  params: {
+    projectId?: string;
+    iterationCount: number;
+    tokenBudgetPercent: number;
+    currentTokens: number;
+    maxTokens: number;
+    status: string;
+  }
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
-    id: `agent-${agentId}-iter-${iteration}-${Date.now()}`,
+    id: `agent-iter-${params.iterationCount}-${Date.now()}`,
     timestamp: new Date(),
     source: "universal-agent",
     type: "agent:iteration",
-    payload: {
-      agentId,
-      iteration,
-      goal,
-      tokensUsed,
-      tokenBudgetPercent,
-      toolsUsed,
-    },
+    payload: params,
   };
   await watcher.emitEvent(event);
 }
@@ -1120,25 +1129,23 @@ export async function emitAgentIterationEvent(
  * Call this from Build Orchestrator to emit build phase events
  */
 export async function emitBuildPhaseEvent(
-  projectId: string,
-  buildId: string,
-  phase: string,
-  status: "started" | "complete" | "error",
-  details: Record<string, unknown>
+  params: {
+    projectId?: string;
+    buildId?: string;
+    phase: string;
+    status: "started" | "complete" | "error";
+    stepsTotal?: number;
+    stepsCompleted?: number;
+    currentStep?: string;
+  }
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
-    id: `build-${buildId}-${phase}-${status}-${Date.now()}`,
+    id: `build-${params.buildId || params.projectId || "unknown"}-${params.phase}-${params.status}-${Date.now()}`,
     timestamp: new Date(),
     source: "build-orchestrator",
-    type: `build:phase-${status}`,
-    payload: {
-      projectId,
-      buildId,
-      phase,
-      status,
-      ...details,
-    },
+    type: `build:phase-${params.status}`,
+    payload: params,
   };
   await watcher.emitEvent(event);
 }
@@ -1147,27 +1154,23 @@ export async function emitBuildPhaseEvent(
  * Call this from Deployment Engine to emit deployment events
  */
 export async function emitDeploymentEvent(
-  projectId: string,
-  deploymentId: string,
-  provider: string,
-  environment: string,
-  status: "started" | "complete" | "failed" | "rollback",
-  details: Record<string, unknown>
+  params: {
+    projectId?: string;
+    deploymentId: string;
+    provider: string;
+    environment?: string;
+    status: "started" | "complete" | "failed" | "rollback";
+    url?: string;
+    error?: string;
+  }
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
-    id: `deploy-${deploymentId}-${status}-${Date.now()}`,
+    id: `deploy-${params.deploymentId}-${params.status}-${Date.now()}`,
     timestamp: new Date(),
     source: "deployment-engine",
-    type: `deploy:${status}`,
-    payload: {
-      projectId,
-      deploymentId,
-      provider,
-      environment,
-      status,
-      ...details,
-    },
+    type: `deploy:${params.status}`,
+    payload: params,
   };
   await watcher.emitEvent(event);
 }
@@ -1176,23 +1179,23 @@ export async function emitDeploymentEvent(
  * Call this from Browser Pool to emit browser policy events
  */
 export async function emitBrowserPolicyEvent(
-  action: string,
-  url: string,
-  violationType: string,
-  details: Record<string, unknown>
+  params: {
+    projectId?: string;
+    browserId: string;
+    action: string;
+    url: string;
+    allowed: boolean;
+    reason: string;
+    severity: "info" | "warning" | "critical";
+  }
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
-    id: `browser-${violationType}-${Date.now()}`,
+    id: `browser-${params.action}-${Date.now()}`,
     timestamp: new Date(),
     source: "browser-pool",
     type: "browser:policy-violation",
-    payload: {
-      action,
-      url,
-      violationType,
-      ...details,
-    },
+    payload: params,
   };
   await watcher.emitEvent(event);
 }
@@ -1201,25 +1204,22 @@ export async function emitBrowserPolicyEvent(
  * Call this from Automation Runtime to emit automation events
  */
 export async function emitAutomationEvent(
-  automationId: string,
-  runId: string,
-  triggerType: string,
-  status: "started" | "complete" | "error",
-  details: Record<string, unknown>
+  params: {
+    projectId?: string;
+    automationId: string;
+    runId: string;
+    triggerType: string;
+    status: "started" | "complete" | "error";
+    error?: string;
+  }
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
-    id: `automation-${automationId}-${runId}-${status}-${Date.now()}`,
+    id: `automation-${params.automationId}-${params.runId}-${params.status}-${Date.now()}`,
     timestamp: new Date(),
     source: "automation-runtime",
-    type: `automation:${status}`,
-    payload: {
-      automationId,
-      runId,
-      triggerType,
-      status,
-      ...details,
-    },
+    type: `automation:${params.status}`,
+    payload: params,
   };
   await watcher.emitEvent(event);
 }
@@ -1232,7 +1232,7 @@ export async function emitSystemMetrics(
   diskPercent: number,
   cpuPercent: number
 ): Promise<void> {
-  const watcher = getSafetyWatcher();
+  const watcher = await ensureWatcherStarted();
   const event: SafetyEvent = {
     id: `system-metrics-${Date.now()}`,
     timestamp: new Date(),

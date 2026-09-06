@@ -53,6 +53,18 @@ ensureFilesTables().catch((err) => {
   logger.error({ err }, "Files table migration skipped, DB unreachable. File storage will use the local-disk fallback.");
 });
 
+// Initialize Safety Watcher (Phase 38) - non-blocking, runs in background
+import("./lib/safety-watcher").then(async ({ initializeSafetyWatcher }) => {
+  try {
+    await initializeSafetyWatcher();
+    logger.info("Safety Watcher initialized and running");
+  } catch (err) {
+    logger.error({ err }, "Safety Watcher initialization failed (non-fatal)");
+  }
+}).catch((err) => {
+  logger.error({ err }, "Failed to load Safety Watcher module");
+});
+
 // Register Universal Tool Layer tools (Phase 21)
 import("./lib/tools").then(async ({ registerAllTools }) => {
   try {
