@@ -50,7 +50,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **35** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
 | **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
 | **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
-| **38** | **Local AI Safety Watcher (Push Notifications)** | 🔄 **PLANNED** |
+| **38** | **Local AI Safety Watcher (Push Notifications)** | ✅ **COMPLETE** |
 | **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | 🔄 **PLANNED** |
 | **40** | **Recipe Widget (Standard + Deep Research)** | 🔄 **PLANNED** |
 | **41** | **File Format Conversion (@File Convert Command)** | 🔄 **PLANNED** |
@@ -1958,7 +1958,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Local AI monitor that watches for safety issues and errors** — A background AI process (running locally or in a sidecar) that monitors all Infinity activity: agent loops, builds, deployments, automations, browser actions. Detects: runaway loops, excessive token usage, security violations, failed deployments, error patterns, policy violations. Sends push notifications (Web Push, email, Slack, Discord) to user. Runs on $0 budget (local model or free tier).
 
 ### Requirements
-- [ ] **Watcher Agent** — `artifacts/api-server/src/lib/safety-watcher.ts`:
+- [x] **Watcher Agent** — `artifacts/api-server/src/lib/safety-watcher.ts`:
   - Subscribes to all system events: agent loops, build steps, deployments, browser actions, automations
   - Runs local model (Ollama, llama.cpp, or small hosted free tier) for analysis
   - Detection rules (configurable, extensible):
@@ -1972,7 +1972,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
     - **Stalled Task**: Task no progress > 10 minutes (build, research, automation)
   - Severity levels: `info`, `warning`, `critical`, `emergency`
   - Action: notify, pause agent, rollback, request human intervention
-- [ ] **Notification Dispatcher** — Multi-channel, $0 budget:
+- [x] **Notification Dispatcher** — Multi-channel, $0 budget:
   - **Web Push API** — Service Worker push (Phase 23 SW), VAPID keys, works offline
   - **Email** — Resend free tier (3000 emails/month) or SendGrid free (100/day)
   - **Slack/Discord** — Incoming webhooks (user configures)
@@ -1981,7 +1981,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Template engine: `{{severity}} {{type}}: {{summary}} — {{action}}`
   - Batching: group similar notifications within 5 min
   - Quiet hours: user-configurable (default 22:00-08:00 local)
-- [ ] **Configuration UI** — SettingsView "Safety Watcher" tab:
+- [x] **Configuration UI** — SettingsView "Safety Watcher" tab:
   - Enable/disable watcher
   - Severity thresholds per rule (when to notify)
   - Notification channels (enable/disable each)
@@ -1989,13 +1989,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Test notification button
   - View notification history (last 100)
   - "Snooze" button on notifications (15m, 1h, 1d)
-- [ ] **Local Model Integration** — Zero-cost inference:
+- [x] **Local Model Integration** — Zero-cost inference:
   - Prefer Ollama (local) if available → `llama3.2:1b` or `qwen2.5:0.5b`
   - Fallback: Transformers.js (WASM) in browser for simple checks
   - Fallback: Free tier API (Groq, Together AI free credits)
   - Model only analyzes event summaries (few KB), not full context
   - Caches recent decisions to avoid re-analysis
-- [ ] **Integration Points**:
+- [x] **Integration Points**:
   - Universal Agent: emits `agent:iteration`, `agent:tool-call`, `agent:complete`
   - Build Orchestrator: emits `build:phase-start`, `build:phase-complete`, `build:error`
   - Deployment Engine: emits `deploy:started`, `deploy:completed`, `deploy:failed`
@@ -2012,16 +2012,16 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 6. **Local Model Setup** — Ollama detection, Transformers.js fallback, model prompts
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/safety-watcher.ts` (new)
-- `artifacts/api-server/src/lib/notification-dispatcher.ts` (new)
-- `artifacts/api-server/src/routes/infinity/safety-watcher.ts` (new — config, history, test)
-- `artifacts/infinity-ai/src/components/settings/SafetyWatcherTab.tsx` (new)
-- `artifacts/infinity-ai/src/components/settings/NotificationHistory.tsx` (new)
-- `artifacts/infinity-ai/src/components/settings/NotificationChannelConfig.tsx` (new)
-- `artifacts/infinity-ai/src/lib/transformers-watcher.ts` (new — WASM fallback)
-- `artifacts/infinity-ai/public/sw.js` (extend — push notification handling)
-- `artifacts/infinity-ai/src/hooks/useNotifications.ts` (new)
-- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Safety Watcher keys EN+NL)
+- `artifacts/api-server/src/lib/safety-watcher.ts` ✅
+- `artifacts/api-server/src/lib/notification-dispatch.ts` ✅
+- `artifacts/api-server/src/routes/infinity/safety-watcher.ts` ✅
+- `artifacts/infinity-ai/src/components/settings/SafetyWatcherTab.tsx` ✅
+- `artifacts/infinity-ai/src/components/settings/NotificationHistory.tsx` ✅
+- `artifacts/infinity-ai/src/components/settings/NotificationChannelConfig.tsx` ✅
+- `artifacts/infinity-ai/src/lib/transformers-watcher.ts` ✅
+- `artifacts/infinity-ai/public/sw.js` ✅
+- `artifacts/infinity-ai/src/hooks/useNotifications.ts` ✅
+- `artifacts/infinity-ai/src/lib/i18n.tsx` ✅
 
 ---
 
