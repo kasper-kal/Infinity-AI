@@ -45,6 +45,7 @@ import {
   extractPreservationRules,
   COMPACTION_LEVELS
 } from "./context-compactor";
+import { emitAgentIterationEvent } from "./safety-watcher";
 
 // Extended message type that includes tool_calls for conversation history (OpenAI API format)
 interface LLMMessageWithToolCalls extends LLMMessage {
@@ -1066,6 +1067,25 @@ export async function runUniversalAgent(
   }
 
   const totalDurationMs = Date.now() - loopStartTime;
+
+  // Emit safety watcher event for agent iteration
+  try {
+    const iterationCount = iterations.length;
+    const tokenUsage = tokenBudget.usedTokens;
+    const tokenLimit = tokenBudget.maxTokens;
+    const tokenBudgetPercent = tokenLimit > 0 ? (tokenUsage / tokenLimit) * 100 : 0;
+
+    await emitAgentIterationEvent({
+      projectId: baseContext.projectId || "default",
+      iterationCount,
+      tokenBudgetPercent: Math.round(tokenBudgetPercent),
+      currentTokens: tokenUsage,
+      maxTokens: tokenLimit,
+      status: success ? "completed" : (error ? "error" : "running"),
+    });
+  } catch (e) {
+    console.error("Failed to emit agent iteration safety event:", e);
+  }
 
   // Emit loop_complete event
   onToolEvent({

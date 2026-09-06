@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { LLMAdapter, getLLMAdapter } from "./llm-adapter.js";
 import { FrameworkRegistry } from "./framework-generators/index.js";
+import { emitDeploymentEvent } from "./safety-watcher";
 
 // ============================================
 // Types & Schemas
@@ -75,6 +76,19 @@ export class DeploymentEngine {
       console.log(msg);
     };
 
+    // Emit deployment started event
+    try {
+      await emitDeploymentEvent({
+        projectId: config.envVars.PROJECT_ID || "default",
+        deploymentId: `deploy-${Date.now()}`,
+        status: "started",
+        provider: config.hosting,
+        url: undefined,
+      });
+    } catch (e) {
+      console.error("Failed to emit deployment safety event:", e);
+    }
+
     try {
       log(`Starting deployment to ${config.hosting} for ${config.framework} project`);
 
@@ -119,9 +133,38 @@ export class DeploymentEngine {
       }
 
       result.logs = logs;
+
+      // Emit deployment completed/failed event
+      try {
+        await emitDeploymentEvent({
+          projectId: config.envVars.PROJECT_ID || "default",
+          deploymentId: `deploy-${Date.now()}`,
+          status: result.success ? "completed" : "failed",
+          provider: config.hosting,
+          url: result.url,
+          error: result.error,
+        });
+      } catch (e) {
+        console.error("Failed to emit deployment safety event:", e);
+      }
+
       return result;
     } catch (error) {
       log(`Deployment failed: ${error}`);
+
+      // Emit deployment failed event
+      try {
+        await emitDeploymentEvent({
+          projectId: config.envVars.PROJECT_ID || "default",
+          deploymentId: `deploy-${Date.now()}`,
+          status: "failed",
+          provider: config.hosting,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } catch (e) {
+        console.error("Failed to emit deployment safety event:", e);
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -432,7 +475,7 @@ Return JSON with config files as { "filename": "content" }.`;
   // Health Checks
   // ============================================
 
-  async healthCheck(url: string, checks: string[] = ["/", "/api/health"]): Promise<HealthCheckResult> {
+  async healthCheck(url: string, checks: string[] = ["/", "/api/health"], projectId?: string): Promise<HealthCheckResult> {
     const results: HealthCheckResult["checks"] = [];
 
     for (const path of checks) {
@@ -466,6 +509,22 @@ Return JSON with config files as { "filename": "content" }.`;
     }
 
     const healthy = results.every(r => r.passed);
+
+    // Emit health check event if unhealthy
+    if (!healthy && projectId) {
+      try {
+        await emitDeploymentEvent({
+          projectId,
+          deploymentId: `health-check-${Date.now()}`,
+          status: "health_check_failed",
+          provider: "unknown",
+          url,
+          error: "Health check failed",
+        });
+      } catch (e) {
+        console.error("Failed to emit health check safety event:", e);
+      }
+    }
 
     return {
       healthy,
@@ -501,19 +560,51 @@ Return JSON with DNS records needed (type, name, value, ttl) and instructions.`;
   // Rollback
   // ============================================
 
-  async rollback(config: DeployConfig, deploymentId: string): Promise<DeployResult> {
+  async rollback(config: DeployConfig, deploymentId: string, projectId?: string): Promise<DeployResult> {
     log(`Rolling back deployment ${deploymentId} on ${config.hosting}...`);
+
+    // Emit rollback started event
+    try {
+      await emitDeploymentEvent({
+        projectId: projectId || config.envVars.PROJECT_ID || "default",
+        deploymentId,
+        status: "rollback_started",
+        provider: config.hosting,
+      });
+    } catch (e) {
+      console.error("Failed to emit rollback safety event:", e);
+    }
+
+    let result: DeployResult;
 
     switch (config.hosting) {
       case "vercel":
-        return this.rollbackVercel(config, deploymentId);
+        result = await this.rollbackVercel(config, deploymentId);
+        break;
       case "netlify":
-        return this.rollbackNetlify(config, deploymentId);
+        result = await this.rollbackNetlify(config, deploymentId);
+        break;
       case "cloudflare-pages":
-        return this.rollbackCloudflarePages(config, deploymentId);
+        result = await this.rollbackCloudflarePages(config, deploymentId);
+        break;
       default:
-        return { success: false, error: `Rollback not implemented for ${config.hosting}` };
+        result = { success: false, error: `Rollback not implemented for ${config.hosting}` };
     }
+
+    // Emit rollback completed/failed event
+    try {
+      await emitDeploymentEvent({
+        projectId: projectId || config.envVars.PROJECT_ID || "default",
+        deploymentId,
+        status: result.success ? "rollback_completed" : "rollback_failed",
+        provider: config.hosting,
+        error: result.error,
+      });
+    } catch (e) {
+      console.error("Failed to emit rollback safety event:", e);
+    }
+
+    return result;
   }
 
   private async rollbackVercel(config: DeployConfig, deploymentId: string): Promise<DeployResult> {

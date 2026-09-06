@@ -63,7 +63,7 @@ export { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescrip
 export type { SheetProps, SheetContentProps, SheetHeaderProps, SheetFooterProps, SheetTitleProps, SheetDescriptionProps, SheetTriggerProps, SheetCloseProps, SheetOverlayProps, SheetPortalProps } from "./sheet";
 
 // Tooltip
-export { Tooltip, Toast, ToastContainer, useToast, ToastProvider, ToastViewport, ToastTitle, ToastDescription, ToastAction, ToastClose } from "./Tooltip";
+export { Tooltip, TooltipTrigger, TooltipContent, Toast, ToastContainer, useToast, ToastProvider, ToastViewport, ToastTitle, ToastDescription, ToastAction, ToastClose } from "./Tooltip";
 export type { TooltipProps, ToastProps, ToastContainerProps } from "./Tooltip";
 
 // Table

@@ -4,10 +4,11 @@
  * Offline-first caching strategy using Workbox patterns.
  * Caches: sandbox runtime, component library, design tokens, static assets.
  * Works offline for editing; syncs on reconnect.
+ * Extended with Safety Watcher push notification support (Phase 38).
  */
 
 // Service Worker version - update when changing caching strategy
-const SW_VERSION = '2026-08-29-v1';
+const SW_VERSION = '2026-09-06-v2';
 const CACHE_NAME = `infinity-ai-${SW_VERSION}`;
 
 // Cache names for different strategies
@@ -25,6 +26,9 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/badge-72.png',
   // CDN assets that we want available offline
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/react@18/umd/react.production.min.js',
@@ -452,12 +456,108 @@ async function refreshDesignTokens() {
   }
 }
 
-// Push notification handling (if needed)
+// ─── Safety Watcher Push Notification Handling (Phase 38) ───
+
+interface SafetyWatcherNotificationData {
+  type: 'safety';
+  notificationId: string;
+  severity: 'info' | 'warning' | 'critical' | 'emergency';
+  ruleId?: string;
+  eventId?: string;
+  projectId: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  dismissAction?: string;
+  acknowledgeAction?: string;
+}
+
+function isSafetyWatcherData(data: any): data is SafetyWatcherNotificationData {
+  return data && data.type === 'safety';
+}
+
+function getSeverityIcon(severity: string): string {
+  switch (severity) {
+    case 'emergency': return '🚨';
+    case 'critical': return '⚠️';
+    case 'warning': return '⚡';
+    case 'info': return 'ℹ️';
+    default: return '🔔';
+  }
+}
+
+function getSeverityColor(severity: string): string {
+  switch (severity) {
+    case 'emergency': return '#dc2626';
+    case 'critical': return '#ea580c';
+    case 'warning': return '#d97706';
+    case 'info': return '#2563eb';
+    default: return '#6b7280';
+  }
+}
+
+// Push notification handling for Safety Watcher
 self.addEventListener('push', event => {
   if (!event.data) return;
 
-  const data = event.data.json();
+  let data: any;
+  try {
+    data = event.data.json();
+  } catch {
+    return;
+  }
 
+  // Handle Safety Watcher notifications
+  if (isSafetyWatcherData(data)) {
+    const severityIcon = getSeverityIcon(data.severity);
+    const severityColor = getSeverityColor(data.severity);
+
+    const actions: NotificationAction[] = [];
+
+    // Add dismiss action
+    if (data.dismissAction) {
+      actions.push({
+        action: 'dismiss',
+        title: 'Dismiss',
+        icon: '/icons/dismiss.svg',
+      });
+    }
+
+    // Add acknowledge action for critical/emergency
+    if ((data.severity === 'critical' || data.severity === 'emergency') && data.acknowledgeAction) {
+      actions.push({
+        action: 'acknowledge',
+        title: 'Acknowledge',
+        icon: '/icons/acknowledge.svg',
+      });
+    }
+
+    // Add view action if URL provided
+    if (data.actionUrl) {
+      actions.push({
+        action: 'view',
+        title: data.actionLabel || 'View Details',
+        icon: '/icons/view.svg',
+      });
+    }
+
+    event.waitUntil(
+      self.registration.showNotification(`${severityIcon} ${data.title || 'Safety Alert'}`, {
+        body: data.body || data.message,
+        icon: '/icon-192.png',
+        badge: '/badge-72.png',
+        data: data as SafetyWatcherNotificationData,
+        actions,
+        tag: `safety-${data.notificationId}`,
+        requireInteraction: data.severity === 'emergency' || data.severity === 'critical',
+        vibrate: data.severity === 'emergency' ? [200, 100, 200, 100, 200] : [100, 50, 100],
+        timestamp: Date.now(),
+        renotify: true,
+      })
+    );
+    return;
+  }
+
+  // Legacy/fallback notification handling
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -472,11 +572,50 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
+  const data = event.notification.data as SafetyWatcherNotificationData;
+
+  // Handle Safety Watcher notification actions
+  if (isSafetyWatcherData(data)) {
+    const handleAction = async (action: string) => {
+      // Send action to server
+      try {
+        await fetch(`/api/infinity/safety-watcher/in-app-notifications/${data.notificationId}/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: data.projectId }),
+        });
+      } catch (e) {
+        console.error('Failed to send notification action:', e);
+      }
+
+      // Handle client-side action
+      switch (action) {
+        case 'view':
+          if (data.actionUrl) {
+            return openOrFocusWindow(data.actionUrl);
+          }
+          break;
+        case 'dismiss':
+        case 'acknowledge':
+          // Already sent to server, nothing else needed
+          break;
+      }
+    };
+
+    if (event.action) {
+      event.waitUntil(handleAction(event.action));
+    } else {
+      // Default click - open action URL or project dashboard
+      const url = data.actionUrl || `/projects/${data.projectId}/safety-watcher`;
+      event.waitUntil(openOrFocusWindow(url));
+    }
+    return;
+  }
+
+  // Legacy/fallback notification click handling
   if (event.action) {
-    // Handle action click
     clients.openWindow(event.notification.data);
   } else {
-    // Handle notification click
     event.waitUntil(
       clients.matchAll({ type: 'window' }).then(clientList => {
         for (const client of clientList) {
@@ -487,6 +626,38 @@ self.addEventListener('notificationclick', event => {
         return clients.openWindow(event.notification.data);
       })
     );
+  }
+});
+
+// Helper to open or focus existing window
+async function openOrFocusWindow(url: string) {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+  // Try to find existing window with matching origin
+  for (const client of clients) {
+    try {
+      const clientUrl = new URL(client.url);
+      const targetUrl = new URL(url, self.location.origin);
+      if (clientUrl.origin === targetUrl.origin && 'focus' in client) {
+        return client.focus();
+      }
+    } catch {
+      // Invalid URL, continue
+    }
+  }
+
+  // Open new window
+  return self.clients.openWindow(url);
+}
+
+// Handle notification close (user dismissed without action)
+self.addEventListener('notificationclose', event => {
+  const data = event.notification.data as SafetyWatcherNotificationData;
+
+  if (isSafetyWatcherData(data)) {
+    // Optionally send dismiss to server
+    // We don't auto-dismiss on close, user must explicitly dismiss
+    console.log('Safety Watcher notification closed:', data.notificationId);
   }
 });
 

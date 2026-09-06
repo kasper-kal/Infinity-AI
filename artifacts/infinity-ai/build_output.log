@@ -1,0 +1,21 @@
+vite v7.3.6 building client environment for production...
+transforming...
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/avatar.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/widgets/MapsWidget.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/widgets/PromoWidget.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui-builder/APIWizard.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui-builder/AuthPanel.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui-builder/DatabasePanel.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/build/TokenUsageGauge.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/progress.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/build/CompactionHistory.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/automation/AutomationBuilder.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/automation/AutomationFlow.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/automation/AutomationList.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/project-create-modal.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3293 modules transformed.
+Terminated

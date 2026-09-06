@@ -36,6 +36,7 @@ import {
   type SmartContextSelection,
 } from "./build-project-map";
 import { logBuildEvent } from "./build-telemetry";
+import { emitBuildPhaseEvent } from "./safety-watcher";
 import { withRetry } from "./build-edge-cases";
 import {
   adversarialVerify,
@@ -289,12 +290,40 @@ export class BuildOrchestrator {
   async orchestrate(goal: string): Promise<OrchestratorResult> {
     this.emitProgress("planner", "start", `Planning: ${goal}`);
 
+    // Emit build phase event - planning started
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "planning",
+        status: "started",
+        stepsTotal: 0,
+        stepsCompleted: 0,
+        currentStep: "planning",
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
+    }
+
     // 1. Load project context
     await this.loadContext(goal);
 
     // 2. PLANNER — create execution plan
     const plan = await this.runPlanner(goal);
     this.emitProgress("planner", "done", `Plan created: ${plan.steps.length} steps`);
+
+    // Emit build phase event - planning completed
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "planning",
+        status: "completed",
+        stepsTotal: plan.steps.length,
+        stepsCompleted: 0,
+        currentStep: "planning",
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
+    }
 
     // 3. Execute steps in dependency order with parallel groups
     const results = await this.executePlan(plan);
@@ -326,6 +355,25 @@ export class BuildOrchestrator {
       }
       return true;
     });
+
+    // Emit build phase event - build completed/failed
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "build",
+        status: success ? "completed" : "failed",
+        stepsTotal: plan.steps.length,
+        stepsCompleted: Array.from(results.values()).filter(r => {
+          if (typeof r === "object" && r && "status" in r) {
+            return (r as any).status === "completed" || (r as any).status === "all-fixed";
+          }
+          return true;
+        }).length,
+        currentStep: "complete",
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
+    }
 
     this.emitProgress("orchestrator", "done", success ? "All steps completed successfully" : "Some steps failed");
     return { success, plan, results, events: this.events };
@@ -594,13 +642,55 @@ export class BuildOrchestrator {
 
     this.emitProgress("coder", step.id, `Starting: ${step.title}`);
 
+    // Emit build phase event - coder started
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "coder",
+        status: "started",
+        stepsTotal: plan.steps.length,
+        stepsCompleted: this.context.completedSteps.size,
+        currentStep: step.id,
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
+    }
+
     // Gather context for this step
     const stepContext = this.gatherStepContext(step, plan);
 
     // Run Coder (delegates to proven tool-use loop)
     const coderHandoff = await this.runCoder(step, stepContext);
     if (coderHandoff.status === "failed" || coderHandoff.status === "blocked") {
+      // Emit build phase event - coder failed
+      try {
+        await emitBuildPhaseEvent({
+          projectId: this.projectId,
+          phase: "coder",
+          status: "failed",
+          stepsTotal: plan.steps.length,
+          stepsCompleted: this.context.completedSteps.size,
+          currentStep: step.id,
+          error: coderHandoff.blockers?.join(", ") || "Coder failed",
+        });
+      } catch (e) {
+        console.error("Failed to emit build phase safety event:", e);
+      }
       return coderHandoff;
+    }
+
+    // Emit build phase event - coder completed
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "coder",
+        status: "completed",
+        stepsTotal: plan.steps.length,
+        stepsCompleted: this.context.completedSteps.size + 1,
+        currentStep: step.id,
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
     }
 
     // Update context with Coder's changes
@@ -608,6 +698,21 @@ export class BuildOrchestrator {
 
     // Run Reviewer
     const review = await this.runReviewer(step, coderHandoff, stepContext);
+
+    // Emit build phase event - reviewer completed
+    try {
+      await emitBuildPhaseEvent({
+        projectId: this.projectId,
+        phase: "reviewer",
+        status: review.verdict === "pass" ? "completed" : "needs-fixes",
+        stepsTotal: plan.steps.length,
+        stepsCompleted: this.context.completedSteps.size + 1,
+        currentStep: step.id,
+        error: review.verdict !== "pass" ? `Found ${review.findings.length} issues` : undefined,
+      });
+    } catch (e) {
+      console.error("Failed to emit build phase safety event:", e);
+    }
 
     // If pass, we're done
     if (review.verdict === "pass") {

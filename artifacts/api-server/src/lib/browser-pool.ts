@@ -1,6 +1,7 @@
 import { InfinityBrowser, type BrowserState, type InteractiveElement, type BrowseAction } from "./puppeteer-browser";
 import { EventEmitter } from "events";
 import { getBrowserPolicy, type PolicyCheckResult, type ActionContext } from "./browser-policy";
+import { emitBrowserPolicyEvent } from "./safety-watcher";
 
 /**
  * Phase 4.2 — Browser Pool.
@@ -229,7 +230,24 @@ export class BrowserPool extends EventEmitter {
       ...context,
     };
 
-    return policy.checkAction(action, fullContext);
+    const result = policy.checkAction(action, fullContext);
+
+    // Emit browser policy event for safety watcher
+    try {
+      await emitBrowserPolicyEvent({
+        projectId: context.projectId || "default",
+        browserId,
+        action,
+        url: fullContext.url,
+        allowed: result.allowed,
+        reason: result.reason,
+        severity: result.allowed ? "info" : (result.decision === "REQUIRE_HUMAN" ? "warning" : "critical"),
+      });
+    } catch (e) {
+      console.error("Failed to emit browser policy safety event:", e);
+    }
+
+    return result;
   }
 
   /** Execute an action on a specific browser with policy enforcement. */

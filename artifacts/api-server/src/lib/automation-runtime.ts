@@ -12,6 +12,7 @@ import type { AutomationSpec, AutomationTrigger, AutomationAction, AutomationTri
 import type { ToolExecutionContext } from "./tool-types";
 import { createBestAdapter } from "./adapter-factory";
 import { sanitizePrompt } from "./infinity-prompt";
+import { emitAutomationEvent } from "./safety-watcher";
 
 /**
  * Automation Run Status
@@ -390,8 +391,9 @@ export class AutomationRuntime {
     }
 
     // Create run record
+    const runId = crypto.randomUUID();
     const run = await this.createRun({
-      id: crypto.randomUUID(),
+      id: runId,
       automationId,
       projectId,
       status: AutomationRunStatus.RUNNING,
@@ -404,6 +406,19 @@ export class AutomationRuntime {
       logs: [],
     });
 
+    // Emit automation started event
+    try {
+      await emitAutomationEvent({
+        projectId,
+        automationId,
+        runId,
+        status: "started",
+        triggerType: triggerInfo.triggerType,
+      });
+    } catch (e) {
+      console.error("Failed to emit automation safety event:", e);
+    }
+
     // Track running run for cancellation
     const abortController = new AbortController();
     this.runningRuns.set(run.id, abortController);
@@ -411,9 +426,37 @@ export class AutomationRuntime {
     try {
       await this.runAutomation(automation, run, abortController.signal);
       await this.completeRun(run.id, AutomationRunStatus.SUCCESS);
+
+      // Emit automation completed event
+      try {
+        await emitAutomationEvent({
+          projectId,
+          automationId,
+          runId,
+          status: "completed",
+          triggerType: triggerInfo.triggerType,
+        });
+      } catch (e) {
+        console.error("Failed to emit automation safety event:", e);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await this.completeRun(run.id, AutomationRunStatus.FAILED, message);
+
+      // Emit automation failed event
+      try {
+        await emitAutomationEvent({
+          projectId,
+          automationId,
+          runId,
+          status: "failed",
+          triggerType: triggerInfo.triggerType,
+          error: message,
+        });
+      } catch (e) {
+        console.error("Failed to emit automation safety event:", e);
+      }
+
       throw error;
     } finally {
       this.runningRuns.delete(run.id);

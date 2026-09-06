@@ -28,6 +28,7 @@ import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { RulesEditor } from "@/components/cursor/RulesEditor";
 import { NotepadManager } from "@/components/cursor/NotepadManager";
 import { ModelPreferences } from "@/components/cursor/ModelPreferences";
+import { SafetyWatcherTab } from "@/components/settings/SafetyWatcherTab";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -318,7 +319,8 @@ type SettingsSection =
   | 'rules'
   | 'notepads'
   | 'model-preferences'
-  | 'ai-management';
+  | 'ai-management'
+  | 'safety-watcher';
 
 const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey: string }> = {
   theme: {
@@ -469,6 +471,15 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
       </svg>
     ),
     labelKey: 'settings.aiManagement',
+  },
+  'safety-watcher': {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M12 9v4M12 17h.01" />
+      </svg>
+    ),
+    labelKey: 'settings.safetyWatcher',
   },
 };
 
@@ -754,6 +765,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         return (
           <AIManagementTab projectId={projectId} />
         );
+      case 'safety-watcher':
+        return (
+          <SafetyWatcherTab projectId={projectId} />
+        );
     }
   };
 
@@ -837,6 +852,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'ai-management',
       label: t('settings.aiManagement'),
       icon: SECTION_CONFIG['ai-management'].icon,
+    },
+    {
+      id: 'safety-watcher',
+      label: t('settings.safetyWatcher'),
+      icon: SECTION_CONFIG['safety-watcher'].icon,
     },
   ];
 
