@@ -29,6 +29,7 @@ import { RulesEditor } from "@/components/cursor/RulesEditor";
 import { NotepadManager } from "@/components/cursor/NotepadManager";
 import { ModelPreferences } from "@/components/cursor/ModelPreferences";
 import { SafetyWatcherTab } from "@/components/settings/SafetyWatcherTab";
+import { LLMKeysTab } from "@/components/settings/LLMKeysTab";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -309,6 +310,7 @@ type SettingsSection =
   | 'api-keys'
   | 'language'
   | 'mcp-servers'
+  | 'llm-keys'
   | 'advanced'
   | 'enterprise'
   | 'skills'
@@ -472,6 +474,17 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
     ),
     labelKey: 'settings.aiManagement',
   },
+  'llm-keys': {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M6 9h12M6 13h12" />
+        <path d="M2 9h20M2 13h20" />
+      </svg>
+    ),
+    labelKey: 'settings.llmKeys',
+  },
   'safety-watcher': {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -594,6 +607,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             projectId={projectId || ''}
             onServersChange={() => {}}
           />
+        );
+      case 'llm-keys':
+        return (
+          <LLMKeysTab projectId={projectId} />
         );
       case 'advanced':
         return (
@@ -797,6 +814,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'mcp-servers',
       label: t('settings.mcpServers'),
       icon: SECTION_CONFIG['mcp-servers'].icon,
+    },
+    {
+      id: 'llm-keys',
+      label: t('settings.llmKeys'),
+      icon: SECTION_CONFIG['llm-keys'].icon,
     },
     {
       id: 'advanced',

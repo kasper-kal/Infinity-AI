@@ -770,6 +770,14 @@ const ALTER_TABLES = [
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "failures" integer NOT NULL DEFAULT 0`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "last_used_at" timestamp`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "created_at" timestamp NOT NULL DEFAULT now()`,
+  // Phase 39: Enhanced LLM API Key System columns
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "model_access" text[] DEFAULT '{}'`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "rate_limit" jsonb`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "budget" jsonb`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "last_tested" timestamp`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "updated_at" timestamp NOT NULL DEFAULT now()`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "is_default" boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "failover_chain" text[] DEFAULT '{}'`,
 
   // projects, Phase B project management fields
   `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "description" text NOT NULL DEFAULT ''`,

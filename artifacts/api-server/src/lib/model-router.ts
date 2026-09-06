@@ -19,7 +19,14 @@ export enum ModelCapability {
   CODEBASE_SEARCH = "codebase-search",
   DEEP_RESEARCH = "deep-research",
   VISUAL_EDITING = "visual-editing",
-  EMBEDDINGS = "embeddings"
+  EMBEDDINGS = "embeddings",
+  // Extended task categories
+  PLANNING = "planning",
+  REVIEW = "review",
+  VISION = "vision",
+  CLASSIFICATION = "classification",
+  EXTRACTION = "extraction",
+  REASONING = "reasoning"
 }
 
 export enum ModelProvider {
@@ -31,6 +38,45 @@ export enum ModelProvider {
   OLLAMA = "ollama",
   LM_STUDIO = "lm-studio",
   CUSTOM = "custom"
+}
+
+export enum BuildMode {
+  SPEED = "speed",
+  BALANCED = "balanced",
+  QUALITY = "quality",
+  MAX = "max",
+  CUSTOM = "custom"
+}
+
+export enum TaskCategory {
+  CHAT = "chat",
+  CODING = "coding",
+  RESEARCH = "research",
+  PLANNING = "planning",
+  REVIEW = "review",
+  VISION = "vision",
+  EMBEDDING = "embedding",
+  CLASSIFICATION = "classification",
+  EXTRACTION = "extraction",
+  REASONING = "reasoning"
+}
+
+export interface ModelBenchmark {
+  coding: number;
+  reasoning: number;
+  chat: number;
+  speed: number;
+  cost: number; // higher = cheaper (100 = free)
+}
+
+export interface CostSummary {
+  projectId: string;
+  periodDays: number;
+  totalCost: number;
+  costByModel: Record<string, number>;
+  costByCategory: Record<string, number>;
+  costByDay: Array<{ date: string; cost: number }>;
+  budgetUtilization: number;
 }
 
 // Model configuration
@@ -324,7 +370,135 @@ export class ModelRouter {
   private userPreferences: Map<string, UserModelPreferences> = new Map();
   private projectRoot: string;
 
-  constructor(projectRoot: string = process.cwd()) {
+  // Build mode configurations
+  private buildModeConfigs: Record<BuildMode, BuildModeConfig> = {
+    [BuildMode.SPEED]: {
+      name: "Speed",
+      description: "Fastest responses, minimal verification",
+      parallelAgents: 3,
+      verificationDepth: "minimal",
+      contextBudget: 0.5,
+      preferLocal: true,
+      preferSpeed: true,
+      preferCost: true,
+      maxCostPerRequest: 0.01,
+      maxLatencyMs: 2000,
+      temperature: 0.3,
+    },
+    [BuildMode.BALANCED]: {
+      name: "Balanced",
+      description: "Good balance of speed and quality",
+      parallelAgents: 2,
+      verificationDepth: "standard",
+      contextBudget: 0.75,
+      preferLocal: false,
+      preferSpeed: false,
+      preferCost: false,
+      preferQuality: false,
+      maxCostPerRequest: 0.10,
+      maxLatencyMs: 10000,
+      temperature: 0.5,
+    },
+    [BuildMode.QUALITY]: {
+      name: "Quality",
+      description: "High quality, more verification",
+      parallelAgents: 1,
+      verificationDepth: "thorough",
+      contextBudget: 1.0,
+      preferLocal: false,
+      preferSpeed: false,
+      preferCost: false,
+      preferQuality: true,
+      maxCostPerRequest: 0.50,
+      maxLatencyMs: 30000,
+      temperature: 0.7,
+    },
+    [BuildMode.MAX]: {
+      name: "Maximum",
+      description: "Best quality, all quality gates, adversarial verify",
+      parallelAgents: 1,
+      verificationDepth: "adversarial",
+      contextBudget: 1.5,
+      preferLocal: false,
+      preferSpeed: false,
+      preferCost: false,
+      preferQuality: true,
+      maxCostPerRequest: 2.00,
+      maxLatencyMs: 60000,
+      temperature: 0.8,
+    },
+    [BuildMode.CUSTOM]: {
+      name: "Custom",
+      description: "User-defined profile",
+      parallelAgents: 2,
+      verificationDepth: "standard",
+      contextBudget: 1.0,
+      preferLocal: false,
+      preferSpeed: false,
+      preferCost: false,
+      preferQuality: false,
+      maxCostPerRequest: 0.50,
+      maxLatencyMs: 15000,
+      temperature: 0.5,
+    },
+  };
+
+  // Task category to capability mapping
+  private taskCategoryToCapability: Record<TaskCategory, ModelCapability> = {
+    [TaskCategory.CHAT]: ModelCapability.CHAT,
+    [TaskCategory.CODING]: ModelCapability.COMPOSER,
+    [TaskCategory.RESEARCH]: ModelCapability.DEEP_RESEARCH,
+    [TaskCategory.PLANNING]: ModelCapability.PLANNING,
+    [TaskCategory.REVIEW]: ModelCapability.REVIEW,
+    [TaskCategory.VISION]: ModelCapability.VISION,
+    [TaskCategory.EMBEDDING]: ModelCapability.EMBEDDINGS,
+    [TaskCategory.CLASSIFICATION]: ModelCapability.CLASSIFICATION,
+    [TaskCategory.EXTRACTION]: ModelCapability.EXTRACTION,
+    [TaskCategory.REASONING]: ModelCapability.REASONING,
+  };
+
+export interface BuildModeConfig {
+  name: string;
+  description: string;
+  parallelAgents: number;
+  verificationDepth: "minimal" | "standard" | "thorough" | "adversarial";
+  contextBudget: number; // multiplier
+  preferLocal: boolean;
+  preferSpeed: boolean;
+  preferCost: boolean;
+  preferQuality: boolean;
+  maxCostPerRequest: number;
+  maxLatencyMs: number;
+  temperature: number;
+}
+
+export interface ModelSelectionResult {
+  provider: ModelProvider;
+  model: ModelConfig;
+  keyId?: string; // Reference to secret-manager key
+  params: {
+    temperature: number;
+    maxTokens: number;
+    topP?: number;
+  };
+  buildMode: BuildMode;
+  taskCategory: TaskCategory;
+  estimatedCost: number;
+  fallbackModels: ModelConfig[];
+}
+
+export interface CostEstimate {
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  estimatedCostUsd: number;
+  modelId: string;
+  breakdown: {
+    inputCost: number;
+    outputCost: number;
+  };
+}
+
+constructor(projectRoot: string = process.cwd()) {
     this.projectRoot = projectRoot;
     this.registerBuiltinModels();
   }
@@ -333,6 +507,183 @@ export class ModelRouter {
     for (const model of BUILTIN_MODELS) {
       this.models.set(model.id, model);
     }
+  }
+
+  /**
+   * Get build mode configuration
+   */
+  getBuildModeConfig(mode: BuildMode): BuildModeConfig {
+    return this.buildModeConfigs[mode] || this.buildModeConfigs[BuildMode.BALANCED];
+  }
+
+  /**
+   * Get all build mode configurations
+   */
+  getAllBuildModes(): Record<BuildMode, BuildModeConfig> {
+    return { ...this.buildModeConfigs };
+  }
+
+  /**
+   * Update build mode configuration (custom mode)
+   */
+  updateBuildModeConfig(mode: BuildMode, config: Partial<BuildModeConfig>): void {
+    if (mode === BuildMode.CUSTOM) {
+      this.buildModeConfigs[mode] = { ...this.buildModeConfigs[mode], ...config };
+    }
+  }
+
+  /**
+   * Map task category to capability
+   */
+  getCapabilityForTaskCategory(category: TaskCategory): ModelCapability {
+    return this.taskCategoryToCapability[category] || ModelCapability.CHAT;
+  }
+
+  /**
+   * Select model based on task category and build mode
+   */
+  async selectModel(
+    taskCategory: TaskCategory,
+    buildMode: BuildMode = BuildMode.BALANCED,
+    context: { projectId?: string; userId?: string; constraints?: Partial<BuildModeConfig> } = {}
+  ): Promise<ModelSelectionResult> {
+    const capability = this.getCapabilityForTaskCategory(taskCategory);
+    const modeConfig = this.getBuildModeConfig(buildMode);
+
+    // Merge mode config with context constraints
+    const mergedPrefs = {
+      preferLocal: context.constraints?.preferLocal ?? modeConfig.preferLocal,
+      preferSpeed: context.constraints?.preferSpeed ?? modeConfig.preferSpeed,
+      preferCost: context.constraints?.preferCost ?? modeConfig.preferCost,
+      preferQuality: context.constraints?.preferQuality ?? modeConfig.preferQuality,
+      maxCostPerRequest: context.constraints?.maxCostPerRequest ?? modeConfig.maxCostPerRequest,
+      maxLatencyMs: context.constraints?.maxLatencyMs ?? modeConfig.maxLatencyMs,
+    };
+
+    const resolved = await this.resolveModel(capability, {
+      projectId: context.projectId,
+      userId: context.userId,
+      preferences: mergedPrefs,
+    });
+
+    // Estimate cost for typical request
+    const estimatedCost = this.estimateRequestCost(resolved.model, 2000, 1000);
+
+    return {
+      provider: resolved.model.provider,
+      model: resolved.model,
+      params: {
+        temperature: modeConfig.temperature,
+        maxTokens: Math.min(resolved.model.maxOutputTokens, 4096),
+      },
+      buildMode,
+      taskCategory,
+      estimatedCost,
+      fallbackModels: resolved.fallbackModels,
+    };
+  }
+
+  /**
+   * Estimate cost for a request
+   */
+  estimateRequestCost(model: ModelConfig, estimatedInputTokens: number, estimatedOutputTokens: number): CostEstimate {
+    const inputCost = (estimatedInputTokens / 1000) * model.costPer1kInputTokens;
+    const outputCost = (estimatedOutputTokens / 1000) * model.costPer1kOutputTokens;
+
+    return {
+      estimatedInputTokens,
+      estimatedOutputTokens,
+      estimatedCostUsd: inputCost + outputCost,
+      modelId: model.id,
+      breakdown: { inputCost, outputCost },
+    };
+  }
+
+  /**
+   * Estimate cost for deep research (multi-step)
+   */
+  estimateDeepResearchCost(model: ModelConfig, steps: number = 5): CostEstimate {
+    // Deep research typically: search (2k in, 1k out) × steps + synthesis (5k in, 3k out)
+    const searchInputPerStep = 2000;
+    const searchOutputPerStep = 1000;
+    const synthesisInput = 5000;
+    const synthesisOutput = 3000;
+
+    const totalInput = (searchInputPerStep * steps) + synthesisInput;
+    const totalOutput = (searchOutputPerStep * steps) + synthesisOutput;
+
+    return this.estimateRequestCost(model, totalInput, totalOutput);
+  }
+
+  /**
+   * Get recommended models for a task category
+   */
+  getRecommendedModels(taskCategory: TaskCategory, buildMode: BuildMode = BuildMode.BALANCED): ModelConfig[] {
+    const capability = this.getCapabilityForTaskCategory(taskCategory);
+    const modeConfig = this.getBuildModeConfig(buildMode);
+
+    let models = this.getModels({ capability, enabled: true });
+
+    // Sort by mode preferences
+    if (modeConfig.preferLocal) {
+      models = models.sort((a, b) => {
+        const aLocal = a.provider === ModelProvider.OLLAMA || a.provider === ModelProvider.LM_STUDIO;
+        const bLocal = b.provider === ModelProvider.OLLAMA || b.provider === ModelProvider.LM_STUDIO;
+        return (aLocal === bLocal) ? 0 : aLocal ? -1 : 1;
+      });
+    }
+
+    if (modeConfig.preferSpeed) {
+      models = models.sort((a, b) => a.latencyMs - b.latencyMs);
+    }
+
+    if (modeConfig.preferCost) {
+      models = models.sort((a, b) => {
+        const aCost = a.costPer1kInputTokens + a.costPer1kOutputTokens;
+        const bCost = b.costPer1kInputTokens + b.costPer1kOutputTokens;
+        return aCost - bCost;
+      });
+    }
+
+    if (modeConfig.preferQuality) {
+      models = models.sort((a, b) => b.qualityScore - a.qualityScore);
+    }
+
+    return models.slice(0, 10);
+  }
+
+  /**
+   * Get model benchmarks (static data, could be replaced with actual benchmark results)
+   */
+  getModelBenchmarks(): Record<string, ModelBenchmark> {
+    return {
+      "openrouter:anthropic/claude-3.5-sonnet": { coding: 95, reasoning: 98, chat: 97, speed: 60, cost: 20 },
+      "openrouter:anthropic/claude-3.5-haiku": { coding: 85, reasoning: 90, chat: 92, speed: 85, cost: 70 },
+      "openrouter:openai/gpt-4o": { coding: 93, reasoning: 95, chat: 96, speed: 70, cost: 30 },
+      "openrouter:openai/gpt-4o-mini": { coding: 80, reasoning: 85, chat: 88, speed: 90, cost: 85 },
+      "openrouter:qwen/qwen-2.5-coder-32b-instruct:free": { coding: 92, reasoning: 88, chat: 85, speed: 75, cost: 100 },
+      "ollama:qwen2.5-coder:7b": { coding: 88, reasoning: 82, chat: 80, speed: 60, cost: 100 },
+      "ollama:deepseek-coder:6.7b": { coding: 90, reasoning: 85, chat: 82, speed: 70, cost: 100 },
+      "openrouter:google/gemma-2-9b-it:free": { coding: 75, reasoning: 80, chat: 85, speed: 85, cost: 100 },
+      "openrouter:meta-llama/llama-3.1-8b-instruct:free": { coding: 70, reasoning: 75, chat: 82, speed: 80, cost: 100 },
+    };
+  }
+
+  /**
+   * Get cost tracking summary for a project
+   */
+  async getCostSummary(projectId: string, days: number = 30): Promise<CostSummary> {
+    // This would integrate with secret-manager's spend tracking
+    // For now, return placeholder structure
+    return {
+      projectId,
+      periodDays: days,
+      totalCost: 0,
+      costByModel: {},
+      costByCategory: {},
+      costByDay: [],
+      budgetUtilization: 0,
+    };
   }
 
   /**

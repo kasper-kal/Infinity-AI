@@ -25,13 +25,26 @@ const scryptAsync = promisify(scrypt);
 
 export type LLMKeyHealth = 'healthy' | 'cooling' | 'quarantined';
 export type LLMKeySource = 'user-api' | 'project-pool' | 'global-pool';
-export type SecretOperation = 'create' | 'read' | 'update' | 'delete' | 'rotate' | 'health-check';
+export type SecretOperation = 'create' | 'read' | 'update' | 'delete' | 'rotate' | 'health-check' | 'validate' | 'failover';
 
 export interface EncryptedSecret {
   ciphertext: string;
   iv: string;
   authTag: string;
   salt: string;
+}
+
+export interface LLMKeyMetadata {
+  label?: string; // User-friendly label (e.g., "Primary", "Backup", "Coding-specialized")
+  modelAccess?: string[]; // Which models this key unlocks (e.g., ["gpt-4o", "gpt-4o-mini"])
+  rateLimit?: number; // Requests per minute
+  monthlyBudget?: number; // USD per month
+  currentSpend?: number; // Current month spend in USD
+  enabled?: boolean; // Can be toggled off without deleting
+  isPrimary?: boolean; // Primary key for this provider
+  isBackup?: boolean; // Backup key for failover
+  specialization?: 'chat' | 'coding' | 'research' | 'planning' | 'review' | 'vision' | 'embedding' | 'classification' | 'extraction' | 'reasoning';
+  tags?: string[]; // Custom tags for organization
 }
 
 export interface LLMKeyData {
@@ -49,7 +62,7 @@ export interface LLMKeyData {
   coolingUntil?: Date;
   quarantineReason?: string;
   rotationCount: number;
-  metadata?: Record<string, unknown>;
+  metadata?: LLMKeyMetadata;
 }
 
 export interface KeyHealthMetrics {
@@ -213,7 +226,7 @@ export class SecretManager {
   /**
    * Store a new LLM API key
    */
-  async createKey(data: Omit<LLMKeyData, 'id' | 'rotationCount' | 'health'> & { key: string }): Promise<LLMKeyData> {
+  async createKey(data: Omit<LLMKeyData, 'id' | 'rotationCount' | 'health'> & { key: string; metadata?: LLMKeyMetadata }): Promise<LLMKeyData> {
     const encryptedKey = await encryptSecret(data.key, data.projectId);
 
     const keyData: Omit<LLMKeyData, 'id'> = {
@@ -222,6 +235,13 @@ export class SecretManager {
       health: 'healthy',
       rotationCount: 0,
       lastHealthCheck: new Date(),
+      metadata: data.metadata ?? {
+        label: data.name,
+        enabled: true,
+        isPrimary: false,
+        isBackup: false,
+        currentSpend: 0,
+      },
     };
 
     const [inserted] = await db.insert(secrets).values({
@@ -238,18 +258,262 @@ export class SecretManager {
       coolingUntil: keyData.coolingUntil ?? null,
       quarantineReason: keyData.quarantineReason ?? null,
       rotationCount: keyData.rotationCount,
-      metadata: keyData.metadata ?? {},
+      metadata: keyData.metadata as any,
     }).returning();
 
     await this.logAudit({
       keyId: inserted.id,
       operation: 'create',
       performedBy: 'user',
-      details: { provider: data.provider, name: data.name, source: data.source },
-      newValue: { provider: data.provider, name: data.name, health: 'healthy' },
+      details: { provider: data.provider, name: data.name, source: data.source, metadata: data.metadata },
+      newValue: { provider: data.provider, name: data.name, health: 'healthy', metadata: keyData.metadata },
     });
 
     return this.mapRowToKeyData(inserted);
+  }
+
+  /**
+   * Validate a key by testing access to its declared models
+   */
+  async validateKey(keyId: string): Promise<{ valid: boolean; accessibleModels: string[]; error?: string }> {
+    const keyData = await this.getKey(keyId, true);
+    if (!keyData || !('decryptedKey' in keyData)) {
+      return { valid: false, accessibleModels: [], error: 'Key not found or decryption failed' };
+    }
+
+    const accessibleModels: string[] = [];
+    const declaredModels = keyData.metadata?.modelAccess || [];
+
+    // Test a few common models for this provider
+    const testModels = declaredModels.length > 0 ? declaredModels : this.getDefaultModelsForProvider(keyData.provider);
+
+    for (const model of testModels.slice(0, 3)) { // Test up to 3 models
+      try {
+        const healthy = await this.checkProviderHealth(keyData.provider, keyData.decryptedKey as string, model);
+        if (healthy) {
+          accessibleModels.push(model);
+        }
+      } catch {
+        // Model not accessible, continue
+      }
+    }
+
+    // Update metadata with validated models
+    if (accessibleModels.length > 0) {
+      await this.updateKey(keyId, {
+        metadata: {
+          ...keyData.metadata,
+          modelAccess: accessibleModels,
+        } as any,
+      });
+    }
+
+    return {
+      valid: accessibleModels.length > 0,
+      accessibleModels,
+      error: accessibleModels.length === 0 ? 'No models accessible with this key' : undefined,
+    };
+  }
+
+  /**
+   * Get default models to test for a provider
+   */
+  private getDefaultModelsForProvider(provider: string): string[] {
+    const defaults: Record<string, string[]> = {
+      openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+      anthropic: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
+      google: ['gemini-1.5-flash', 'gemini-1.5-pro'],
+      groq: ['llama-3.1-70b-versatile', 'mixtral-8x7b-32768'],
+    };
+    return defaults[provider] || [];
+  }
+
+  /**
+   * Check health for a specific provider/model combo
+   */
+  private async checkProviderHealth(provider: string, apiKey: string, model: string): Promise<boolean> {
+    try {
+      switch (provider) {
+        case 'openai':
+          return await this.checkOpenAIModel(apiKey, model);
+        case 'anthropic':
+          return await this.checkAnthropicModel(apiKey, model);
+        case 'google':
+          return await this.checkGoogleModel(apiKey, model);
+        case 'groq':
+          return await this.checkGroqModel(apiKey, model);
+        default:
+          return true; // Unknown provider, assume valid
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkOpenAIModel(apiKey: string, model: string): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return response.ok || response.status === 400;
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkAnthropicModel(apiKey: string, model: string): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return response.ok || response.status === 400;
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkGoogleModel(apiKey: string, model: string): Promise<boolean> {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return response.ok || response.status === 400;
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkGroqModel(apiKey: string, model: string): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 }),
+        signal: AbortSignal.timeout(10000),
+      });
+      return response.ok || response.status === 400;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get the best available key with automatic failover support
+   */
+  async getBestKeyWithFailover(provider: string, model?: string, projectId?: string): Promise<LLMKeyData | null> {
+    // First try to get primary key
+    const keys = await this.getKeys(projectId, { provider, onlyHealthy: true });
+
+    if (keys.length === 0) {
+      // Try global pool
+      if (projectId) {
+        return this.getBestKeyWithFailover(provider, model, null);
+      }
+      return null;
+    }
+
+    // Sort: primary first, then by priority
+    keys.sort((a, b) => {
+      const aPrimary = a.metadata?.isPrimary ? 1 : 0;
+      const bPrimary = b.metadata?.isPrimary ? 1 : 0;
+      if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+      return (b.priority || 0) - (a.priority || 0);
+    });
+
+    // Filter by model if specified
+    const modelKeys = model
+      ? keys.filter(k => !k.model || k.model === model || k.metadata?.modelAccess?.includes(model))
+      : keys;
+
+    if (modelKeys.length === 0) {
+      return keys[0];
+    }
+
+    return modelKeys[0];
+  }
+
+  /**
+   * Get all keys for a provider with failover chain (primary -> backups)
+   */
+  async getFailoverChain(provider: string, projectId?: string): Promise<LLMKeyData[]> {
+    const keys = await this.getKeys(projectId, { provider, onlyHealthy: true });
+
+    // Sort: primary first, then backups, then by priority
+    return keys.sort((a, b) => {
+      const aPrimary = a.metadata?.isPrimary ? 2 : (a.metadata?.isBackup ? 1 : 0);
+      const bPrimary = b.metadata?.isPrimary ? 2 : (b.metadata?.isBackup ? 1 : 0);
+      if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+      return (b.priority || 0) - (a.priority || 0);
+    });
+  }
+
+  /**
+   * Record spend for a key (called after successful API calls)
+   */
+  async recordSpend(keyId: string, amountUsd: number): Promise<void> {
+    const key = await this.getKey(keyId);
+    if (!key) return;
+
+    const currentSpend = (key.metadata?.currentSpend || 0) + amountUsd;
+    const monthlyBudget = key.metadata?.monthlyBudget;
+
+    // Check budget alert thresholds
+    if (monthlyBudget) {
+      const percent = (currentSpend / monthlyBudget) * 100;
+      if (percent >= 95) {
+        await this.logAudit({
+          keyId,
+          operation: 'health-check',
+          performedBy: 'system',
+          details: { type: 'budget-alert', level: 'critical', percent, currentSpend, monthlyBudget },
+        });
+      } else if (percent >= 80) {
+        await this.logAudit({
+          keyId,
+          operation: 'health-check',
+          performedBy: 'system',
+          details: { type: 'budget-alert', level: 'warning', percent, currentSpend, monthlyBudget },
+        });
+      } else if (percent >= 50) {
+        await this.logAudit({
+          keyId,
+          operation: 'health-check',
+          performedBy: 'system',
+          details: { type: 'budget-alert', level: 'info', percent, currentSpend, monthlyBudget },
+        });
+      }
+    }
+
+    await this.updateKey(keyId, {
+      metadata: { ...key.metadata, currentSpend } as any,
+    });
+  }
+
+  /**
+   * Reset monthly spend (called by cron job)
+   */
+  async resetMonthlySpend(keyId?: string): Promise<void> {
+    if (keyId) {
+      const key = await this.getKey(keyId);
+      if (key) {
+        await this.updateKey(keyId, { metadata: { ...key.metadata, currentSpend: 0 } as any });
+      }
+    } else {
+      // Reset all keys - would need a bulk update
+      const keys = await this.getKeys();
+      for (const key of keys) {
+        await this.updateKey(key.id, { metadata: { ...key.metadata, currentSpend: 0 } as any });
+      }
+    }
   }
 
   /**
@@ -859,7 +1123,7 @@ export class SecretManager {
       coolingUntil: row.coolingUntil ?? undefined,
       quarantineReason: row.quarantineReason ?? undefined,
       rotationCount: row.rotationCount,
-      metadata: row.metadata as Record<string, unknown> ?? {},
+      metadata: row.metadata as LLMKeyMetadata ?? {},
     };
   }
 }

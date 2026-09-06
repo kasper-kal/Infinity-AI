@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { accounts } from "./accounts";
 
 /**
@@ -12,6 +12,15 @@ import { accounts } from "./accounts";
  * runtime and are not stored here.
  *
  * Also supports user API keys (source="user-api") for headless CLI access.
+ *
+ * Phase 39 enhancements:
+ * - modelAccess: Array of model IDs this key can access
+ * - rateLimit: Request/token limits per minute
+ * - budget: Monthly budget with alert thresholds
+ * - isDefault: Whether this is the user's default key
+ * - failoverChain: Ordered list of backup key IDs for automatic failover
+ * - lastTested: When the key was last validated
+ * - updatedAt: Last modification timestamp
  */
 export const llmKeys = pgTable("llm_keys", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -23,6 +32,12 @@ export const llmKeys = pgTable("llm_keys", {
   apiKey: text("api_key").notNull(),
   /** Model id this key is allowed to run (not used for user-api) */
   model: text("model").notNull(),
+  /** Array of model IDs this key can access (Phase 39) */
+  modelAccess: text("model_access").array().default([]),
+  /** Rate limit configuration: requests per minute and tokens per minute (Phase 39) */
+  rateLimit: jsonb("rate_limit").$type<{ requestsPerMinute: number; tokensPerMinute: number }>(),
+  /** Budget configuration: monthly limit and alert thresholds (Phase 39) */
+  budget: jsonb("budget").$type<{ monthlyLimit: number; alertThresholds: number[] }>(),
   enabled: boolean("enabled").notNull().default(true),
   /** Lower = picked first in round-robin. */
   priority: integer("priority").notNull().default(0),
@@ -33,7 +48,11 @@ export const llmKeys = pgTable("llm_keys", {
   uses: integer("uses").notNull().default(0),
   failures: integer("failures").notNull().default(0),
   lastUsedAt: timestamp("last_used_at"),
+  /** When the key was last tested/validated (Phase 39) */
+  lastTested: timestamp("last_tested"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  /** Last modification timestamp (Phase 39) */
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
   /** Source: "llm-provider" for LLM keys, "user-api" for CLI/API keys */
   source: text("source", { enum: ["llm-provider", "user-api"] }).notNull().default("llm-provider"),
   /** Project ID this key is scoped to (for user-api keys) */
@@ -42,6 +61,10 @@ export const llmKeys = pgTable("llm_keys", {
   scopes: text("scopes").array(),
   /** Account ID that owns this user-api key (for authorization) */
   accountId: uuid("account_id").references(() => accounts.id, { onDelete: "cascade" }),
+  /** Whether this is the user's default key for this provider (Phase 39) */
+  isDefault: boolean("is_default").notNull().default(false),
+  /** Ordered list of backup key IDs for automatic failover (Phase 39) */
+  failoverChain: text("failover_chain").array().default([]),
 });
 
 export type LlmKey = typeof llmKeys.$inferSelect;
