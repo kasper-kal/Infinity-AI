@@ -49,9 +49,14 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **34** | **AI Self-Management (Secrets, Settings, API Keys)** | ✅ **COMPLETE** |
 | **35** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
 | **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
-| **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) — API server has pre-existing unrelated build errors |
+| **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
+| **38** | **Local AI Safety Watcher (Push Notifications)** | 🔄 **PLANNED** |
+| **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | 🔄 **PLANNED** |
+| **40** | **Recipe Widget (Standard + Deep Research)** | 🔄 **PLANNED** |
+| **41** | **File Format Conversion (@File Convert Command)** | 🔄 **PLANNED** |
+| **42** | **Passkeys + TOTP (Authenticator App) Integration** | 🔄 **PLANNED** |
 
-Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–36 = Infinity Autonomous Operations**, **36+ = Infinity Autonomous Operations**.
+Roadmap groups: **Phases 2–7 = Claude Code parity**, **8–15 = Replit parity**, **16–23 = v0 parity**, **24–31 = Cursor parity**, **32–37 = Infinity Autonomous Operations**, **38+ = Infinity Autonomous Operations**.
 
 ---
 
