@@ -32,7 +32,7 @@ interface UseModelRouterReturn {
   error: string | null;
 }
 
-const API_BASE = "/api/infinity-ai/model-router";
+const API_BASE = "/api/infinity/model-router";
 
 export function useModelRouter(options: UseModelRouterOptions = {}): UseModelRouterReturn {
   const { projectId, userId } = options;

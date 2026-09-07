@@ -214,7 +214,7 @@ LAST_UPDATED: 2026-09-06 — **Phase 38: Local AI Safety Watcher (Push Notificat
   - Phase 36: Visual Build Map (AI-Managed Roadmap) — PLANNED
   - Phase 37: Fully Automated End-to-End Workflow (NL → Deployed Product) — PLANNED
   - Phase 38: Local AI Safety Watcher (Push Notifications) — PLANNED
-  - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes) — PLANNED
+  - Phase 39: Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes) — ✅ **COMPLETE**
   - Phase 40: Recipe Widget (Standard + Deep Research) — PLANNED
   - Phase 41: File Format Conversion (@File Convert Command) — PLANNED
   - Phase 42: Passkeys + TOTP (Authenticator App) Integration — PLANNED
@@ -466,7 +466,7 @@ LAST_UPDATED: 2026-09-06 — **Phase 38: Local AI Safety Watcher (Push Notificat
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 39 — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** 🔄 **IN PROGRESS**
+- **Current Phase:** **Phase 39 — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** ✅ **COMPLETE**
 - **Phase 38 — Local AI Safety Watcher** ✅ **COMPLETE** 
 - **Phase 37 — Fully Automated End-to-End Workflow (NL → Deployed Product)** ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) — API server has pre-existing unrelated build errors in other modules (automation-parser, cursor-agent, email-service, web-push, etc.) — Phase 37 itself is fully implemented and working
 - **Phase 36 — Visual Build Map — COMPLETE ✅** (all items verified and committed)
@@ -505,7 +505,7 @@ LAST_UPDATED: 2026-09-06 — **Phase 38: Local AI Safety Watcher (Push Notificat
 - **Phase 3 — Specialized Subagents with Schemas — COMPLETE ✅**
 - **Phase 2 — Orchestration Engine — COMPLETE ✅**
 - **Phase 1 — Build Project Map Subsystem — COMPLETE ✅**
-- **Next Phases:** Phase 39 (Enhanced LLM API Key System) 🔄 **IN PROGRESS**, Phase 40 (Recipe Widget), Phase 41 (File Format Conversion)
+- **Next Phases:** Phase 40 (Recipe Widget), Phase 41 (File Format Conversion), Phase 42 (Passkeys + TOTP)
   - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
@@ -522,9 +522,15 @@ LAST_UPDATED: 2026-09-06 — **Phase 38: Local AI Safety Watcher (Push Notificat
   - **i18n**: 100+ mobile.* translation keys in English and Dutch
 
 - **Completed Phases:** Phase 1 (Build Project Map), Phase 2 (Orchestration Engine), Phase 3 (Specialized Subagents), Phase 4 (Virtual Worktrees), Phase 5 (Local Terminal Bridge), Phase 6 (MCP Client + Ecosystem Integration), Phase 7 (VS Code Extension), Phase 8 (Replit-Level Design Canvas), Phase 9 (Parallel Agent Execution), Phase 10 (Mobile App Development), Phase 11 (Security Scanner + Secrets Manager), Phase 12 (Multi-Artifact Support), Phase 13 (External Service Connectors), Phase 14 (Enterprise Features), Phase 15 (Agent Skills & Custom Instructions Marketplace), Phase 16 (v0-Level Generative UI Engine), Phase 17 (Visual Component Editor), Phase 18 (v0-Style Collaborative Workflows), Phase 19 (External API & Database Integration), Phase 20 (Multi-Framework Support), Phase 21 (AI-Powered Design Iteration), Phase 22 (Component Marketplace & Template Library), Phase 23 (v0-Level Polish), Phase 24 (Cursor-Level Code Intelligence), Phase 25 (Codebase Indexing & Semantic Search), Phase 26 (Rules, Notepads & Customization), Phase 27 (Shadow Workspaces & Agent Review), Phase 28 (Design Mode & Visual Editing), Phase 29 (IDE Integrations & CLI), Phase 30 (Advanced Agent Capabilities), Phase 31 (Cursor-Level Performance & Polish), Phase 32 (Context Auto-Compact & Limit Recognition), Phase 33 (AI Automation System), Phase 34 (AI Self-Management), Phase 35 (Live Task Display), **Phase 36 (Visual Build Map)**, **Phase 37 (Fully Automated End-to-End Workflow)**, **Phase 38 (Local AI Safety Watcher)** ✅ ALL COMPLETE
-- **Next Phases:** Phase 39 (Enhanced LLM API Key System), Phase 40 (Recipe Widget), Phase 41 (File Format Conversion)
+- **Next Phases:** Phase 40 (Recipe Widget), Phase 41 (File Format Conversion), Phase 42 (Passkeys + TOTP)
 
-**LAST_UPDATED:** 2026-09-06 — **Phase 39 IN PROGRESS** — Enhanced LLM API Key System being implemented. Secret-manager.ts extended with LLMKeyMetadata (labels, model access, rate limits, budgets), validateKey(), getBestKeyWithFailover(), getFailoverChain(), recordSpend(), resetMonthlySpend(). Model-router.ts extended with BuildMode enum (Speed/Balanced/Quality/Max/Custom), TaskCategory enum (10 categories), ModelBenchmark/CostSummary types, buildModeConfigs, taskCategoryToCapability map, selectModel(), estimateRequestCost(), estimateDeepResearchCost(), getRecommendedModels(), getModelBenchmarks(), getCostSummary(). Next: ModelPicker + BuildModeSelector + CostEstimate components, useModelRouter hook, LLMKeysTab extension, i18n, Universal Agent + Build Orchestrator wiring.
+**LAST_UPDATED:** 2026-09-07 — **Phase 39 COMPLETE** — Enhanced LLM API Key System fully implemented:
+  - **Backend**: model-router.ts (1091 lines) — BuildMode (Speed/Balanced/Quality/Max/Custom), TaskCategory (10 categories), 362-line BUILTIN_MODELS catalog, selectModel(), cost estimation, fallback chains. secret-manager.ts (1132 lines) — AES-256-GCM encryption, health monitoring (healthy/cooling/quarantined), automatic failover, rotation, audit logging. llm-keys.ts API routes — full CRUD, test, validate, rotate, set-default, providers, models endpoints.
+  - **Frontend**: ModelPicker.tsx (636 lines) — interactive table with filters, benchmarks, test button. BuildModeSelector.tsx (513 lines) — visual cards with custom editor. CostEstimate.tsx (553 lines) — estimation, breakdown, history, budget alerts. LLMKeysTab.tsx (1010 lines) — 5 tabs (Keys, Models, Build Modes, Costs, Settings) with dialogs. useModelRouter.ts hook — full API integration.
+  - **Types**: model-router-types.ts — shared frontend types.
+  - **Integration**: LLMKeysTab integrated into SettingsView (AI Customization section).
+  - **API paths fixed**: Frontend now uses `/api/infinity/...` matching backend mount.
+  - Both builds passing ✅
   - **Backend**: `task-registry.ts` (in-memory registry with SSE broadcast, parent/child tasks, task types: build/research/write/automation/agent-loop/deploy/chat/migration/sync), `tasks.ts` routes (SSE + CRUD endpoints for task management)
   - **Frontend**: `task-registry.ts` (frontend registry with IndexedDB cache, SSE listener, React context provider), `LiveTaskDisplay.tsx` (collapsed pill + expanded panel with drag, keyboard nav, auto-expand on critical tasks), `LiveTaskDisplayItem.tsx` (task rows with progress bars, status badges, click navigation), `ProgressRing.tsx` (SVG animated progress ring, 28px for pill), `useLiveTaskDisplay.ts` (hook with typed creators + useTaskProvider pattern for subsystem integration)
   - **Integration**: AppShellRouter.tsx mounts LiveTaskDisplay at root level (in ResponsiveShell, both MobileShell and DesktopShell), BuildView.tsx integrated via BuildProgressContent using buildTaskProvider, ChatView.tsx integrated via chatTaskProvider for long-running generations
@@ -1014,7 +1020,7 @@ LAST_UPDATED: 2026-09-06 — **Phase 38: Local AI Safety Watcher (Push Notificat
 - **Phase 1: Build Project Map Subsystem** — **COMPLETE** ✅: Built `build-project-map.ts` with full static analysis, incremental updates, impact analysis, smart context selection, persistence. Integrated into `build-orchestrator.ts` loadContext() with smart context selection at build start. REST API routes at `/api/infinity-ai/project-map/:projectId/*` (GET, POST /refresh, POST /update-file, GET /impact/:filePath, POST /select-context, POST /save, GET /load, GET /summary). Typecheck + build pass ✅
 - **Phase 2-5: Claude Code Parity Roadmap** — **ALL COMPLETE** ✅: Orchestration Engine (2), Specialized Subagents (3), Virtual Worktrees (4), Terminal Bridge (5)
 - **Phase 31-38: Replit Competitive Parity Roadmap** — **Phase 31 (Design Canvas) IN PROGRESS**: Design Canvas + Ambient Intelligence + Mobbin (31), Parallel Agent Execution (32), Mobile App Dev React Native/Expo (33), Security Scanner + Secrets (34), Multi-Artifact Support (35), External Connectors Linear/Slack/Notion/Sheets (36), Enterprise SSO/VPC/Single-Tenant (37), Agent Skills Marketplace (38)
-- **Phase 39-46: v0 Competitive Parity Roadmap** — **PLANNED**: Generative UI Engine (39), Visual Component Editor (40), Collaborative Workflows (41), External API/DB Integration (42), Multi-Framework Support (43), AI Design Iteration (44), Component Marketplace (45), v0-Level Polish (46)
+- **Phase 39-46: v0 Competitive Parity Roadmap** — **Phase 39 COMPLETE**: Enhanced LLM API Key System. Phase 40 (Recipe Widget), Phase 41 (File Format Conversion), Phase 42 (Passkeys + TOTP) — **PLANNED**
 - **Phase 22-24: Universal Tool Layer** — **ALL COMPLETE (100%)**: Foundation (21), Capability Integration (22), Agent Loop & UX (23), Resilience & Persistence (24) — 40 tools registered, universal agent loop with SSE streaming, 118 integration tests passing
 - **Phase 15: Build Mode Intelligence & Reliability** — **ALL 11 TASKS COMPLETE** ✅
 - **Phase 16: Infinity Maps Widget** — **COMPLETE**

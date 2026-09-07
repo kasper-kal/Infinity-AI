@@ -51,7 +51,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
 | **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
 | **38** | **Local AI Safety Watcher (Push Notifications)** | ✅ **COMPLETE** |
-| **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | 🔄 **PLANNED** |
+| **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | ✅ **COMPLETE** |
 | **40** | **Recipe Widget (Standard + Deep Research)** | 🔄 **PLANNED** |
 | **41** | **File Format Conversion (@File Convert Command)** | 🔄 **PLANNED** |
 | **42** | **Passkeys + TOTP (Authenticator App) Integration** | 🔄 **PLANNED** |
@@ -2031,61 +2031,61 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Sophisticated LLM key management with per-task model selection** — Users configure multiple API keys per provider, assign them to task categories (chat, coding, research, planning, review, vision, embedding), and define build modes (Speed, Balanced, Quality, Max) that automatically select the optimal model/key combination. Visual model picker with benchmarks, cost estimates, and capabilities.
 
 ### Requirements
-- [ ] **Key Manager Enhancement** — Extend Secret Manager (Phase 34):
+- [x] **Key Manager Enhancement** — Extend Secret Manager (Phase 34):
   - Multiple keys per provider (primary, backup, specialized)
   - Key metadata: `label`, `modelAccess[]` (which models this key unlocks), `rateLimit`, `monthlyBudget`, `currentSpend`, `enabled`
   - Key validation: test all models on key add, periodic re-validation
   - Automatic failover: primary key fails → try backup key seamlessly
-- [ ] **Task Categories** — `artifacts/api-server/src/lib/model-router.ts` (extend):
+- [x] **Task Categories** — `artifacts/api-server/src/lib/model-router.ts` (extend):
   - Categories: `chat`, `coding`, `research`, `planning`, `review`, `vision`, `embedding`, `classification`, `extraction`, `reasoning`
   - Each category: preferred model(s), fallback model(s), temperature, maxTokens, toolConfig
   - User can override per project or globally
   - Agent automatically selects category based on task type
-- [ ] **Build Modes** — Pre-configured model profiles:
+- [x] **Build Modes** — Pre-configured model profiles:
   - **Speed** — Fastest models (Haiku, Flash, 3.5-mini), low temp, short context, parallel execution
   - **Balanced** — Sonnet, GPT-4o, balanced temp, medium context
   - **Quality** — Opus, GPT-4o, high temp for creativity, long context, more verification
   - **Max** — Best available (Opus, GPT-4o, o1), max context, all quality gates, adversarial verify
   - **Custom** — User-defined profile
   - Mode affects: model selection, parallel agent count, verification depth, context budget
-- [ ] **Model Picker UI** — `artifacts/infinity-ai/src/components/llm/ModelPicker.tsx`:
+- [x] **Model Picker UI** — `artifacts/infinity-ai/src/components/cursor/ModelPicker.tsx`:
   - Table: Provider | Model | Capabilities (coding, reasoning, vision, 128k/200k/1M context) | Speed | Cost/1M tokens | Your Keys (badges)
   - Filter by: capability, context window, cost tier, provider
   - Benchmark scores (from public benchmarks or user's own runs)
   - "Set as default for [category]" buttons
   - "Test model" button → runs quick benchmark prompt
   - Shows which key unlocks which model
-- [ ] **Cost Tracking & Budgets**:
+- [x] **Cost Tracking & Budgets**:
   - Per-key, per-model, per-project, per-session tracking
   - Monthly budget per key with alerts at 50%, 80%, 95%
   - Cost estimation before expensive operations (deep research, large builds)
   - "Show me the cost" preview in chat/build UI
-- [ ] **Agent Integration** — Universal Agent uses enhanced router:
+- [x] **Agent Integration** — Universal Agent uses enhanced router:
   - `router.selectModel(category, mode, constraints?)` → returns `{provider, model, keyId, params}`
   - Automatic category inference from tool being called
   - Build mode passed from BuildView → orchestrator → agent
   - Override via `@Model <model>` command in chat
 
 ### Implementation Plan
-1. **Key Manager Enhancement** — Multi-key, metadata, validation, failover
-2. **Model Router Enhancement** — Task categories, build modes, selection logic
-3. **Model Picker UI** — Table, filters, benchmarks, test button
-4. **Cost Tracking** — Database schema, tracking middleware, budget alerts
-5. **Agent Integration** — Wire router into universal-agent, build-orchestrator
-6. **Settings Integration** — Keys tab in SettingsView with model picker
+1. **Key Manager Enhancement** — Multi-key, metadata, validation, failover ✅
+2. **Model Router Enhancement** — Task categories, build modes, selection logic ✅
+3. **Model Picker UI** — Table, filters, benchmarks, test button ✅
+4. **Cost Tracking** — Database schema, tracking middleware, budget alerts ✅
+5. **Agent Integration** — Wire router into universal-agent, build-orchestrator ✅
+6. **Settings Integration** — Keys tab in SettingsView with model picker ✅
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/model-router.ts` (extend — categories, modes, cost tracking)
-- `artifacts/api-server/src/lib/secret-manager.ts` (extend — multi-key, metadata)
-- `artifacts/api-server/src/db/schema/llm-keys.ts` (extend — metadata columns)
-- `artifacts/api-server/src/routes/infinity/llm-keys.ts` (extend — CRUD, validate, test)
-- `artifacts/infinity-ai/src/components/llm/ModelPicker.tsx` (new)
-- `artifacts/infinity-ai/src/components/llm/ModelPickerRow.tsx` (new)
-- `artifacts/infinity-ai/src/components/llm/BuildModeSelector.tsx` (new)
-- `artifacts/infinity-ai/src/components/llm/CostEstimate.tsx` (new)
-- `artifacts/infinity-ai/src/components/settings/LLMKeysTab.tsx` (extend/redesign)
-- `artifacts/infinity-ai/src/hooks/useModelRouter.ts` (new)
-- `artifacts/infinity-ai/src/lib/i18n.tsx` (add LLM Keys keys EN+NL)
+- `artifacts/api-server/src/lib/model-router.ts` (extend — categories, modes, cost tracking) ✅
+- `artifacts/api-server/src/lib/secret-manager.ts` (extend — multi-key, metadata) ✅
+- `artifacts/api-server/src/db/schema/llm-keys.ts` (extend — metadata columns) ✅
+- `artifacts/api-server/src/routes/infinity/llm-keys.ts` (extend — CRUD, validate, test) ✅
+- `artifacts/infinity-ai/src/components/cursor/ModelPicker.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/cursor/BuildModeSelector.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/cursor/CostEstimate.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/settings/LLMKeysTab.tsx` (extend/redesign) ✅
+- `artifacts/infinity-ai/src/hooks/useModelRouter.ts` (new) ✅
+- `artifacts/infinity-ai/src/lib/model-router-types.ts` (new) ✅
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add LLM Keys keys EN+NL) ✅
 
 ---
 

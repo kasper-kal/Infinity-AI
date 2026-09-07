@@ -162,7 +162,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const loadKeys = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys${projectId ? `?projectId=${projectId}` : ""}`);
+      const response = await fetch(`/api/infinity/llm-keys${projectId ? `?projectId=${projectId}` : ""}`);
       if (response.ok) {
         const data = await response.json();
         setKeys(data.keys || []);
@@ -182,7 +182,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const handleAddKey = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/infinity-ai/llm-keys", {
+      const response = await fetch("/api/infinity/llm-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +219,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
     if (!editingKey) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys/${editingKey.id}`, {
+      const response = await fetch(`/api/infinity/llm-keys/${editingKey.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -242,7 +242,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const handleDeleteKey = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/infinity/llm-keys/${id}`, { method: "DELETE" });
       if (response.ok) {
         setDeletingKeyId(null);
         loadKeys();
@@ -257,7 +257,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const handleTestKey = useCallback(async (id: string) => {
     setTestingKeyId(id);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys/${id}/test`, { method: "POST" });
+      const response = await fetch(`/api/infinity/llm-keys/${id}/test`, { method: "POST" });
       const data = await response.json();
       // Update key status
       setKeys(prev => prev.map(k =>
@@ -273,7 +273,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const handleValidateKey = useCallback(async (id: string) => {
     setValidatingKeyId(id);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys/${id}/validate`, { method: "POST" });
+      const response = await fetch(`/api/infinity/llm-keys/${id}/validate`, { method: "POST" });
       const data = await response.json();
       setKeys(prev => prev.map(k =>
         k.id === id ? { ...k, isValid: data.valid, lastValidated: Date.now() } : k
@@ -288,7 +288,7 @@ export const LLMKeysTab: React.FC<LLMKeysTabProps> = ({ projectId }) => {
   const handleRotateKey = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/infinity-ai/llm-keys/${id}/rotate`, { method: "POST" });
+      const response = await fetch(`/api/infinity/llm-keys/${id}/rotate`, { method: "POST" });
       if (response.ok) {
         loadKeys();
       }
