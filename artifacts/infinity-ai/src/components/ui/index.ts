@@ -55,8 +55,34 @@ export type {
 } from "./select";
 
 // Dialog
-export { Dialog, AlertDialog, Drawer, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./Dialog";
+export { Dialog, Drawer, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./Dialog";
 export type { DialogProps, AlertDialogProps, DrawerProps, DialogContentProps, DialogHeaderProps, DialogTitleProps, DialogDescriptionProps, DialogFooterProps } from "./Dialog";
+
+// Alert Dialog (Radix UI)
+export {
+  AlertDialog,
+  AlertDialogPortal,
+  AlertDialogOverlay,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "./alert-dialog";
+export type {
+  AlertDialogProps as RadixAlertDialogProps,
+  AlertDialogTriggerProps,
+  AlertDialogContentProps,
+  AlertDialogHeaderProps,
+  AlertDialogFooterProps,
+  AlertDialogTitleProps,
+  AlertDialogDescriptionProps,
+  AlertDialogActionProps,
+  AlertDialogCancelProps,
+} from "./alert-dialog";
 
 // Sheet
 export { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription, SheetTrigger, SheetClose, SheetOverlay, SheetPortal } from "./sheet";
@@ -157,6 +183,14 @@ export type { } from "./popover";
 // Alert
 export { Alert, AlertTitle, AlertDescription } from "./alert";
 export type { AlertProps, AlertTitleProps, AlertDescriptionProps } from "./alert";
+
+// Progress
+export { Progress } from "./progress";
+export type { ProgressProps } from "./progress";
+
+// Slider
+export { Slider } from "./slider";
+export type { SliderProps } from "./slider";
 
 // Skeleton
 export { Skeleton } from "./skeleton";

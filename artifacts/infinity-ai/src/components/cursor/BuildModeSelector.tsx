@@ -473,7 +473,7 @@ export const BuildModeSelector: React.FC<BuildModeSelectorProps> = ({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BUILD_MODE_ICONS[selectedMode] />
+              {BUILD_MODE_ICONS[selectedMode as BuildMode] || null}
               {t("buildMode.currentConfig") || "Current Configuration"}
             </CardTitle>
           </CardHeader>

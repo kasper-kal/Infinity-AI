@@ -418,7 +418,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{filteredModels.length} {t("modelPicker.modelsFound") || "models found"}</span>
           <div className="flex gap-1">
-            {["name", "qualityScore", "latencyMs", "cost", "benchmark"] as const).map(field => (
+            {(["name", "qualityScore", "latencyMs", "cost", "benchmark"] as const).map(field => (
               <IconButton
                 key={field}
                 size="sm"
