@@ -52,7 +52,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
 | **38** | **Local AI Safety Watcher (Push Notifications)** | ✅ **COMPLETE** |
 | **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | ✅ **COMPLETE** |
-| **40** | **Recipe Widget (Standard + Deep Research)** | 🔄 **PLANNED** |
+| **40** | **Recipe Widget (Standard + Deep Research)** | ✅ **COMPLETE** |
 | **41** | **File Format Conversion (@File Convert Command)** | 🔄 **PLANNED** |
 | **42** | **Passkeys + TOTP (Authenticator App) Integration** | 🔄 **PLANNED** |
 
