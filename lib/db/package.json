@@ -10,7 +10,8 @@
     "./schema/preview-shares.js": "./src/schema/preview-shares.ts",
     "./schema/project-databases.js": "./src/schema/project-databases.ts",
     "./schema/safety-watcher.js": "./src/schema/safety-watcher.ts",
-    "./schema/tasks.js": "./src/schema/tasks.ts"
+    "./schema/tasks.js": "./src/schema/tasks.ts",
+    "./schema/recipes.js": "./src/schema/recipes.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
