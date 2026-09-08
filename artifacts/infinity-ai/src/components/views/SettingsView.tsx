@@ -30,6 +30,7 @@ import { NotepadManager } from "@/components/cursor/NotepadManager";
 import { ModelPreferences } from "@/components/cursor/ModelPreferences";
 import { SafetyWatcherTab } from "@/components/settings/SafetyWatcherTab";
 import { LLMKeysTab } from "@/components/settings/LLMKeysTab";
+import { MfaSettings } from "@/components/settings/MfaSettings";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -311,6 +312,7 @@ type SettingsSection =
   | 'language'
   | 'mcp-servers'
   | 'llm-keys'
+  | 'security'
   | 'advanced'
   | 'enterprise'
   | 'skills'
@@ -485,6 +487,15 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
     ),
     labelKey: 'settings.llmKeys',
   },
+  security: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M9 12l2 2 4-4" />
+      </svg>
+    ),
+    labelKey: 'settings.security',
+  },
   'safety-watcher': {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -611,6 +622,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       case 'llm-keys':
         return (
           <LLMKeysTab projectId={projectId} />
+        );
+      case 'security':
+        return (
+          <MfaSettings />
         );
       case 'advanced':
         return (
@@ -819,6 +834,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'llm-keys',
       label: t('settings.llmKeys'),
       icon: SECTION_CONFIG['llm-keys'].icon,
+    },
+    {
+      id: 'security',
+      label: t('settings.security'),
+      icon: SECTION_CONFIG.security.icon,
     },
     {
       id: 'advanced',

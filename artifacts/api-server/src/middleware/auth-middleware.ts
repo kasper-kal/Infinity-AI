@@ -92,6 +92,51 @@ export async function requireAuth(
 }
 
 /**
+ * Middleware: Require recently MFA-verified session (session elevation)
+ * Must be used AFTER requireAuth. Sensitive actions (add passkey, disable
+ * TOTP, rotate backup codes) demand a session created through an MFA
+ * challenge within the last RECENT_MFA_WINDOW_MS; otherwise return 403 with
+ * a "revalidation" flag so the frontend can prompt a fresh MFA round.
+ */
+export const RECENT_MFA_WINDOW_MS = 60 * 60 * 1000; // 60 minutes
+
+export async function requireRecentMfa(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const sessionId = req.cookies?.["infinity_session"];
+    if (!sessionId) {
+      res.status(401).json({ success: false, error: "Not authenticated" });
+      return;
+    }
+    const [session] = await db
+      .select({ mfaVerifiedAt: sessions.mfaVerifiedAt })
+      .from(sessions)
+      .where(eq(sessions.token, sessionId))
+      .limit(1);
+    // Null mfaVerifiedAt means this session was created without a challenge
+    // (trusted-device skip or account with no MFA yet) — not elevated.
+    const fresh = session?.mfaVerifiedAt
+      && Date.now() - session.mfaVerifiedAt.getTime() < RECENT_MFA_WINDOW_MS;
+    if (!fresh) {
+      res.status(403).json({
+        success: false,
+        error: "Recent multi-factor verification required",
+        revalidation: true,
+        windowMs: RECENT_MFA_WINDOW_MS,
+      });
+      return;
+    }
+    next();
+  } catch (err) {
+    logger.error({ err }, "requireRecentMfa middleware error");
+    res.status(500).json({ success: false, error: "Authentication error" });
+  }
+}
+
+/**
  * Middleware: Require specific scope
  * Must be used AFTER requireAuth (or optionalAuth that sets account)
  * Returns 403 if scope not granted

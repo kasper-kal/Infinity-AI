@@ -92,13 +92,13 @@ export const MfaSettings: React.FC = () => {
     setError(null);
     const origin = window.location.origin;
     const rpID = window.location.hostname;
-    const ok = await mfa.registerPasskey({ origin, rpID });
+    const err = await mfa.registerPasskey({ origin, rpID });
     setBusy(false);
-    if (ok) {
+    if (!err) {
       showNotice(t("mfa.passkeyAdded"));
       await refresh();
     } else {
-      showError(t("mfa.passkeyAddFailed"));
+      showError(err || t("mfa.passkeyAddFailed"));
     }
   }, [mfa, refresh, t]);
 
@@ -160,39 +160,39 @@ export const MfaSettings: React.FC = () => {
   const handleDisableTotp = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const ok = await mfa.disableTotp();
+    const err = await mfa.disableTotp();
     setBusy(false);
-    if (ok) {
+    if (!err) {
       showNotice(t("mfa.totpDisabled"));
       await refresh();
     } else {
-      showError(t("mfa.totpDisableFailed"));
+      showError(err || t("mfa.totpDisableFailed"));
     }
   }, [mfa, refresh, t]);
 
   const handleRotateBackup = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const codes = await mfa.rotateBackupCodes();
+    const { codes, error: rotateErr } = await mfa.rotateBackupCodes();
     setBusy(false);
     if (codes) {
       setRotatedCodes(codes);
       showNotice(t("mfa.backupRotated"));
       await refresh();
     } else {
-      showError(t("mfa.backupRotateFailed"));
+      showError(rotateErr || t("mfa.backupRotateFailed"));
     }
   }, [mfa, refresh, t]);
 
   const handleClearTrusted = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const ok = await mfa.clearTrustedDevices();
+    const err = await mfa.clearTrustedDevices();
     setBusy(false);
-    if (ok) {
+    if (!err) {
       showNotice(t("mfa.trustedCleared"));
     } else {
-      showError(t("mfa.trustedClearFailed"));
+      showError(err || t("mfa.trustedClearFailed"));
     }
   }, [mfa, t]);
 

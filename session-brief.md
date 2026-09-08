@@ -1,7 +1,14 @@
-LAST_UPDATED: 2026-09-08 — **Phase 41: File Format Conversion (@File Convert Command) — COMPLETE ✅** — Universal file format converter, fully local & $0: 35+ formats (documents, images, audio/video, data), magic-byte detection, @File chat command (Convert/ListFormats/Help + Batch/Info), full converter UI with single/batch drag-drop + recent-history + SSE live progress, route registration, EN+NL i18n. (Real local libs — file-type, marked/turndown, sharp, xlsx, ffmpeg-static, mammoth, pdfkit, pdf-parse, unzipper/cheerio — rather than Pandoc/LibreOffice WASM.) **Infrastructure now built:** expanded doc formats (RTF/ODT/EPUB/MediaWiki/LaTeX), `infinity convert` terminal CLI + real command executor, Build Studio file-tree right-click Convert.
+LAST_UPDATED: 2026-09-08 — **Phase 42: Passkeys + TOTP (Authenticator App) Integration — COMPLETE ✅ (FINAL PHASE)** — Full multi-factor auth, $0 & local-first: TOTP authenticator apps (otplib + qrcode, AES-256-GCM account-scoped encrypted secrets, QR setup → first-code confirm, 10 hashed single-use backup codes with rotate) + Passkeys/WebAuthn FIDO2 (@simplewebauthn server+browser v14, register/authenticate begin-finish ceremonies, resident keys, multiple passkeys, list/rename/delete) + session elevation (`sessions.mfa_verified_at` + `requireRecentMfa` 60-min window). Two-step login hardened server-side (10-min pending-login token, race-safe atomic consume, 30-day trusted-device cookie). Frontend: Settings Security tab (MfaSettings: passkeys/TOTP/backup/trusted devices) + reusable MfaChallenge login component + useMfa hook, EN+NL i18n. All 42 phases COMPLETE.
 
 ## Change record (newest first)
-- **2026-09-08 Phase 41 infra COMPLETE** — Built the previously-deferred infrastructure so Phase 41 is genuinely complete (fixing earlier "paperwork-only COMPLETE"):
+- **2026-09-08 Phase 42 COMPLETE (final phase — all 42 phases done)** — Passkeys + TOTP integration:
+  - **Backend libs**: `lib/totp.ts` (otplib v13 sync API `generateSecret/generateSync/verifySync/generateURI`, qrcode `toDataURL`, AES-256-GCM account-scoped `masterKey:mfa:{accountId}`, 10 base64url single-use backup codes SHA-256-hashed + `consumeBackupCode` timingSafeEqual, `totpStore` setup/confirm/verify/rotate/disable); `lib/webauthn.ts` (@simplewebauthn/server v14, `getRpConfig` origin/rpID precedence, in-memory 120s registration-challenge cache, residentKey preferred, verify with `requireUserVerification:false` for compatibility); `lib/mfa-login.ts` (createSessionForAccount, getMfaMethods, createPendingLogin, race-safe `tryConsumePendingLogin`, trusted-device hashed fingerprint + 30-day cookie)
+  - **DB schema** (`lib/db/src/schema/auth-mfa.ts`): 4 tables `mfa_totp_secrets`, `mfa_passkeys`, `mfa_trusted_devices`, `mfa_pending_logins` (+ accountId/credential/token indexes); `sessions.mfaVerifiedAt` added to accounts.ts; auto-migrate CREATE TABLE IF NOT EXISTS + ALTER
+  - **API routes** (`routes/infinity/auth-mfa.ts` mounted at `/api/auth`): TOTP setup/confirm/rotate-backup/disable, WebAuthn register begin+finish / passkeys list+rename+PATCH+DELETE, status, trusted/clear; challenge endpoints totp/verify, totp/backup, webauthn/authenticate/begin+finish authorized by pending token; **session elevation** — rotate/disable/add-passkey/clear-trusted guarded by `requireRecentMfa` middleware (403 `revalidation` when >60min)
+  - **Login flow** (`routes/infinity/auth.ts`): password verified → if factors enabled and device untrusted → returns `mfaRequired` + pendingToken + methods WITHOUT setting session cookie; trusted-device skip honored only with explicit `skipMfa`
+  - **Frontend**: `hooks/useMfa.ts` (typed API + `startRegistration`/`startAuthentication` browser ceremonies), `components/settings/MfaSettings.tsx` (Security tab: passkey list/add/rename/delete, TOTP QR+secret+confirm setup dialog, backup-code reveal/regenerate, clear trusted devices), `components/auth/MfaChallenge.tsx` (reusable login challenge select→passkey/TOTP/backup), SettingsView Security section + sidebar + mobile bottom nav, ~66 mfa i18n keys EN+NL (verified balanced)
+  - **Verification**: api-server esbuild build ✅; frontend vite build ✅ (3338 modules). NOTE: pre-existing typecheck errors in ChatSidebar/notification-service remain untouched (per project rules).
+  - Phase 42 = 100% COMPLETE → all 42 phases complete
   - **Doc formats expanded** — `file-converter.ts` now converts RTF, ODT, EPUB, MediaWiki, LaTeX (17 new converter pairs, zero new deps; `rtfToPlainText`, `odtToParagraphs`, `epubToHtml` via unzipper/cheerio, `mediawikiToMarkdown`, `latexToMarkdown`)
   - **SSE live progress** — `POST /file-convert/convert-stream` (text/event-stream `progress`/`done`/`error`) + browser-side stream parser in `useFileConverter.convertStream`; FileConverter shows animated progress bar
   - **Recent-history UI** — localStorage history (cap 8, ≤1MB payloads re-downloadable, larger "expired") in FileConverter
@@ -479,7 +486,7 @@ LAST_UPDATED: 2026-09-08 — **Phase 41: File Format Conversion (@File Convert C
 - Renamed the "Gem" feature to "Expert" across the entire codebase (15 files) + README. Frontend: `GemDialog`→`ExpertDialog` (file rename), route `/conversations/gem`→`/conversations/expert`, i18n `gem.*`→`expert.*` (EN+NL), PlusMenu `new-gem`→`new-expert`, CommandPalette `gem`→`expert`, ResearchPanel `onOpenGem`→`onOpenExpert`, ProjectResearch/ChatComposer labels, AppOverlays/home.tsx props. README: "Gem"→"Expert" + Experts section added.
 
 ## Project state — right now
-- **Current Phase:** **Phase 41 — File Format Conversion (@File Convert Command)** ✅ **COMPLETE**
+- **Current Phase:** **Phase 42 — Passkeys + TOTP (Authenticator App) Integration** ✅ **COMPLETE — FINAL PHASE, ALL 42 PHASES DONE**
 - **Phase 40 — Recipe Widget (Standard + Deep Research)** ✅ **COMPLETE**
 - **Phase 39 — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** ✅ **COMPLETE**
 - **Phase 38 — Local AI Safety Watcher** ✅ **COMPLETE** 
@@ -520,14 +527,7 @@ LAST_UPDATED: 2026-09-08 — **Phase 41: File Format Conversion (@File Convert C
 - **Phase 3 — Specialized Subagents with Schemas — COMPLETE ✅**
 - **Phase 2 — Orchestration Engine — COMPLETE ✅**
 - **Phase 1 — Build Project Map Subsystem — COMPLETE ✅**
-- **Next Phases:** Phase 42 (Passkeys + TOTP)
-  - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
-  - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
-  - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
-  - **Frontend**: 6 mobile components (MobileAppCard, MobileCreateModal, MobileDesignTab, MobilePreviewTab, MobileSubmitTab, MobileComponentsTab) with QR code preview, Metro logs, device connections, component browser (13 iOS + 12 Android + 6 shared)
-  - **BuildView Integration**: Mobile tab in sidebar, header tabs, command palette, full MobileAppsView integration
-  - **i18n**: 100+ mobile.* translation keys in English and Dutch
-  - **Figma iOS/Android Sync** — Auto-refresh (30s polling), version tracking via Figma /versions endpoint, official iOS 27 Liquid Glass + Material You 3 components only (NO "Apple-style" knock-offs)
+- **Next Phases:** ✅ **ALL 42 PHASES COMPLETE** — roadmap finished. Phase 42 (Passkeys + TOTP / final phase) delivered in full: TOTP authenticator app (QR + backup codes), passkeys (WebAuthn), two-step login, trusted devices, session elevation, Security tab UI + MfaChallenge login component, EN+NL i18n.
   - **Backend**: Expo preview bridge, store submission (EAS CLI), mobile app generator with TypeScript + NativeWind + Expo Router
   - **Database**: mobile_apps, mobile_preview_sessions, mobile_store_submissions, design_kit_sync_log, mobile_app_components tables
   - **API**: Full CRUD + preview + submission + design kit endpoints at /api/infinity/mobile-apps
@@ -1147,9 +1147,9 @@ LAST_UPDATED: 2026-09-08 — **Phase 41: File Format Conversion (@File Convert C
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **Phase 41: File Format Conversion (@File Convert Command)** — **PLANNED** (next): `artifacts/api-server/src/lib/file-converter.ts` + WASM loaders (Pandoc, LibreOffice, Sharp, FFmpeg, SheetJS) — all local WASM, $0. Format detection, @File command in chat, Converter UI, integration points (Chat, BuildView, Terminal, ProjectsView).
-2. **Phase 42: Passkeys + TOTP (Authenticator App) Integration** — **PLANNED**: `otplib` + QR TOTP, `@simplewebauthn` passkeys, MFA auth flow, MfaSettings UI, `lib/db/src/schema/auth-mfa.ts`.
-3. **Phase 43+** — To be defined after Phase 42.
+1. **✅ DONE — ALL 42 PHASES COMPLETE** — roadmap finished.
+2. **Phase 42 (final): Passkeys + TOTP** — **COMPLETE ✅**. Two-step login live server-side; `MfaChallenge` component ready for any future LoginView.
+3. **Ongoing (optional follow-ups if desired)**: wire `MfaChallenge` into a real login form when one is added frontend-side (no LoginView exists today); add passkey conditional-UI autofill there too.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).

@@ -17,7 +17,7 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { mfaPasskeys, mfaTotpSecrets, mfaPendingLogins } from "@workspace/db/schema/auth-mfa.js";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, type AuthenticatedRequest } from "../../middleware/auth-middleware";
+import { requireAuth, requireRecentMfa, type AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { loginRateLimiter } from "../../middleware/rate-limit";
 import { totpStore } from "../../lib/totp";
 import { webauthn, type RegistrationResponseJSON, type AuthenticationResponseJSON } from "../../lib/webauthn";
@@ -79,7 +79,7 @@ router.post("/mfa/totp/confirm", requireAuth, async (req: AuthenticatedRequest, 
  * POST /api/auth/mfa/totp/rotate-backup
  * Issue a fresh set of backup codes for an enabled TOTP account.
  */
-router.post("/mfa/totp/rotate-backup", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/mfa/totp/rotate-backup", requireAuth, requireRecentMfa, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const result = await totpStore.rotateBackupCodes(req.accountId!);
     if (!result.success) return res.status(400).json({ success: false, error: "TOTP not configured" });
@@ -94,7 +94,7 @@ router.post("/mfa/totp/rotate-backup", requireAuth, async (req: AuthenticatedReq
  * POST /api/auth/mfa/totp/disable
  * Disable TOTP entirely.
  */
-router.post("/mfa/totp/disable", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/mfa/totp/disable", requireAuth, requireRecentMfa, async (req: AuthenticatedRequest, res: Response) => {
   try {
     await totpStore.disable(req.accountId!);
     return res.json({ success: true });
@@ -112,7 +112,7 @@ router.post("/mfa/totp/disable", requireAuth, async (req: AuthenticatedRequest, 
  * POST /api/auth/mfa/webauthn/register/begin
  * Generate registration options for navigator.credentials.create().
  */
-router.post("/mfa/webauthn/register/begin", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/mfa/webauthn/register/begin", requireAuth, requireRecentMfa, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const accountId = req.accountId!;
     const existing = await db
@@ -275,7 +275,7 @@ router.get("/mfa/status", requireAuth, async (req: AuthenticatedRequest, res: Re
  * POST /api/auth/mfa/trusted/clear
  * Forget all trusted devices + clear the local trusted-device cookie.
  */
-router.post("/mfa/trusted/clear", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/mfa/trusted/clear", requireAuth, requireRecentMfa, async (req: AuthenticatedRequest, res: Response) => {
   try {
     await clearTrustedDevices(req.accountId!);
     res.clearCookie("infinity_trusted_device", { path: "/" });

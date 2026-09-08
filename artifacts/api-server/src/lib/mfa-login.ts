@@ -38,6 +38,7 @@ export async function createSessionForAccount(accountId: string, res: Response):
     token,
     accountId,
     expiresAt: new Date(Date.now() + COOKIE_OPTIONS.maxAge),
+    mfaVerifiedAt: new Date(), // sessions created via an MFA challenge are elevated
   });
   res.cookie("infinity_session", token, COOKIE_OPTIONS);
 }

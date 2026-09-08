@@ -847,6 +847,9 @@ const ALTER_TABLES = [
   `ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "revoked_at" timestamp`,
   `CREATE INDEX IF NOT EXISTS "sessions_account_revoked_idx" ON "sessions" ("account_id", "revoked_at")`,
 
+  // sessions, mfa_verified_at column for session elevation (Phase 42)
+  `ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "mfa_verified_at" timestamp`,
+
   // gmail / spotify
   `ALTER TABLE "gmail_tokens" ADD COLUMN IF NOT EXISTS "email" text NOT NULL DEFAULT ''`,
   `ALTER TABLE "spotify_tokens" ADD COLUMN IF NOT EXISTS "display_name" text`,

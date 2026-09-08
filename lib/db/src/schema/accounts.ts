@@ -26,6 +26,7 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at"),
   revokedAt: timestamp("revoked_at"),
+  mfaVerifiedAt: timestamp("mfa_verified_at"),
 });
 
 export type Account = typeof accounts.$inferSelect;

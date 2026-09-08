@@ -170,34 +170,34 @@ export function useMfa() {
     }
   }, []);
 
-  const disableTotp = useCallback(async (): Promise<boolean> => {
+  const disableTotp = useCallback(async (): Promise<string | null> => {
     try {
       await request<{ success: boolean }>("/totp/disable", { method: "POST" });
-      return true;
+      return null;
     } catch (err) {
       console.error("Failed to disable TOTP:", err);
-      return false;
+      return err instanceof Error ? err.message : "Failed to disable TOTP";
     }
   }, []);
 
-  const rotateBackupCodes = useCallback(async (): Promise<string[] | null> => {
+  const rotateBackupCodes = useCallback(async (): Promise<{ codes: string[] | null; error: string | null }> => {
     try {
       const data = await request<{ success: boolean; backupCodes: string[] }>("/totp/rotate-backup", { method: "POST" });
-      return data.backupCodes || null;
+      return { codes: data.backupCodes || null, error: null };
     } catch (err) {
       console.error("Failed to rotate backup codes:", err);
-      return null;
+      return { codes: null, error: err instanceof Error ? err.message : "Failed to rotate backup codes" };
     }
   }, []);
 
   const registerPasskey = useCallback(
-    async (opts?: { origin?: string; rpID?: string; name?: string }): Promise<boolean> => {
+    async (opts?: { origin?: string; rpID?: string; name?: string }): Promise<string | null> => {
       try {
-        const credentialId = await runPasskeyRegistration(opts);
-        return !!credentialId;
+        await runPasskeyRegistration(opts);
+        return null;
       } catch (err) {
         console.error("Failed to register passkey:", err);
-        return false;
+        return err instanceof Error ? err.message : "Failed to register passkey";
       }
     },
     [],
@@ -233,13 +233,13 @@ export function useMfa() {
     }
   }, []);
 
-  const clearTrustedDevices = useCallback(async (): Promise<boolean> => {
+  const clearTrustedDevices = useCallback(async (): Promise<string | null> => {
     try {
       await request<{ success: boolean }>("/trusted/clear", { method: "POST" });
-      return true;
+      return null;
     } catch (err) {
       console.error("Failed to clear trusted devices:", err);
-      return false;
+      return err instanceof Error ? err.message : "Failed to clear trusted devices";
     }
   }, []);
 
