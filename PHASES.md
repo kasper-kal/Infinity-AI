@@ -2095,61 +2095,64 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Reusable "Recipe" components for common AI workflows** — Two variants: **Standard Recipe** (quick, structured prompt → result) and **Deep Research Recipe** (multi-step research → synthesis → deliverable). Recipes are versioned, shareable, parameterized, and composable. Examples: "Competitor Analysis", "Technical Spec Writer", "Blog Post Generator", "API Documentation Generator", "Code Review Checklist", "Security Audit".
 
 ### Requirements
-- [ ] **Recipe Engine** — `artifacts/api-server/src/lib/recipe-engine.ts`:
+- [x] **Recipe Engine** — `artifacts/api-server/src/lib/recipe-engine.ts`:
   - Recipe schema: `id`, `name`, `description`, `version`, `type` (standard|deep-research), `parameters[]` (name, type, required, default, description), `steps[]` (prompt, modelCategory, tools, outputKey), `outputSchema` (Zod), `tags[]`, `author`, `isPublic`
   - Standard Recipe: Single LLM call with structured prompt + parameters → structured output
   - Deep Research Recipe: Multi-step — `research` (search + extract) → `synthesize` (LLM) → `format` (output) → `verify` (critic)
   - Parameter interpolation: `{{paramName}}` in prompts, supports conditionals, loops
   - Execution: `executeRecipe(recipeId, parameters)` → streams progress, returns result
   - Versioning: semantic versioning, changelog, rollback to previous version
-- [ ] **Built-in Recipes** (10+ standard, 5+ deep research):
+- [x] **Built-in Recipes** (10+ standard, 5+ deep research):
   - Standard: `code-review`, `write-tests`, `generate-docs`, `refactor`, `explain-code`, `generate-commit`, `create-pr-description`, `summarize-changes`, `translate-code`, `generate-config`
   - Deep Research: `competitor-analysis`, `technical-spec`, `market-research`, `architecture-decision-record`, `security-audit`, `performance-analysis`, `dependency-audit`, `migration-plan`
-- [ ] **Recipe Builder UI** — `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx`:
+- [x] **Recipe Builder UI** — `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx`:
   - Visual builder: add steps, configure parameters, set output schema
   - Live preview: test recipe with sample parameters
   - Version history with diff view
   - Publish to marketplace (local-first, Phase 15 skills marketplace pattern)
   - Fork/clone existing recipes
-- [ ] **Recipe Runner UI** — `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx`:
+- [x] **Recipe Runner UI** — `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx`:
   - Parameter form (auto-generated from schema)
   - Progress display: step-by-step for deep research, spinner for standard
   - Streaming output as steps complete
   - Result viewer: formatted output, download (JSON, MD, PDF), copy, share
   - Re-run with modified parameters
   - Save as template for future use
-- [ ] **Recipe Marketplace** — Local-first, shareable:
+- [x] **Recipe Marketplace** — Local-first, shareable:
   - Import/export `.recipe.json` files
   - Community recipes via GitHub (public repo of recipes)
   - Search/filter by tag, type, rating
   - Install recipe → adds to local registry
   - Rate/review recipes (local only, no backend needed)
-- [ ] **Agent Integration** — Universal Agent can:
+- [x] **Agent Integration** — Universal Agent can:
   - `recipe.list(category?)`, `recipe.get(id)`, `recipe.execute(id, params)`
   - `recipe.create(spec)`, `recipe.update(id, spec)`, `recipe.fork(id)`
   - Agent suggests recipes based on context ("You're writing API docs — want the `generate-docs` recipe?")
 
 ### Implementation Plan
-1. **Recipe Engine Core** — Schema, executor (standard + deep research), parameter interpolation
-2. **Built-in Recipes** — Create 15+ recipes as JSON files
-3. **Recipe Builder UI** — Visual builder, live preview, versioning
-4. **Recipe Runner UI** — Parameter form, progress, result viewer
-5. **Marketplace** — Import/export, GitHub sync, search
-6. **Agent Tools** — Register recipe tools in Universal Tool Registry
-7. **Integration** — Recipe tab in BuildView/ChatView, Command Palette
+1. **Recipe Engine Core** — Schema, executor (standard + deep research), parameter interpolation ✅
+2. **Built-in Recipes** — Create 15+ recipes as JSON files ✅
+3. **Recipe Builder UI** — Visual builder, live preview, versioning ✅
+4. **Recipe Runner UI** — Parameter form, progress, result viewer ✅
+5. **Marketplace** — Import/export, GitHub sync, search ✅
+6. **Agent Tools** — Register recipe tools in Universal Tool Registry ✅
+7. **Integration** — Recipe tab in BuildView/ChatView, Command Palette, Mobile BottomNav ✅
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/recipe-engine.ts` (new)
-- `artifacts/api-server/src/db/schema/recipes.ts` (new — recipes, versions, executions)
-- `artifacts/api-server/src/routes/infinity/recipes.ts` (new — CRUD, execute, marketplace)
-- `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx` (new)
-- `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx` (new)
-- `artifacts/infinity-ai/src/components/recipe/RecipeMarketplace.tsx` (new)
-- `artifacts/infinity-ai/src/components/recipe/RecipeParameterForm.tsx` (new)
-- `artifacts/infinity-ai/src/components/recipe/RecipeStepProgress.tsx` (new)
-- `artifacts/infinity-ai/src/components/recipe/RecipeResultViewer.tsx` (new)
-- `artifacts/infinity-ai/src/hooks/useRecipes.ts` (new)
-- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Recipe keys EN+NL)
+- `artifacts/api-server/src/lib/recipe-engine.ts` (new) ✅
+- `lib/db/src/schema/recipes.ts` (new — recipes, versions, executions) ✅
+- `artifacts/api-server/src/routes/infinity/recipes.ts` (new — CRUD, execute, marketplace) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeBuilder.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeRunner.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeMarketplace.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeParameterForm.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeStepProgress.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipeResultViewer.tsx` (new) ✅
+- `artifacts/infinity-ai/src/components/recipe/RecipePanel.tsx` (new) ✅
+- `artifacts/infinity-ai/src/hooks/useRecipes.ts` (new) ✅
+- `artifacts/api-server/src/lib/tool-registry.ts` (extend — recipe tools) ✅
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` (recipes tab + command palette + mobile nav) ✅
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (add Recipe keys EN+NL) ✅
 
 ---
 
@@ -2326,14 +2329,11 @@ loop:
 
 ---
 
-## 🎯 Current Phase: **Phase 37 — Fully Automated End-to-End Workflow (NL → Deployed Product)** ✅ **COMPLETE**
+## 🎯 Current Phase: **Phase 40 — Recipe Widget (Standard + Deep Research)** ✅ **COMPLETE**
 
 ## 🎯 Upcoming Phases
-1. **Phase 38** — Local AI Safety Watcher (Push Notifications)
-2. **Phase 39** — Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)
-3. **Phase 40** — Recipe Widget (Standard + Deep Research)
-4. **Phase 41** — File Format Conversion (@File Convert Command)
-5. **Phase 42** — Passkeys + TOTP (Authenticator App) Integration
+1. **Phase 41** — File Format Conversion (@File Convert Command)
+2. **Phase 42** — Passkeys + TOTP (Authenticator App) Integration
 
 ### Escalation Triggers (Stop and Notify)
 - [ ] 3 consecutive failures on same task

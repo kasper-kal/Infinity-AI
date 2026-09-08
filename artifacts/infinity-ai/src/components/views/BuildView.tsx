@@ -117,7 +117,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state - simplified
-  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap'>(initialTab === 'advancedAgent' ? 'preview' : initialTab);
+  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap' | 'automate' | 'recipes'>(initialTab === 'advancedAgent' ? 'preview' : initialTab);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -274,6 +274,17 @@ export const BuildView: React.FC<BuildViewProps> = ({
           </svg>
         ),
       },
+      {
+        id: 'recipes',
+        label: t('recipes.marketplace'),
+        icon: (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 17h16M4 21h16M4 3v8a4 4 0 0 0 8 0V3M4 3h3M8 3h3" />
+            <circle cx="17.5" cy="7.5" r="3" />
+            <path d="M17.5 10.5v11" />
+          </svg>
+        ),
+      },
     ];
 
     return (
@@ -358,6 +369,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'automate' && (
             <div className="flex-1 flex flex-col h-full">
               <WorkflowWizard projectId={projectId ?? ''} />
+            </div>
+          )}
+          {bottomNavTab === 'recipes' && (
+            <div className="flex flex-col h-full">
+              <RecipePanel projectId={projectId ?? ''} />
             </div>
           )}
         </div>
@@ -788,6 +804,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           { id: 'buildMap', label: t('build.tabs.buildMap'), icon: <GitBranch className="w-4 h-4" />, action: () => setBuildTab('buildMap') },
           { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" />, action: () => setBuildTab('advancedAgent') },
           { id: 'automate', label: t('workflow.wizard.title'), icon: <Cpu className="w-4 h-4" />, action: () => setBuildTab('automate') },
+          { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" />, action: () => { setBuildTab('overview'); setOverviewTab('recipes'); } },
           { id: 'terminal', label: t('overview.tabs.terminal'), icon: <TerminalIcon className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'mobile', label: t('mobile.title'), icon: <Smartphone className="w-4 h-4" />, action: () => setBuildTab('overview') },

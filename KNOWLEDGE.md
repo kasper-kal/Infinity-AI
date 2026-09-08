@@ -23,6 +23,7 @@
 - Monorepo: `artifacts/api-server` (Express, port 8080) · `artifacts/Infinity` (React + Vite, port 5173) · `lib/db` (Drizzle package `@workspace/db`) · `Books/` (live style samples) · `scripts/` · `docs/` · `archive/` · `qa-report/`.
 - Stack: Drizzle ORM + Postgres (Neon), Express routers under `/api/Infinity/*`, React + Tailwind + framer-motion + lucide-react, i18n `en`/`nl` (type-enforced `nl: Record<keyof typeof en, string>`), Puppeteer (A5 PDFs, screenshots).
 - DB schema: `lib/db/src/schema/` (one file per domain). Idempotent migrations: `lib/db/src/auto-migrate.ts` (`CREATE TABLE IF NOT EXISTS` + `ALTER ... ADD COLUMN IF NOT EXISTS`).
+- **New schema files need package wiring**: `@workspace/db` has an `exports` map in `lib/db/package.json` — add `"./schema/<name>.js": "./src/schema/<name>.ts"` and re-export in `lib/db/src/index.ts` (`export * from "./schema/<name>.js";`). Always import as `@workspace/db/schema/<name>.js` (`.js` suffix required, even though it's a TS file).
 - LLM key pool lives in server `.env` (gitignored): OpenRouter first, NVIDIA NIM failover; plus Whisper, Flux, ElevenLabs, Tavily, Spotify, Google.
 
 ### Existing systems to reuse
@@ -34,6 +35,7 @@
 - **Auto-migrate:** `lib/db/src/auto-migrate.ts` (books.ts added ~20 `ALTER ADD COLUMN IF NOT EXISTS` entries) — reuse for every new table/column below.
 - **Stack/conventions:** Drizzle ORM + Postgres (Neon), Express routers under `/api/Infinity/*`, React + Vite + Tailwind + framer-motion + lucide-react, i18n via `src/lib/i18n.tsx` (`nl: Record<keyof typeof en, string>` type-enforced). **0-euro budget — no paid services, no free trials.**
 - **Infinity-the-app must not read internal working docs** — blocked in `artifacts/api-server/src/lib/source-code.ts` (KNOWLEDGE.md, session-brief.md, Infinity config, .env, etc.).
+- **Recipe system** (Phase 40) — `lib/db/src/schema/recipes.ts` (4 tables: recipes, recipe_versions, recipe_executions, recipe_ratings) + `artifacts/api-server/src/lib/recipe-engine.ts` (RecipeEngine class, 15 built-in recipes) + `routes/infinity/recipes.ts` (20+ endpoints) + frontend `components/recipe/*` + `hooks/useRecipes.ts`. Parameter interpolation uses `{{paramName}}` + handlebars-style `{{#if}}`/`{{#each}}` (NOT JS template literals inside recipe prompts — esbuild chokes on `${{`). Recipes integrate with the Universal Tool Registry via `registerRecipeTools()` (recipe.list/get/execute/create/fork).
 
 ## Active projects
 > Live status (what's done/in-flight/next) always lives in **session-brief.md** — this section holds only permanent facts.
