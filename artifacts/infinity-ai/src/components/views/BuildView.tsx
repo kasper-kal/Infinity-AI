@@ -44,13 +44,14 @@ import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
+import { RecipePanel } from "@/components/recipe";
 import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
 import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
 import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
-import { GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
+import { ChefHat, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
 import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -866,7 +867,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
 }) => {
   const { t } = useI18n();
   const { build: buildTaskProvider } = useTaskProvider('BuildOverviewPanel');
-  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations'>('progress');
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes'>('progress');
 
   return (
     <div className="flex flex-col h-full">
@@ -885,6 +886,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'shadowWorkspaces', label: t('overview.tabs.shadowWorkspaces'), icon: <Server className="w-4 h-4" /> },
             { id: 'agentReview', label: t('overview.tabs.agentReview'), icon: <GitPullRequest className="w-4 h-4" /> },
             { id: 'automations', label: t('overview.tabs.automations'), icon: <ZapIcon className="w-4 h-4" /> },
+            { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" /> },
           ]}
           activeTab={overviewTab}
           onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
@@ -971,6 +973,11 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
         {overviewTab === 'automations' && (
           <div className="flex flex-col h-full">
             <AutomationList projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'recipes' && (
+          <div className="flex flex-col h-full">
+            <RecipePanel projectId={projectId} />
           </div>
         )}
       </div>

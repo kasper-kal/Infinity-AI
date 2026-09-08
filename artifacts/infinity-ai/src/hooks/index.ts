@@ -18,3 +18,6 @@ export { useTerminalBridge } from './useTerminalBridge';
 export { useDesignMode } from './useDesignMode';
 export { useLiveTaskDisplay } from './useLiveTaskDisplay';
 export { useBuildMap, type BuildMapGraph, type BuildMapNode, type BuildMapEdge, type BuildMapSuggestion, type BuildMapAnalysis, type BuildMapNodeType, type BuildMapNodeStatus, type BuildMapEdgeType, type BuildMapAssignee, type BuildMapLayoutAlgorithm } from './useBuildMap';
+
+// Phase 40: Recipe Widget
+export { useRecipes, type Recipe, type RecipeParameter, type RecipeStep, type RecipeVersion, type DeepResearchConfig, type ExecutionProgress, type RecipeExecution, type RecipeRating } from './useRecipes';

@@ -1598,3 +1598,243 @@ function registerConnectorTools(): void {
 
 // Auto-register connector tools on module load
 registerConnectorTools();
+
+// ============================================================================
+// Phase 40: Recipe Tools
+// Expose the Recipe Engine to the Universal Agent:
+//   recipe.list, recipe.get, recipe.execute, recipe.create, recipe.update, recipe.fork
+// ============================================================================
+function registerRecipeTools(): void {
+  import("./recipe-engine").then(({ recipeEngine }) => {
+    // recipe.list — browse recipes by category/type
+    registerTool({
+      name: "recipe.list",
+      description: "List available recipes (reusable AI workflows). Filter by category/tag or type (standard|deep-research). Use when the user wants to run a workflow like code review, docs generation, competitor analysis, etc.",
+      category: "research",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Filter by tag/category (e.g. development, research, git, security)" },
+          type: { type: "string", enum: ["standard", "deep-research"], description: "Filter by recipe type" },
+        },
+      },
+      execute: async (args) => {
+        const { category, type } = args as { category?: string; type?: string };
+        let recipes = recipeEngine.listRecipes(category);
+        if (type) recipes = recipes.filter((r) => r.type === type);
+        const summary = recipes.map((r) => `${r.name} (${r.type}): ${r.description}`).join("\n");
+        return {
+          success: true,
+          data: recipes.map((r) => ({
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            type: r.type,
+            version: r.version,
+            tags: r.tags,
+            isBuiltIn: r.isBuiltIn,
+            parameters: r.parameters.map((p) => p.name),
+            steps: r.steps.length,
+            avgRating: recipeEngine.getAverageRating(r.id || ""),
+          })),
+          summary: summary || "No recipes found.",
+        };
+      },
+      timeoutMs: 10000,
+    });
+
+    // recipe.get — fetch full recipe spec by id
+    registerTool({
+      name: "recipe.get",
+      description: "Get the full specification of a recipe (parameters, steps, output schema) by ID or name.",
+      category: "research",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Recipe ID" },
+          name: { type: "string", description: "Recipe name (alternative to id)" },
+        },
+      },
+      execute: async (args) => {
+        const { id, name } = args as { id?: string; name?: string };
+        const recipe = id ? recipeEngine.getRecipe(id) : name ? recipeEngine.getRecipeByName(name) : undefined;
+        if (!recipe) {
+          return { success: false, error: `Recipe not found${id ? `: ${id}` : name ? `: ${name}` : ""}` };
+        }
+        return { success: true, data: recipe, summary: `${recipe.name} — ${recipe.description || ""}` };
+      },
+      timeoutMs: 10000,
+    });
+
+    // recipe.execute — run a recipe with parameters
+    registerTool({
+      name: "recipe.execute",
+      description: "Execute a recipe with parameters. Returns the structured output. Use for code review, docs generation, refactoring, research, competitor analysis, etc.",
+      category: "research",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Recipe ID" },
+          name: { type: "string", description: "Recipe name (alternative to id)" },
+          parameters: { type: "object", description: "Parameter values for the recipe (see recipe.get for the parameter list)", additionalProperties: true },
+          projectId: { type: "string", description: "Optional project ID for context/execution tracking" },
+        },
+      },
+      required: ["parameters"],
+      execute: async (args, ctx) => {
+        const { id, name, parameters, projectId } = args as {
+          id?: string; name?: string; parameters: Record<string, unknown>; projectId?: string;
+        };
+        const recipe = id ? recipeEngine.getRecipe(id) : name ? recipeEngine.getRecipeByName(name) : undefined;
+        if (!recipe) {
+          return { success: false, error: `Recipe not found. Use recipe.list to see available recipes.` };
+        }
+        try {
+          const execution = await recipeEngine.executeRecipe(recipe.id!, parameters, {
+            projectId: projectId || ctx?.projectId,
+          });
+          const output = execution.result?.output;
+          const text =
+            typeof output === "string"
+              ? output.slice(0, 8000)
+              : JSON.stringify(output, null, 2).slice(0, 8000);
+          return {
+            success: true,
+            data: { executionId: execution.id, status: execution.status, output },
+            summary: `Recipe "${recipe.name}" ${execution.status}. ${text ? "\n\n" + text : ""}`,
+            artifacts: [
+              {
+                type: "recipe_result",
+                title: recipe.name,
+                data: execution,
+                metadata: { recipeId: recipe.id, executionId: execution.id },
+              },
+            ],
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { success: false, error: `Recipe execution failed: ${message}` };
+        }
+      },
+      timeoutMs: 300000,
+    });
+
+    // recipe.create — register a new recipe
+    registerTool({
+      name: "recipe.create",
+      description: "Create a new recipe definition (name, type, parameters, steps, outputSchema, tags). Each step has id, prompt, optional modelCategory, tools, outputKey. Deep research recipes set type='deep-research' with deepResearchConfig.",
+      category: "research",
+      risk: "WRITE",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Recipe name" },
+          description: { type: "string", description: "What the recipe does" },
+          type: { type: "string", enum: ["standard", "deep-research"], default: "standard" },
+          parameters: {
+            type: "array",
+            description: "Parameter definitions",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                type: { type: "string", enum: ["string", "number", "boolean", "array", "object"] },
+                required: { type: "boolean", default: false },
+                default: {},
+                description: { type: "string" },
+              },
+              required: ["name", "type"],
+            },
+          },
+          steps: {
+            type: "array",
+            description: "Recipe steps",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                prompt: { type: "string" },
+                modelCategory: { type: "string" },
+                tools: { type: "array", items: { type: "string" } },
+                outputKey: { type: "string" },
+                condition: { type: "string" },
+              },
+              required: ["id", "prompt"],
+            },
+          },
+          outputSchema: { type: "object", additionalProperties: true },
+          tags: { type: "array", items: { type: "string" } },
+          deepResearchConfig: {
+            type: "object",
+            properties: {
+              researchSteps: { type: "number" },
+              synthesisModel: { type: "string" },
+              verificationModel: { type: "string" },
+              outputFormat: { type: "string", enum: ["markdown", "json", "pdf", "html"] },
+            },
+          },
+        },
+        required: ["name", "steps"],
+      },
+      execute: async (args) => {
+        const { name, description, type, parameters, steps, outputSchema, tags, deepResearchConfig } = args as Record<string, unknown>;
+        try {
+          const recipe = recipeEngine.registerRecipe({
+            name: name as string,
+            description,
+            type: (type as "standard" | "deep-research") || "standard",
+            parameters: (parameters as never[]) || [],
+            steps: steps as never[],
+            outputSchema: outputSchema as Record<string, unknown>,
+            tags: (tags as string[]) || [],
+            isBuiltIn: false,
+            isPublic: false,
+            deepResearchConfig: deepResearchConfig as never,
+          });
+          return { success: true, data: { id: recipe.id, name: recipe.name, version: recipe.version }, summary: `Recipe "${recipe.name}" created (${recipe.id}).` };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { success: false, error: `Failed to create recipe: ${message}` };
+        }
+      },
+      timeoutMs: 10000,
+    });
+
+    // recipe.fork — copy an existing recipe as a starting point
+    registerTool({
+      name: "recipe.fork",
+      description: "Fork an existing recipe to create a new custom version under a new name.",
+      category: "research",
+      risk: "WRITE",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Source recipe ID" },
+          name: { type: "string", description: "Source recipe name (alternative to id)" },
+          newName: { type: "string", description: "New name for the forked recipe" },
+        },
+        required: ["newName"],
+      },
+      execute: async (args) => {
+        const { id, name, newName } = args as { id?: string; name?: string; newName: string };
+        const source = id ? recipeEngine.getRecipe(id) : name ? recipeEngine.getRecipeByName(name) : undefined;
+        if (!source) {
+          return { success: false, error: `Recipe not found. Use recipe.list to see available recipes.` };
+        }
+        const forked = recipeEngine.forkRecipe(source.id!, newName);
+        if (!forked) return { success: false, error: "Failed to fork recipe" };
+        return { success: true, data: { id: forked.id, name: forked.name }, summary: `Forked "${source.name}" as "${forked.name}" (${forked.id}).` };
+      },
+      timeoutMs: 10000,
+    });
+  }).catch((err) => {
+    // recipe-engine import failure should not break the registry
+    console.error("[tool-registry] Failed to load recipe tools:", err);
+  });
+}
+
+// Auto-register recipe tools on module load
+registerRecipeTools();
