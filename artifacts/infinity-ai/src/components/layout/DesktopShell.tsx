@@ -13,6 +13,7 @@ import { Button, IconButton, ButtonGroup } from "@/components/ui/Button";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/use-theme";
 import { haptics } from "@/lib/haptics";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 
 export type DesktopView = 'chat' | 'build' | 'terminal' | 'projects' | 'settings';
 
@@ -151,6 +152,8 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
           </Button>
         ))}
       </ButtonGroup>
+
+      <AccountMenu onNavigateSettings={(section) => onNavigate('settings')} />
 
       <IconButton
         onClick={() => setShortcutsOpen(true)}

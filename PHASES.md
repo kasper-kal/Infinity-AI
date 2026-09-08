@@ -2233,10 +2233,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 42: Passkeys + TOTP (Authenticator App) Integration ✅ **COMPLETE**
+## 📦 Phase 42: Passkeys + TOTP (Authenticator App) Integration + Frontend Auth ✅ **COMPLETE**
 
 ### Goal
-**Modern multi-factor authentication** — Passkeys (WebAuthn/FIDO2) for passwordless login + TOTP authenticator apps (Google Authenticator, Authy, 1Password, Bitwarden). Both are $0, local-first, no external dependencies.
+**Modern multi-factor authentication** — Passkeys (WebAuthn/FIDO2) for passwordless login + TOTP authenticator apps (Google Authenticator, Authy, 1Password, Bitwarden). Both are $0, local-first, no external dependencies. Plus a complete, usable frontend authentication system (login, register, MFA challenge, account menu, profile/settings, persistent guest mode).
 
 ### Requirements
 - [x] **TOTP (Authenticator App)** — `artifacts/api-server/src/lib/totp.ts`:
@@ -2262,13 +2262,23 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - [x] Remember device option (30-day httpOnly `infinity_trusted_device` cookie + hashed DB row)
   - [x] Recovery flow: 10 single-use backup codes with rotate endpoint (recovery via backup codes; no email infra exists in this self-hosted app)
   - [x] Session elevation: `requireRecentMfa` middleware + `sessions.mfa_verified_at` (60-min window) gating disable TOTP, rotate backup codes, add passkey, clear trusted devices
-- [x] **Frontend** — `artifacts/infinity-ai/src/components/settings/MfaSettings.tsx` + `components/auth/MfaChallenge.tsx` + `hooks/useMfa.ts`:
+- [x] **Frontend — MFA Settings** — `artifacts/infinity-ai/src/components/settings/MfaSettings.tsx` + `components/auth/MfaChallenge.tsx` + `hooks/useMfa.ts`:
   - [x] Settings panel (Security tab in SettingsView): passkey list, TOTP status, backup-code status
   - [x] "Add Passkey" button → WebAuthn registration ceremony (full begin/finish)
   - [x] "Set Up Authenticator App" dialog → QR code + manual secret entry + 6-digit confirm
   - [x] Backup codes revealed on setup + "Regenerate" with copy buttons
   - [x] Rename/remove passkeys with confirmation dialogs, disable TOTP, clear trusted devices
-  - [x] Login challenge: reusable `MfaChallenge` component (passkey/TOTP/backup selection → challenge → onSuccess). *No LoginView exists in this frontend yet (auth is account-system side); the component is ready to embed in any login surface, and the two-step login API is live.* WebAuthn conditional UI is not wired since no autofill login form exists.
+  - [x] Login challenge: reusable `MfaChallenge` component (passkey/TOTP/backup selection → challenge → onSuccess)
+- [x] **Frontend — Auth System** (NEW):
+  - [x] `lib/auth.tsx` — AuthProvider + useAuth context (status, account, guest, pendingLogin, refresh/login/completeMfa/cancelMfa/register/logout/updateProfile/changePassword/revokeAllSessions/enterGuest/exitGuest), `getDeviceFingerprint()` for trusted-device cookie
+  - [x] `components/auth/LoginView.tsx` — Full-screen gate: sign in / sign up tabs, MfaChallenge integration, "trust this device" checkbox + fingerprint, guest bypass
+  - [x] `components/auth/AccountMenu.tsx` — Desktop header dropdown (avatar → profile / security / sign out)
+  - [x] `components/settings/AccountSettings.tsx` — Profile (displayName/email), password change, revoke all sessions
+  - [x] SettingsView: new `account` section (sidebar + mobile bottom nav)
+  - [x] App.tsx: AuthProvider wrapper
+  - [x] AppShellRouter: Auth gate at top (loading splash → LoginView when unauthenticated && !guest)
+  - [x] DesktopShell: AccountMenu wired into headerActions
+  - [x] i18n: ~28 new `auth.*` / `account.*` / `settings.account` keys EN+NL balanced
 - [x] **Database Schema** — `lib/db/src/schema/auth-mfa.ts`:
   - [x] `mfa_totp_secrets` table: accountId, encryptedSecret, confirmedAt, backupCodes (jsonb)
   - [x] `mfa_passkeys` table: accountId, credentialId, publicKey, counter, transports, aaguid, name, deviceType, backedUp, userVerified, createdAt, lastUsedAt
@@ -2284,12 +2294,14 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 5. **Auth Flow Integration** — Modify login to check MFA, challenge factors, session elevation
 6. **Frontend Settings Panel** — MfaSettings component in SettingsView security tab
 7. **Login UI Updates** — Passkey conditional UI, TOTP input, backup code fallback
+8. **Frontend Auth System** — AuthProvider, LoginView, AccountMenu, AccountSettings, auth gate, guest mode, i18n
 
 ### Implementation Notes / Deviations
 - Two-step login (password → challenge) is enforced server-side: a password-only session cookie is NOT set until the second factor succeeds; the challenge endpoints live under the same public `/api/auth` mount.
 - Passkey registration and TOTP setup flows were integrated directly into `MfaSettings.tsx` (setup dialog) rather than split into standalone `PasskeyRegistration.tsx` / `TotpSetup.tsx` files — same UX, fewer files.
 - Secret encryption uses an account-scoped AES-256-GCM key (`masterKey:mfa:{accountId}`) instead of the project-scoped secrets manager, since MFA secrets are per-account.
 - No `LoginView` exists in the frontend (auth is account-system side). The reusable `MfaChallenge` component + `useMfa` challenge helpers are provided and ready for any login surface; conditional-UI autofill is deferred until a login form exists.
+- **Frontend auth added after Phase 42 backend complete**: AuthProvider/guest mode, LoginView with MFA challenge, AccountMenu + AccountSettings, auth gate in AppShellRouter. Persistent guest mode (`infinity-auth-guest`) keeps app usable without accounts (the app's primary user historically has no accounts row).
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/totp.ts` (new)
@@ -2308,6 +2320,14 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/infinity-ai/src/components/auth/MfaChallenge.tsx` (new — reusable login challenge)
 - `artifacts/infinity-ai/src/components/views/SettingsView.tsx` (Security section + sidebar + mobile nav)
 - `artifacts/infinity-ai/src/lib/i18n.tsx` (MFA keys EN+NL)
+- `artifacts/infinity-ai/src/lib/auth.tsx` (new — AuthProvider + useAuth)
+- `artifacts/infinity-ai/src/components/auth/LoginView.tsx` (new — full-screen auth gate)
+- `artifacts/infinity-ai/src/components/auth/AccountMenu.tsx` (new — header dropdown)
+- `artifacts/infinity-ai/src/components/settings/AccountSettings.tsx` (new — profile/password/sessions)
+- `artifacts/infinity-ai/src/App.tsx` (AuthProvider wrapper)
+- `artifacts/infinity-ai/src/components/layout/AppShellRouter.tsx` (AuthGate + AuthGate loading/LoginView)
+- `artifacts/infinity-ai/src/components/layout/DesktopShell.tsx` (AccountMenu in headerActions)
+- `artifacts/infinity-ai/src/components/views/SettingsView.tsx` (account section + sidebar + mobile nav)
 
 ---
 

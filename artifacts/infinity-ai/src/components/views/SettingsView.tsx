@@ -31,6 +31,7 @@ import { ModelPreferences } from "@/components/cursor/ModelPreferences";
 import { SafetyWatcherTab } from "@/components/settings/SafetyWatcherTab";
 import { LLMKeysTab } from "@/components/settings/LLMKeysTab";
 import { MfaSettings } from "@/components/settings/MfaSettings";
+import { AccountSettings } from "@/components/settings/AccountSettings";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
@@ -312,6 +313,7 @@ type SettingsSection =
   | 'language'
   | 'mcp-servers'
   | 'llm-keys'
+  | 'account'
   | 'security'
   | 'advanced'
   | 'enterprise'
@@ -487,6 +489,15 @@ const SECTION_CONFIG: Record<SettingsSection, { icon: React.ReactNode; labelKey:
     ),
     labelKey: 'settings.llmKeys',
   },
+  account: {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+    labelKey: 'settings.account',
+  },
   security: {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -550,6 +561,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const renderSectionContent = (section: SettingsSection) => {
     switch (section) {
+      case 'account':
+        return <AccountSettings />;
       case 'theme':
         return (
           <div className="space-y-4">
@@ -834,6 +847,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       id: 'llm-keys',
       label: t('settings.llmKeys'),
       icon: SECTION_CONFIG['llm-keys'].icon,
+    },
+    {
+      id: 'account',
+      label: t('settings.account'),
+      icon: SECTION_CONFIG.account.icon,
     },
     {
       id: 'security',

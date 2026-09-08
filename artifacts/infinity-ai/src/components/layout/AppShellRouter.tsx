@@ -10,6 +10,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell, type MobileView } from "@/components/mobile";
 import { DesktopShell, type DesktopView } from "./DesktopShell";
 import { LiveTaskDisplay } from "@/components/live-task-display/LiveTaskDisplay";
+import { LoginView } from "@/components/auth/LoginView";
+import { useAuth } from "@/lib/auth";
 
 export type View = 'chat' | 'build' | 'terminal' | 'projects' | 'settings';
 
@@ -116,6 +118,28 @@ function ResponsiveShell({ activeView, onNavigate, children }: { activeView: Vie
 }
 
 /**
+ * AuthGate — shows LoginView when unauthenticated (and not guest),
+ * otherwise renders the responsive shell.
+ */
+function AuthGate({ activeView, onNavigate }: { activeView: View; onNavigate: (view: View) => void }) {
+  const { status, guest } = useAuth();
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-dvh w-full flex items-center justify-center bg-background text-foreground">
+        <div className="w-10 h-10 border-3 border-accent/30 border-t-accent rounded-full animate-spin" aria-label="Loading…" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated" && !guest) {
+    return <LoginView />;
+  }
+
+  return <ResponsiveShell activeView={activeView} onNavigate={onNavigate} />;
+}
+
+/**
  * AppShellRouter - Main entry point for the responsive app
  */
 export const AppShellRouter: React.FC<AppShellRouterProps> = ({ base = '' }) => {
@@ -145,9 +169,7 @@ export const AppShellRouter: React.FC<AppShellRouterProps> = ({ base = '' }) => 
     }
   }, [location, base, setLocation]);
 
-  return (
-    <ResponsiveShell activeView={activeView} onNavigate={handleNavigate} />
-  );
+  return <AuthGate activeView={activeView} onNavigate={handleNavigate} />;
 };
 
 /**
