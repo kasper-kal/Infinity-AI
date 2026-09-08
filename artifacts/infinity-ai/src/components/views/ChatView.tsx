@@ -301,6 +301,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
         return true;
       }
 
+      // @File Batch <base64a>[,<base64b>] to <format> — bulk convert inline payloads
+      const batchMatch = command.match(/^Batch\s+([\s\S]+?)\s+to\s+([a-z0-9]+)$/i);
+      if (/^batch\b/i.test(lower)) {
+        if (batchMatch) {
+          const [, payloads, target] = batchMatch;
+          const parts = payloads.split(/[,;]\s*/).filter((p) => p.trim().length > 0);
+          if (parts.length === 0) {
+            setFileCommandResult('⚠️ **@File Batch** — no payloads found. Provide comma-separated base64 blobs.');
+          } else if (parts.length > 20) {
+            setFileCommandResult('⚠️ **@File Batch** — max 20 files per command.');
+          } else {
+            setFileCommandResult(`⚙️ Batch-converting **${parts.length}** files to **${target.toLowerCase()}**…`);
+            const files = parts.map((data, i) => ({ data: data.trim(), name: `file${i + 1}.bin` }));
+            const results = await fileConverter.convertBatch(files, target.toLowerCase(), {});
+            const ok = results.filter((r) => r.ok).length;
+            const failed = results.filter((r) => !r.ok).length;
+            const lines = results.map((r) => `- \`${r.name}\`: ${r.ok ? `✅ ${r.format?.toUpperCase()} (${((r.size ?? 0) / 1024).toFixed(1)} KB)` : `❌ ${r.error}`}`);
+            setFileCommandResult(
+              [
+                `${ok + failed === 0 ? '⚠️ No results' : `✅ **Converted ${ok}/${ok + failed}**`}${failed > 0 ? ` — **${failed} failed**` : ''}`,
+                '',
+                ...lines,
+                '',
+                ok > 0 ? '> Download and preview: open **Build → File Converter**.' : '',
+              ].join('\n')
+            );
+          }
+        } else {
+          setFileCommandResult(
+            [
+              '**🗂️ @File Batch usage**',
+              '',
+              '- `@File Batch <base64data>[,<base64data>…] to <format>` — convert several inline payloads at once (comma or semicolon separated, max 20)',
+              '',
+              '> Tip: For real files, open **Build → File Converter** and drag them in.',
+            ].join('\n')
+          );
+        }
+        return true;
+      }
+
+      // @File Info <payload> — show detected format + metadata
+      const infoMatch = command.match(/^Info\s+([\s\S]+)$/i);
+      if (/^info\b/i.test(lower)) {
+        if (infoMatch) {
+          const payload = infoMatch[1].trim();
+          setFileCommandResult('🔍 Inspecting file…');
+          const info = await fileConverter.getInfo(payload);
+          if (!info) {
+            setFileCommandResult('⚠️ Could not read file info.');
+          } else {
+            const rows = [
+              `- **Format**: \`${info.format.toUpperCase()}\``,
+              `- **Size**: ${(info.size / 1024).toFixed(1)} KB`,
+            ];
+            if (info.dimensions) rows.push(`- **Dimensions**: ${info.dimensions.width} × ${info.dimensions.height}px`);
+            if (info.pages !== undefined) rows.push(`- **Pages**: ${info.pages}`);
+            if (info.characters !== undefined) rows.push(`- **Characters**: ${info.characters}`);
+            if (info.lines !== undefined) rows.push(`- **Lines**: ${info.lines}`);
+            if (info.rows !== undefined) rows.push(`- **Rows**: ${info.rows}`);
+            setFileCommandResult(['**📄 File info**', '', ...rows].join('\n'));
+          }
+        } else {
+          setFileCommandResult('⚠️ **@File Info** — provide inline base64, e.g. `@File Info <base64data>`.');
+        }
+        return true;
+      }
+
       // @File Help — usage guide
       if (/^(help|\?)$/i.test(lower)) {
         setFileCommandResult(
@@ -308,7 +376,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
             '**🗂️ @File commands**',
             '',
             '- `@File ListFormats` — list supported input/output formats',
-            '- `@File Convert <path> to <format>` — convert a file (path or base64)',
+            '- `@File Convert <data> to <format>` — convert an inline payload (path or base64)',
+            '- `@File Batch <data1>,<data2>… to <format>` — convert several payloads at once',
+            '- `@File Info <data>` — show detected format + metadata',
             '- `@File Help` — show this guide',
             '',
             '> Tip: Open **Build → File Converter** for drag-and-drop conversion, batch mode, previews, and downloads.',
@@ -322,7 +392,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         [
           `Unknown command: \`@File ${command}\``,
           '',
-          'Try `@File ListFormats`, `@File Convert <path> to <format>`, or `@File Help`.',
+          'Try `@File ListFormats`, `@File Convert <data> to <format>`, `@File Batch <data1>,<data2>… to <format>`, `@File Info <data>`, or `@File Help`.',
         ].join('\n')
       );
       return true;

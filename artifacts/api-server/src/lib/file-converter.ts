@@ -122,6 +122,9 @@ export const FORMATS: FormatInfo[] = [
   MH("txt", "document", "Plain Text", ["txt", "text"], ["text/plain"]),
   MH("rtf", "document", "Rich Text (RTF)", ["rtf"], ["application/rtf"]),
   MH("odt", "document", "OpenDocument (ODT)", ["odt"], ["application/vnd.oasis.opendocument.text"]),
+  MH("epub", "document", "EPUB", ["epub"], ["application/epub+zip"]),
+  MH("tex", "document", "LaTeX", ["tex", "latex"], ["application/x-tex"]),
+  MH("mediawiki", "document", "MediaWiki", ["wiki", "mediawiki"], ["text/x-mediawiki"]),
   // ---- Images ----
   MH("png", "image", "PNG", ["png"], ["image/png"]),
   MH("jpg", "image", "JPEG", ["jpg", "jpeg"], ["image/jpeg"]),
@@ -688,6 +691,160 @@ async function textToPdf(text: string, title?: string): Promise<Buffer> {
   return done;
 }
 
+// --- RTF (Rich Text Format) ──────────────────────────────────────────────
+// Pure-text extraction + lightweight generation. RTF is a byte-stream of
+// `{\controlword param}` groups around literal runs; we strip the markup and
+// unescape the character runs, preserving paragraph/line breaks.
+
+/** Extract readable plain text from an RTF byte stream. */
+function rtfToPlainText(rtf: string): string {
+  let s = rtf;
+  s = s.replace(/\\par\b/gi, "\n"); // paragraph breaks
+  s = s.replace(/\\line\b/gi, "\n"); // line breaks
+  s = s.replace(/\\tab\b/gi, "\t");
+  s = s.replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))); // hex escapes
+  s = s.replace(/\\u(-?\d+)[^ ]?/g, (_, n) => String.fromCharCode(Number(n) & 0xffff)); // unicode escapes
+  s = s.replace(/\\[a-zA-Z]+\-?\d* ?/g, ""); // control words + params
+  s = s.replace(/\\[\\{}*]/g, ""); // control symbols
+  s = s.replace(/[{}]/g, ""); // group braces
+  s = s.replace(/\\{/g, "{").replace(/\\}/g, "}").replace(/\\\\/g, "\\");
+  s = s.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/\r/g, "").trim();
+  return s;
+}
+
+/** Escape plain text into an RTF literal run. */
+function rtfEscape(text: string): string {
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/{/g, "\\{")
+    .replace(/}/g, "\\}")
+    .replace(/\r\n/g, "\\par\n")
+    .replace(/\n/g, "\\par\n");
+}
+
+/** Build a minimal, valid RTF document from plain text. */
+function textToRtf(text: string): Buffer {
+  const body = rtfEscape(text);
+  return encodeText(`{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0\\fswiss Helvetica;}}\\f0\\fs24 ${body}}`);
+}
+
+// --- ODT (OpenDocument Text) ─────────────────────────────────────────────
+// ODT is a ZIP whose body lives in `content.xml`; paragraph text is in
+// `<text:p>` / `<text:h>` elements. Uses `unzipper` + `fast-xml-parser`
+// (both already dependencies) — $0, fully local.
+
+const odtOpen = async () => {
+  // unzipper is a CJS module; in ESM the namespace exposes `.default` as the
+  // module.exports object. Handle both interop shapes defensively.
+  const mod = await import("unzipper");
+  return ((mod as any).default?.Open ?? (mod as any).Open) as typeof import("unzipper").Open;
+};
+
+async function odtToParagraphs(buffer: Buffer): Promise<string[]> {
+  const Open = await odtOpen();
+  let dir: any;
+  try {
+    dir = await Open.buffer(buffer);
+  } catch {
+    throw new Error("Invalid ODT/ODS archive");
+  }
+  const entry = dir.files.find((f: any) => f.path === "content.xml");
+  if (!entry) throw new Error("Invalid ODT: missing content.xml");
+  const xml = (await entry.buffer()).toString("utf8");
+  const out: string[] = [];
+  const re = /<(?:text:)?(?:p|h)(?:\s[^>]*)?>([\s\S]*?)<\/(?:text:)?(?:p|h)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const line = m[1]
+      .replace(/<[^>]+>/g, "") // strip inline runs/tabs
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/\s+/g, " ").trim();
+    if (line) out.push(line);
+  }
+  if (out.length === 0) throw new Error("No readable paragraphs found in ODT");
+  return out;
+}
+
+/** Merge paragraphs into one plain-text body. */
+function paragraphsToText(paras: string[]): string {
+  return paras.join("\n\n");
+}
+
+// --- EPUB ────────────────────────────────────────────────────────────────
+// EPUB is a ZIP of (X)HTML spine files. We extract body HTML from each and
+// concatenate with separators. Uses `unzipper` + `cheerio` (already deps).
+
+type UnzipperEntry = { path: string; buffer: () => Promise<Buffer> };
+
+async function epubToHtml(buffer: Buffer): Promise<string> {
+  const Open = await odtOpen();
+  let dir: any;
+  try {
+    dir = await Open.buffer(buffer);
+  } catch {
+    throw new Error("Invalid EPUB archive");
+  }
+  const cheerioMod: any = await import("cheerio");
+  const load = cheerioMod.default?.load ?? cheerioMod.load;
+  const rendition = dir.files.filter((f: UnzipperEntry) => /\.(x?html?)$/i.test(f.path));
+  if (rendition.length === 0) throw new Error("Invalid EPUB: no HTML content files");
+  rendition.sort((a: UnzipperEntry, b: UnzipperEntry) => a.path.localeCompare(b.path));
+  const bodies: string[] = [];
+  for (const f of rendition) {
+    const src = (await f.buffer()).toString("utf8");
+    const $ = load(src);
+    const html = $("body").html() ?? "";
+    if (html.trim()) bodies.push(html.trim());
+  }
+  if (bodies.length === 0) throw new Error("EPUB body was empty");
+  return bodies.join("\n<hr/>\n");
+}
+
+// --- MediaWiki markup ────────────────────────────────────────────────────
+function mediawikiToMarkdown(src: string): string {
+  let s = src;
+  s = s.replace(/\[\[:?([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target: string, label?: string) => label || target); // [[links]]
+  s = s.replace(/'''([^']+)'''/g, "**$1**"); // bold
+  s = s.replace(/''([^']+)''/g, "*$1*"); // italic
+  s = s.replace(/^=+ *(.+?) *=+$/gm, (m, title: string) => {
+    const depth = Math.max(1, Math.min(6, m.split("=").length - 2));
+    return `${"#".repeat(depth)} ${title.trim()}`;
+  }); // == headings ==
+  s = s.replace(/^[*#]+ /gm, "- "); // lists
+  s = s.replace(/\{\{[\s\S]*?\}\}/g, ""); // templates {{...}}
+  s = s.replace(/<ref[\s\S]*?<\/ref>/gi, ""); // references
+  s = s.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, ""); // tags
+  s = s.replace(/'''''([^']+)'''''/g, "**$1**").replace(/'''([^']+)'''/g, "**$1**").replace(/''([^']+)''/g, "*$1*");
+  s = s.replace(/\n{3,}/g, "\n\n");
+  return s.trim();
+}
+
+// --- LaTeX ───────────────────────────────────────────────────────────────
+function latexToMarkdown(src: string): string {
+  let s = src;
+  const doc = s.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
+  if (doc) s = doc[1];
+  s = s.replace(/\\section\*?\{([^}]+)\}/g, "\n## $1\n");
+  s = s.replace(/\\subsection\*?\{([^}]+)\}/g, "\n### $1\n");
+  s = s.replace(/\\subsubsection\*?\{([^}]+)\}/g, "\n#### $1\n");
+  s = s.replace(/\\textbf\{([^}]+)\}/g, "**$1**");
+  s = s.replace(/\\textit\{([^}]+)\}/g, "*$1*");
+  s = s.replace(/\\emph\{([^}]+)\}/g, "*$1*");
+  s = s.replace(/\\texttt\{([^}]+)\}/g, "`$1`");
+  s = s.replace(/\\item\s*/g, "\n- ");
+  s = s.replace(/\\\\(?![a-zA-Z])/g, "\n"); // line breaks
+  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_, x: string) => `\n\n${x.trim()}\n\n`); // display math block
+  s = s.replace(/\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\}/g, ""); // drop figures/tables
+  s = s.replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_, x: string) => `\n\n${x.trim()}\n\n`);
+  s = s.replace(/\$\$?/g, ""); // inline math dollars
+  s = s.replace(/\{[^}]*\}/g, ""); // leftover braces
+  s = s.replace(/\\(?:[a-zA-Z@]+|\|)/g, ""); // remaining commands
+  s = s.replace(/[~^`']/g, " ");
+  s = s.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+  return s.trim();
+}
+
 // ============================================================================
 // IMAGE HELPERS (sharp)
 // ============================================================================
@@ -905,6 +1062,77 @@ function registerDocuments(): void {
   }));
   register("pdf", "html", async (req) => {
     const text = (await pdfToText(req.buffer)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return { buffer: encodeText(`<pre style="white-space:pre-wrap">${text}</pre>`), format: "html", mime: "text/html", ext: "html" };
+  });
+
+  // rtf → readable formats (extract text, generate new RTF from text sources)
+  register("rtf", "txt", async (req) => ({
+    buffer: encodeText(rtfToPlainText(decodeText(req.buffer))), format: "txt", mime: "text/plain", ext: "txt",
+  }));
+  register("rtf", "md", async (req) => ({
+    buffer: encodeText(rtfToPlainText(decodeText(req.buffer))), format: "md", mime: "text/markdown", ext: "md",
+  }));
+  register("rtf", "html", async (req) => {
+    const text = rtfToPlainText(decodeText(req.buffer)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return { buffer: encodeText(`<pre style="white-space:pre-wrap">${text}</pre>`), format: "html", mime: "text/html", ext: "html" };
+  });
+  register("rtf", "pdf", async (req) => ({
+    buffer: await textToPdf(rtfToPlainText(decodeText(req.buffer)), req.filename), format: "pdf", mime: "application/pdf", ext: "pdf",
+  }));
+  register("txt", "rtf", async (req) => ({
+    buffer: textToRtf(decodeText(req.buffer)), format: "rtf", mime: "application/rtf", ext: "rtf",
+  }));
+  register("md", "rtf", async (req) => ({
+    buffer: textToRtf(stripMarkdown(decodeText(req.buffer))), format: "rtf", mime: "application/rtf", ext: "rtf",
+  }));
+  register("html", "rtf", async (req) => ({
+    buffer: textToRtf(htmlToPlainText(decodeText(req.buffer))), format: "rtf", mime: "application/rtf", ext: "rtf",
+  }));
+
+  // odt → readable formats
+  register("odt", "txt", async (req) => ({
+    buffer: encodeText(paragraphsToText(await odtToParagraphs(req.buffer))), format: "txt", mime: "text/plain", ext: "txt",
+  }));
+  register("odt", "md", async (req) => ({
+    buffer: encodeText(paragraphsToText(await odtToParagraphs(req.buffer))), format: "md", mime: "text/markdown", ext: "md",
+  }));
+  register("odt", "html", async (req) => {
+    const paras = await odtToParagraphs(req.buffer);
+    const body = paras.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n");
+    return { buffer: encodeText(body), format: "html", mime: "text/html", ext: "html" };
+  });
+  register("odt", "pdf", async (req) => ({
+    buffer: await textToPdf(paragraphsToText(await odtToParagraphs(req.buffer)), req.filename), format: "pdf", mime: "application/pdf", ext: "pdf",
+  }));
+
+  // epub → readable formats (extract only)
+  register("epub", "html", async (req) => ({
+    buffer: encodeText(await epubToHtml(req.buffer)), format: "html", mime: "text/html", ext: "html",
+  }));
+  register("epub", "txt", async (req) => ({
+    buffer: encodeText(htmlToPlainText(await epubToHtml(req.buffer))), format: "txt", mime: "text/plain", ext: "txt",
+  }));
+  register("epub", "md", async (req) => ({
+    buffer: encodeText(htmlToMd(await epubToHtml(req.buffer))), format: "md", mime: "text/markdown", ext: "md",
+  }));
+
+  // mediawiki → readable formats
+  register("mediawiki", "md", async (req) => ({
+    buffer: encodeText(mediawikiToMarkdown(decodeText(req.buffer))), format: "md", mime: "text/markdown", ext: "md",
+  }));
+  register("mediawiki", "txt", async (req) => ({
+    buffer: encodeText(stripMarkdown(mediawikiToMarkdown(decodeText(req.buffer)))), format: "txt", mime: "text/plain", ext: "txt",
+  }));
+
+  // latex → readable formats
+  register("tex", "md", async (req) => ({
+    buffer: encodeText(latexToMarkdown(decodeText(req.buffer))), format: "md", mime: "text/markdown", ext: "md",
+  }));
+  register("tex", "txt", async (req) => ({
+    buffer: encodeText(stripMarkdown(latexToMarkdown(decodeText(req.buffer)))), format: "txt", mime: "text/plain", ext: "txt",
+  }));
+  register("tex", "html", async (req) => {
+    const text = stripMarkdown(latexToMarkdown(decodeText(req.buffer))).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return { buffer: encodeText(`<pre style="white-space:pre-wrap">${text}</pre>`), format: "html", mime: "text/html", ext: "html" };
   });
 }

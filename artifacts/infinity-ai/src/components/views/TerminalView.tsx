@@ -70,10 +70,31 @@ export const TerminalView: React.FC<TerminalViewProps> = ({
     }
     setCommandInput('');
 
-    // Simulate command execution feedback loop
-    await new Promise(r => setTimeout(r, 120));
-    setCommandBusy(false);
-  }, [commandInput, commandBusy]);
+    // Execute the command for real through the workspace terminal API.
+    try {
+      const response = await fetch('/api/infinity/terminal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command: cmd,
+          sessionId: 'ui-terminal',
+          workspaceId: projectId || 'default',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (terminalRef.current) {
+        if (data?.stdout) terminalRef.current.writeln(data.stdout.replace(/\n$/, ''));
+        if (data?.stderr) terminalRef.current.writeln(data.stderr.replace(/\n$/, ''));
+        if (data?.error) terminalRef.current.writeln(`error: ${data.error}`);
+        const code = data?.exitCode ?? 1;
+        terminalRef.current.writeln(`\x1b[90m[exit ${code}]${data?.timedOut ? ' (timed out)' : ''}\x1b[0m`);
+      }
+    } catch {
+      if (terminalRef.current) terminalRef.current.writeln('error: could not reach terminal');
+    } finally {
+      setCommandBusy(false);
+    }
+  }, [commandInput, commandBusy, projectId]);
 
   const handleTerminalReady = useCallback((instance: TerminalInstance) => {
     terminalRef.current = instance;

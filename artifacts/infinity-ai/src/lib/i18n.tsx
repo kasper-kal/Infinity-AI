@@ -2421,6 +2421,9 @@ const en = {
   "fileConvert.errors.info": "Could not load file info",
   "fileConvert.errors.formats": "Could not load supported formats",
   "fileConvert.title": "File Converter",
+  "fileConvert.recentConversions": "Recent conversions",
+  "fileConvert.clear": "Clear",
+  "fileConvert.conversionExpired": "source expired — re-convert to download",
 } as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -4653,6 +4656,9 @@ const nl: Record<keyof typeof en, string> = {
   "fileConvert.errors.info": "Bestandsinfo kon niet worden geladen",
   "fileConvert.errors.formats": "Ondersteunde formaten konden niet worden geladen",
   "fileConvert.title": "Bestandsconverter",
+  "fileConvert.recentConversions": "Recente conversies",
+  "fileConvert.clear": "Wissen",
+  "fileConvert.conversionExpired": "bron verlopen — converteer opnieuw om te downloaden",
 };
 
 export type TranslationKey = keyof typeof en;

@@ -2162,11 +2162,12 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 **Universal file format converter accessible via @File command** — Convert any file to any format: PDF ↔ Markdown, DOCX ↔ HTML, JSON ↔ YAML ↔ TOML, CSV ↔ JSON ↔ Excel, PNG ↔ WebP ↔ AVIF, MP4 ↔ WebM ↔ GIF, and 50+ more formats. Powered by local WASM libraries (no cloud dependency, $0 budget). Accessible via `@File Convert <file> to <format>` in chat, or drag-drop in UI.
 
 ### Requirements
-- [x] **Conversion Engine** — `artifacts/api-server/src/lib/file-converter.ts` (1057 lines):
+- [x] **Conversion Engine** — `artifacts/api-server/src/lib/file-converter.ts` (~1285 lines):
   - Format registry: input formats, output formats, conversion methods per pair
-  - Local libs (no external API, $0): `file-type` (detection), `marked`+`turndown` (Markdown↔HTML), `js-yaml`+`fast-xml-parser` (data hub: JSON↔YAML↔XML↔CSV), `mammoth` (DOCX→HTML), `pdf-parse`+`pdfkit` (PDF read/write), `sharp` (images), `xlsx` (spreadsheets), `ffmpeg-static` (audio/video). **Deviation from plan:** used lazy-loaded real local libs instead of Pandoc/LibreOffice WASM — same $0 local result, simpler and reliable server-side.
+  - Local libs (no external API, $0): `file-type` (detection), `marked`+`turndown` (Markdown↔HTML), `js-yaml`+`fast-xml-parser` (data hub: JSON↔YAML↔XML↔CSV), `mammoth` (DOCX→HTML), `pdf-parse`+`pdfkit` (PDF read/write), `sharp` (images), `xlsx` (spreadsheets), `ffmpeg-static` (audio/video), `unzipper`+`cheerio` (ODT/EPUB). **Deviation from plan:** used lazy-loaded real local libs instead of Pandoc/LibreOffice WASM — same $0 local result, simpler and reliable server-side.
   - Conversion pipeline: detect input → find path → execute → validate output
-  - Progress via `onProgress` callback + `abortSignal` on ConvertRequest (SSE progress + chunked streaming deferred — server rounds trip base64 JSON)
+  - Expanded document formats: RTF, ODT, EPUB, MediaWiki, LaTeX (`rtfToPlainText`, `odtToParagraphs`, `epubToHtml`, `mediawikiToMarkdown`, `latexToMarkdown` + 17 new converter pairs, zero new deps)
+  - Progress via `onProgress` callback + `abortSignal` on ConvertRequest — **SSE live progress now streamed** to the browser (`convert-stream` route + browser-side stream parser)
 - [x] **Format Detection** — Auto-detect input format:
   - `file-type` magic bytes (file signatures)
   - Extension fallback
@@ -2186,13 +2187,13 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Preview: before/after (ConversionPreview.tsx)
   - Batch queue with status/progress bars + download all (BatchQueue.tsx)
   - Download single files or all
-  - History deferred (recent conversions not persisted)
+  - Recent-conversions history persisted to localStorage (capped 8, ≤1MB payloads keep data for re-download, larger marked "expired")
 - [x] **Integration Points**:
   - Chat: `@File` command (Convert / ListFormats / Help) in ChatView ✅
   - BuildView: File Converter panel as tab in bottomNav + Overview (BuildView.tsx) ✅
   - Command Palette: "File Converter" entry (BuildView command palette) ✅
-  - TerminalView: `infinity convert` CLI — **deferred** (TerminalView is a simulated terminal, no real command executor)
-  - ProjectsView: Right-click "Convert" — **deferred** (no file-tree context menu exists in the app)
+  - TerminalView: `infinity convert` CLI — ✅ real command executor + built-in `infinity convert <file> [to <format>]` CLI in the workspace terminal (TerminalView now POSTs to `/api/infinity/terminal`; `infinity convert --list` prints supported conversions; output written next to source)
+  - Build Studio file tree: Right-click "Convert…" — ✅ context menu on file entries opens a convert dialog (reads file as base64, detects format, pick target, convert, download)
 - [x] **Performance** — local module loading optimization (`wasm-modules.ts`):
   - Lazy load heavy modules on first use (cached singletons: sharp, xlsx, ffmpeg-static)
   - `ffmpegBinaryPath()` cached path; `isFFmpegReady()` availability probe
@@ -2206,7 +2207,9 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 3. **Conversion Pipeline** — parse→object→serialize data hub + doc/image/av libs ✅
 4. **@File Command Handler** — Convert / ListFormats / Help in ChatView ✅
 5. **Converter UI** — Drop zone, format selector, options, preview, batch queue ✅
-6. **Integration** — Chat, BuildView, Command Palette ✅ (Terminal CLI + right-click Convert deferred — infrastructure absent)
+6. **Integration** — Chat, BuildView, Command Palette, Terminal CLI (`infinity convert`), Build Studio file-tree right-click Convert ✅
+7. **Terminal executor** — TerminalView wired to the real `/api/infinity/terminal` executor (was a simulated 120ms fake) ✅
+8. **File-tree context menu** — right-click "Convert…" in the Build Studio explorer (base64 read route `GET /workspace/base64` + convert dialog) ✅
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/file-converter.ts` (new, 1057 lines) ✅
@@ -2223,6 +2226,10 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/infinity-ai/src/components/views/ChatView.tsx` (@File command handler, lines 263-345) ✅
 - `artifacts/infinity-ai/src/components/views/BuildView.tsx` (File Converter tab + command palette) ✅
 - `artifacts/infinity-ai/src/lib/i18n.tsx` (28 File Converter keys EN+NL) ✅
+- `artifacts/api-server/src/lib/workspace.ts` (`infinity convert` CLI + `readWorkspaceFileBase64`) ✅
+- `artifacts/api-server/src/routes/infinity/workspace.ts` (`GET /workspace/base64`) ✅
+- `artifacts/infinity-ai/src/components/views/TerminalView.tsx` (real command executor) ✅
+- `artifacts/infinity-ai/src/components/build-studio.tsx` (file-tree right-click Convert context menu + dialog) ✅
 
 ---
 

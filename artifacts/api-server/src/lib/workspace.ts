@@ -537,6 +537,109 @@ export async function resetSession(sessionId: string, workspaceId = "default"): 
   await ensureWorkspace(workspaceId);
 }
 
+/**
+ * Built-in `infinity convert` CLI.
+ *
+ * Runs inside any workspace terminal (no external binary needed). Usage:
+ *   infinity convert <file> [to <format>]
+ *   infinity convert --list          # list supported conversions
+ *
+ * The input is resolved inside the workspace, converted with the shared
+ * file-converter engine, and written back next to the source as
+ * `<basename>.<ext>`. With no target format, the first suggested output is used.
+ */
+async function infinityCli(
+  command: string,
+  workspaceId: string,
+): Promise<TerminalRun | null> {
+  const match = command.trim().match(/^infinity\s+convert(?:\s+(.*))?$/s);
+  if (!match) return null;
+
+  const root = getWorkspaceRoot(workspaceId);
+  const argLine = (match[1] ?? "").trim();
+
+  // `infinity convert --list` — print supported conversions.
+  if (/^(--list|-l)$/.test(argLine)) {
+    const { listSupportedConversions } = await import("./file-converter");
+    const all = listSupportedConversions();
+    const lines = all.map((c) => `${c.from.padEnd(8)} → ${c.to.padEnd(8)} ${c.detail}`.trimEnd());
+    return {
+      stdout: lines.join("\n") || "No conversions registered.",
+      stderr: "",
+      cwd: root,
+      exitCode: 0,
+      timedOut: false,
+    };
+  }
+
+  // Parse `<file> [to <format>]`.
+  const toMatch = argLine.match(/^(.*?)\s+to\s+([a-z0-9]+)$/is);
+  let fileArg = argLine;
+  let target = "";
+  if (toMatch) {
+    fileArg = toMatch[1].trim();
+    target = toMatch[2].toLowerCase();
+  }
+
+  if (!fileArg) {
+    return {
+      stdout: "",
+      stderr:
+        "Usage: infinity convert <file> [to <format>]\n       infinity convert --list",
+      cwd: root,
+      exitCode: 2,
+      timedOut: false,
+    };
+  }
+
+  // Resolve the input path safely inside the workspace.
+  const abs = safeWorkspacePath(fileArg.replace(/^~\/?/, ""), workspaceId);
+  if (!abs) {
+    return { stdout: "", stderr: `infinity: path escapes workspace: ${fileArg}`, cwd: root, exitCode: 1, timedOut: false };
+  }
+
+  let input: Buffer;
+  try {
+    input = await fs.readFile(abs);
+  } catch {
+    return { stdout: "", stderr: `infinity: cannot read '${fileArg}'`, cwd: root, exitCode: 1, timedOut: false };
+  }
+
+  const { fileConverter, canonicalFormat } = await import("./file-converter");
+
+  // Detect source + pick target.
+  const detection = await fileConverter.detect(input, fileArg);
+  const from = canonicalFormat(detection.format);
+  const resolvedTarget = target || (detection.suggestedOutputs?.[0] ?? "");
+  if (!from || !resolvedTarget) {
+    return { stdout: "", stderr: `infinity: no conversion path from '${detection.format}'`, cwd: root, exitCode: 1, timedOut: false };
+  }
+
+  let out;
+  try {
+    out = await fileConverter.convert({ buffer: input, from, to: resolvedTarget, filename: fileArg });
+  } catch (err) {
+    return { stdout: "", stderr: `infinity: ${err instanceof Error ? err.message : "conversion failed"}`, cwd: root, exitCode: 1, timedOut: false };
+  }
+
+  // Write output next to the source file.
+  const baseName = path.basename(abs).replace(/\.[^.]+$/, "");
+  const outPath = path.join(path.dirname(abs), `${baseName}.${out.ext}`);
+  try {
+    await fs.writeFile(outPath, out.buffer);
+  } catch (err) {
+    return { stdout: "", stderr: `infinity: cannot write output: ${err instanceof Error ? err.message : String(err)}`, cwd: root, exitCode: 1, timedOut: false };
+  }
+
+  return {
+    stdout: `${fileArg} → ${outPath} (${out.format}, ${out.buffer.length} bytes)`,
+    stderr: "",
+    cwd: root,
+    exitCode: 0,
+    timedOut: false,
+  };
+}
+
 /** Run one capped command and preserve its working directory between calls. */
 export async function runTerminalCommand(
   sessionId: string,
@@ -544,6 +647,11 @@ export async function runTerminalCommand(
   opts: { timeoutMs?: number; maxOutput?: number; workspaceId?: string; env?: Record<string, string> } = {},
 ): Promise<TerminalRun> {
   const workspaceId = opts.workspaceId ?? "default";
+
+  // Built-in `infinity convert` CLI (no shell binary required).
+  const cli = await infinityCli(command, workspaceId);
+  if (cli) return cli;
+
   const timeoutMs = Math.min(opts.timeoutMs ?? 15_000, 60_000);
   const maxOutput = Math.min(opts.maxOutput ?? 30_000, 200_000);
   const cwd = getSessionCwd(sessionId, workspaceId);
@@ -683,6 +791,19 @@ export async function readWorkspaceFile(relPath: string, maxChars = 100_000, wor
 export async function readWorkspaceFileText(relPath: string, workspaceId = "default"): Promise<string> {
   const result = await readWorkspaceFile(relPath, 100_000, workspaceId);
   return result.ok ? result.content : "";
+}
+
+/** Read a workspace file as raw base64 (for binary conversion / download). */
+export async function readWorkspaceFileBase64(relPath: string, workspaceId = "default"):
+  Promise<{ ok: true; data: string; size: number } | { ok: false; error: string }> {
+  const target = resolveWorkspacePath(workspaceId, relPath);
+  if (!target || target === getWorkspaceRoot(workspaceId)) return { ok: false, error: "Path escapes the workspace." };
+  try {
+    const buffer = await fs.readFile(target);
+    return { ok: true, data: buffer.toString("base64"), size: buffer.length };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Read failed." };
+  }
 }
 
 export async function writeWorkspaceFile(relPath: string, content: string, workspaceId = "default"):

@@ -24,7 +24,7 @@ type Mode = "single" | "batch";
 
 export function FileConverter({ projectId }: FileConverterProps) {
   const { t } = useI18n();
-  const { loading, error, detect, convert, convertBatch, getInfo, listFormats } = useFileConverter();
+  const { loading, error, detect, convert, convertStream, convertBatch, getInfo, listFormats } = useFileConverter();
 
   const [mode, setMode] = React.useState<Mode>("single");
   const [groups, setGroups] = React.useState<FormatGroup[]>([]);
@@ -34,19 +34,56 @@ export function FileConverter({ projectId }: FileConverterProps) {
   const [targetFormat, setTargetFormat] = React.useState("");
   const [conversionOptions, setConversionOptions] = React.useState<Record<string, unknown>>({});
   const [result, setResult] = React.useState<ConversionResult | null>(null);
+  const [progress, setProgress] = React.useState<number | null>(null);
   const [batchFiles, setBatchFiles] = React.useState<BatchFile[]>([]);
   const [batchConverting, setBatchConverting] = React.useState(false);
   const [dragOver, setDragOver] = React.useState(false);
+  const [history, setHistory] = React.useState<HistoryEntry[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const batchInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Load format groups on mount
+  const HISTORY_KEY = "infinity.fileConvert.history.v1";
+
+  /** A recent conversion, persisted to localStorage. Large results keep no
+   *  payload so the store stays small; those are marked "expired" and can be
+   *  re-converted to download. */
+  interface HistoryEntry {
+    id: string;
+    name: string;
+    from: string;
+    to: string;
+    size: number;
+    time: number;
+    data?: string; // base64 payload, only for small results (< 1MB)
+    mime?: string;
+  }
+
+  // Load history from localStorage on mount
   React.useEffect(() => {
-    listFormats().then((data) => {
-      if (data?.groups) setGroups(data.groups);
-    });
-  }, [listFormats]);
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (raw) setHistory(JSON.parse(raw));
+    } catch { /* ignore corrupted storage */ }
+  }, [HISTORY_KEY]);
+
+  const saveHistory = React.useCallback(
+    (entry: HistoryEntry) => {
+      setHistory((prev) => {
+        const next = [entry, ...prev].slice(0, 8);
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+        } catch { /* storage full — keep in memory */ }
+        return next;
+      });
+    },
+    [HISTORY_KEY]
+  );
+
+  const clearHistory = React.useCallback(() => {
+    setHistory([]);
+    try { localStorage.removeItem(HISTORY_KEY); } catch { /* ignore */ }
+  }, [HISTORY_KEY]);
 
   // Read file as base64
   const readFile = React.useCallback((file: File): Promise<string> => {
@@ -127,16 +164,37 @@ export function FileConverter({ projectId }: FileConverterProps) {
     [mode, handleFileSelect, handleBatchSelect]
   );
 
-  // Convert single file
+  // Convert single file (streamed progress)
   const handleConvert = React.useCallback(async () => {
     if (!sourceData || !targetFormat) return;
-    const res = await convert(sourceData, targetFormat, {
-      from: sourceInfo?.format,
-      filename: sourceFilename ?? undefined,
-      conversionOptions,
-    });
+    setProgress(0);
+    setResult(null);
+    const res = await convertStream(
+      sourceData,
+      targetFormat,
+      {
+        from: sourceInfo?.format,
+        filename: sourceFilename ?? undefined,
+        conversionOptions,
+      },
+      setProgress
+    );
     setResult(res);
-  }, [sourceData, targetFormat, sourceInfo, sourceFilename, conversionOptions, convert]);
+    setProgress(null);
+    if (res) {
+      const sizeBelowCap = res.size < 1_000_000;
+      saveHistory({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: sourceFilename ?? `file.${res.format}`,
+        from: sourceInfo?.format ?? "?",
+        to: res.format,
+        size: res.size,
+        time: Date.now(),
+        data: sizeBelowCap ? res.data : undefined,
+        mime: sizeBelowCap ? res.mime : undefined,
+      });
+    }
+  }, [sourceData, targetFormat, sourceInfo, sourceFilename, conversionOptions, convertStream, saveHistory]);
 
   // Convert batch
   const handleBatchConvert = React.useCallback(async () => {
@@ -308,16 +366,31 @@ export function FileConverter({ projectId }: FileConverterProps) {
 
             {/* Convert button */}
             {sourceData && targetFormat && (
-              <button
-                type="button"
-                onClick={handleConvert}
-                disabled={loading}
-                className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {loading ? t("fileConvert.converting") : t("fileConvert.convert")}
-                {" → "}
-                .{targetFormat}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleConvert}
+                  disabled={loading}
+                  className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {loading ? t("fileConvert.converting") : t("fileConvert.convert")}
+                  {" → "}
+                  .{targetFormat}
+                </button>
+                {progress !== null && (
+                  <div className="space-y-1">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width] duration-200"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <div className="text-right text-[11px] tabular-nums text-muted-foreground">
+                      {progress}%
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Preview */}
@@ -366,6 +439,58 @@ export function FileConverter({ projectId }: FileConverterProps) {
               converting={batchConverting}
             />
           </>
+        )}
+
+        {/* Recent conversions */}
+        {history.length > 0 && (
+          <div className="rounded-lg border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("fileConvert.recentConversions")}
+              </div>
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                {t("fileConvert.clear")}
+              </button>
+            </div>
+            <div className="space-y-1">
+              {history.map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5 text-xs"
+                  title={new Date(h.time).toLocaleString()}
+                >
+                  <span className="truncate font-medium">{h.name}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {h.from.toUpperCase()} → {h.to.toUpperCase()}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">
+                    ({(h.size / 1024).toFixed(1)} KB)
+                  </span>
+                  <span className="ml-auto flex shrink-0 items-center gap-1">
+                    {h.data ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          h.data && downloadFile(h.data, `${h.name.replace(/\.[^.]+$/, "")}.${h.to}`, h.mime || "application/octet-stream")
+                        }
+                        className="text-primary hover:underline"
+                      >
+                        {t("fileConvert.download")}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground/70">
+                        {t("fileConvert.conversionExpired")}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

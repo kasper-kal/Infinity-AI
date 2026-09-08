@@ -88,6 +88,72 @@ router.post("/file-convert/convert", async (req: Request, res: Response) => {
 });
 
 // ============================================================================
+// POST /convert-stream — convert a single file with live progress events
+// Streams `text/event-stream` frames: `progress {percent}` … `done {result}`
+// or `error {message}`. The engine's convert() already reports onProgress 0→1
+// (images/doc/data complete instantly; ffmpeg streams time-based progress).
+// ============================================================================
+
+router.post("/file-convert/convert-stream", async (req: Request, res: Response) => {
+  const { data, filename, from, to, options } = req.body as {
+    data?: string; // base64
+    filename?: string;
+    from?: string;
+    to?: string;
+    options?: Record<string, unknown>;
+  };
+
+  const fail = (message: string, code = 400) => {
+    res.status(code).setHeader("Content-Type", "text/event-stream").setHeader("Cache-Control", "no-cache");
+    res.write(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`);
+    res.end();
+  };
+
+  if (!data || !to) {
+    return fail(!data ? "data (base64) is required" : "to (target format) is required");
+  }
+
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (event: string, payload: unknown) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  const buffer = Buffer.from(data, "base64");
+  try {
+    const result = await fileConverter.convert({
+      buffer,
+      from,
+      to,
+      filename,
+      options,
+      onProgress: (percent) => send("progress", { percent: Math.round(percent * 100) }),
+    });
+    send("done", {
+      data: result.buffer.toString("base64"),
+      format: result.format,
+      mime: result.mime,
+      ext: result.ext,
+      size: result.buffer.length,
+      meta: result.meta,
+    });
+    res.end();
+  } catch (error) {
+    if (error instanceof UnsupportedConversionError) {
+      send("error", { error: error.message });
+    } else {
+      console.error("[file-convert/convert-stream]", error);
+      send("error", { error: error instanceof Error ? error.message : "Conversion failed" });
+    }
+    res.end();
+  }
+});
+
+// ============================================================================
 // POST /batch — batch-convert multiple files
 // ============================================================================
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bug, Camera, Check, ChevronDown, ChevronRight, Code2, Container, Database, Download, FilePlus2, Folder, FolderPlus, GitBranch, GitCommit, Globe, Hammer, History, LayoutTemplate, Loader2, Moon, MoreHorizontal, Package, Play, Plus, RefreshCw, Save, Search, Send, Sparkles, Square, Sun, Terminal, TestTube2, Trash2, Upload, X, Zap, Link, Unlink, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Bug, Camera, Check, ChevronDown, ChevronRight, Code2, Container, Database, Download, FilePlus2, Folder, FolderPlus, GitBranch, GitCommit, Globe, Hammer, History, LayoutTemplate, Loader2, Moon, MoreHorizontal, Package, Play, Plus, RefreshCw, Save, Search, Send, Sparkles, Square, Sun, Terminal, TestTube2, Trash2, Upload, X, Zap, Link, Unlink, AlertCircle, CheckCircle, XCircle, Repeat } from 'lucide-react';
 import type { TerminalResult } from '@/types/widget';
 import { useI18n } from '@/lib/i18n';
 import { useTheme } from '@/lib/use-theme';
@@ -311,6 +311,19 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
   const buildAbortRef = useRef<AbortController | null>(null);
   const buildCancelRequestedRef = useRef(false);
   const buildCancelRef = useRef<(() => void) | null>(null);
+
+  // Right-click "Convert…" on a file tree entry.
+  const [ctxMenu, setCtxMenu] = useState<{ path: string; x: number; y: number } | null>(null);
+  const [convertDialog, setConvertDialog] = useState<{
+    path: string;
+    data: string;
+    from: string;
+    to: string;
+    targets: string[];
+    result?: { data: string; format: string; mime: string; ext: string; size: number };
+  } | null>(null);
+  const [convertBusy, setConvertBusy] = useState(false);
+  const [convertError, setConvertError] = useState<string | null>(null);
   const progressStartedAtRef = useRef<number | null>(null);
   const [deepSleep, setDeepSleep] = useState(false);
   const [afkMode, setAfkMode] = useState(false);
@@ -1008,6 +1021,63 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
       ok = response.ok;
     }
     if (ok) void loadFiles();
+  };
+
+  // Right-click a file → show the context menu.
+  const openContextMenu = (path: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ path, x: e.clientX, y: e.clientY });
+  };
+
+  // "Convert…" — read the file as base64, detect format, open the dialog.
+  const openConvert = async (path: string) => {
+    setCtxMenu(null);
+    setConvertError(null);
+    let data: string;
+    try {
+      const { response, data: payload } = await apiJson<{ data?: string; error?: string }>(`/api/infinity/workspace/base64?workspaceId=${encodeURIComponent(workspaceId)}&path=${encodeURIComponent(path)}`);
+      if (!response.ok || !payload.data) { setNotice(payload.error || 'Could not read file'); return; }
+      data = payload.data;
+    } catch {
+      setNotice('Could not read file');
+      return;
+    }
+    const detectRes = await apiJson<{ format?: string; suggestedOutputs?: string[] }>(`/api/infinity/file-convert/detect`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, filename: path }) });
+    const from = detectRes.data?.format ?? '';
+    const targets = detectRes.data?.suggestedOutputs ?? [];
+    setConvertDialog({ path, data, from, to: targets[0] ?? '', targets, result: undefined });
+  };
+
+  const runConvert = async () => {
+    if (!convertDialog || !convertDialog.to) return;
+    setConvertBusy(true);
+    setConvertError(null);
+    try {
+      const { response, data } = await apiJson<{ data?: string; format?: string; mime?: string; ext?: string; size?: number; error?: string }>('/api/infinity/file-convert/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: convertDialog.data, from: convertDialog.from, to: convertDialog.to, filename: convertDialog.path }) });
+      if (!response.ok || !data.data) { setConvertError(data.error || 'Conversion failed'); return; }
+      setConvertDialog({ ...convertDialog, result: { data: data.data, format: data.format ?? convertDialog.to, mime: data.mime ?? 'application/octet-stream', ext: data.ext ?? convertDialog.to, size: data.size ?? 0 } });
+    } catch {
+      setConvertError('Conversion failed');
+    } finally {
+      setConvertBusy(false);
+    }
+  };
+
+  const downloadConvert = () => {
+    if (!convertDialog?.result) return;
+    const { result } = convertDialog;
+    const binary = atob(result.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: result.mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const base = convertDialog.path.replace(/\/$/, '').split('/').pop()?.replace(/\.[^.]+$/, '') || 'file';
+    a.href = url;
+    a.download = `${base}.${result.ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Phase 2.1: Helpers for diff preview parsing
@@ -1781,7 +1851,7 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
             )}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto">{visibleFiles.map((file) => { const clean = file.path.replace(/\/$/, ''); const depth = clean.split('/').length - 1; const isDir = file.type === 'dir'; return <div key={file.path} className="group flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-foreground hover:bg-white/[0.08]" style={{ paddingLeft: `${8 + depth * 12}px` }}><button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => isDir ? setExpanded((current) => { const next = new Set(current); next.has(clean) ? next.delete(clean) : next.add(clean); return next; }) : void openFile(file.path)}>{isDir ? (expanded.has(clean) ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />) : <span className="w-3" />}{isDir ? <Folder className="h-3.5 w-3.5 text-amber-400" /> : <Code2 className="h-3.5 w-3.5 text-primary" />}<span className="truncate">{clean.split('/').pop()}</span></button><button type="button" onClick={() => void renamePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-foreground group-hover:block" title="Rename">···</button><button type="button" onClick={() => void deletePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-rose-400 group-hover:block" title="Delete"><Trash2 className="h-3 w-3" /></button></div>; })}</div><div className="hidden border-t border-border pt-3 md:block"><p className="mb-2 text-[9px] uppercase tracking-widest text-muted-foreground/60">{t('studio.build.savedApps')}</p>{savedApps.slice(0, 5).map((app) => <button type="button" key={app.id} onClick={() => void restoreApp(app.id)} className="mb-1 flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><ChevronRight className="h-3 w-3" />{app.name}</button>)}</div></aside>
+        <div className="min-h-0 flex-1 overflow-auto">{visibleFiles.map((file) => { const clean = file.path.replace(/\/$/, ''); const depth = clean.split('/').length - 1; const isDir = file.type === 'dir'; return <div key={file.path} className="group flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-foreground hover:bg-white/[0.08]" style={{ paddingLeft: `${8 + depth * 12}px` }} onContextMenu={isDir ? undefined : (e) => openContextMenu(file.path, e)}><button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={() => isDir ? setExpanded((current) => { const next = new Set(current); next.has(clean) ? next.delete(clean) : next.add(clean); return next; }) : void openFile(file.path)}>{isDir ? (expanded.has(clean) ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />) : <span className="w-3" />}{isDir ? <Folder className="h-3.5 w-3.5 text-amber-400" /> : <Code2 className="h-3.5 w-3.5 text-primary" />}<span className="truncate">{clean.split('/').pop()}</span></button><button type="button" onClick={() => void renamePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-foreground group-hover:block" title="Rename">···</button><button type="button" onClick={() => void deletePath(file.path)} className="hidden rounded p-1 text-muted-foreground hover:text-rose-400 group-hover:block" title="Delete"><Trash2 className="h-3 w-3" /></button></div>; })}</div><div className="hidden border-t border-border pt-3 md:block"><p className="mb-2 text-[9px] uppercase tracking-widest text-muted-foreground/60">{t('studio.build.savedApps')}</p>{savedApps.slice(0, 5).map((app) => <button type="button" key={app.id} onClick={() => void restoreApp(app.id)} className="mb-1 flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"><ChevronRight className="h-3 w-3" />{app.name}</button>)}</div></aside>
       <main className="min-h-0 flex-1 overflow-hidden bg-background">
         {/* Browser unsupported warning banner */}
         {!fsSupported && fsError && (
@@ -1958,5 +2028,41 @@ export function BuildStudio({ open, onClose, title, initialCommands, onRefreshFi
             onSnapChange={setTranscriptSheetSnap}
             onClose={() => setTranscriptSheetOpen(false)}
           />
-        )}</motion.div></motion.div></AnimatePresence>;
+        )}
+        {ctxMenu && (
+          <div className="fixed inset-0 z-[80]" onMouseDown={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}>
+            <div className="absolute w-44 rounded-xl border border-border bg-card p-1 shadow-2xl" style={{ left: Math.min(ctxMenu.x, window.innerWidth - 190), top: Math.min(ctxMenu.y, window.innerHeight - 120) }} onMouseDown={(e) => e.stopPropagation()}>
+              <button type="button" onClick={() => void openConvert(ctxMenu.path)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-foreground hover:bg-white/[0.08]"><Repeat className="h-3.5 w-3.5 text-primary" />Convert…</button>
+            </div>
+          </div>
+        )}
+        {convertDialog && (
+          <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setConvertDialog(null)}>
+            <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2"><Repeat className="h-4 w-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">Convert file</h3></div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">{convertDialog.path}</p>
+              <div className="mt-1 text-[10px] text-muted-foreground/70">{convertDialog.from || 'unknown'} → {convertDialog.to || '?'}</div>
+              {convertDialog.targets.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {convertDialog.targets.map((fmt) => (
+                    <button key={fmt} type="button" onClick={() => setConvertDialog({ ...convertDialog, to: fmt, result: undefined })} className={`rounded-full border px-2.5 py-1 text-[11px] transition ${convertDialog.to === fmt ? 'border-[var(--build-accent-read)] bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>{fmt}</button>
+                  ))}
+                </div>
+              )}
+              {convertError && <p className="mt-2 text-[11px] text-rose-400">{convertError}</p>}
+              {convertDialog.result ? (
+                <div className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs text-emerald-400">Done — {((convertDialog.result.size) / 1024).toFixed(1)} KB</div>
+              ) : null}
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" onClick={() => setConvertDialog(null)} className="rounded-lg border border-border px-3 py-2 text-xs text-foreground">Cancel</button>
+                {convertDialog.result ? (
+                  <button type="button" onClick={downloadConvert} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white"><Download className="h-3.5 w-3.5" />Download</button>
+                ) : (
+                  <button type="button" disabled={convertBusy || !convertDialog.to} onClick={() => void runConvert()} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{convertBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat className="h-3.5 w-3.5" />}Convert</button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.div></motion.div></AnimatePresence>;
 }

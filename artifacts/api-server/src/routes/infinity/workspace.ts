@@ -5,6 +5,7 @@ import {
   ensureWorkspace,
   listWorkspaceFiles,
   readWorkspaceFile,
+  readWorkspaceFileBase64,
   renameWorkspacePath,
   WORKSPACE_ROOT,
   writeWorkspaceFile,
@@ -32,6 +33,25 @@ router.get("/workspace", async (req, res) => {
       return;
     }
     res.json({ workspaceId: id, path: rel, content: result.content });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Workspace failed" });
+  }
+});
+
+router.get("/workspace/base64", async (req, res) => {
+  const id = workspaceId(req);
+  const rel = typeof req.query.path === "string" ? req.query.path : "";
+  if (!rel) {
+    res.status(400).json({ error: "path is required" });
+    return;
+  }
+  try {
+    const result = await readWorkspaceFileBase64(rel, id);
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({ workspaceId: id, path: rel, data: result.data, size: result.size });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Workspace failed" });
   }

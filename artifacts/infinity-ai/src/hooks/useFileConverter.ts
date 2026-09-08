@@ -172,6 +172,78 @@ export function useFileConverter() {
     [handleError, t]
   );
 
+  /**
+   * Convert with live server-streamed progress (POST /convert-stream).
+   * Emits onProgress(percent) as SSE events arrive; resolves with the final
+   * ConversionResult (or null on error).
+   */
+  const convertStream = useCallback(
+    async (
+      data: string,
+      to: string,
+      options: { from?: string; filename?: string; conversionOptions?: Record<string, unknown> },
+      onProgress?: (percent: number) => void
+    ): Promise<ConversionResult | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE}/convert-stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data,
+            to,
+            from: options?.from,
+            filename: options?.filename,
+            options: options?.conversionOptions,
+          }),
+        });
+        if (!response.ok) {
+          const detail = await response.json().catch(() => null);
+          throw new Error(detail?.error || `HTTP ${response.status}`);
+        }
+
+        // Parse the SSE stream (POST response body is a text/event-stream).
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Streaming not supported in this browser");
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let result: ConversionResult | null = null;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          // SSE events separated by blank lines
+          const blocks = buffer.split(/\r?\n\r?\n/);
+          buffer = blocks.pop() ?? "";
+          for (const block of blocks) {
+            const eventLine = block.split("\n").find((l) => l.startsWith("event: "));
+            const dataLine = block.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+            const event = eventLine?.slice(7).trim() ?? "message";
+            const payload = JSON.parse(dataLine.slice(6).trim());
+            if (event === "progress") {
+              onProgress?.(Number(payload.percent ?? 0));
+            } else if (event === "done") {
+              result = payload as ConversionResult;
+            } else if (event === "error") {
+              throw new Error(payload?.error || "Conversion failed");
+            }
+          }
+        }
+        onProgress?.(100);
+        if (!result) throw new Error(t("fileConvert.errors.convert"));
+        return result;
+      } catch (err) {
+        handleError(err, t("fileConvert.errors.convert"));
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleError, t]
+  );
+
   /** Get file metadata/info */
   const getInfo = useCallback(
     async (data: string, filename?: string): Promise<FileInfo | null> => {
@@ -227,6 +299,7 @@ export function useFileConverter() {
     error,
     detect,
     convert,
+    convertStream,
     convertBatch,
     getInfo,
     listFormats,
