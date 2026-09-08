@@ -982,3 +982,7 @@ export function getWorktreeManager(config?: VirtualWorktreeConfig): VirtualWorkt
 export function resetWorktreeManager(): void {
   defaultManager = null;
 }
+// ---------------------------------------------------------------------------
+// SINGLETON (route/workflow-orchestrator import expects `virtualWorktreeManager`)
+// ---------------------------------------------------------------------------
+export const virtualWorktreeManager = getWorktreeManager();

@@ -320,3 +320,4 @@ router.get("/history", requireAuth, async (req: AuthenticatedRequest, res: Respo
 });
 
 export const tasksRouter = router;
+export default tasksRouter;

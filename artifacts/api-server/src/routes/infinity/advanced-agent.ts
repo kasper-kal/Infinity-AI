@@ -802,3 +802,4 @@ async function executePlanStep(step: any, context: {
 }
 
 export { router as advancedAgentRouter };
+export default advancedAgentRouter;

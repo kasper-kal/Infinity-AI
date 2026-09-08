@@ -758,3 +758,52 @@ export function initializePlanningAgent(toolRegistry: UniversalToolRegistry): Pl
   planningAgentInstance = new PlanningAgent(toolRegistry);
   return planningAgentInstance;
 }
+// ---------------------------------------------------------------------------
+// ROUTE ADAPTER (advanced-agent imports `planningAgent` and calls
+// `createPlan(goal, options)` with an object-shaped arg instead of
+// `PlanningContext`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Adapter object matching the route's expected API:
+ *  - createPlan(goal, { projectRoot, projectId, designSystem, existingFiles, constraints })
+ *  - executeStep(planId, stepId, context)
+ *  - getPlan(planId)
+ */
+const buildPlanningContext = (
+  goal: string,
+  options: { projectRoot?: string; projectId?: string; designSystem?: any; existingFiles?: string[]; constraints?: string[] }
+): PlanningContext => ({
+  goal,
+  projectId: options.projectId ?? "default",
+  workspacePath: options.projectRoot ?? process.cwd(),
+  existingFiles: options.existingFiles ?? [],
+  codebaseIndex: undefined,
+  projectMap: undefined,
+  constraints: options.constraints ?? [],
+  preferences: { designSystem: options.designSystem },
+});
+
+export const planningAgent = {
+  async createPlan(
+    goal: string,
+    options: { projectRoot?: string; projectId?: string; designSystem?: any; existingFiles?: string[]; constraints?: string[] }
+  ): Promise<Plan> {
+    const agent = getPlanningAgent();
+    return agent.createPlan(buildPlanningContext(goal, options));
+  },
+
+  async executeStep(
+    planId: string,
+    stepId: string,
+    context: { projectRoot?: string; projectId?: string; designSystem?: any; existingFiles?: string[]; constraints?: string[] }
+  ): Promise<Plan> {
+    const agent = getPlanningAgent();
+    return agent.executeStep(planId, stepId, buildPlanningContext("execute step", context) as PlanningContext);
+  },
+
+  getPlan(planId: string): Plan | undefined {
+    const agent = getPlanningAgent();
+    return agent.getPlan(planId);
+  },
+};

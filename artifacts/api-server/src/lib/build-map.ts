@@ -815,3 +815,12 @@ export function createBuildMapManager(projectId: string, initialGraph?: Partial<
   projectManagers.set(projectId, manager);
   return manager;
 }
+// ---------------------------------------------------------------------------
+// GET BUILD MAP AGENT (routes/infinity/build-map.ts imports this from lib/build-map)
+// ---------------------------------------------------------------------------
+import { getBuildMapAgent as getBuildMapAgentFromAgent } from "./build-map-agent";
+
+/** Re-export so routes can import from lib/build-map directly. */
+export function getBuildMapAgent(projectId: string, llmAdapter?: any) {
+  return getBuildMapAgentFromAgent(projectId, llmAdapter);
+}

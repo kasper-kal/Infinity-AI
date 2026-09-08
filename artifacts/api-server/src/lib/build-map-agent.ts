@@ -677,3 +677,35 @@ export function getBuildMapAgent(projectId: string, llmAdapter?: any): BuildMapA
   }
   return projectAgents.get(projectId)!;
 }
+// ---------------------------------------------------------------------------
+// ANALYZE PROJECT + SINGLETON (workflow-orchestrator expects both)
+// ---------------------------------------------------------------------------
+// analyzeProject updates the build map for a project. It's a convenience
+// wrapper around the existing BuildMapAgent flow used by the orchestrator.
+
+import { getBuildMapManager } from "./build-map";
+
+/**
+ * Update the build map for a project by running the standard analysis pass.
+ * Called by workflow-orchestrator after a workflow completes to keep the
+ * project map in sync with the new code.
+ */
+export async function analyzeProject(projectId: string): Promise<BuildMapAnalysis> {
+  const manager = getBuildMapManager(projectId);
+  return manager.analyzeProject();
+}
+
+/** Singleton for the projectId "" (fallback) — workflow-orchestrator calls
+ *  getBuildMapAgent(plan.goal.context?.projectId || "").analyzeProject().
+ *  We lazily instantiate with whatever projectId is passed. */
+let buildMapAgentCache: Map<string, BuildMapAgent> = new Map();
+
+/** buildMapAgent singleton — workflow-orchestrator imports this and calls
+ *  `buildMapAgent.analyzeProject(...)`. The object lazily instantiates the
+ *  per-project agent when first used. */
+export const buildMapAgent = {
+  async analyzeProject(projectId: string): Promise<BuildMapAnalysis> {
+    const agent = getBuildMapAgent(projectId);
+    return agent.analyzeProject(projectId);
+  },
+};
