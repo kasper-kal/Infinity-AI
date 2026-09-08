@@ -554,7 +554,7 @@ export class CursorAgent {
   }
 
   /** Get resilience metrics */
-  getResilienceMetrics() {
+  async getResilienceMetrics() {
     const { getUniversalResilienceMetrics } = await import("./tool-resilience");
     return getUniversalResilienceMetrics();
   }

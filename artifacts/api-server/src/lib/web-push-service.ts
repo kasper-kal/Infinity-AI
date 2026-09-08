@@ -8,7 +8,7 @@
 
 import webPush from "web-push";
 import { db } from "@workspace/db";
-import { pushSubscriptions } from "@workspace/db/schema/safety-watcher";
+import { pushSubscriptions } from "@workspace/db/schema/safety-watcher.js";
 import { eq, and } from "drizzle-orm";
 
 export interface PushSubscription {

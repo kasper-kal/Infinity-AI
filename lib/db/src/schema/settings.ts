@@ -92,3 +92,8 @@ export const settingChanges = pgTable("setting_changes", {
 
 export type SettingChange = typeof settingChanges.$inferSelect;
 export type NewSettingChange = typeof settingChanges.$inferInsert;
+/**
+ * Alias used by the Freebuff routes (web-push, settings, chat) which imported
+ * `infinitySettings` in the pre-reorg schema. Same table, same key/value cols.
+ */
+export const infinitySettings = settings;

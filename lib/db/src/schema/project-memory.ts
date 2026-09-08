@@ -45,3 +45,9 @@ export const projectMemories = pgTable(
 
 export type ProjectMemory = typeof projectMemories.$inferSelect;
 export type NewProjectMemory = typeof projectMemories.$inferInsert;
+
+/**
+ * Alias used by routes that import `projectMemory` (advanced-agent).
+ * Same table, same projectId/key/category/content columns.
+ */
+export const projectMemory = projectMemories;

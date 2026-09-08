@@ -45,13 +45,14 @@ import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
 import { RecipePanel } from "@/components/recipe";
+import { FileConverter } from "@/components/file-converter";
 import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
 import { AgentReviewPanel } from "@/components/cursor/AgentReviewPanel";
 import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
-import { ChefHat, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
+import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
 import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -117,7 +118,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
   const [terminalOutputBusy, setTerminalOutputBusy] = useState(false);
 
   // Mobile state - simplified
-  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap' | 'automate' | 'recipes'>(initialTab === 'advancedAgent' ? 'preview' : initialTab);
+  const [bottomNavTab, setBottomNavTab] = useState<'preview' | 'overview' | 'buildMap' | 'automate' | 'recipes' | 'fileConverter'>(initialTab === 'advancedAgent' ? 'preview' : initialTab);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -265,12 +266,13 @@ export const BuildView: React.FC<BuildViewProps> = ({
         ),
       },
       {
-        id: 'automate',
-        label: t('workflow.wizard.title'),
+        id: 'fileConverter',
+        label: t('fileConvert.title'),
         icon: (
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <path d="M8 21h8M12 17v4" />
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M12 18v-6M9 15l3 3 3-3" />
           </svg>
         ),
       },
@@ -374,6 +376,11 @@ export const BuildView: React.FC<BuildViewProps> = ({
           {bottomNavTab === 'recipes' && (
             <div className="flex flex-col h-full">
               <RecipePanel projectId={projectId ?? ''} />
+            </div>
+          )}
+          {bottomNavTab === 'fileConverter' && (
+            <div className="flex flex-col h-full">
+              <FileConverter projectId={projectId} />
             </div>
           )}
         </div>
@@ -805,6 +812,7 @@ export const BuildView: React.FC<BuildViewProps> = ({
           { id: 'advancedAgent', label: t('build.tabs.advancedAgent'), icon: <MousePointer2 className="w-4 h-4" />, action: () => setBuildTab('advancedAgent') },
           { id: 'automate', label: t('workflow.wizard.title'), icon: <Cpu className="w-4 h-4" />, action: () => setBuildTab('automate') },
           { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" />, action: () => { setBuildTab('overview'); setOverviewTab('recipes'); } },
+          { id: 'fileConverter', label: t('fileConvert.title'), icon: <FileText className="w-4 h-4" />, action: () => { setBuildTab('overview'); setOverviewTab('fileConverter'); } },
           { id: 'terminal', label: t('overview.tabs.terminal'), icon: <TerminalIcon className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'security', label: t('overview.tabs.security'), icon: <Shield className="w-4 h-4" />, action: () => setBuildTab('overview') },
           { id: 'mobile', label: t('mobile.title'), icon: <Smartphone className="w-4 h-4" />, action: () => setBuildTab('overview') },
@@ -884,7 +892,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
 }) => {
   const { t } = useI18n();
   const { build: buildTaskProvider } = useTaskProvider('BuildOverviewPanel');
-  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes'>('progress');
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes' | 'fileConverter'>('progress');
 
   return (
     <div className="flex flex-col h-full">
@@ -904,6 +912,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'agentReview', label: t('overview.tabs.agentReview'), icon: <GitPullRequest className="w-4 h-4" /> },
             { id: 'automations', label: t('overview.tabs.automations'), icon: <ZapIcon className="w-4 h-4" /> },
             { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" /> },
+            { id: 'fileConverter', label: t('fileConvert.title'), icon: <FileText className="w-4 h-4" /> },
           ]}
           activeTab={overviewTab}
           onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
@@ -995,6 +1004,11 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
         {overviewTab === 'recipes' && (
           <div className="flex flex-col h-full">
             <RecipePanel projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'fileConverter' && (
+          <div className="flex flex-col h-full">
+            <FileConverter projectId={projectId} />
           </div>
         )}
       </div>

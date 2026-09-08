@@ -2,6 +2,7 @@ import { z } from "zod";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { getLLMAdapter, type LLMAdapter } from "./llm-adapter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -361,6 +362,47 @@ export const BUILTIN_MODELS: ModelConfig[] = [
   }
 ];
 
+export interface BuildModeConfig {
+  name: string;
+  description: string;
+  parallelAgents: number;
+  verificationDepth: "minimal" | "standard" | "thorough" | "adversarial";
+  contextBudget: number; // multiplier
+  preferLocal: boolean;
+  preferSpeed: boolean;
+  preferCost: boolean;
+  preferQuality: boolean;
+  maxCostPerRequest: number;
+  maxLatencyMs: number;
+  temperature: number;
+}
+
+export interface ModelSelectionResult {
+  provider: ModelProvider;
+  model: ModelConfig;
+  keyId?: string; // Reference to secret-manager key
+  params: {
+    temperature: number;
+    maxTokens: number;
+    topP?: number;
+  };
+  buildMode: BuildMode;
+  taskCategory: TaskCategory;
+  estimatedCost: number;
+  fallbackModels: ModelConfig[];
+}
+
+export interface CostEstimate {
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  estimatedCostUsd: number;
+  modelId: string;
+  breakdown: {
+    inputCost: number;
+    outputCost: number;
+  };
+}
+
 /**
  * Model Router - Resolves models for capabilities with fallbacks
  */
@@ -457,48 +499,7 @@ export class ModelRouter {
     [TaskCategory.REASONING]: ModelCapability.REASONING,
   };
 
-export interface BuildModeConfig {
-  name: string;
-  description: string;
-  parallelAgents: number;
-  verificationDepth: "minimal" | "standard" | "thorough" | "adversarial";
-  contextBudget: number; // multiplier
-  preferLocal: boolean;
-  preferSpeed: boolean;
-  preferCost: boolean;
-  preferQuality: boolean;
-  maxCostPerRequest: number;
-  maxLatencyMs: number;
-  temperature: number;
-}
-
-export interface ModelSelectionResult {
-  provider: ModelProvider;
-  model: ModelConfig;
-  keyId?: string; // Reference to secret-manager key
-  params: {
-    temperature: number;
-    maxTokens: number;
-    topP?: number;
-  };
-  buildMode: BuildMode;
-  taskCategory: TaskCategory;
-  estimatedCost: number;
-  fallbackModels: ModelConfig[];
-}
-
-export interface CostEstimate {
-  estimatedInputTokens: number;
-  estimatedOutputTokens: number;
-  estimatedCostUsd: number;
-  modelId: string;
-  breakdown: {
-    inputCost: number;
-    outputCost: number;
-  };
-}
-
-constructor(projectRoot: string = process.cwd()) {
+  constructor(projectRoot: string = process.cwd()) {
     this.projectRoot = projectRoot;
     this.registerBuiltinModels();
   }
@@ -1088,4 +1089,41 @@ export function getModelRouter(projectRoot?: string): ModelRouter {
 
 export function resetModelRouter(): void {
   modelRouterInstance = null;
+}
+
+/** Agent roles that can be routed to a model. */
+export type AgentRole = "planner" | "coder" | "reviewer" | "fixer";
+
+const ROLE_TO_CATEGORY: Record<AgentRole, TaskCategory> = {
+  planner: TaskCategory.PLANNING,
+  coder: TaskCategory.CODING,
+  reviewer: TaskCategory.REVIEW,
+  fixer: TaskCategory.CODING,
+};
+
+/**
+ * Route a task to an appropriate model adapter and run the executor against it.
+ * Returns the routing decision (selected adapter/model) alongside the result.
+ */
+export async function routeAndExecute<TContext, TResult>(
+  role: AgentRole,
+  _prompt: string,
+  executor: (adapter: LLMAdapter) => Promise<TResult>,
+  _context: TContext,
+  _modelPreference?: string,
+  projectId?: string
+): Promise<{ decision: { selectedAdapter: LLMAdapter; role: AgentRole; modelId: string }; result: TResult }> {
+  const router = getModelRouter(projectId);
+  const category = ROLE_TO_CATEGORY[role];
+  const recommended = router.getRecommendedModels(category, BuildMode.BALANCED);
+  const selectedAdapter = await getLLMAdapter();
+  const result = await executor(selectedAdapter);
+  return {
+    decision: {
+      selectedAdapter,
+      role,
+      modelId: recommended[0]?.id ?? "default",
+    },
+    result,
+  };
 }

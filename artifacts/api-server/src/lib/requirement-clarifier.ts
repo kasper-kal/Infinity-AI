@@ -624,3 +624,73 @@ Return JSON array of questions with this schema:
 // ============================================================================
 
 export const requirementClarifier = new RequirementClarifier();
+// ---------------------------------------------------------------------------
+// CREATE FACTORY (route adapter)
+// ---------------------------------------------------------------------------
+// routes/infinity/workflow.ts imports `createRequirementClarifier({...})` and
+// calls `processAnswers(answers)` / `generatePRD()`. This adapter wraps the
+// RequirementClarifier class and re-uses an existing PRD when no new session
+// answers are supplied.
+
+export interface UserAnswerInput {
+  questionId: string;
+  question?: string;
+  answer: unknown;
+  timestamp?: string;
+}
+
+/**
+ * Create a clarifier wired to an existing workflow goal + PRD. Returns an
+ * object exposing `processAnswers` (apply answers then regenerate PRD) and
+ * `generatePRD` (produce/return the PRD).
+ */
+export async function createRequirementClarifier(options: {
+  projectId?: string;
+  accountId?: string;
+  goal: string;
+  existingPRD?: string;
+  maxQuestions?: number;
+  autoInfer?: boolean;
+}): Promise<{
+  processAnswers: (answers: UserAnswerInput[]) => Promise<string>;
+  generatePRD: () => Promise<string>;
+}> {
+  const clarifier = new RequirementClarifier();
+  let session: ClarificationSession | null = null;
+  let currentPRD: string | undefined = options.existingPRD;
+
+  try {
+    session = await clarifier.startSession(options.goal);
+  } catch (error) {
+    console.error(`[createRequirementClarifier] Session start failed:`, error);
+    session = null;
+  }
+
+  return {
+    async processAnswers(answers: UserAnswerInput[]): Promise<string> {
+      if (session) {
+        for (const answer of answers) {
+          await clarifier
+            .submitAnswer(session.id, answer.questionId, answer.answer)
+            .catch((error) => console.error(`[createRequirementClarifier] answer ignored:`, error));
+        }
+        try {
+          currentPRD = await clarifier.generatePRD(session);
+        } catch (error) {
+          console.error(`[createRequirementClarifier] PRD generation failed:`, error);
+        }
+      }
+      return currentPRD ?? "";
+    },
+    async generatePRD(): Promise<string> {
+      if (session && !currentPRD) {
+        try {
+          currentPRD = await clarifier.generatePRD(session);
+        } catch (error) {
+          console.error(`[createRequirementClarifier] PRD generation failed:`, error);
+        }
+      }
+      return currentPRD ?? "";
+    },
+  };
+}

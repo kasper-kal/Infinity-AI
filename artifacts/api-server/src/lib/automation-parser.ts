@@ -320,10 +320,18 @@ export type ParserOutput = z.infer<typeof ParserOutputSchema>;
  * Automation Parser Class
  */
 export class AutomationParser {
-  private llm: LLMAdapter;
+  private llm?: LLMAdapter;
 
   constructor(llm?: LLMAdapter) {
-    this.llm = llm || (await import("./adapter-factory")).createBestAdapter();
+    this.llm = llm;
+  }
+
+  /** Lazily resolve the LLM adapter (constructor cannot be async). */
+  private async getLLM(): Promise<LLMAdapter> {
+    if (!this.llm) {
+      this.llm = (await import("./adapter-factory")).createBestAdapter();
+    }
+    return this.llm;
   }
 
   /**
@@ -353,7 +361,7 @@ export class AutomationParser {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await this.llm.complete(messages, options);
+        const result = await (await this.getLLM()).complete(messages, options);
         lastResponse = result.content;
         const parsed = JSON.parse(result.content);
         const validated = ParserOutputSchema.parse(parsed);

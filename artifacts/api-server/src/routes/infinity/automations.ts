@@ -5,7 +5,7 @@ import { apiKeyAuth, requireScope } from "../../middlewares/api-key-auth";
 import { logActivity } from "./project-activity";
 import { logger } from "../../lib/logger";
 import { AutomationRuntime } from "../../lib/automation-runtime";
-import { AutomationRegistry } from "@workspace/db/src/lib/automation-registry";
+import { AutomationRegistry } from "@workspace/db/lib/automation-registry";
 import { createConnector } from "../../lib/connectors/base";
 import { AutomationTriggerType, CONNECTOR_EVENTS, type AutomationTrigger, type AutomationSpec } from "../../lib/automation-parser";
 

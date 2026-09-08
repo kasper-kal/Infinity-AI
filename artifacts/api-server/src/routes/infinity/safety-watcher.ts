@@ -8,7 +8,7 @@ import {
   pushSubscriptions,
   safetyWatcherSettings,
   projects,
-} from "@workspace/db/schema/safety-watcher";
+} from "@workspace/db/schema/safety-watcher.js";
 import { eq, and, desc, gte, count, sql, or, lt } from "drizzle-orm";
 import { buildErrorDetail } from "../../lib/error-detail";
 import { getSafetyWatcher } from "../../lib/safety-watcher";

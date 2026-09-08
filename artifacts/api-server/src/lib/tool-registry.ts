@@ -1838,3 +1838,148 @@ function registerRecipeTools(): void {
 
 // Auto-register recipe tools on module load
 registerRecipeTools();
+
+// ============================================================================
+// PHASE 41 — File Format Converter Tools
+// ============================================================================
+
+function registerFileTools(): void {
+  import("./file-converter").then(({ fileConverter, listFormatGroups, listSupportedConversions, FORMATS }) => {
+    // file.detect — detect the format of a file from its buffer
+    registerTool({
+      name: "file.detect",
+      description: "Detect the format of a file from its raw bytes. Returns the detected format (e.g. json, pdf, png, mp3), confidence, and suggested output formats. Use when the user provides a file and you need to know what type it is.",
+      category: "files",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Base64-encoded file content" },
+          filename: { type: "string", description: "Original filename (helps detection by extension)" },
+        },
+        required: ["data"],
+      },
+      execute: async (args) => {
+        const { data, filename } = args as { data: string; filename?: string };
+        const buffer = Buffer.from(data, "base64");
+        const result = await fileConverter.detect(buffer, filename);
+        return {
+          success: true,
+          data: result,
+          summary: `Detected: ${result.format} (confidence: ${Math.round(result.confidence * 100)}%). Suggested outputs: ${result.suggestedOutputs.join(", ") || "none"}`,
+        };
+      },
+      timeoutMs: 10000,
+    });
+
+    // file.convert — convert a file between formats
+    registerTool({
+      name: "file.convert",
+      description: "Convert a file from one format to another (e.g. JSON→YAML, PNG→WebP, Markdown→PDF). Provide base64 data and target format. Auto-detects input format if 'from' is omitted. Returns base64-encoded converted data.",
+      category: "files",
+      risk: "WRITE",
+      parameters: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Base64-encoded file content to convert" },
+          filename: { type: "string", description: "Original filename (helps auto-detect format)" },
+          from: { type: "string", description: "Source format (auto-detected if omitted). E.g. json, png, pdf, csv" },
+          to: { type: "string", description: "Target format. E.g. yaml, webp, txt, xlsx" },
+          options: {
+            type: "object",
+            description: "Format-specific options (quality, width, height, bitrate, etc.)",
+            additionalProperties: true,
+          },
+        },
+        required: ["data", "to"],
+      },
+      execute: async (args) => {
+        const { data, filename, from, to, options } = args as {
+          data: string; filename?: string; from?: string; to: string; options?: Record<string, unknown>;
+        };
+        const buffer = Buffer.from(data, "base64");
+        try {
+          const result = await fileConverter.convert({ buffer, from, to, filename, options });
+          return {
+            success: true,
+            data: { data: result.buffer.toString("base64"), format: result.format, mime: result.mime, size: result.buffer.length, meta: result.meta },
+            summary: `Converted to ${result.format} (${result.mime}, ${result.buffer.length} bytes)`,
+            artifacts: [
+              {
+                type: "file_conversion",
+                title: `${from ?? "auto"} → ${result.format}`,
+                data: { format: result.format, mime: result.mime, size: result.buffer.length, meta: result.meta },
+              },
+            ],
+          };
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          return { success: false, error: `Conversion failed: ${msg}` };
+        }
+      },
+      timeoutMs: 60000,
+    });
+
+    // file.info — get metadata about a file
+    registerTool({
+      name: "file.info",
+      description: "Get metadata about a file: format, size, dimensions (images), text length, row count (data). Returns rich info without converting.",
+      category: "files",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          data: { type: "string", description: "Base64-encoded file content" },
+          filename: { type: "string", description: "Original filename" },
+        },
+        required: ["data"],
+      },
+      execute: async (args) => {
+        const { data, filename } = args as { data: string; filename?: string };
+        const buffer = Buffer.from(data, "base64");
+        const info = await fileConverter.info(buffer, filename);
+        return {
+          success: true,
+          data: info,
+          summary: `${info.format} file, ${info.size} bytes${info.dimensions ? `, ${info.dimensions.width}×${info.dimensions.height}` : ""}${info.rows != null ? `, ${info.rows} rows` : ""}`,
+        };
+      },
+      timeoutMs: 10000,
+    });
+
+    // file.formats — list all supported formats and conversions
+    registerTool({
+      name: "file.formats",
+      description: "List all supported file formats and conversion pairs. Use to check what formats are available before converting.",
+      category: "files",
+      risk: "READ",
+      parameters: {
+        type: "object",
+        properties: {
+          from: { type: "string", description: "Optional: list only output formats supported for this input format" },
+        },
+      },
+      execute: async (args) => {
+        const { from } = args as { from?: string };
+        if (from) {
+          const supported = fileConverter.supported(from);
+          return { success: true, data: { from, supported }, summary: `${from} can convert to: ${supported.join(", ") || "no supported outputs"}` };
+        }
+        const groups = listFormatGroups();
+        const conversions = listSupportedConversions();
+        const summary = groups.map((g) => `${g.label}: ${g.formats.map((f) => f.format).join(", ")}`).join("\n");
+        return {
+          success: true,
+          data: { groups, totalConversions: conversions.length },
+          summary: `${conversions.length} conversion pairs across ${groups.length} format families.\n${summary}`,
+        };
+      },
+      timeoutMs: 5000,
+    });
+  }).catch((err) => {
+    console.error("[tool-registry] Failed to load file tools:", err);
+  });
+}
+
+// Auto-register file tools on module load
+registerFileTools();

@@ -21,3 +21,6 @@ export { useBuildMap, type BuildMapGraph, type BuildMapNode, type BuildMapEdge, 
 
 // Phase 40: Recipe Widget
 export { useRecipes, type Recipe, type RecipeParameter, type RecipeStep, type RecipeVersion, type DeepResearchConfig, type ExecutionProgress, type RecipeExecution, type RecipeRating } from './useRecipes';
+
+// Phase 41: File Converter
+export { useFileConverter, type FormatInfo, type FormatGroup, type DetectionResult, type ConversionResult, type FileInfo, type BatchResult } from './useFileConverter';

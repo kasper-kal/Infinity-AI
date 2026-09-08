@@ -12,8 +12,7 @@ import { GitTools } from "../../lib/git-tools";
 import { spawnSubagent, getSubagent, SUBAGENTS } from "../../lib/subagents";
 import { getLLMAdapter } from "../../lib/llm-adapter";
 import { getProjectDesignSystem } from "../../lib/design-canvas";
-import { db } from "../../db";
-import { projectInstructions, projectMemory } from "../../db/schema";
+import { db, projectInstructions, projectMemory } from "@workspace/db";
 
 const router = Router();
 

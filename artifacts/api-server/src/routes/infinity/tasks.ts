@@ -5,10 +5,10 @@
  */
 
 import { Router, Request, Response } from "express";
-import { getTaskRegistry } from "@api-server/lib/task-registry";
-import { requireAuth, AuthenticatedRequest } from "@api-server/middleware/auth-middleware";
+import { getTaskRegistry } from "../../lib/task-registry";
+import { requireAuth, AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { db } from "@workspace/db";
-import { tasks, taskEvents } from "@workspace/db/src/schema/tasks";
+import { tasks, taskEvents } from "@workspace/db/schema/tasks.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 

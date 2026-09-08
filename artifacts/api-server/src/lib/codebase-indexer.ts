@@ -987,3 +987,34 @@ export function expandQuery(query: string): string[] {
 
   return Array.from(expanded);
 }
+/**
+ * Global codebase indexer singleton.
+ *
+ * Provides an object-argument `search({ query, limit, hybrid })` API and maps
+ * the raw SearchResult rows to the flat `{ file, line, symbol, snippet }`
+ * shape that consumers (e.g. agent-review) expect.
+ */
+let codebaseIndexerInstance: CodebaseIndexer | null = null;
+
+export const codebaseIndexer = {
+  async search(args: {
+    query: string;
+    limit?: number;
+    hybrid?: boolean;
+  }): Promise<Array<{ file: string; line: number; symbol?: string; snippet: string }>> {
+    if (!codebaseIndexerInstance) {
+      codebaseIndexerInstance = createCodebaseIndexer(process.cwd(), process.cwd());
+      await codebaseIndexerInstance.initialize().catch(() => undefined);
+    }
+    const results = await codebaseIndexerInstance.search(args.query, {
+      limit: args.limit,
+      hybrid: args.hybrid ?? true,
+    });
+    return results.map((r) => ({
+      file: r.chunk.relativePath || r.chunk.filePath,
+      line: r.chunk.startLine,
+      symbol: r.chunk.name || undefined,
+      snippet: r.chunk.content,
+    }));
+  },
+};

@@ -7,7 +7,7 @@
 
 import { EventEmitter } from "events";
 import { db } from "@workspace/db";
-import { tasks, taskEvents } from "@workspace/db/src/schema/tasks";
+import { tasks, taskEvents } from "@workspace/db/schema/tasks.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 

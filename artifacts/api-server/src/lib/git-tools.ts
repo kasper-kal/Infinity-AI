@@ -1072,5 +1072,4 @@ export function registerGitTools(projectRoot: string, projectId: string): void {
   });
 }
 
-export { GitTools };
 export type { GitCommit, GitDiff, GitBlameLine, GitStatus, GitBranch, GitRemote, GitConfig };

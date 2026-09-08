@@ -33,7 +33,7 @@ import { PropEditor } from "@/components/ui-builder/PropEditor";
 import { ComponentExtractor } from "@/components/ui-builder/ComponentExtractor";
 import { CommentSidebar, type Comment, type CommentFilter, type CommentElementData } from "@/components/ui-builder/CommentSidebar";
 import { TokenUsageGauge } from "@/components/build/TokenUsageGauge";
-import { useConflictResolution, useAstHistory } from "@/hooks";
+import { useConflictResolution, useAstHistory, useFileConverter } from "@/hooks";
 import { useTaskProvider } from "@/hooks/useLiveTaskDisplay";
 
 export interface ChatViewProps {
@@ -114,6 +114,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [commentTotalCount, setCommentTotalCount] = useState(0);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [currentUser] = useState({ name: 'Current User', email: 'user@example.com', avatar: undefined });
+
+  // Phase 41: @File command result state
+  const fileConverter = useFileConverter();
+  const [fileCommandResult, setFileCommandResult] = useState<string | null>(null);
 
   // AST History for undo/redo on component code
   const {
@@ -256,10 +260,90 @@ export const ChatView: React.FC<ChatViewProps> = ({
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }, [chatInput]);
 
+  // Phase 41: @File command handler — parses and executes @File … commands
+  const handleFileCommand = useCallback(async (command: string): Promise<boolean> => {
+    const lower = command.toLowerCase();
+    setFileCommandResult(null);
+
+    try {
+      // @File ListFormats — list all supported conversions
+      if (/^list\s*formats$/i.test(lower)) {
+        const data = await fileConverter.listFormats();
+        const groups = data?.groups ?? [];
+        const lines = groups.map((g) => `${g.label}: ${g.formats.map((f) => f.format).join(', ')}`);
+        setFileCommandResult(
+          ['**📄 Supported formats**', '', ...lines.map((l) => `- ${l}`)].join('\n')
+        );
+        return true;
+      }
+
+      // @File Convert <path> to <format>
+      const convertMatch = command.match(/^Convert\s+(.+?)\s+to\s+([a-z0-9]+)$/i);
+      if (convertMatch) {
+        const [, path, target] = convertMatch;
+        setFileCommandResult(`Converting **${path.trim()}** to **${target.toLowerCase()}**…`);
+        // The chat payload is treated as inline content/base64. For real files,
+        // use the File Converter panel (drag-and-drop) instead.
+        const res = await fileConverter.convert(path.trim(), target.toLowerCase(), {});
+        if (res) {
+          setFileCommandResult(
+            [
+              `✅ **Converted** \`${path.trim()}\` → **${res.format.toUpperCase()}**`,
+              `- Size: ${(res.size / 1024).toFixed(1)} KB`,
+              `- MIME: \`${res.mime}\``,
+              '',
+              '> Download and preview: open **Build → File Converter**.',
+            ].join('\n')
+          );
+        } else {
+          setFileCommandResult('⚠️ Conversion failed. Check the input content and target format.');
+        }
+        return true;
+      }
+
+      // @File Help — usage guide
+      if (/^(help|\?)$/i.test(lower)) {
+        setFileCommandResult(
+          [
+            '**🗂️ @File commands**',
+            '',
+            '- `@File ListFormats` — list supported input/output formats',
+            '- `@File Convert <path> to <format>` — convert a file (path or base64)',
+            '- `@File Help` — show this guide',
+            '',
+            '> Tip: Open **Build → File Converter** for drag-and-drop conversion, batch mode, previews, and downloads.',
+          ].join('\n')
+        );
+        return true;
+      }
+
+      // Unknown @File command — show help
+      setFileCommandResult(
+        [
+          `Unknown command: \`@File ${command}\``,
+          '',
+          'Try `@File ListFormats`, `@File Convert <path> to <format>`, or `@File Help`.',
+        ].join('\n')
+      );
+      return true;
+    } catch (err) {
+      setFileCommandResult(`⚠️ **@File error:** ${err instanceof Error ? err.message : String(err)}`);
+      return true;
+    }
+  }, [fileConverter]);
+
   const handleSubmit = useCallback(async () => {
     const text = chatInput.trim();
     if (!text) return;
     haptics.medium();
+
+    // Phase 41: @File command handler
+    const fileMatch = text.match(/^@File\s+(.+)$/i);
+    if (fileMatch) {
+      const command = fileMatch[1].trim();
+      const handled = await handleFileCommand(command);
+      if (handled) return;
+    }
 
     // Phase 35: Start chat task in Live Task Display
     const chatTask = await chatTaskProvider.chat.start(
@@ -271,7 +355,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     setChatInput('');
     onSend(text);
-  }, [chatInput, onSend, activeConversationId, chatTaskProvider]);
+  }, [chatInput, onSend, activeConversationId, chatTaskProvider, handleFileCommand]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1187,6 +1271,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   />
                 )}
               </div>
+
+              {/* Phase 41: @File command result */}
+              {fileCommandResult && (
+                <div className="border-t border-border-primary/60 bg-bg-elevated/50 backdrop-blur-xl p-3 sm:p-4">
+                  <div className="max-w-3xl mx-auto">
+                    <div className="glass rounded-2xl p-4">
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        @File
+                      </div>
+                      <MarkdownRenderer content={fileCommandResult} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Composer */}
               <div className="border-t border-border-primary/60 bg-bg-elevated/50 backdrop-blur-xl p-3 sm:p-4">

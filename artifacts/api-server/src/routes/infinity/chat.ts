@@ -38,8 +38,8 @@ import { getToolDefinitionsForLLM } from "../../lib/tool-registry";
 import { type ToolExecutionContext } from "../../lib/tool-types";
 import { optionalApiKeyAuth } from "../../middlewares/api-key-auth";
 import { redactSSEData } from "../../lib/secret-redaction";
-import { countMessageTokens, createTokenBudget, shouldCompact, updateTokenBudget, getBudgetStatus } from "../../lib/token-counter";
-import { autoCompactContext, extractPreservationRules, COMPACTION_LEVELS, type PreservationRules, type CompactionResult } from "../../lib/context-compactor";
+import { countMessageTokens, createTokenBudget, updateTokenBudget, getBudgetStatus } from "../../lib/token-counter";
+import { autoCompactContext, shouldCompact, extractPreservationRules, COMPACTION_LEVELS, type PreservationRules, type CompactionResult } from "../../lib/context-compactor";
 
 /** Personality modifiers appended to the base system prompt. */
 const PERSONALITY_MODIFIERS: Record<string, string> = {

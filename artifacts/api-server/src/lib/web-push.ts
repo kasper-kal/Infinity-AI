@@ -15,7 +15,8 @@
  */
 
 import webPush from "web-push";
-import { db, pushSubscriptions, infinitySettings } from "@workspace/db";
+import { db, infinitySettings } from "@workspace/db";
+import { pushSubscriptions } from "@workspace/db/schema/push.js";
 import { eq, or } from "drizzle-orm";
 import { logger } from "./logger";
 

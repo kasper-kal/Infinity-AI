@@ -30,6 +30,7 @@ import {
 
 // Re-export with orchestration prefix to avoid naming conflicts
 export { SUBAGENTS };
+export { perspectiveDiverseVerify };
 export type { SubagentDefinition, SubagentConfig, CodeReviewerOutput, VerificationLens };
 
 /**

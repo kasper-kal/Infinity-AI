@@ -965,3 +965,48 @@ export class StartupTracker {
 }
 
 export const startupTracker = new StartupTracker();
+// ---------------------------------------------------------------------------
+// FACTORY HELPERS
+// ---------------------------------------------------------------------------
+// cursor.ts imports these convenience factories/singletons that wrap the
+// classes above. `evictionPolicy` / `onEvict` are accepted for API parity
+// with the historical module; PerformanceCache handles eviction internally.
+
+/** Create a bounded TTL cache (options or size-pos-args both accepted). */
+export function createPerformanceCache<T>(
+  config?: { maxSize?: number; ttlMs?: number; evictionPolicy?: "lru" | "fifo"; onEvict?: (key: string, value: T) => void },
+): PerformanceCache<T> {
+  if (typeof config === "number") {
+    return new PerformanceCache<T>(config);
+  }
+  return new PerformanceCache<T>(config?.maxSize ?? 1000, config?.ttlMs ?? 60000);
+}
+
+let sharedConnectionPool: ConnectionPoolManager | null = null;
+
+/** Return the shared agent connection pool manager. */
+export function getConnectionPoolManager(): ConnectionPoolManager {
+  if (!sharedConnectionPool) {
+    sharedConnectionPool = new ConnectionPoolManager();
+  }
+  return sharedConnectionPool;
+}
+
+/** Measure the wall-clock latency of an async operation. */
+export async function measureLatency<T>(
+  fn: () => Promise<T>,
+): Promise<{ result: T; latencyMs: number; startedAt: number }> {
+  const startedAt = Date.now();
+  const result = await fn();
+  return { result, latencyMs: Date.now() - startedAt, startedAt };
+}
+
+/** Create a shared-scope debounced executor. */
+export function createDebouncedExecutor(): DebouncedExecutor {
+  return new DebouncedExecutor();
+}
+
+/** Return the shared memory-pressure monitor singleton. */
+export function getMemoryPressureMonitor(): MemoryPressureMonitor {
+  return memoryPressureMonitor;
+}

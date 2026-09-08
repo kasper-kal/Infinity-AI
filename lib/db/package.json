@@ -10,8 +10,12 @@
     "./schema/preview-shares.js": "./src/schema/preview-shares.ts",
     "./schema/project-databases.js": "./src/schema/project-databases.ts",
     "./schema/safety-watcher.js": "./src/schema/safety-watcher.ts",
+    "./schema/push.js": "./src/schema/push.ts",
     "./schema/tasks.js": "./src/schema/tasks.ts",
-    "./schema/recipes.js": "./src/schema/recipes.ts"
+    "./schema/recipes.js": "./src/schema/recipes.ts",
+    "./schema/build-map.js": "./src/schema/build-map.ts",
+    "./schema/automations.js": "./src/schema/automations.ts",
+    "./lib/automation-registry": "./src/lib/automation-registry.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

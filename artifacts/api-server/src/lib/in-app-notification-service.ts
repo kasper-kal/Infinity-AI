@@ -8,7 +8,7 @@
 
 import { EventEmitter } from "events";
 import { db } from "@workspace/db";
-import { safetyNotifications, inAppNotifications } from "@workspace/db/schema/safety-watcher";
+import { safetyNotifications, inAppNotifications } from "@workspace/db/schema/safety-watcher.js";
 import { eq, and, desc, gte, lt, sql, count } from "drizzle-orm";
 
 export interface InAppNotification {

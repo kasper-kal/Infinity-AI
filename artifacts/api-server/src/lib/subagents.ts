@@ -353,17 +353,6 @@ Think: what's the best path forward given ALL perspectives?`,
 };
 
 /**
- * Registry of all subagents
- */
-export const SUBAGENTS: Record<string, SubagentDefinition> = {
-  "code-reviewer": codeReviewer,
-  "planner": planner,
-  "researcher": researcher,
-  "fixer": fixer,
-  "synthesizer": synthesizer,
-};
-
-/**
  * Get subagent by ID
  */
 export function getSubagent<T>(id: string): SubagentDefinition<T> | undefined {
@@ -742,4 +731,13 @@ export const SUBAGENTS: Record<string, SubagentDefinition> = {
   "debugger": debuggerAgent,
   "test-writer": testWriter,
   "documenter": documenter,
+};
+/**
+ * Subagent registry singleton — exposes the subagent lookup helpers on an
+ * object so consumers can call `subagents.getSubagent(...)`.
+ */
+export const subagents = {
+  getSubagent,
+  spawnSubagent,
+  SUBAGENTS,
 };

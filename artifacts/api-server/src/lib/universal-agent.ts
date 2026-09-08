@@ -60,6 +60,7 @@ import { getToolDefinitionsForLLM, executeTool, formatToolResults } from "./tool
 import { ToolDiscoveryFilter } from "./tool-registry";
 import { executeUniversalToolWithResilience, classifyToolFailure, runUniversalToolHealthCheck, type ResilientExecutionOptions } from "./tool-resilience";
 import { getTaskPersistenceManager, type PersistentTaskState, type TaskStatus } from "./tool-persistence";
+import { getLLMAdapter } from "./llm-adapter";
 
 /** Event emitted for each agent loop step (for SSE streaming to frontend) */
 export interface AgentToolEvent {
@@ -1214,3 +1215,92 @@ export class UniversalAgent {
     return this.isRunning;
   }
 }
+// ---------------------------------------------------------------------------
+// GOAL-BASED SINGLETON
+// ---------------------------------------------------------------------------
+// recipe-engine.ts and workflow-orchestrator.ts import a `universalAgent`
+// object and call convenience methods that take a goal/prompt instead of a
+// wired-up LLM + context. Builds the LLM adapter and a minimal execution
+// context on the fly, then delegates to the full runUniversalAgent loop.
+
+/**
+ * Create a minimal ToolExecutionContext from an optional partial context.
+ */
+function buildRecipeContext(context?: Partial<ToolExecutionContext>): ToolExecutionContext {
+  return {
+    userId: context?.userId ?? "system",
+    conversationId: context?.conversationId ?? "recipe-agent",
+    taskId: context?.taskId,
+    workspacePath: context?.workspacePath ?? process.cwd(),
+    env: context?.env ?? {},
+    previousToolResults: [],
+    artifacts: [],
+    ...context,
+  };
+}
+
+export const universalAgent = {
+  /**
+   * Goal-based entry — drives the agent loop with a plain goal string.
+   * Used by recipe-engine.ts (research/synthesis steps).
+   */
+  async runUniversalAgent(args: {
+    goal: string;
+    systemPrompt?: string;
+    maxIterations?: number;
+    maxToolCalls?: number;
+    temperature?: number;
+    enableResilience?: boolean;
+    resilienceOptions?: Record<string, unknown>;
+    taskId?: string;
+    tools?: string[];
+    context?: Partial<ToolExecutionContext>;
+    onToolEvent?: (event: AgentToolEvent) => void;
+  }): Promise<AgentLoopResult> {
+    const llm = await getLLMAdapter({});
+    const baseContext = buildRecipeContext(args.context);
+    const config: UniversalAgentConfig = {
+      systemPrompt: args.systemPrompt ?? "",
+      maxIterations: args.maxIterations ?? 10,
+      maxToolCalls: args.maxToolCalls ?? 25,
+      temperature: args.temperature ?? 0.3,
+      enableResilience: args.enableResilience ?? true,
+      resilienceOptions: (args.resilienceOptions ?? {}) as never,
+      taskId: args.taskId,
+      toolFilter: args.tools ? { names: args.tools as never } : {},
+      onToolEvent: args.onToolEvent ?? (() => {}),
+      enableOrchestration: true,
+    };
+    return runUniversalAgent(llm, baseContext, args.goal, config);
+  },
+
+  /**
+   * Prompt-based entry — used by workflow-orchestrator.ts for complex steps.
+   */
+  async run(args: {
+    prompt: string;
+    systemPrompt?: string;
+    context?: Partial<ToolExecutionContext>;
+    enableOrchestration?: boolean;
+    maxIterations?: number;
+    maxTokens?: number;
+    tokenBudget?: number;
+    temperature?: number;
+  }): Promise<AgentLoopResult> {
+    const llm = await getLLMAdapter({});
+    const baseContext = buildRecipeContext(args.context);
+    const config: UniversalAgentConfig = {
+      systemPrompt: args.systemPrompt ?? "",
+      maxIterations: args.maxIterations ?? 10,
+      maxTokens: args.maxTokens ?? 4096,
+      temperature: args.temperature ?? 0.3,
+      enableOrchestration: args.enableOrchestration ?? true,
+      tokenBudget:
+        typeof args.tokenBudget === "number"
+          ? createTokenBudget("workflow", args.tokenBudget, Math.floor(args.tokenBudget / 2))
+          : args.tokenBudget,
+      taskId: args.context?.taskId,
+    };
+    return runUniversalAgent(llm, baseContext, args.prompt, config);
+  },
+};

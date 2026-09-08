@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { db } from "../../db";
+import { db } from "@workspace/db";
 import { recipes, recipeVersions, recipeExecutions, recipeRatings } from "@workspace/db/schema/recipes.js";
 import { eq, and, desc, ilike, or, inArray, sql } from "drizzle-orm";
 import { recipeEngine, RecipeSchema, Recipe, RecipeExecution, RecipeRating } from "../../lib/recipe-engine";

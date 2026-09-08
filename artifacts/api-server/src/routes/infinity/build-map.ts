@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { db } from "../../db/index.js";
+import { db } from "@workspace/db";
 import {
   buildMapNodes,
   buildMapEdges,
@@ -17,7 +17,7 @@ import {
   BuildMapVersion,
   BuildMapMetadataRow,
   BuildMapSuggestion,
-} from "../../../lib/db/schema/build-map.js";
+} from "@workspace/db/schema/build-map.js";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireScope, AuthenticatedRequest } from "../../middleware/auth-middleware.js";
 import { getBuildMapManager, getBuildMapAgent, BuildMapGraph, BuildMapNodeType, BuildMapNodeStatus, BuildMapEdgeType, BuildMapAssignee, BuildMapLayoutAlgorithm, BuildMapAnalysis } from "../../lib/build-map.js";

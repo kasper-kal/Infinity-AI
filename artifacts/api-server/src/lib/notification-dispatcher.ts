@@ -12,7 +12,7 @@ import { EmailService } from "./email-service";
 import { WebhookService } from "./webhook-service";
 import { InAppNotificationService } from "./in-app-notification-service";
 import { db } from "@workspace/db";
-import { safetyNotifications, notificationChannels, safetyRules } from "@workspace/db/schema/safety-watcher";
+import { safetyNotifications, notificationChannels, safetyRules } from "@workspace/db/schema/safety-watcher.js";
 import { eq, and, desc, gte, lt, sql } from "drizzle-orm";
 
 export interface NotificationTemplate {
