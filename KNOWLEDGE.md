@@ -5,7 +5,7 @@
 > If a fact here is stale, edit it. If something durable happened, add it here (and note it in session-brief.md's recent conversation).
 
 ## Who & ground rules
-- Owner: **Kasper Kal** (kasperkal1970@gmail.com). GitHub: kasper-kal/Infinity. Personal hobby project.
+- Owner: **Kasper Kal** (kasperkal1970@gmail.com). GitHub: kasper-kal/Infinity-AI. Personal hobby project.
 - Budget: **every thing, service, API, hosting, library = 0 euro, permanently free, no free trials.**
 - Continuity: user wants every session to feel like one chat → **session-brief.md is the live state (updated every change)**; this file is the stable how-it-works reference.
 - **Memory rule: never store personal trivia** (titles, how to address the user, small talk). Only project state, change record, and how-it-works. Trivia like "sir" dies with the session by design.
