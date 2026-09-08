@@ -60,7 +60,11 @@ app.use(cookieParser());
 // Note: body parsers now applied per-route below
 
 // Public routes that don't require authentication
+// auth.ts: login/register/logout/me. auth-mfa.ts: management routes guard
+// themselves with requireAuth; the challenge routes are authorized by the
+// short-lived pending-login token instead of a session.
 app.use("/api/auth", json1mb, urlencoded1mb, (await import("./routes/infinity/auth")).default);
+app.use("/api/auth", json1mb, urlencoded1mb, (await import("./routes/infinity/auth-mfa")).default);
 app.use("/api/health", (await import("./routes/health")).default);
 app.use("/api/extension", (await import("./routes/infinity/extension")).default);
 

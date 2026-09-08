@@ -35,5 +35,6 @@ export * from "./build-map";
 export * from "./workflows";
 export * from "./safety-watcher";
 export * from "./recipes";
+export * from "./auth-mfa";
 // NOTE: the `files` table intentionally lives OUTSIDE this barrel. It belongs
 // to the separate files database (see lib/db/src/index.ts filesDb).

@@ -86,6 +86,8 @@ const en = {
   "common.running": "Running...",
   "common.confirm": "Confirm",
   "common.cancel": "Cancel",
+  "common.save": "Save",
+  "common.refresh": "Refresh",
 
   /* Chat */
   "chat.empty.title": "No messages yet",
@@ -2798,6 +2800,8 @@ const nl: Record<keyof typeof en, string> = {
   "common.running": "Bezig...",
   "common.confirm": "Bevestigen",
   "common.cancel": "Annuleren",
+  "common.save": "Opslaan",
+  "common.refresh": "Vernieuwen",
 
   /* Chat */
   "chat.empty.title": "Nog geen berichten",

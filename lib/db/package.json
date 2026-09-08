@@ -15,6 +15,7 @@
     "./schema/recipes.js": "./src/schema/recipes.ts",
     "./schema/build-map.js": "./src/schema/build-map.ts",
     "./schema/automations.js": "./src/schema/automations.ts",
+    "./schema/auth-mfa.js": "./src/schema/auth-mfa.ts",
     "./lib/automation-registry": "./src/lib/automation-registry.ts"
   },
   "scripts": {

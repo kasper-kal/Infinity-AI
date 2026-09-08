@@ -8,6 +8,24 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { invalidateAllSessions, revokeSession } from "../../middleware/auth-middleware";
 import { loginRateLimiter, registerRateLimiter, passwordRateLimiter, authMeRateLimiter } from "../../middleware/rate-limit";
+import {
+  getMfaMethods,
+  createPendingLogin,
+  isTrustedDevice,
+  TRUSTED_DEVICE_COOKIE,
+} from "../../lib/mfa-login";
+
+/**
+ * Build the MFA challenge payload for an account (empty when no methods enabled).
+ */
+async function buildMfaChallenge(accountId: string) {
+  const methods = await getMfaMethods(accountId);
+  const available: string[] = [];
+  if (methods.passkeys) available.push("passkey");
+  if (methods.totp) available.push("totp");
+  if (methods.backup) available.push("backup");
+  return { methods: available, passkeyCount: methods.passkeyCount };
+}
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
@@ -117,6 +135,31 @@ router.post("/login", loginRateLimiter, async (req: Request, res: Response) => {
     const valid = await bcrypt.compare(password, account.passwordHash);
     if (!valid) {
       return res.status(401).json({ success: false, error: "Invalid email or password" });
+    }
+
+    // ── MFA gate (Phase 42) ────────────────────────────────────────────────
+    // If the account has second factors enabled and this device isn't trusted,
+    // don't create a session yet — issue a pending-login token and challenge.
+    const mfa = await buildMfaChallenge(account.id);
+    if (mfa.methods.length > 0) {
+      const trustedFingerprint = (req.cookies?.[TRUSTED_DEVICE_COOKIE] as string) || "";
+      const trusted = trustedFingerprint ? await isTrustedDevice(account.id, trustedFingerprint) : false;
+      const skipMfa = !!req.body?.skipMfa; // explicit opt-out is only honored for trusted devices
+      if (!trusted || !skipMfa) {
+        const pendingToken = await createPendingLogin(account, mfa.methods);
+        return res.json({
+          success: true,
+          mfaRequired: true,
+          trustedDevice: trusted,
+          pendingToken,
+          methods: mfa.methods,
+          passkeyCount: mfa.passkeyCount,
+          account: {
+            email: account.email,
+            displayName: account.displayName,
+          },
+        });
+      }
     }
 
     // Create session

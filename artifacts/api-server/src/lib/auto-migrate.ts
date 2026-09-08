@@ -703,6 +703,56 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+
+  // ── Phase 42: MFA (TOTP + Passkeys) ─────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS "mfa_totp_secrets" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "account_id" uuid NOT NULL UNIQUE REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "encrypted_secret" text NOT NULL,
+    "confirmed_at" timestamp,
+    "backup_codes" jsonb NOT NULL DEFAULT '[]',
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "mfa_totp_secrets_account_idx" ON "mfa_totp_secrets" ("account_id")`,
+  `CREATE TABLE IF NOT EXISTS "mfa_passkeys" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "credential_id" text NOT NULL UNIQUE,
+    "public_key" text NOT NULL,
+    "counter" integer NOT NULL DEFAULT 0,
+    "transports" jsonb NOT NULL DEFAULT '[]',
+    "aaguid" text,
+    "name" text NOT NULL DEFAULT 'Passkey',
+    "device_type" text,
+    "backed_up" boolean NOT NULL DEFAULT false,
+    "user_verified" boolean NOT NULL DEFAULT false,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "last_used_at" timestamp
+  )`,
+  `CREATE INDEX IF NOT EXISTS "mfa_passkeys_account_idx" ON "mfa_passkeys" ("account_id")`,
+  `CREATE INDEX IF NOT EXISTS "mfa_passkeys_credential_idx" ON "mfa_passkeys" ("credential_id")`,
+  `CREATE TABLE IF NOT EXISTS "mfa_trusted_devices" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "device_fingerprint" text NOT NULL,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "expires_at" timestamp NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS "mfa_trusted_account_idx" ON "mfa_trusted_devices" ("account_id")`,
+  `CREATE TABLE IF NOT EXISTS "mfa_pending_logins" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "token" text NOT NULL UNIQUE,
+    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "email" text NOT NULL,
+    "challenge" text,
+    "requested_methods" jsonb NOT NULL DEFAULT '[]',
+    "expires_at" timestamp NOT NULL,
+    "used_at" timestamp,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "mfa_pending_token_idx" ON "mfa_pending_logins" ("token")`,
+  `CREATE INDEX IF NOT EXISTS "mfa_pending_account_idx" ON "mfa_pending_logins" ("account_id")`,
 ];
 
 /**

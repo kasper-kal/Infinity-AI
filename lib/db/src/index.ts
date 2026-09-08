@@ -61,3 +61,4 @@ export * from "./schema/mobile-apps.js";
 export * from "./schema/project-secrets.js";
 export * from "./schema/tasks.js";
 export * from "./schema/recipes.js";
+export * from "./schema/auth-mfa.js";
