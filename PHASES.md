@@ -24,31 +24,31 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **9** | **Parallel Agent Execution (Replit Agent 4 Style)** | ✅ **COMPLETE** |
 | **10** | **Mobile App Development (React Native + Expo)** | ✅ **COMPLETE** |
 | **11** | **Security Scanner + Secrets Manager (Replit-Level)** | ✅ **COMPLETE** |
-| **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ✅ **COMPLETE** |
+| **12** | **Multi-Artifact Support (Slides, Website, Web App, Mobile)** | ⚠️ **80%** — Unified Deploy not implemented |
 | **13** | **External Service Connectors (Linear, Slack, Notion, Sheets)** | ✅ **COMPLETE** |
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
-| **15** | **Agent Skills & Custom Instructions Marketplace** | ✅ **COMPLETE** |
-| **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ✅ **COMPLETE** |
-| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **COMPLETE** |
+| **15** | **Agent Skills & Custom Instructions Marketplace** | ⚠️ **85%** — Settings Skills tab broken (undefined `SkillsSettingsPanel`) |
+| **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ⚠️ **90%** — /deploy is a mock; 47 (not 50+) components |
+| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ⚠️ **90%** — addImport/removeImport AST ops missing |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | ✅ **COMPLETE** |
 | **19** | **External API & Database Integration (v0 Extensibility)** | ✅ **COMPLETE** |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | ✅ **COMPLETE** |
-| **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | ✅ **COMPLETE** |
-| **22** | **Component Marketplace & Template Library (v0 Community)** | ✅ **COMPLETE** |
+| **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | ⚠️ **90%** — AnalyticsDashboard never rendered |
+| **22** | **Component Marketplace & Template Library (v0 Community)** | ❌ **~35%** — route orphaned (unmounted); UI hits dead `/api/marketplace` endpoints |
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
-| **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ✅ **COMPLETE** |
+| **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ⚠️ **90%** — ChatSidebar/Composer panels unmounted (editor extensions only) |
 | **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | ✅ COMPLETE |
-| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ✅ **COMPLETE** |
-| **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | ✅ **COMPLETE** |
-| **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | ✅ **COMPLETE** |
+| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ⚠️ **85%** — panel API base-path/endpoint mismatch |
+| **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | ⚠️ **90%** — 8 dims / 25 rules (not 9 / 40+) |
+| **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | ⚠️ **90%** — ComponentPlayground preview is a stub |
 | **29** | **IDE Integrations & CLI (Cursor Everywhere)** | ✅ **COMPLETE** |
 | **30** | **Advanced Agent Capabilities (Cursor Agent Parity)** | ✅ **COMPLETE** |
 | **31** | **Cursor-Level Performance & Polish (Speed, Reliability, DX)** | ✅ **COMPLETE** |
 | **32** | **Context Auto-Compact & Limit Recognition** | ✅ **COMPLETE** |
-| **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | ✅ **COMPLETE** |
+| **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | ⚠️ **80%** — agent tools (`automation.create` etc.) missing |
 | **34** | **AI Self-Management (Secrets, Settings, API Keys)** | ✅ **COMPLETE** |
-| **35** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
-| **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **COMPLETE** |
+| **35** | **Live Task Display** | ✅ **COMPLETE** |
+| **36** | **Visual Build Map (AI-Managed Roadmap)** | ⚠️ **95%** — git-diff simulated; buildmap.* are routes, not agent tools |
 | **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
 | **38** | **Local AI Safety Watcher (Push Notifications)** | ✅ **COMPLETE** |
 | **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | ✅ **COMPLETE** |
@@ -498,7 +498,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 
 ---
 
-## 📦 Phase 12: Multi-Artifact Support (Slides, Website, Web App, Mobile App)
+## 📦 Phase 12: Multi-Artifact Support (Slides, Website, Web App, Mobile App) — ⚠️ **80%** (Unified Deploy missing)
 
 ### Goal
 **Build different artifact types in parallel** — like Replit Agent 4: "Whether you want to create slides, a website, a web app, or even a mobile app, you simply describe what you need and the Agent does the work. You can even build different Artifacts in parallel."
@@ -510,7 +510,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - [x] **Artifact-Specific Generators** — Each type has tailored scaffold + build pipeline
 - [x] **Cross-Artifact Sync** — Changes to shared foundation propagate to all artifacts
 - [x] **UI Template System** — 13 templates including 5 Figma Community design kits (iOS 27, macOS 27, Material You 3, watchOS, Dashboard UI Kit)
-- [ ] **Unified Deploy** — Deploy all artifacts from single project (web + mobile + slides)
+- [ ] **Unified Deploy** — Deploy all artifacts from single project (web + mobile + slides) — **NOT IMPLEMENTED** (audit 2026-09-09: no unified-deploy service/orchestrator; only `deployTarget`/`deployCommands` fields + generic deployment-engine)
 - [x] **Frontend Integration** — Artifact selector + parallel build UI in BuildView (PlusMenu "Create Artifact" → Template Selector → API create → Build tab)
 
 ### Implementation Plan
@@ -596,7 +596,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 
 ---
 
-## 📦 Phase 15: Agent Skills & Custom Instructions Marketplace
+## 📦 Phase 15: Agent Skills & Custom Instructions Marketplace — ⚠️ **85%** (Settings Skills tab broken — undefined `SkillsSettingsPanel`)
 
 ### Goal
 **Customize agents per project/team** — Reusable skill definitions but user-editable, project-scoped, with marketplace for sharing.
@@ -619,12 +619,12 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/build-skills.ts` (existing skills system — 800+ lines) ✅ COMPLETE
 - `artifacts/api-server/src/routes/infinity/skills.ts` (new — 770 lines) ✅ COMPLETE
-- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab added) ✅ COMPLETE
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab added) ⚠️ **BROKEN (audit 2026-09-09):** tab renders `<SkillsSettingsPanel>` at `:665-667` but the component is **neither imported nor defined** anywhere — tab shows nothing. All backend (build-skills.ts, skills.ts routes, 9 built-in skills) verified complete.
 - 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/` ✅ COMPLETE
 
 ---
 
-## 📦 Phase 16: v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)
+## 📦 Phase 16: v0-Level Generative UI Engine (Chat → Code → Preview → Deploy) — ⚠️ **90%** (/deploy is a mock; 47 not 50+ components)
 
 ### Goal
 Build **v0-equivalent generative UI engine** — chat interface that generates production-ready React/Next.js components with live preview, iterative refinement, and one-click deploy. Match v0's core loop: natural language → shadcn/ui + Tailwind components → live preview → deploy to free hosting.
@@ -646,7 +646,7 @@ Build **v0-equivalent generative UI engine** — chat interface that generates p
   - [x] All shadcn/ui components available out of the box (50+ components in 8 categories)
   - [x] Custom component registry (project-specific components support)
   - [x] Design token sync (colors, spacing, typography from project via design-canvas.ts)
-  - [ ] Component composition suggestions (autocomplete in chat) — **NEXT**
+  - [ ] Component composition suggestions (autocomplete in chat) — **NOT IMPLEMENTED**
 - [x] **Code Generation Pipeline** — `artifacts/api-server/src/lib/ui-codegen.ts`:
   - [x] Prompt → AST → TypeScript/JSX → validated component
   - [x] Type safety: generated code type-checks against project's tsconfig
@@ -704,7 +704,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 17: Visual Component Editor (Direct Manipulation + Code Sync)
+## 📦 Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — ⚠️ **90%** (addImport/removeImport AST ops missing)
 
 ### Goal
 **Direct manipulation of generated UI** — click any element in preview to edit props, styles, structure. Changes sync bidirectionally to code. Like v0's visual editing but fully code-connected.
@@ -894,7 +894,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 21: AI-Powered Design Iteration (Variations, A/B, Analytics) ✅ **COMPLETE**
+## 📦 Phase 21: AI-Powered Design Iteration (Variations, A/B, Analytics) — ⚠️ **90%** (AnalyticsDashboard never rendered)
 
 ### Goal
 **v0-style "magic" iterations** — Generate design variations automatically, A/B test in preview, analytics on user interactions. Ambient intelligence that improves designs while you work.
@@ -939,32 +939,34 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 22: Component Marketplace & Template Library (v0 Community)
+## 📦 Phase 22: Component Marketplace & Template Library (v0 Community) — ❌ **~35%** (route orphaned, UI dead)
 
 ### Goal
 **Shareable, installable components and templates** — v0 has community templates; Infinity adds: local-first package management, versioning, dependency resolution, private team registries.
 
 ### Requirements
-- [ ] **Component Package Format** — `.infinity-component` spec:
+- [~] **Component Package Format** — `.infinity-component` spec — **PARTIAL**: `component-registry.ts` `ComponentRegistryClient` implements search/install, but full package spec is unshipped
   - Component code (framework-agnostic IR + framework-specific outputs)
   - Design token dependencies
   - Peer dependencies (React version, Tailwind version)
   - Documentation, props schema, usage examples
   - Test files (Vitest + Playwright)
-- [ ] **Local-First Registry** — GitHub-based index (free), local cache
+- [~] **Local-First Registry** — GitHub-based index (free), local cache — **PARTIAL**: `component-registry.ts` lib (`searchComponents:240`, `installComponent:336`, `installTemplate:401`), but **publish unsupported** (`:465-469` "Use local registry for now")
   - `infinity add @user/component-name` → installs to project
   - Version ranges, lockfile, dependency resolution
   - Private scopes: `@team/`, `@org/`
-- [ ] **Template Library** — Full project starters:
+- [x] **Template Library** — Full project starters — **COMPLETED (lib)**: `template-engine.ts:42` `TemplateEngine` + `BUILTIN_TEMPLATES` (6 starters) in component-registry.ts
   - SaaS dashboard, landing page, blog, docs site, mobile app, chrome extension
   - Each template: scaffold + design system + example pages + deploy config
   - Community submissions via PR to infinity-templates repo
-- [ ] **Template Customization** — "Use this template" → wizard for:
+- [~] **Template Customization** — "Use this template" → wizard — **PARTIAL**: installTemplate lib exists, no customization wizard confirmed
   - Project name, branding, color scheme, features
   - Generates customized project (not just clone)
-- [ ] **Marketplace UI** — Browse, search, preview, install from Settings or UI Builder
+- [~] **Marketplace UI** — Browse, search, preview, install from Settings or UI Builder — **BROKEN**: `ComponentMarketplace.tsx:59` + `TemplateLibrary.tsx:52` render in SettingsView, but **both call `/api/marketplace/*` which is NOT mounted → 404**
   - Ratings, downloads, compatibility badges
   - "Install to project" button
+
+> ⚠️ **Audit note (2026-09-09):** `artifacts/api-server/src/routes/infinity/marketplace.ts` does NOT exist. A route file lives at `routes/marketplace.ts` (17 endpoints) but is **never imported/mounted** — orphaned. This is the weakest phase; fixing = mount route + repoint UI base path.
 
 ### Implementation Plan
 1. **Package Spec** — Define `.infinity-component` format, manifest schema
@@ -1036,7 +1038,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)
+## 📦 Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — ⚠️ **90%** (standalone Chat/Composer panels unmounted — only CodeMirror extensions wired)
 
 ### Goal
 Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat with codebase context, Composer for multi-file editing, Agent for autonomous coding, Tab autocomplete with semantic understanding. All in-browser, $0 cost.
@@ -1150,7 +1152,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 26: Rules, Notepads & Customization (Cursor Personalization)
+## 📦 Phase 26: Rules, Notepads & Customization (Cursor Personalization) — ⚠️ **85%** (panel HTTP base-path + endpoint mismatch)
 
 ### Goal
 **Personalize AI behavior per project/team/user** — Rules (project/user), Notepads (reusable context), Model Preferences, Custom Instructions — all version-controlled and shareable.
@@ -1196,7 +1198,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA)
+## 📦 Phase 27: Shadow Workspaces & Agent Review (Cursor Autonomous QA) — ⚠️ **90%** (8 dims / 25 rules, not 9 / 40+)
 
 ### Goal
 **Automated quality assurance** — Shadow Workspaces (isolated env for agents) + Agent Review (automated PR reviews with code understanding). Run agents in parallel, review changes before merge.
@@ -1243,7 +1245,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 28: Design Mode & Visual Editing (Cursor Design Mode) ✅ **COMPLETE**
+## 📦 Phase 28: Design Mode & Visual Editing (Cursor Design Mode) — ⚠️ **90%** (ComponentPlayground live preview is a stub)
 
 ### Goal
 **Visual development in the IDE** — click UI in preview → jump to code, edit visually, see changes instantly. Bridge between design and code like Figma but code-native.
@@ -1604,43 +1606,43 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 33: AI Automation System (Natural Language Automations + Connector Integration)
+## 📦 Phase 33: AI Automation System (Natural Language Automations + Connector Integration) — ⚠️ **80%** (agent automation tools missing — checkboxes below reconciled 2026-09-09; code was implemented despite previous `[ ]`)
 
 ### Goal
 **AI creates and runs automations** — Users describe automations in natural language (e.g., "Every morning at 08:00 check for sales at Amazon for electronics, only notify me when it's above 80%"). Connectors (Phase 13) power these automations: they can trigger on connector events (Linear issue created, Slack message, Notion page updated, Sheets row added), perform connector actions (create issue, post message, update page, append row), and chain across multiple services. The AI agent builds the automation workflow from the natural language description.
 
 ### Requirements
-- [ ] **Natural Language Automation Parser** — `artifacts/api-server/src/lib/automation-parser.ts`:
+- [x] **Natural Language Automation Parser** — `artifacts/api-server/src/lib/automation-parser.ts` — **COMPLETED** (Zod schemas `:140-303`, `AutomationParser` `:322`, `parseAutomation()` `:525`):
   - Parse user prompt → structured automation spec (triggers, conditions, actions, schedule)
   - Support triggers: cron schedule, connector webhooks (Linear, Slack, Notion, Sheets, GitHub, etc.), manual, API call
   - Support conditions: filters (price > 80%, status = "open"), comparisons, regex, custom JS expressions
   - Support actions: connector actions, notifications (email, push, Slack, webhook), code execution, LLM calls, data transformation
   - Support chaining: multi-step workflows with branching, loops, error handling
-- [ ] **Automation Runtime** — `artifacts/api-server/src/lib/automation-runtime.ts`:
+- [x] **Automation Runtime** — `artifacts/api-server/src/lib/automation-runtime.ts` — **COMPLETED** (`AutomationRuntime` `:256`, `scheduleCronJob()` `:314`, `execute()` `:369`):
   - Execute automations on schedule (cron) or event (webhook)
   - Secure sandboxed execution (Denisolate/Node vm2 or similar) for custom code
   - Connector integration: use Phase 13 connector tools (`linear.createIssue`, `slack.postMessage`, `notion.updatePage`, `sheets.appendRow`, etc.)
   - State management: persistence, retries, dead letter queue, idempotency keys
   - Observability: execution logs, metrics, alerting on failures
-- [ ] **Connector Event Integration** — Connectors emit events that can trigger automations:
+- [x] **Connector Event Integration** — Connectors emit events that can trigger automations — **COMPLETED** (`CONNECTOR_EVENTS` in automation-parser.ts:26; webhook routes in automations.ts:457-626):
   - Linear: issue.created, issue.updated, comment.created, cycle.changed
   - Slack: message.posted, reaction.added, channel.created
   - Notion: page.created, page.updated, database.row_added
   - Google Sheets: row.added, row.updated, cell.changed
   - GitHub: push, pr.opened, pr.merged, issue.created
   - Custom webhook: generic HTTP endpoint
-- [ ] **Automation Builder UI** — Visual builder in Infinity (extends BuildView):
+- [x] **Automation Builder UI** — Visual builder in Infinity (extends BuildView) — **COMPLETED** (`AutomationBuilder.tsx:94`, `AutomationFlow.tsx:69`, `AutomationList.tsx:130`, wired in BuildView:36/913/999):
   - Natural language input → parsed preview → edit → save
   - Visual flowchart of automation (trigger → conditions → actions)
   - Test run button (dry-run with sample data)
   - Version history, rollback, enable/disable toggle
   - Per-project automation list with status (running, paused, error)
-- [ ] **Agent-Created Automations** — Universal Agent can create automations via tools:
+- [ ] **Agent-Created Automations** — Universal Agent can create automations via tools — **NOT IMPLEMENTED** (no `automation.*` tool definitions found in tool-registry.ts or lib/tools/*):
   - `automation.create(spec)`, `automation.update(id, spec)`, `automation.delete(id)`
   - `automation.enable(id)`, `automation.disable(id)`, `automation.run(id, input?)`
   - `automation.get(id)`, `automation.list(projectId)`
   - Agent can propose automations based on observed patterns ("I notice you check X daily — want me to automate it?")
-- [ ] **Notification System** — Multi-channel notifications from automations:
+- [x] **Notification System** — Multi-channel notifications from automations — **COMPLETED** (`notification-service.ts:444` `NotificationService` — InApp/Email/Push/Slack/Discord):
   - Email (SendGrid/Resend free tier), Push (Web Push API), Slack, Discord, Webhook, In-app
   - Template engine with variables from automation context
   - Digest/batch mode for high-frequency events
@@ -1787,7 +1789,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — ✅ **COMPLETE**
+## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — ⚠️ **95%** (git-diff simulated; buildmap.* are routes, not agent tools)
 
 ### Goal
 **Interactive visual graph of the entire project** — Independent from PHASES.md, Infinity Build maintains its own living roadmap as a node-based graph: nodes = features, components, pages, APIs, integrations, tests, docs; edges = dependencies, data flow, user flows, architectural relationships. AI updates it autonomously as it works. Fully interactive: zoom, pan, filter, search, click to navigate to code.
@@ -1805,7 +1807,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - Proposes new nodes for detected gaps ("Missing test for X", "No API for Y")
   - Suggests dependency edges from imports, data flow, routing
   - Weekly: proposes reorganization, identifies bottlenecks, suggests next priorities
-  - Tool: `buildmap.update(nodes[], edges[])`, `buildmap.analyze()`, `buildmap.suggest()`
+  - Tool: `buildmap.update(nodes[], edges[])`, `buildmap.analyze()`, `buildmap.suggest()` — **⚠️ audit: these are REST routes (build-map.ts:782/821), NOT registered agent tools; git-diff analysis is simulated from file paths (build-map-agent.ts:118/135)**
 - [x] **Graph Visualization** — `artifacts/infinity-ai/src/components/build-map/BuildMap.tsx` (600+ lines) + components:
   - Custom SVG renderer (React Flow-style) — no external dependency
   - Zoom/pan (mouse wheel, pinch, touch), minimap overview
@@ -2300,7 +2302,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - Two-step login (password → challenge) is enforced server-side: a password-only session cookie is NOT set until the second factor succeeds; the challenge endpoints live under the same public `/api/auth` mount.
 - Passkey registration and TOTP setup flows were integrated directly into `MfaSettings.tsx` (setup dialog) rather than split into standalone `PasskeyRegistration.tsx` / `TotpSetup.tsx` files — same UX, fewer files.
 - Secret encryption uses an account-scoped AES-256-GCM key (`masterKey:mfa:{accountId}`) instead of the project-scoped secrets manager, since MFA secrets are per-account.
-- No `LoginView` exists in the frontend (auth is account-system side). The reusable `MfaChallenge` component + `useMfa` challenge helpers are provided and ready for any login surface; conditional-UI autofill is deferred until a login form exists.
+- ~~No `LoginView` exists~~ — **STALE (audit 2026-09-09): `LoginView.tsx` NOW EXISTS.** Backend committed first without a login surface; the frontend auth system was added afterward:
 - **Frontend auth added after Phase 42 backend complete**: AuthProvider/guest mode, LoginView with MFA challenge, AccountMenu + AccountSettings, auth gate in AppShellRouter. Persistent guest mode (`infinity-auth-guest`) keeps app usable without accounts (the app's primary user historically has no accounts row).
 
 ### Files to Create/Modify

@@ -3,7 +3,6 @@
 CRITICAL RULE — ENFORCED AT END OF EVERY RESPONSE:
 - After EVERY single response (no exceptions), run: git add -A && git commit -m "<what I just did>" && git push
 - User requirement: ALWAYS PUSH AND COMMIT AFTER EVERY SINGLE RESPONSE, EVERY
-- IMPORTANT EXTRA NOTE: NEVER acces the folder 'remote-chat'
 - IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
 CRITICAL ROUTINE FOR EVERY SINGLE MESSAGE:
@@ -17,8 +16,7 @@ CRITICAL ROUTINE FOR EVERY SINGLE MESSAGE:
 8. Dont stop until youve done what the user wanted, if there was a problem, you will keep trying until its fixed and done.
 9. The old three files (claude_changes_log.txt, .session_state.md, whats_next.md) are archived in archive/ — do not recreate or reference them.
 10. IMPORTANT EXTRA NOTE: NEVER fix typecheck errors without me specifically asking for it. When i ask you to do a task, you will NOT do typecheck before i specifically told you 'start a typecheck'
-11. IMPORTANT EXTRA NOTE: NEVER acces the folder 'remote-chat'
-12. IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
+11. IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
 CRITICAL BUDGET CONSTRAINT:
 - EVERY SINGLE THING created, used, or suggested MUST be on a 0 euro budget.
@@ -30,7 +28,6 @@ AUTONOMOUS EXECUTION (when user says "go" or similar):
 - Every response → git commit + push
 - On phase complete → update PHASES.md status, commit, push, proceed to next phase
 - IMPORTANT EXTRA NOTE: NEVER fix typecheck errors without me specifically asking for it. When i ask you to do a task, you will NOT do typecheck before i specifically told you 'start a typecheck'
-- IMPORTANT EXTRA NOTE: NEVER acces the folder 'remote-chat'
 - IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
 
@@ -41,7 +38,6 @@ WHEN USER SAYS "go" (OR ANY MESSAGE):
 4. Update LAST_UPDATED in session-brief.md.
 5. Go to step 2 — do the next action. Keep going.
 6. IMPORTANT EXTRA NOTE: NEVER fix typecheck errors without me specifically asking for it. When i ask you to do a task, you will NOT do typecheck before i specifically told you 'start a typecheck'
-7. IMPORTANT EXTRA NOTE: NEVER acces the folder 'remote-chat'
 8. IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
 GitHub: kasper-kal/Infinity-AI — user is Kasper Kal (kasperkal1970@gmail.com)
