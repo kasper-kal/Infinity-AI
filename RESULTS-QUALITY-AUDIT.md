@@ -831,3 +831,572 @@ A complete graph of cause → effect:
 ```
 
 Fix the instruments — and then fix the fact that the model trusts them.
+
+---
+
+# Fixes — an extremely detailed implementation plan
+
+> **Status: proposal only. Nothing below has been applied to the code.**
+> Each fix lists the exact file, the exact lines/function, what to change, a code sketch,
+> why it addresses a specific audit finding, and how to verify. All fixes are $0 — they
+> use the free tooling already in the repo (npm/pnpm/vitest/eslint, local Ollama models,
+> free API adapters via `createBestAdapter`). None of them add a new system; each one
+> either repairs an instrument or reconnects one to the loop.
+>
+> **Order matters.** Stage 0 (real signals) must land before Stage 1 (closed loop) — a
+> closed loop over false signals is just faster feedback noise. Stage 4 (acceptance bar)
+> and Stage 5 (what "good" is) multiply everything else. Stage 3 is what the *user*
+> actually feels, but it's pointless while the instruments lie.
+
+---
+
+## Stage 0 — Make the environment real. Fix the instruments first.
+
+### Fix 0.1 — Install dependencies automatically. Nothing does this today.
+
+**Finding:** Workspace creation is `mkdir` only (`workspace.ts:524-529`); the
+`node_modules` symlink points at `.pnpm-store/v10` which doesn't exist on this machine
+(only `v11`), inside a swallowed try/catch, so generated projects have a `package.json`
+and **no `node_modules`** — and `verifyWorkspace` still reports green.
+
+**Files:**
+- `artifacts/api-server/src/lib/workspace.ts` — the workspace creation path
+- `artifacts/api-server/src/lib/structured-tools.ts` — `verifyWorkspace`, to call it first
+- `artifacts/api-server/src/lib/build-tools.ts` — the tool runner, for the install timeout
+
+**Change:**
+
+1. In `workspace.ts`, fix the dead symlink. Resolve whatever `.pnpm-store/v*` actually
+   exists, or fall back to a real install:
+
+```ts
+// workspace.ts — replace the swallowed symlink try/catch with:
+const storeCandidates = fs.existsSync("/workspaces/.pnpm-store/v10")
+  ? ["/workspaces/.pnpm-store/v10"]
+  : fs.readdirSync("/workspaces/.pnpm-store").map(v => `/workspaces/.pnpm-store/${v}`);
+if (storeCandidates.length > 0) {
+  try { fs.symlinkSync(storeCandidates[0], path.join(root, "node_modules"), "dir"); }
+  catch { /* best-effort; real install below */ }
+}
+```
+
+2. Add an idempotent `ensureWorkspaceDeps(workspaceId, projectId)` in `structured-tools.ts`
+   (or a new small `lib/workspace-deps.ts`): if `package.json` exists and
+   `node_modules/.package-lock.json` doesn't, run `npm install` (with `pnpm install` /
+   `bun install` fallback) **in a background task with a generous timeout (≥ 10 min)** —
+   not through the agent's `run_command` tool, which SIGKILLs at 30 s
+   (`build-tools.ts:365`). Record `installedAt` in project context so it runs once.
+
+```ts
+// structured-tools.ts — at the top of verifyWorkspace():
+await ensureWorkspaceDeps(workspaceId, projectId);   // no-op when already installed
+```
+
+3. **Call it before every verify and before the preview.** This is the single highest-
+   leverage mechanical fix: every downstream instrument (tsc, tests, build, screenshot)
+   starts producing *real* output once deps exist.
+
+**Verify:** freshly create a workspace, run `ensureWorkspaceDeps`, confirm `node_modules/`
+appears and `npx tsc --noEmit` reports the *project's* TypeScript, not the registry shim.
+
+---
+
+### Fix 0.2 — Fix the inverted success flag in `toolRunCommand`.
+
+**Finding (`build-tools.ts:372`):** `success: !err || (err as any).killed === false`
+makes a command that exits non-zero (but wasn't killed — i.e. an ordinary failed build)
+report `success: true`. Only a timeout reports failure. The model is *instructed* to run
+`npm run build`, gets `exitCode: 1` with `success: true`, and the harness records no error.
+
+**Change:**
+
+```ts
+// build-tools.ts:369-379 — the execFile callback
+(err, stdout, stderr) => {
+  const code = err && typeof err === "object" && "code" in err ? (err as { code?: number | string }).code : 0;
+  resolve({
+    success: !err,                       // ← the ONLY correct check
+    result: {
+      stdout: stdout?.slice(-10000) || "",
+      stderr: stderr?.slice(-10000) || "",
+      exitCode: err ? (typeof code === "number" ? code : 1) : 0,
+      timedOut: (err as { killed?: boolean } | null)?.killed === true,
+    },
+  });
+}
+```
+
+`err` is non-null exactly when the process exited non-zero or was killed. `!err` is
+correct; the `|| (err as any).killed === false` clause is what inverted it.
+
+**Also fix the knock-on:** `executeToolSequence`'s "stop on error" is a no-op
+(`build-tools.ts:581-583`) and the agent's error path keys on `!r.success`
+(`build-agent.ts:257`) — with Fix 0.2, `state.errors` will finally contain real failures,
+which the "fixing" phase (Fix 1.2) and oscillation detection (Fix 1.5) can act on.
+
+**Verify:** in a scratch workspace, `run_command("npm run build")` in a project with a
+broken build → `success: false`, error surface non-empty.
+
+---
+
+### Fix 0.3 — Implement `inspect_console` for real. It's a stub today.
+
+**Finding (`build-tools.ts:418-436`):** returns `success:true, logs:[]` with a TODO.
+Runtime errors physically cannot reach the model — so no amount of prompting about "no
+console errors" ever works; there is no wire.
+
+**Change:** implement using the BrowserPool that `toolScreenshot` already uses
+(`build-tools.ts:388-413`). Acquire a slot, attach CDP `Runtime.consoleAPICalled` and
+`Runtime.exceptionThrown` listeners, and buffer entries on the slot:
+
+```ts
+// build-tools.ts:418 — replace the stub body
+const pool = getBrowserPool();
+const slot = await pool.acquire(`console-${Date.now()}`);
+try {
+  const targetUrl = args.url || context.previewUrl || `http://127.0.0.1:${context.previewPort}`;
+  if (!targetUrl) return { success: false, error: "No preview URL available" };
+  const page = await slot.browser.getOrCreatePage(targetUrl);   // existing BrowserSlot API
+  const entries = await page.captureConsoleLogs({                // new method on InfinityBrowser
+    maxEntries, filter,                                            // filter: error|warning|log|all
+  });
+  return { success: true, result: { logs: entries } };
+} finally { pool.release(slot); }
+```
+
+This requires a small method on `InfinityBrowser` (in `puppeteer-browser.ts`, where
+`takeGridScreenshot` and `getInteractiveElements` live) that attaches the listeners when a
+page is created and stores up to ~200 entries. The listeners already have a home — the
+preview path, not the stub, is what's missing.
+
+**Verify:** generate a page that throws in a click handler; `inspect_console` returns the
+error as `logs[].level === "error"` with message + stack.
+
+---
+
+### Fix 0.4 — Stop the verification gate from reporting false green.
+
+**Finding (`structured-tools.ts:292-332`):** `npx tsc` hits the registry shim in a
+dep-less dir and `parseTypeScriptOutput` only matches `file(line,col): error TSxxxx` lines,
+so non-matching output parses to `[]` → "passed". `npx vitest`, `npx eslint`, and
+`npm run build` all run under `|| true`, so failures exit 0 and count as passing.
+`parseBuildArtifacts` always returns `[]`.
+
+**Changes (in `structured-tools.ts`):**
+
+1. After Fix 0.1, remove `|| true` from the build/vitest/eslint commands and honor real
+   exit codes:
+
+```ts
+const [tscResult, testResult, lintResult, buildResult] = await Promise.all([
+  runCommand("npx tsc --noEmit --pretty false", workspacePath, 120_000),
+  runCommand("npx vitest run --reporter=json", workspacePath, 120_000),
+  runCommand("npx eslint -f json .", workspacePath, 60_000),
+  runCommand("npm run build", workspacePath, 180_000),
+]);
+```
+
+2. In `parseTypeScriptOutput` (`structured-tools.ts:220-290`): if the tsc process exited
+   non-zero OR produced output that matched no `error TSxxxx` lines, return that raw output
+   as a failure instead of `[]`:
+
+```ts
+if (raw.trim() && parsed.length === 0 && exitCode !== 0) {
+  return [{ file: "(tsc)", line: 0, column: 0, code: "TSC-SHIM", message: raw.slice(0, 800), severity: "error" }];
+}
+```
+
+3. Replace the `parseBuildArtifacts` stub (`structured-tools.ts:276-284`) with one that
+   surfaces the build's stderr tail on `exitCode !== 0` as a `BuildArtifact` marked
+   `failed`.
+
+**Verify:** a project with a syntax error now yields `verifyWorkspace().ok === false` with
+actionable `formatVerificationFeedback()` — and with Deps installed (Fix 0.1) the failure
+is the *real* one.
+
+---
+
+## Stage 1 — Close the loop. Verification failure must reach a repair pass.
+
+### Fix 1.1 — Replace the blind retry loop with a fixer pass in execute-plan.
+
+**Finding (`build.ts:1131-1156`):** on `verifyWorkspace().ok === false`, the code sleeps
+and re-runs the *same* check; `formatVerificationFeedback(verify)` is computed and never
+fed to a model.
+
+**Change:** keep the feedback, hand it to a repair pass that returns file edits, then
+re-verify (up to `maxFixIterations = 3`): 
+
+```ts
+// build.ts:1133-1158, replacing the for-loop
+if (hasIsolated(projectId)) {
+  const verify = await verifyWorkspace(projectId, workspaceId);
+  if (!verify.ok) {
+    feedback = formatVerificationFeedback(verify);
+    for (let round = 0; round < maxFixIterations && feedback; round++) {
+      const fix = await runFixerPass(feedback, projectId, workspaceId, prompt); // existing fixer role
+      if (!fix.ok) break;
+      const recheck = await verifyWorkspace(projectId, workspaceId);
+      feedback = recheck.ok ? undefined : formatVerificationFeedback(recheck);
+    }
+  }
+}
+```
+
+`runFixerPass` is the orchestrator's existing `runFixer`/`buildFixerPrompt` path
+(`build-orchestrator.ts:884-925`) — the pieces exist, they're just not called from the
+route the UI uses. This converts the retry from a wait-loop into a repair-loop.
+
+**Verify:** introduce a deliberate TS error in a step; the fixer rewrites the file and the
+second verify passes.
+
+---
+
+### Fix 1.2 — Fix the one-way `fixing` phase trap and re-verify after `apply_fix`.
+
+**Finding (`build-agent.ts:271-277`):** the phase switch has no `fixing` case, so once a
+verification failure sets `phase = "fixing"`, the `phase === "verifying"` gate never
+becomes true again — automatic verification runs at most once per agent run. And after
+`tryLocalModelFix` applies patches, nothing re-runs verification
+(`build-agent.ts:434-449`).
+
+**Changes in `build-agent.ts`:**
+
+1. Add a `fixing` transition — if the fixer makes edits, return to `verifying`:
+
+```ts
+} else if (phase === "fixing" && hasFileEdits) {
+  newState.phase = "verifying";   // edits applied → re-verify (which can fail again → fixing)
+}
+```
+
+2. After the `apply_fix` loop, re-run `verifyWorkspace` and push the result into
+   `state.toolResults` (mirroring the existing verification-failure injection at
+   `build-agent.ts:453-457`):
+
+```ts
+const postFix = await verifyWorkspace(context.projectId, context.workspaceId);
+state.toolResults.push(postFix.ok
+  ? { success: true, result: { type: "verification", ok: true } }
+  : { success: false, error: formatVerificationFeedback(postFix), result: { type: "verification_failure" } });
+```
+
+**Verify:** force a failing verify, then a fix; confirm a second `verifyWorkspace` fires and
+its result reaches the model's next user message.
+
+---
+
+### Fix 1.3 — Use the native tool-call channel instead of regexing the prose.
+
+**Finding (`build-agent.ts:242` + `llm-adapter.ts:288-294`):** the adapter already
+extracts `choice.message.tool_calls` into `completion.toolCalls`, and the loop discards it
+by calling `parseToolCalls(completion.content)`.
+
+**Change:**
+
+```ts
+// build-agent.ts:242
+const toolCalls = completion.toolCalls?.length
+  ? completion.toolCalls.map(tc => ({
+      name: tc.function.name,
+      arguments: (() => { try { return JSON.parse(tc.function.arguments); } catch { return {}; } })(),
+      id: tc.id,
+    }))
+  : parseToolCalls(completion.content);   // fallback only for adapters without native calls
+```
+
+Pass `options.tools` and `toolChoice` (already present, `build-agent.ts:229-234`) and, where
+the adapter supports it, feed tool results back as proper `tool`-role messages rather than
+text — the conversation becomes `assistant(tool_call) → tool_result → assistant(...)`
+instead of a text proxy. This is the mechanical fix for your point #7.
+
+**Verify:** an instrumented run shows the tool loop using `completion.toolCalls` (no
+regex), with correct call `id`s threaded to results.
+
+---
+
+### Fix 1.4 — Make `done` real: it must require verification, and it must not be an "unknown tool".
+
+**Finding (`build-agent.ts:167-175, 484`):** `checkDone` matches `name === "done"` and
+`success = state.phase === "done"` — so a red build that calls `done` returns success to
+the caller, and `done` is not in `TOOL_DEFINITIONS` (it first executes as
+"Unknown tool: done").
+
+**Changes in `build-agent.ts`:**
+
+1. Register `done` in `TOOL_DEFINITIONS` (`build-tools.ts:57-181`) so the round-trip isn't
+   an error.
+2. Make success conditional on real verification being **green or explicitly skipped**:
+
+```ts
+// build-agent.ts:484
+const success = state.phase === "done"
+  && (state.verificationState?.ok === true || state.verificationState?.skipped === true);
+```
+
+Where `verificationState` is populated by `verifyWorkspace`: `ok=true` when green,
+`skipped=true` when there was nothing to run (no `package.json`, no tests configured) —
+with the skip case logged honestly, not treated as a pass. Never `ok=true` from a
+dep-less false-green (that disappears with Fix 0.1 + 0.4).
+
+**Verify:** a build that fails verification and then calls `done` returns
+`success: false` with the verification feedback surfaced.
+
+---
+
+### Fix 1.5 — Detect oscillation and no-progress. The loop currently runs blind to 20.
+
+**Finding:** nothing tracks repeated edits, identical re-proposals, or "this fix didn't
+help". The loop runs to `done` or `maxIterations` (20) regardless of whether it's spinning.
+
+**Change in `build-agent.ts`:** maintain a rolling fingerprint of workspace state (hash of
+each edited file's content, or of `(toolCall.name, JSON.stringify(args))`) across the last
+6 iterations:
+
+```ts
+// in runAutonomousAgent's state
+state.patterns = state.patterns ?? [];
+state.patterns.push(fingerprint(state.toolCalls, state.toolResults));
+if (state.patterns.length > 6) state.patterns.shift();
+
+const repeats = state.patterns.filter(p => p === state.patterns[state.patterns.length - 1]).length - 1;
+if (repeats >= 2 && !state.noProgressNotified) {
+  state.noProgressNotified = true;
+  state.errors.push("No progress detected — the last edit did not change the workspace. Stop repeating and pick a different approach.");
+}
+```
+
+The model then sees this as a first-class error (it's in the `## ERRORS SO FAR` block) and
+can change strategy — which is the "notice when its current hypothesis is wrong" habit from
+your point #4, made environmental rather than instructed.
+
+**Verify:** feed a loop a task it can't solve; confirm it stops repeating the same edit
+after 2 identical proposals.
+
+---
+
+## Stage 2 — Ground the decisions in real content, not placeholders.
+
+### Fix 2.1 — Store real file contents, not `[Modified by step-X]` placeholders.
+
+**Finding (`build-orchestrator.ts:964`):** `modifiedFiles` stores
+`"[Modified by step-" + stepId + ": " + summary + "]"` instead of content, so the reviewer
+(`## MODIFIED FILE CONTENTS (after Coder changes)`) and cross-step coders read descriptions,
+never code.
+
+**Change:** capture the actual bytes the coder wrote:
+
+```ts
+// build-orchestrator.ts — applyCoderChanges
+for (const change of handoff.changes) {
+  const real = await readWorkspaceFile(change.file, workspaceId);   // or read from the agent result
+  this.context.modifiedFiles.set(change.file, real ?? `[Missing: ${change.file}]`);
+}
+```
+
+Where the agent already returns content, store that directly. Reviewer and
+`gatherStepContext.relevantFiles` (`build-orchestrator.ts:931-959`) then operate on the code.
+
+**Verify:** the reviewer prompt's modified-file fenced blocks contain real source.
+
+---
+
+### Fix 2.2 — Use the coder prompt that's built and thrown away.
+
+**Finding (`build-orchestrator.ts:829-861`):** `buildCoderPrompt(step, stepContext)` is
+computed and its return value never used — the step is flattened into a goal string for the
+generic loop, dropping target files, acceptance criteria, and dependency file contents.
+
+**Change:** pass the step context into the agent as real structure. Easiest correct version:
+drive `runAgentForStep` with a user message assembled like the coder prompt (title,
+description, target files, acceptance criteria, cross-step file contents), so the tool loop
+starts with the step's contract instead of discovering it from prose.
+
+**Verify:** two dependent steps — step B's prompt contains actual content of step A's output
+file (see Fix 2.1).
+
+---
+
+### Fix 2.3 — Give the planner enough budget and real inputs.
+
+**Finding:** planner gets `maxTokens: 900` (`build.ts:177`), only file *names* and
+serialized summaries, no requirement clarifier, no stack selector. A 900-token output can't
+hold title+summary+steps+files+risks for a real product.
+
+**Changes in `build.ts:152-183`:**
+- Raise `maxTokens` to ≥ 4000.
+- Pass requirement-clarifier stage output (PRD) and tech-stack-selector result into the
+  planner's user message — both already exist.
+- Include content of the *existing* workspace files named in `existingFiles`, not just the
+  names.
+
+**Verify:** the plan JSON for the SaaS-landing-page example now contains concrete steps with
+data flow (not just "build a header").
+
+---
+
+## Stage 3 — Wire the product path to the machinery that actually works.
+
+### Fix 3.1 — The build button must reach the reviewer/fixer pipeline.
+
+**Finding:** `grep -c "orchestrat" build-studio.tsx` → **0**. The user-facing Build Studio
+uses the shallow `/build/plan` + `/build/execute-plan`; the orchestrator (real reviewer,
+fixer, adversarial verify) is reachable only by raw HTTP.
+
+**Change:** in `build-studio.tsx`'s `runAutoPipeline`/`continueBuild`
+(`build-studio.tsx:1322-1330, 1494-1588`), after `execute-plan` completes, POST to
+`/api/infinity/build/orchestrate` to run the review/fix loop instead of / in addition to the
+8-pass iterate loop — or fold `runReviewer`+`runFixer` into the execute-plan route so the
+UI doesn't change. The second option is less invasive: import `runReviewer`/`runFixer` and
+call them per step in `build.ts` after verify.
+
+**Verify:** after a normal build, a reviewer pass runs with real verification output in the
+event log, and findings trigger fixer rounds.
+
+---
+
+### Fix 3.2 — Scaffold first; then inject the component corpus.
+
+**Finding (Failure 3):** the framework adapters (`framework-generators/`,
+`generateScaffold`), the 50+ component corpus (`ui-codegen.ts:82`, `SHADCN_COMPONENTS`),
+and the 6 template starters are imported by **no build route**.
+
+**Change:** in `/build/plan` or a new first step of `/build/execute-plan`, when the
+workspace is empty, write the framework adapter's complete scaffold (pinned `package.json`,
+`tsconfig`, `vite.config`, entry, Tailwind, `components.json`, `ui/button.tsx` — exactly
+what `vite-react.ts:46-140` produces) before any generation. Then the coder prompt gets a
+hard block:
+
+> "DO NOT rewrite `package.json`, `tsconfig*`, `vite.config.*`. A runnable project skeleton
+> already exists. Reuse the existing Tailwind design system and the UI library (shadcn:
+> [list of SHADCN_COMPONENTS keys]). NEVER invent a dependency version — if it's not in
+> `package.json`, add it through `run_command("npm install <pkg>@<version>")`."
+
+This kills the "model invents APIs, files, or patterns that don't exist" problem at the
+source — the ground truth is a real, pinned, runnable project.
+
+**Verify:** a fresh build writes the scaffold first, and the generated app's `npm run build`
+succeeds with the pinned versions.
+
+---
+
+## Stage 4 — Institute an acceptance bar.
+
+### Fix 4.1 — Wire the done contract and implement the empty quality gates.
+
+**Finding:** `runDoneContract`/`DoneContractEngine` (`build-done-contract.ts:1312`) has
+zero callers; `runQualityGates` (`workflow-orchestrator.ts:1109-1131`) is empty
+switch-case stubs.
+
+**Change:**
+1. In `runQualityGates`, implement gates backed by real tooling (build via `npm run build`,
+   typecheck via `npx tsc --noEmit`, tests via `npx vitest run`, lint via `npx eslint -f
+   json .`) — reusing `verifyWorkspace` where the worktree matches
+   (`structured-tools.ts:292-332`).
+2. Call `runDoneContract(projectId, workspaceId)` at the end of `/build/execute-plan`
+   (after Fix 0.1 deps), and gate completion on it.
+3. **Do NOT wire the fake gates.** `build-done-contract.ts`'s a11y/perf/SEO/visual/bundle
+   checks return `passed:true` unconditionally. List them as `status: "not-enforced"` in
+   the contract result until they have real backends, so "done" is an honest statement, not
+   a green lie (this is the exact inverse of the current false-green verify).
+
+**Verify:** completion requires build+typecheck+tests green; an app with a failing test
+cannot reach "done".
+
+---
+
+## Stage 5 — Tell the model what "good" means, in the tokens it actually has.
+
+### Fix 5.1 — Cut the identity boilerplate.
+
+**Finding (`infinity-prompt.ts:20-50`):** ~500 tokens/iteration of "you are NOT ChatGPT"
+roleplay, sent up to 20 iterations per agent run.
+
+**Change:** shrink `INFINITY_IDENTITY` to two lines:
+
+```ts
+export const INFINITY_IDENTITY = `You are Infinity, an autonomous software engineering agent acting on a local workspace.`;
+```
+
+Return the saved budget to task context (more file contents, more tool results).
+
+### Fix 5.2 — Add an explicit quality-standards block to planner and coder prompts.
+
+**Finding (Failure 4):** the prompts tell the model to "typecheck" but never define what
+shipped software is.
+
+**Change:** add a shared `INFINITY_QUALITY_STANDARDS` block (in `infinity-prompt.ts`,
+included for role `planner` and `coder`) covering: data modeling and server validation,
+kosher error/empty/loading states, authentication and authorization boundaries, state
+management, responsive + a11y behavior, tested behavior (write tests when the framework
+supports it), and a hard rule — **no TODOs, no hardcoded demo data, no invented
+dependencies.** The planner and coder already *have* a quality contract in their role
+sections; this makes it substantive instead of procedural.
+
+### Fix 5.3 — Give the loop a memory of its own reasoning (conversation continuity).
+
+**Finding (`build-agent.ts:201-226`):** every iteration is a fresh 2-message call; the model
+can't build on its own prior reasoning.
+
+**Change:** grow the `messages` array instead of rebuilding it. Append the assistant
+content + executed tool results as additional user/tool messages; when the message budget
+is exceeded, compact the oldest turns (the orchestrator's `checkAndCompactContext` and
+`context-compactor.ts` already implement this for Path B). Then the model reasons over its
+own turns — "I already read file X, my edit produced Y" — which is the mechanism your point
+#3 is missing: the big library becomes an *open* library, not five pages at a time.
+
+**Verify:** mid-build, a tool result from iteration 3 is still quoted by the model at
+iteration 9 without re-reading.
+
+---
+
+## Stage 6 — Behavior from the environment, not the prompt (tool strategy as policy).
+
+### Fix 6.1 — Enforce the behavioral heuristics in the tool layer.
+
+**Finding (your point #4):** the tools exist; the habits don't, because they're only
+*described* in prose the model may ignore.
+
+**Change in `build-tools.ts` `executeTool` (`build-tools.ts:197-267`):** make the harness
+enforce the cheap, universal habits mechanically:
+- **Read-before-write:** `edit_file` on an existing file returns an error unless a prior
+  `read_file` (or a verification-file-listing) touched that path in the same agent run —
+  first violation auto-injects the file's current content as a tool result instead of
+  failing. (Environment provides the data; model keeps agency.)
+- **Auto-diff after edit:** after every `edit_file`, append a `generateUnifiedDiff` output
+  (`structured-tools.ts:82`) as a synthetic tool result so the model *sees* what it changed
+  without requesting `git_diff` — the "re-read changed code" habit, made automatic.
+- **Scoped tests first:** when a step declares target files, `run_command` defaults
+  `cwd`/test-glob to the smallest relevant unit so verification starts where the change is.
+
+This converts "inspect before touching / re-read changed code / test the smallest relevant
+thing" from instructions into properties of the environment — your point #2's principle,
+applied concretely.
+
+### Fix 6.2 — Convergence over capability additions.
+
+**Finding (your point #5):** 42 phases each added a *system*; none of them changed the
+central loop. The fix is not a Phase 43 — it's folding the existing systems *into* the loop
+(Fixes 0–5 already do exactly that: tools, verify, reviewer, done-contract, compaction,
+corpus all become ingredients of one decision loop).
+
+**Gate for future phases:** *"Does this feature feed the model's next decision with real
+information, or does it exist?"* If the former — wire it. If the latter — don't build it.
+
+---
+
+## Validation sequence to run after the fixes
+
+1. Fresh build of the SaaS-landing-page example → scaffold written, `npm install` runs,
+   `npm run build` succeeds with pinned versions.
+2. `verifyWorkspace` fails when I break a type and fails *truthfully* (no `|| true`).
+3. A broken step produces a fixer pass (not a sleep), and the second verify reflects the
+   repair.
+4. `inspect_console` catches a thrown runtime error.
+5. `done` is refused while unverified.
+6. The model quotes its own earlier tool results mid-build (conversation continuity).
+7. A red build can never render the green completion card.
+
+Each line item maps to a specific fix above. When all seven behave, the "results aren't…
+good" complaint is addressed at the level that causes it: not the model, not the prompt,
+but an environment whose instruments tell the truth and whose loop is closed.
