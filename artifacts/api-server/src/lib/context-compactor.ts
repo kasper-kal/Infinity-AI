@@ -624,9 +624,11 @@ export function extractPreservationRules(
 export {
   countTokens,
   countMessageTokens,
-  TokenBudget,
   createTokenBudget,
   getCompactionLevel,
   getBudgetStatus,
 };
-export type { CompactionLevel, PreservationRules, CompactionResult };
+// `TokenBudget` is a type-only interface in token-counter.ts; it must be
+// re-exported as a TYPE, otherwise the esbuild bundle keeps a runtime named
+// import that Node ESM resolves and fails on.
+export type { TokenBudget, CompactionLevel, PreservationRules, CompactionResult };

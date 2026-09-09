@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
+import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -96,16 +97,20 @@ app.use("/api", router);
 // ── Serve built frontend static files (production only) ──
 // In development the Vite dev server handles the frontend; attempting to serve
 // the unbuilt dist folder here would throw ENOENT and produce spurious 500s.
-if (process.env["NODE_ENV"] !== "development") {
-  const staticDir = path.resolve(__dirname, "..", "..", "..", "artifacts", "infinity", "dist", "public");
+// staticDir is resolved only when the frontend is actually built, so a dev-mode
+// server (no dist) returns a clean 404 for non-API routes instead of crashing.
+const staticDir = path.resolve(__dirname, "..", "..", "..", "artifacts", "infinity-ai", "dist");
+const staticIndex = path.join(staticDir, "index.html");
+if (process.env["NODE_ENV"] !== "development" && existsSync(staticIndex)) {
   app.use(express.static(staticDir));
 
   // ── SPA fallback, any non-API, non-static request serves index.html ──
   app.use((req: Request, res: Response) => {
-    res.sendFile(path.join(staticDir, "index.html"));
+    res.sendFile(staticIndex);
   });
 } else {
-  // In development: return a clean 404 for any non-API route instead of crashing
+  // In development (or when the frontend isn't built): return a clean 404 for
+  // any non-API route instead of crashing.
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: "Not found (dev mode: frontend is served by Vite)" });
   });

@@ -1,4 +1,4 @@
-LAST_UPDATED: 2026-09-08 — **Phase 42: Auth frontend — COMPLETE ✅ (FINAL PHASE)** — Real, usable frontend authentication built on the complete backend auth system (`/api/auth/*`). Two-step MFA login: password → 10-min pending-login token → factor (passkey/TOTP/backup) → session with `mfa_verified_at`. Session elevation (60-min window via `requireRecentMfa`) gating sensitive actions. Persistent guest mode (`infinity-auth-guest`) keeps app usable without accounts (primary user historically has no accounts row). Components:
+LAST_UPDATED: 2026-09-09 — **Session: white-screen fix verified + sw.js de-TS'd + 42-phase audit in progress** — Real, usable frontend authentication built on the complete backend auth system (`/api/auth/*`). Two-step MFA login: password → 10-min pending-login token → factor (passkey/TOTP/backup) → session with `mfa_verified_at`. Session elevation (60-min window via `requireRecentMfa`) gating sensitive actions. Persistent guest mode (`infinity-auth-guest`) keeps app usable without accounts (primary user historically has no accounts row). Components:
   - `lib/auth.tsx` — AuthProvider + useAuth context (status, account, guest, pendingLogin, refresh/login/completeMfa/cancelMfa/register/logout/updateProfile/changePassword/revokeAllSessions/enterGuest/exitGuest), `getDeviceFingerprint()` for trusted-device cookie
   - `components/auth/LoginView.tsx` — Full-screen gate: sign in / sign up tabs, MfaChallenge integration, "trust this device" checkbox + fingerprint, guest bypass
   - `components/auth/MfaChallenge.tsx` — Reusable two-step challenge (passkey/TOTP/backup) from Phase 42
@@ -12,6 +12,7 @@ LAST_UPDATED: 2026-09-08 — **Phase 42: Auth frontend — COMPLETE ✅ (FINAL P
 All 42 phases COMPLETE.
 
 ## Change record (newest first)
+- **2026-09-09 Servers running + white screen ROOT-CAUSED + phase audit launched** — API server up on :8080 (esbuild build, NOT tsx — it has ESM export-linking issues; advanced-agent.ts `export default router` fix), frontend Vite up on :5173. White screen fixed: `src/hooks/index.ts:15` re-exported `useMobile` which doesn't exist in `use-mobile.tsx` (only `useIsMobile`) — the ESM barrel crash blanked the entire app (verified via headless-chrome pageerror, then re-verified login view renders). `public/sw.js` stripped of all TS annotations (was un-parseable by browsers — `NotificationAction[]`, `as SafetyWatcherNotificationData`, `(action:string)`, `(url:string)`; now valid plain JS per `node --check`, SW registers cleanly). Committed `4ae247e`. Audit of Phases 5-7 (Terminal bridge/MCP/VS Code) done; Phases 8-42 agents relaunched.
 - **2026-09-08 Frontend Auth COMPLETE** — Built complete auth UI on top of finished backend (`/api/auth/*`): `lib/auth.tsx` (AuthProvider + useAuth with guest mode), `components/auth/LoginView.tsx` (sign in/up + MfaChallenge + guest bypass), `components/auth/AccountMenu.tsx` (Desktop header dropdown), `components/settings/AccountSettings.tsx` (profile/password/sessions), SettingsView `account` section, App.tsx AuthProvider wrapper, AppShellRouter auth gate (loading → LoginView), DesktopShell AccountMenu in headerActions, ~28 balanced EN+NL i18n keys. Frontend build ✅. All 42 phases COMPLETE.
 - **2026-09-08 docs FINALIZED + pushed (commit 9f1a7e8)** — PHASES.md Phase 42 → COMPLETE (all requirement boxes, file list, deviations noted), session-brief header/change-record/project-state/next-actions updated to "ALL 42 PHASES COMPLETE", KNOWLEDGE.md MFA fact + decision entry. api-server esbuild build ✅, frontend vite build ✅.
 - **2026-09-08 Phase 42 COMPLETE (final phase — all 42 phases done)** — Passkeys + TOTP integration:
@@ -1160,9 +1161,9 @@ All 42 phases COMPLETE.
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **✅ DONE — ALL 42 PHASES COMPLETE** — roadmap finished.
-2. **Phase 42 (final): Passkeys + TOTP** — **COMPLETE ✅**. Two-step login live server-side; `MfaChallenge` component ready for any future LoginView.
-3. **Ongoing (optional follow-ups if desired)**: wire `MfaChallenge` into a real login form when one is added frontend-side (no LoginView exists today); add passkey conditional-UI autofill there too.
+1. **IN PROGRESS — Exhaustive 42-phase audit (user request)** — produce `PHASES-CHECK.md` with overview table + granular evidence (`file:line — function`) per phase. Phases 1-7 verified ✅. Phases 8-42: 4 Explore agents (8-15, 16-23, 24-31, 32-42) re-launched after temp API failures; synthesize results → fill overview + granular sections → commit.
+2. **Servers** — api :8080 + frontend :5173 confirmed running; optionally address non-fatal boot warnings (missing DB relations `tasks`, `build_schedules`; `project_id` migration) later.
+3. **✅ DONE — ALL 42 PHASES COMPLETE** — roadmap finished per project records; audit independently verifies that claim with evidence.
 
 ## Locked decisions
 - Projects System: **plan-first** — build only after all requirements are planned (user instruction).
