@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireScope, AuthenticatedRequest } from "../../middleware/auth-middleware.js";
 import { getRulesEngine, RuleScope, RuleKind, RuleDefinitionSchema, ParsedRuleFileSchema, BUILTIN_RULE_TEMPLATES } from "../../lib/rules.js";
 import { getNotepadsManager, NotepadScope, NotepadCategory, NotepadFrontmatterSchema, BUILTIN_NOTEPAD_TEMPLATES } from "../../lib/notepads.js";
-import { getModelRouter, ModelCapability, ModelProvider, CapabilityPreferenceSchema, FallbackEntrySchema, BUILTIN_MODELS, ModelConfigSchema } from "../../lib/model-router.js";
+import { getModelRouter, ModelCapability, ModelProvider, CapabilityPreferenceSchema, FallbackEntrySchema, BUILTIN_MODELS, ModelConfigSchema, ProjectModelPreferences, UserModelPreferences } from "../../lib/model-router.js";
 
 const router = Router();
 
@@ -473,6 +473,225 @@ router.post("/models/custom", requireScope("build:write"), async (req: Authentic
     res.json({ success: true, model: validation.data });
   } catch (error) {
     console.error("Error registering custom model:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+/**
+ * ============ MODEL PREFERENCES (Frontend-compatible endpoints) ============
+ * These endpoints match what the frontend ModelPreferences component expects
+ */
+
+// Get all model preferences (user + project + available models)
+router.get("/model-preferences", requireScope("build:read"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const projectRoot = req.query.projectRoot as string || process.cwd();
+    const modelRouter = getModelRouter();
+
+    // Get project preferences
+    const projectPrefs = await modelRouter.loadProjectPreferences(projectRoot);
+
+    // Get user preferences
+    const userPrefs = await modelRouter.loadUserPreferences(req.accountId);
+
+    // Get available models (built-in + custom)
+    const availableModels = modelRouter.getAvailableModels();
+
+    res.json({
+      projectPreferences: projectPrefs?.capabilities || [],
+      userPreferences: userPrefs?.capabilities || [],
+      availableModels: availableModels.map(m => ({
+        id: m.id,
+        provider: m.provider,
+        displayName: m.name,
+        capabilities: m.capabilities,
+        contextWindow: m.contextWindow,
+        maxOutput: m.maxOutputTokens,
+        pricing: m.costPer1kInputTokens > 0 || m.costPer1kOutputTokens > 0 ? {
+          input: m.costPer1kInputTokens,
+          output: m.costPer1kOutputTokens
+        } : null,
+        supportsStreaming: m.supportsStreaming,
+        supportsTools: m.supportsTools,
+        supportsVision: m.supportsVision,
+        isLocal: m.provider === ModelProvider.OLLAMA || m.provider === ModelProvider.LM_STUDIO,
+        isFree: m.costPer1kInputTokens === 0 && m.costPer1kOutputTokens === 0,
+        tags: []
+      }))
+    });
+  } catch (error) {
+    console.error("Error loading model preferences:", error);
+    res.status(500).json({ error: "Failed to load model preferences" });
+  }
+});
+
+// Create model preference (project or user scope)
+router.post("/model-preferences", requireScope("build:write"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { projectRoot, scope = "project", capability, modelId, priority, enabled, fallbackChain, tags } = req.body;
+    const validation = CapabilityPreferenceSchema.safeParse({ capability, primaryModelId: modelId, fallbackChain: fallbackChain || [], preferences: {} });
+    if (!validation.success) {
+      return res.status(400).json({ error: "Invalid capability preference", details: validation.error.errors });
+    }
+
+    const modelRouter = getModelRouter();
+
+    if (scope === "project") {
+      const prefs = await modelRouter.loadProjectPreferences(projectRoot || process.cwd());
+      const existing = prefs?.capabilities.find(c => c.capability === capability);
+      const newCap = {
+        ...validation.data,
+        fallbackChain: fallbackChain || []
+      };
+      if (existing) {
+        // Update existing
+        const updated = prefs?.capabilities.map(c => c.capability === capability ? newCap : c) || [];
+        await modelRouter.saveProjectPreferences({ ...prefs!, capabilities: updated, projectId: projectRoot || process.cwd() });
+      } else {
+        // Add new
+        await modelRouter.setProjectCapabilityPreference(projectRoot || process.cwd(), newCap);
+      }
+    } else {
+      const prefs = await modelRouter.loadUserPreferences(req.accountId);
+      const existing = prefs?.capabilities.find(c => c.capability === capability);
+      const newCap = {
+        ...validation.data,
+        fallbackChain: fallbackChain || []
+      };
+      if (existing) {
+        const updated = prefs?.capabilities.map(c => c.capability === capability ? newCap : c) || [];
+        await modelRouter.saveUserPreferences({ ...prefs!, capabilities: updated, userId: req.accountId });
+      } else {
+        await modelRouter.setUserCapabilityPreference(req.accountId, newCap);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error creating model preference:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Update model preference
+router.patch("/model-preferences/:id", requireScope("build:write"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { projectRoot, scope = "project", capability, modelId, priority, enabled, fallbackChain, tags } = req.body;
+    const validation = CapabilityPreferenceSchema.safeParse({ capability, primaryModelId: modelId, fallbackChain: fallbackChain || [], preferences: {} });
+    if (!validation.success) {
+      return res.status(400).json({ error: "Invalid capability preference", details: validation.error.errors });
+    }
+
+    const modelRouter = getModelRouter();
+
+    if (scope === "project") {
+      const prefs = await modelRouter.loadProjectPreferences(projectRoot || process.cwd());
+      if (!prefs) return res.status(404).json({ error: "Project preferences not found" });
+      const updated = prefs.capabilities.map(c => c.capability === capability ? { ...validation.data, fallbackChain: fallbackChain || [] } : c);
+      await modelRouter.saveProjectPreferences({ ...prefs, capabilities: updated });
+    } else {
+      const prefs = await modelRouter.loadUserPreferences(req.accountId);
+      if (!prefs) return res.status(404).json({ error: "User preferences not found" });
+      const updated = prefs.capabilities.map(c => c.capability === capability ? { ...validation.data, fallbackChain: fallbackChain || [] } : c);
+      await modelRouter.saveUserPreferences({ ...prefs, capabilities: updated });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating model preference:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Delete model preference
+router.delete("/model-preferences/:id", requireScope("build:write"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { projectRoot, scope = "project" } = req.query;
+    const modelRouter = getModelRouter();
+
+    if (scope === "project") {
+      const prefs = await modelRouter.loadProjectPreferences(projectRoot as string || process.cwd());
+      if (!prefs) return res.status(404).json({ error: "Project preferences not found" });
+      const updated = prefs.capabilities.filter(c => c.capability !== id);
+      await modelRouter.saveProjectPreferences({ ...prefs, capabilities: updated });
+    } else {
+      const prefs = await modelRouter.loadUserPreferences(req.accountId);
+      if (!prefs) return res.status(404).json({ error: "User preferences not found" });
+      const updated = prefs.capabilities.filter(c => c.capability !== id);
+      await modelRouter.saveUserPreferences({ ...prefs, capabilities: updated });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting model preference:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Test model
+router.post("/model-preferences/test", requireScope("build:write"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { projectRoot, modelId } = req.body;
+    const modelRouter = getModelRouter();
+    const model = modelRouter.getAvailableModels().find(m => m.id === modelId);
+
+    if (!model) {
+      return res.status(404).json({ error: "Model not found" });
+    }
+
+    // Test by getting the adapter and doing a minimal request
+    const adapter = getLLMAdapter({
+      provider: model.provider,
+      model: model.modelId,
+      apiKeyRef: model.apiKeyRef,
+      baseUrl: model.baseUrl,
+      headers: model.headers
+    });
+
+    // Simple test - just check if adapter can be created
+    await adapter.complete({ messages: [{ role: "user", content: "test" }], maxTokens: 1 });
+
+    res.json({ success: true, message: "Model test successful" });
+  } catch (error) {
+    console.error("Error testing model:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// Set default model for capability
+router.post("/model-preferences/:id/set-default", requireScope("build:write"), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params; // capability
+    const { projectRoot, scope = "project" } = req.body;
+    const modelRouter = getModelRouter();
+
+    if (scope === "project") {
+      const prefs = await modelRouter.loadProjectPreferences(projectRoot || process.cwd());
+      if (!prefs) return res.status(404).json({ error: "Project preferences not found" });
+      const cap = prefs.capabilities.find(c => c.capability === id);
+      if (!cap) return res.status(404).json({ error: "Capability not found" });
+      await modelRouter.saveProjectPreferences({
+        ...prefs,
+        defaultModelId: cap.primaryModelId,
+        capabilities: prefs.capabilities.map(c => ({ ...c, isDefault: c.capability === id }))
+      });
+    } else {
+      const prefs = await modelRouter.loadUserPreferences(req.accountId);
+      if (!prefs) return res.status(404).json({ error: "User preferences not found" });
+      const cap = prefs.capabilities.find(c => c.capability === id);
+      if (!cap) return res.status(404).json({ error: "Capability not found" });
+      await modelRouter.saveUserPreferences({
+        ...prefs,
+        defaultModelId: cap.primaryModelId,
+        capabilities: prefs.capabilities.map(c => ({ ...c, isDefault: c.capability === id }))
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error setting default model:", error);
     res.status(500).json({ error: (error as Error).message });
   }
 });

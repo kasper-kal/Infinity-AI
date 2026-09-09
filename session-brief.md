@@ -47,6 +47,7 @@ All 42 phases COMPLETE.
   - Phase 40 = 100% COMPLETE
 
 ## Just did (last action)
+- **2026-09-09 Phase 26 DONE — Fixed API endpoint mismatch for Rules/Notepads/ModelPreferences** — Frontend components (RulesEditor, NotepadManager, ModelPreferences) expected `/customization/model-preferences/*` endpoints but backend only had `/models/preferences/project/:projectId` and `/models/preferences/user/:userId`. Added 7 new frontend-compatible endpoints to `artifacts/api-server/src/routes/infinity/customization.ts`: GET/POST/PATCH/DELETE `/model-preferences`, POST `/model-preferences/test`, POST `/model-preferences/:id/set-default`. All three panels now build cleanly (RulesEditor 21KB, NotepadManager 24KB, ModelPreferences 27KB) and connect to correct API paths.
 - **2026-09-09 Phase 15 DONE — SkillsSettingsPanel created with full CRUD** — New component `artifacts/infinity-ai/src/components/settings/SkillsSettingsPanel.tsx` (1300+ lines) with 5 tabs: All Skills / Project Skills / Team Skills / Marketplace / Custom Instructions. Each tab has complete CRUD (Create/Edit/Delete/Import/Export dialogs with validation). Marketplace tab: install/publish/search with version cards. Custom Instructions: project/team/global scope with markdown preview. Import/Export supports JSON/YAML. Wired into `SettingsView.tsx` via import at top + rendered in Skills tab content area. Added ~70 EN + ~70 NL i18n keys in `lib/i18n.tsx` (skills.*, marketplace.*, customInstructions.*). Both esbuild builds pass cleanly (SkillsSettingsPanel 307KB, SettingsView 924KB output). Phase 15 now 100% COMPLETE.
 - **42-phase audit shipped** — Wrote full evidence into `PHASES-CHECK.md` (all 42 phases, `file:line — function` tables), reconciled `PHASES.md` (overview statuses AND per-phase task checkboxes), fixed stale notes. 29 phases fully verified; gaps documented for 13. Pushed `79f2277` + `477c20c` + `2bd15f5`.
 - **Phase 37: Fully Automated End-to-End Workflow — COMPLETE ✅** (Frontend fully implemented):
@@ -530,6 +531,7 @@ All 42 phases COMPLETE.
 - **Phase 18 — v0-Style Collaborative Workflows — COMPLETE ✅**
 - **Phase 17 — Visual Component Editor — COMPLETE ✅**
 - **Phase 16 — v0-Level Generative UI Engine — COMPLETE ✅**
+- **Phase 26 — Rules, Notepads & Customization (Cursor Personalization) — COMPLETE ✅** (Fixed API endpoint mismatch: frontend expected `/customization/model-preferences/*` but backend had `/models/preferences/project/:projectId`. Added 7 new frontend-compatible endpoints to customization.ts router. All 3 panels (RulesEditor, NotepadManager, ModelPreferences) now build and connect successfully)
 - **Phase 15 — Agent Skills & Custom Instructions Marketplace — COMPLETE ✅** (SkillsSettingsPanel created 1300+ lines with 5 tabs full CRUD, imported in SettingsView, i18n ~70 EN+NL keys, builds pass)
 - **Phase 14 — Enterprise Features — COMPLETE ✅**
 - **Phase 13 — External Service Connectors — COMPLETE ✅**

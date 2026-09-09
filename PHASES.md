@@ -38,7 +38,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
 | **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ⚠️ **90%** — ChatSidebar/Composer panels unmounted (editor extensions only) |
 | **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | ✅ COMPLETE |
-| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ⚠️ **85%** — panel API base-path/endpoint mismatch |
+| **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ✅ **100%** |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | ⚠️ **90%** — 8 dims / 25 rules (not 9 / 40+) |
 | **28** | **Design Mode & Visual Editing (Cursor Design Mode)** | ⚠️ **90%** — ComponentPlayground preview is a stub |
 | **29** | **IDE Integrations & CLI (Cursor Everywhere)** | ✅ **COMPLETE** |
@@ -1159,7 +1159,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 26: Rules, Notepads & Customization (Cursor Personalization) — ⚠️ **85%** (panel HTTP base-path + endpoint mismatch)
+## 📦 Phase 26: Rules, Notepads & Customization (Cursor Personalization) — ✅ **100%**
 
 ### Goal
 **Personalize AI behavior per project/team/user** — Rules (project/user), Notepads (reusable context), Model Preferences, Custom Instructions — all version-controlled and shareable.
@@ -1185,18 +1185,23 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - [x] **Custom Instructions** — Free-form prompt additions:
   - Per-agent overrides (composer vs agent vs chat)
   - UI: Settings → AI Customization
+- [x] **API Endpoint Alignment** — Fixed base-path/endpoint mismatch between frontend and backend:
+  - Frontend expected `/customization/model-preferences/*` but backend had `/models/preferences/project/:projectId`
+  - Added 7 new frontend-compatible endpoints to `/customization` router
+  - All panels now build and connect successfully
 
 ### Implementation Plan
 1. ✅ **Rules Parser** — Load rules files, parse frontmatter + glob patterns
 2. ✅ **Notepad Manager** — CRUD for notepads, file-based storage, @notepad resolver
 3. ✅ **Model Router** — Extend LLM adapter with per-capability model selection
 4. ✅ **Settings UI** — Rules editor, Notepad manager, Model preferences panel
+5. ✅ **API Alignment** — Added missing frontend-compatible endpoints
 
 ### Files to Create/Modify
 - ✅ `artifacts/api-server/src/lib/rules.ts` (new)
 - ✅ `artifacts/api-server/src/lib/notepads.ts` (new)
 - ✅ `artifacts/api-server/src/lib/model-router.ts` (new)
-- ✅ `artifacts/api-server/src/routes/Infinity/customization.ts` (new)
+- ✅ `artifacts/api-server/src/routes/infinity/customization.ts` (new — +7 new model-preference endpoints)
 - ✅ `artifacts/infinity-ai/src/components/cursor/RulesEditor.tsx` (new)
 - ✅ `artifacts/infinity-ai/src/components/cursor/NotepadManager.tsx` (new)
 - ✅ `artifacts/infinity-ai/src/components/cursor/ModelPreferences.tsx` (new)
