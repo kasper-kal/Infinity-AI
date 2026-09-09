@@ -2262,3 +2262,306 @@ function registerFileTools(): void {
 
 // Auto-register file tools on module load
 registerFileTools();
+
+// ============================================================================
+// PHASE 36 — Build Map Tools
+// ============================================================================
+// Expose the Visual Build Map (AI-Managed Roadmap) to the Universal Agent
+
+function registerBuildMapTools(): void {
+  import("./build-map").then(({ getBuildMapManager, getBuildMapAgent }) => {
+    import("./build-map-agent").then(({ BuildMapAgent }) => {
+      // The build-map-agent module is already imported above
+
+      // buildmap.get — get the full build map graph for a project
+      registerTool({
+        name: "buildmap.get",
+        description: "Get the full Visual Build Map graph for a project. Returns nodes (features, components, pages, APIs, tests, docs, etc.) and edges (dependencies, data flow, user flows). Use to understand project structure and current status.",
+        category: "build",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId } = args as { projectId: string };
+          const manager = getBuildMapManager(projectId);
+          const graph = manager.getGraph();
+          return {
+            success: true,
+            data: graph,
+            summary: `Build map for ${projectId}: ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
+          };
+        },
+        timeoutMs: 10000,
+      });
+
+      // buildmap.analyze — run graph analysis to find gaps, bottlenecks, suggestions
+      registerTool({
+        name: "buildmap.analyze",
+        description: "Run AI analysis on the build map to find gaps (missing tests, docs), bottlenecks (blocked high-priority nodes), circular dependencies, orphan nodes, and suggest priorities. Returns structured suggestions with confidence scores.",
+        category: "build",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId } = args as { projectId: string };
+          const manager = getBuildMapManager(projectId);
+          const analysis = manager.analyze();
+          return {
+            success: true,
+            data: analysis,
+            summary: `Analysis: ${analysis.summary}. ${analysis.suggestions.length} suggestions.`,
+          };
+        },
+        timeoutMs: 15000,
+      });
+
+      // buildmap.update — add/update nodes and edges
+      registerTool({
+        name: "buildmap.update",
+        description: "Add or update nodes and edges in the build map. Use to create new feature/component/api nodes, mark status changes, add dependencies, or restructure. Nodes require: id, type, title, status, assignee. Edges require: id, source, target, type.",
+        category: "build",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            nodes: {
+              type: "array",
+              description: "Nodes to add or update",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  type: { type: "string", enum: ["feature", "component", "page", "api", "integration", "test", "doc", "database", "model", "config", "deployment"] },
+                  title: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["planned", "in-progress", "review", "done", "blocked", "archived"] },
+                  priority: { type: "number", minimum: 1, maximum: 10 },
+                  assignee: { type: "string", enum: ["human", "agent", "unassigned"] },
+                  files: { type: "array", items: { type: "string" } },
+                  tags: { type: "array", items: { type: "string" } },
+                  estimate: { type: "number" },
+                  dependencies: { type: "array", items: { type: "string" } },
+                },
+                required: ["id", "type", "title", "status", "assignee"],
+              },
+            },
+            edges: {
+              type: "array",
+              description: "Edges to add or update",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  source: { type: "string" },
+                  target: { type: "string" },
+                  type: { type: "string", enum: ["depends-on", "data-flow", "user-flow", "parent-child", "related-to", "blocks"] },
+                  label: { type: "string" },
+                  description: { type: "string" },
+                },
+                required: ["id", "source", "target", "type"],
+              },
+            },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId, nodes = [], edges = [] } = args as {
+            projectId: string;
+            nodes?: Array<any>;
+            edges?: Array<any>;
+          };
+          const manager = getBuildMapManager(projectId);
+
+          for (const node of nodes) {
+            if (manager.getGraph().nodes.find(n => n.id === node.id)) {
+              manager.updateNode(node.id, node);
+            } else {
+              manager.addNode(node);
+            }
+          }
+
+          for (const edge of edges) {
+            if (manager.getGraph().edges.find(e => e.id === edge.id)) {
+              // Edge update - remove and re-add (simplified)
+              manager.removeEdge(edge.id);
+              manager.addEdge(edge);
+            } else {
+              manager.addEdge(edge);
+            }
+          }
+
+          return {
+            success: true,
+            data: { nodesUpdated: nodes.length, edgesUpdated: edges.length },
+            summary: `Updated build map: ${nodes.length} nodes, ${edges.length} edges`,
+          };
+        },
+        timeoutMs: 10000,
+      });
+
+      // buildmap.suggest — get AI suggestions for the build map
+      registerTool({
+        name: "buildmap.suggest",
+        description: "Get AI-powered suggestions for the build map: missing tests, missing documentation, priority adjustments, reorganization proposals, next steps. Uses LLM analysis if available, otherwise rule-based.",
+        category: "build",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            context: { type: "string", description: "Optional: recent build step context (goal, files changed)" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId, context } = args as { projectId: string; context?: string };
+          const manager = getBuildMapManager(projectId);
+          const analysis = manager.analyze();
+          const agent = getBuildMapAgent(projectId);
+
+          // Try to get LLM suggestions if adapter available
+          let llmSuggestions: any[] = [];
+          try {
+            const graph = manager.getGraph();
+            const llmAnalysis = await agent.runWeeklyAnalysis();
+            llmSuggestions = llmAnalysis.suggestions;
+          } catch {
+            // LLM not available, use rule-based only
+          }
+
+          return {
+            success: true,
+            data: {
+              ruleBased: analysis.suggestions,
+              llmBased: llmSuggestions,
+            },
+            summary: `${analysis.suggestions.length} rule-based suggestions${llmSuggestions.length ? `, ${llmSuggestions.length} LLM suggestions` : ""}`,
+          };
+        },
+        timeoutMs: 30000,
+      });
+
+      // buildmap.onBuildStepComplete — notify map of build step completion (auto-updates)
+      registerTool({
+        name: "buildmap.onBuildStepComplete",
+        description: "Notify the Build Map Agent that a build step completed. The agent will analyze changes and auto-update the graph (add nodes for new components/APIs, update statuses, create dependency edges). Returns the inferred updates and analysis.",
+        category: "build",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            stepId: { type: "string", description: "Build step ID" },
+            stepName: { type: "string", description: "Step name (e.g., 'generate-auth', 'deploy-frontend')" },
+            goal: { type: "string", description: "High-level goal for this step" },
+            filesChanged: { type: "array", items: { type: "string" }, description: "Files modified in this step" },
+            diffSummary: { type: "string", description: "Summary of changes" },
+          },
+          required: ["projectId", "stepId", "stepName", "goal", "filesChanged"],
+        },
+        execute: async (args) => {
+          const { projectId, stepId, stepName, goal, filesChanged, diffSummary } = args as {
+            projectId: string;
+            stepId: string;
+            stepName: string;
+            goal: string;
+            filesChanged: string[];
+            diffSummary: string;
+          };
+          const agent = getBuildMapAgent(projectId);
+
+          const context = {
+            projectId,
+            stepId,
+            stepName,
+            goal,
+            filesChanged,
+            diffSummary,
+            timestamp: new Date().toISOString(),
+          };
+
+          const result = await agent.onBuildStepComplete(context);
+
+          return {
+            success: true,
+            data: result,
+            summary: `Build map updated from step "${stepName}": ${result.updates.nodes.length} nodes, ${result.updates.edges.length} edges, ${result.analysis.suggestions.length} suggestions`,
+          };
+        },
+        timeoutMs: 30000,
+      });
+
+      // buildmap.createFeature — create a feature node from natural language
+      registerTool({
+        name: "buildmap.createFeature",
+        description: "Create a new feature node in the build map from a natural language description. The AI will parse the description and create a properly structured feature node with title, description, priority, tags, and estimate.",
+        category: "build",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            description: { type: "string", description: "Natural language description of the feature" },
+          },
+          required: ["projectId", "description"],
+        },
+        execute: async (args) => {
+          const { projectId, description } = args as { projectId: string; description: string };
+          const agent = getBuildMapAgent(projectId);
+          const feature = await agent.createFeatureFromDescription(description);
+          return {
+            success: true,
+            data: feature,
+            summary: `Created feature "${feature.title}" (${feature.id})`,
+          };
+        },
+        timeoutMs: 15000,
+      });
+
+      // buildmap.weeklyAnalysis — run weekly reorganization analysis
+      registerTool({
+        name: "buildmap.weeklyAnalysis",
+        description: "Run the weekly reorganization analysis: identifies stale planned nodes, critical bottlenecks, and ready-to-start nodes with auto-priority suggestions. Use for periodic project health checks.",
+        category: "build",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId } = args as { projectId: string };
+          const agent = getBuildMapAgent(projectId);
+          const analysis = await agent.runWeeklyAnalysis();
+          return {
+            success: true,
+            data: analysis,
+            summary: `Weekly analysis complete: ${analysis.suggestions.length} suggestions added`,
+          };
+        },
+        timeoutMs: 30000,
+      });
+
+    }).catch((err) => {
+      console.error("[tool-registry] Failed to load build-map-agent:", err);
+    });
+  }).catch((err) => {
+    console.error("[tool-registry] Failed to load build-map:", err);
+  });
+}
+
+// Auto-register build map tools on module load
+registerBuildMapTools();

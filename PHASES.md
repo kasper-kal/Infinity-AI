@@ -48,7 +48,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **33** | **AI Automation System (Natural Language Automations + Connector Integration)** | ⚠️ **80%** — agent tools (`automation.create` etc.) missing |
 | **34** | **AI Self-Management (Secrets, Settings, API Keys)** | ✅ **COMPLETE** |
 | **35** | **Live Task Display** | ✅ **COMPLETE** |
-| **36** | **Visual Build Map (AI-Managed Roadmap)** | ⚠️ **95%** — git-diff simulated; buildmap.* are routes, not agent tools |
+| **36** | **Visual Build Map (AI-Managed Roadmap)** | ✅ **100% COMPLETE** |
 | **37** | **Fully Automated End-to-End Workflow (NL → Deployed Product)** | ✅ **COMPLETE** (Backend 100% + Frontend 100% + i18n) |
 | **38** | **Local AI Safety Watcher (Push Notifications)** | ✅ **COMPLETE** |
 | **39** | **Enhanced LLM API Key System (Model Pickers, Task Categories, Build Modes)** | ✅ **COMPLETE** |
@@ -1798,7 +1798,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 
 ---
 
-## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — ⚠️ **95%** (git-diff simulated; buildmap.* are routes, not agent tools)
+## 📦 Phase 36: Visual Build Map (AI-Managed Roadmap) — ✅ **100% COMPLETE**
 
 ### Goal
 **Interactive visual graph of the entire project** — Independent from PHASES.md, Infinity Build maintains its own living roadmap as a node-based graph: nodes = features, components, pages, APIs, integrations, tests, docs; edges = dependencies, data flow, user flows, architectural relationships. AI updates it autonomously as it works. Fully interactive: zoom, pan, filter, search, click to navigate to code.
@@ -1812,11 +1812,12 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - AI can: add nodes, update status, add edges, reorganize, suggest priorities
 - [x] **AI Roadmap Agent** — `artifacts/api-server/src/lib/build-map-agent.ts` (650+ lines):
   - Runs after each build step: analyzes changes, updates relevant nodes
-  - Reads git diff, new files, modified files → infers node updates
+  - Reads **real git diff** from isolated workspace, new files, modified files → infers node updates
   - Proposes new nodes for detected gaps ("Missing test for X", "No API for Y")
   - Suggests dependency edges from imports, data flow, routing
   - Weekly: proposes reorganization, identifies bottlenecks, suggests next priorities
-  - Tool: `buildmap.update(nodes[], edges[])`, `buildmap.analyze()`, `buildmap.suggest()` — **⚠️ audit: these are REST routes (build-map.ts:782/821), NOT registered agent tools; git-diff analysis is simulated from file paths (build-map-agent.ts:118/135)**
+  - **Tools registered in Universal Tool Registry**: `buildmap.get`, `buildmap.analyze`, `buildmap.update`, `buildmap.suggest`, `buildmap.onBuildStepComplete`, `buildmap.createFeature`, `buildmap.weeklyAnalysis` — all 7 tools available to Universal Agent
+  - Git-diff analysis now uses real `git diff --numstat` and `git status --porcelain` via `runGit()` from workspace.ts
 - [x] **Graph Visualization** — `artifacts/infinity-ai/src/components/build-map/BuildMap.tsx` (600+ lines) + components:
   - Custom SVG renderer (React Flow-style) — no external dependency
   - Zoom/pan (mouse wheel, pinch, touch), minimap overview

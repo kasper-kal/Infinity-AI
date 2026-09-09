@@ -19,6 +19,7 @@ import {
   BuildMapAnalysis,
   BuildMapAIUpdate,
 } from "./build-map.js";
+import { runGit } from "./workspace.js";
 
 /**
  * Git diff analysis result
@@ -116,24 +117,68 @@ export class BuildMapAgent {
    * Analyze git diff to extract meaningful information
    */
   private async analyzeChanges(context: BuildStepContext): Promise<GitDiffAnalysis> {
-    // In production, this would call git diff and parse results
-    // For now, infer from file paths and context
+    // Use real git diff from the project's isolated workspace
+    const { isolatedPath } = await import("./workspace.js");
+    const worktreePath = isolatedPath(context.projectId);
 
+    // Run git diff to get actual changes
+    const diffResult = await runGit(worktreePath, ["diff", "--numstat", "HEAD~1", "HEAD"]);
+    const statusResult = await runGit(worktreePath, ["status", "--porcelain"]);
+
+    // Parse git diff --numstat output (added lines, deleted lines, filepath)
+    const diffLines = diffResult.stdout.trim().split("\n").filter(l => l.trim());
+    let addedLines = 0;
+    let deletedLines = 0;
+    const modifiedFiles: string[] = [];
+
+    for (const line of diffLines) {
+      const parts = line.split("\t");
+      if (parts.length >= 3) {
+        const added = parseInt(parts[0]) || 0;
+        const deleted = parseInt(parts[1]) || 0;
+        const file = parts[2];
+        addedLines += added;
+        deletedLines += deleted;
+        modifiedFiles.push(file);
+      }
+    }
+
+    // Parse git status for added/deleted files
+    const statusLines = statusResult.stdout.trim().split("\n").filter(l => l.trim());
+    const addedFiles: string[] = [];
+    const deletedFiles: string[] = [];
+
+    for (const line of statusLines) {
+      const status = line.slice(0, 2);
+      const file = line.slice(3).trim();
+      if (status.startsWith("A") || status.startsWith("??")) {
+        addedFiles.push(file);
+      } else if (status.startsWith("D")) {
+        deletedFiles.push(file);
+      } else if (status.startsWith("M") || status.startsWith("R")) {
+        if (!modifiedFiles.includes(file)) modifiedFiles.push(file);
+      }
+    }
+
+    // Combine all changed files
+    const allFiles = [...new Set([...addedFiles, ...modifiedFiles, ...deletedFiles])];
+
+    // Extract file types
     const fileTypes: Record<string, number> = {};
-    for (const file of context.filesChanged) {
+    for (const file of allFiles) {
       const ext = file.split(".").pop() || "unknown";
       fileTypes[ext] = (fileTypes[ext] || 0) + 1;
     }
 
-    // Extract potential symbols from file paths
-    const symbols = this.extractSymbolsFromPaths(context.filesChanged);
+    // Extract potential symbols from all changed files
+    const symbols = this.extractSymbolsFromPaths(allFiles);
 
     return {
-      addedFiles: context.filesChanged.filter(f => f.startsWith("new:")).map(f => f.slice(4)),
-      modifiedFiles: context.filesChanged.filter(f => f.startsWith("mod:")).map(f => f.slice(4)),
-      deletedFiles: context.filesChanged.filter(f => f.startsWith("del:")).map(f => f.slice(4)),
-      addedLines: 0, // Would be filled by actual diff
-      deletedLines: 0,
+      addedFiles,
+      modifiedFiles,
+      deletedFiles,
+      addedLines,
+      deletedLines,
       fileTypes,
       symbols,
     };
