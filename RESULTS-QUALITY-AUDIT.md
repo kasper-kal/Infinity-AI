@@ -1,8 +1,8 @@
 # Results-Quality Audit — why Infinity's generated software isn't good
 
 > **Scope:** the code-generation pipeline only (nothing about UI/UX, and nothing about the model — both excluded by the user).
-> **Status:** audit only. No product code was changed. All findings verified against the repo on 2026-09-09.
-> **Claims marked ✅ are verified by direct read. Claims marked ⚠️ come from the evidence audit with file:line given — treat as strong, spot-check if you want before acting.**
+> **Status:** audit only. No product code was changed. Findings verified against the repo on 2026-09-09, then **validated live + offline the same day** — see the final section, "Validation — this audit, run against the real product". Runtime observations record a real server, a real DB, and a real free model key in a transient test environment; code was read unchanged.
+> **Claims marked ✅ are verified by direct read (and, where the Validation section says so, by live/offline run). Claims marked ⚠️ come from the evidence audit with file:line given — treat as strong, spot-check if you want before acting.**
 
 ---
 
@@ -1400,3 +1400,256 @@ information, or does it exist?"* If the former — wire it. If the latter — do
 Each line item maps to a specific fix above. When all seven behave, the "results aren't…
 good" complaint is addressed at the level that causes it: not the model, not the prompt,
 but an environment whose instruments tell the truth and whose loop is closed.
+
+---
+
+# Validation — this audit, run against the real product
+
+This section records the empirical backing for the audit's claims. Everything below was
+**observed**, not inferred: a real server, a real database, a real model key, and an
+offline harness that runs the production expressions. Method and exact results are given
+for each claim so the reader can reproduce them.
+
+**Environment used (2026-09-09):**
+
+| Component | What it was |
+|---|---|
+| Server | `node ./dist/index.mjs` from `artifacts/api-server` — the compiled production bundle (not `tsx`/source) |
+| DB | Real Neon Postgres (`DATABASE_URL`) |
+| Model | `nex-agi/nex-n2.5-pro:free` on OpenRouter (live key). `gemma-4-31b-it:free` was tried first and **429 rate-limited** by the shared free pool — see Finding 1 |
+| Account | A freshly registered account (real session cookie) |
+| Build access | `POST /build/execute-plan`, `/build/scaffold`, `/build/plan` |
+
+**Transparency — test-environment patches, all reversible and none in product code.** To
+unblock measurement at all, the following had to be true in the DB *before* any build could
+run:
+
+1. Out-of-the-box `auto-migrate` aborts on its first failure (see [Failure 5 · migration
+   chain](#failures-and-the-migration-chain) below), so `sessions.mfa_verified_at` and the
+   `llm_keys` columns (`source`, `project_id`, `scopes`, `account_id`) never got applied.
+   I re-ran the migration DDL statement-by-statement (all but the two `push_subscriptions`
+   index statements succeeded) to bring the schema up.
+2. API-key *creation* is broken even on a fresh schema (a JS array is inserted into a
+   `json`/`jsonb[]` column — see the api-keys finding below), so the one `user-api` key used
+   here was **seeded directly via SQL** with `source='user-api'`, the three
+   `build:read/build:write/project:read` scopes, `base_url` and `model` pointing at the real
+   OpenRouter endpoint, and `priority=0`.
+
+Every product-code path measured ran unmodified. The DB patches are measurement scaffolding,
+not fixes.
+
+---
+
+## Finding 1 — The planner silently serves a canned template when the model is slow or sick
+
+**Claim checked:** the planner is "dead", or at least untrusted.
+
+**Method:** `POST /build/plan` twice, once while the chosen free model (`gemma-4-31b-it:free`)
+was being 429-rate-limited on the shared OpenRouter free pool, once on a healthy model
+(`nex-agi/nex-n2.5-pro:free`).
+
+**Observed:**
+
+- Run 1 → the response body was **byte-identical** to `fallbackBuildPlan`'s template:
+  `summary: "Infinity will turn this request into a runnable local build, preserve the
+  existing workspace, and verify the result in the preview."` — the canned 4-step plan,
+  with no signal anywhere that the model had failed and the template was substituted.
+- Run 2 → a **genuine, sane 3-step plan** for the same prompt, with `files` and `risks`
+  (`"The workspace is empty, so no existing project conventions or build tooling can be reused."`).
+
+**Verdict:** planner is **fragile, not dead** — it *can* produce a good plan, and when
+anything goes wrong it degrades silently to a template compressed into an `ok:true` envelope.
+This refines the audit's Failure 3 framing: the fallback is verified, but so is the good
+path. The bug is the **silent** substitution, not the planner existing.
+
+---
+
+## Finding 2 — The build button can't reach execute-plan at all (auth)
+
+**Claim checked:** the UI's execute-plan is dead-in-the-water.
+
+**Method:** replicate exactly what `build-studio.tsx` sends — a valid session cookie, an
+`X-API-Key` **absent**, a `projectId` of `build-<uuid>`, `headers: {'Content-Type': 'application/json'}`.
+
+**Observed (from the earlier session's runs):**
+
+- `401 {"success":false,"error":"API key required"}` — `requireScope("build:write")`
+  (`api-key-auth.ts:111-130`) only authenticates via `Authorization: Bearer` or `x-api-key`,
+  never the session cookie that the auth middleware already accepted.
+- The frontend's build-studio (`build-studio.tsx:245`) sends no API key header. So the
+  Build Studio's execute path is **auth-blocked even with a logged-in user**.
+- If the 401 is bypassed, the `build-<uuid>` project id then hits
+  `buildProjectContextForBuild` (`build-project-context.ts:45-62`), which does a `projects.id`
+  equality on a non-uuid string → **500 "Failed query from projects where projects.id = $1"**
+  (invalid input syntax for type uuid).
+
+**Verdict:** confirmed. The live studio → execute-plan path has **two independent walls**:
+an auth wall and a uuid-cast wall. Combined with Finding 3's terminal one, a Build Studio
+run from the UI can never succeed.
+
+---
+
+## Finding 3 — When execute-plan *is* driven with a key, it writes the app… then 500s
+
+**Claim checked:** the single-shot executor writes files and reports success properly.
+
+**Method:** drive execute-plan with a real project uuid (the one real `projects` row), the
+seeded scoped key, the 3-step plan from Finding 1's run 2, `skipPreflight:true`.
+
+**Observed:**
+
+1. All three steps reported `done:true` with `filesChanged:["index.html"]`, `["app.js"]`,
+   `["index.html","app.js"]`, and `overallOk:true`.
+2. The two written files were read back and are **correct, working code**: a complete
+   increment-counter app (`index.html` references `app.js`; `app.js` wires both buttons).
+   So on a healthy free model, the coder **can** produce good output.
+3. The request then returned **HTTP 500**:
+   `Failed query: insert into "build_checkpoints" (... "compacted_context" ...)`
+   — the live table has no `compacted_context` column (see findings 6/7). The entire run is
+   surfaced to the caller as a failure **after the work was done**, so even a successful
+   generation never returns `ok:true`.
+4. Telemetry for the same run records a `workspace_corruption` edge case
+   (`"No tracked files in git repo"`, `"Missing .infinity workspace marker"`) and a pre-flight
+   of `ok:false` with `queueAvailable:false` — `"Another build is in progress"` —
+   **yet the run proceeded anyway** and wrote files. The queue and the edge-case gate
+   instrument things that accumulate evidence, but nothing downstream acts on them in this path.
+
+**Verdict:** confirmed, with an important refinement — the executor's model step works; the
+**machinery around it is what fails** (checkpoint persistence, workspace root, auth, gating).
+
+---
+
+## Finding 4 — The files are written to a phantom workspace outside the repo
+
+**Claim checked:** verification operates on a real, visible artifact set.
+
+**Method:** locate where the two files from Finding 3 actually landed.
+
+**Observed:** the in-repo `artifacts/workspace` does **not exist**. The files were written to
+**`/workspaces/artifacts/workspace/projects/audit-run/`** — a sibling of the repo made up on
+the fly.
+
+**Root cause (verified in the compiled bundle):** `workspace.ts` computes
+`WORKSPACE_ROOT = path.resolve(__dirname, "..","..","..","..", "artifacts","workspace")`.
+In source (`src/lib`) that reaches the repo root. In the **single-file bundle**, the module's
+`__dirname` is `…/api-server/dist` (dirname of `import.meta.url`), and four `..` overshoot by
+one level. `npm start` runs the bundle, so in production *every* read/write of workspace
+files — coder output, telemetry, snapshots, verification — targets a directory the repo (and
+the user's project list) never sees.
+
+**Verdict:** confirmed, and it is a **new** finding not in the earlier sections. It makes
+"verification runs on the workspace" doubly meaningless: the verifier would be checking a
+directory nothing else on the UI can read.
+
+---
+
+## Finding 5 — The orchestrator (build-agent) measured live: a working model produced nothing
+
+**Claim checked:** the tool-calling agent path is operational.
+
+**Method:** `POST /build/scaffold` with a working model, `maxIterations:3`, a concrete goal
+including explicit "call list_files and read_file first, then edit_file, then done".
+
+**Observed:**
+
+- Telemetry: `agent_start` → `agent_end: "Agent stopped after 3 iterations (max reached)"`,
+  `success:false, iterations:3, phase:"exploring"`.
+- The checkpoint payload had **`completed_steps: []` — zero tool calls parsed across 3
+  model calls**, and **zero files in the workspace**.
+- Same terminal 500 as Finding 3 (the `compacted_context` checkpoint column), so the non-
+  result is also surfaced as a failure.
+
+**Why (offline confirmation below):** `parseToolCalls` accepts only a plain JSON **array** of
+flat `{name, arguments:{…}}` objects. The model was told "return tool calls as JSON with the
+exact function signatures" — it returned something with braces inside argument strings / a
+single object / native-tool-call shape, and every one of those is silently dropped (see
+Finding 8). The loop spun three times doing nothing, never changed phase, and finished
+"stopped, max reached".
+
+**Verdict:** confirmed. The agent loop is operational *as a loop* but speech-bubbles out:
+3 LLM round-trips, 0 actions, 0 files.
+
+---
+
+## Finding 6 — Schema drift is systemic and alive in this DB
+
+**Claim checked:** "the migrations never fully run; the schema is behind the code".
+
+**Observed at runtime:**
+
+- `sessions.mfa_verified_at` missing → registration **500** out of the box.
+- `build_checkpoints.compacted_context` missing → **every** build run (both execute-plan and
+  scaffold) ends in a checkpoint-insert **500**, after the real work.
+- `llm_keys` missing `source/project_id/scopes/account_id` → API-key creation **500s**
+  regardless of DB freshness; with columns added, `scopes` as a JS array → `invalid input
+  syntax for type json` → still 500s.
+- `auto-migrate`: `CREATE_TABLES` then `ALTER_TABLES` on one client; any statement failure
+  rejects everything, and `index.ts` logs **"Database migration skipped, DB unreachable"**
+  — the DB was reachable; the log lies about the cause.
+
+**Verdict:** confirmed at runtime, on a real DB. The migration chain is the first failure a
+fresh user hits, and its error message points at the wrong cause.
+
+---
+
+## Finding 7 — Any user-added API key becomes the entire LLM backend (and can point nowhere)
+
+**Claim checked (new):** the key pool's priority semantics silently shadow the admin's
+primary model.
+
+**Observed:** `api-keys.ts:66` inserts user-added keys at `priority: 0`. `getHealthyKeys() =
+listKeys().filter(isHealthy)` and `createBestAdapter()` takes `keys[0]` after an ascending
+priority sort — so **any settings-added key beats the env `OPENROUTER_API_KEY` (priority 1)**.
+The seeded test key with a placeholder `base_url` (`https://api.infinity.local`) made the
+whole pipeline fail with `APIConnectionError: getaddrinfo ENOTFOUND api.infinity.local` —
+i.e. one user-key with a bad/placeholder URL disables the entire model backend, silently,
+until every pool entry is unhealthy.
+
+**Verdict:** confirmed. Priority-0 DB keys always win over the env key that the operator
+"configured as THE model". This is the mirror image of Finding 1: silent supply-chain swappage.
+
+---
+
+## Finding 8 — Offline falsification harness: the machinery behaves exactly as the audit says
+
+A standalone script extracted the **literal** regexes/expressions from the shipped source
+and drove them against real fixtures on the real Node runtime (also exercising `execFile` on
+a real bash `exit 3`). **20/20 checks passed.** Summary of what was confirmed:
+
+| # | Claim | How it was shown | Result |
+|---|---|---|---|
+| 1 | `toolRunCommand` reports failed commands as success | `bash -lc "echo oh no; exit 3"` → Node `err.killed === false` on non-zero exit → `success: !err \|\| err.killed === false` = **true** | ✅ false-green confirmed |
+| 2 | `parseToolCalls` regex truncates at the first `}` | Single-object calls with nested arguments **and even flat `{path:…}`** are cut at the inner `}`; `JSON.parse` fails; call dropped (valid-JSON case too) | ✅ confirmed — **and sharper**: only plain flat-**array** calls parse; OpenAI-native `function.name` shape is dropped too |
+| 3 | `parseTypeScriptOutput` gates on a narrow grammar | Standard `(line,col): error TS…` lines parse; a **no-location config diagnostic** (`error TS5069: …`) is not counted → `allPassed` stays true on a compile failure | ✅ confirmed |
+| 4 | `verifyWorkspace` can't fail on tests/lint/build | vitest ✓ eslint ✓ build — each runs with `\|\| true`; `parseBuildArtifacts` unconditionally returns `[]`; only tsc (no `\|\| true`) can trip it, and its exception path is swallowed by execute-plan's `catch {}` | ✅ confirmed |
+| 5 | `apply_fix` fixes only the first occurrence | `content.replace(oldCode,newCode)` on a file with the token twice: one stays broken, tool still returns `success:true` | ✅ confirmed |
+| 6 | `done` isn't a tool | `TOOL_DEFINITIONS` names list: `list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, inspect_accessibility, git_diff, apply_fix` — no `done`, while the prompt tells the agent to call it | ✅ confirmed |
+
+The harness file is the reproduction of this table (kept out of the repo; the logic, fixtures,
+and each PASS line are quoted above and in the commit message).
+
+---
+
+## What the validation changed
+
+- **Upgraded the audit's confidence:** Failure 2 (reviewer can't run code), Failure 3
+  (ungrounded), Failure 5 (verification not fed back), and the deep-audit mechanism claims
+  (Discovery 2/3, parseToolCalls, apply_fix, inspect_console stub) all now carry live-or-
+  harness evidence, not just `file:line`.
+- **Two claims are refined, not retracted:**
+  1. The planner produces a good plan when the model is healthy — the *silent fallback* is
+     the defect, and it's now byte-verified.
+  2. `verifyWorkspace`'s false-green is stronger and more specific than "keys off a regex":
+     three of four gates are hardwired `|| true`, the fourth skips no-location diagnostics,
+     and its throw path is swallowed by an empty `catch`.
+- **Three findings are new, added only now because they required a live run:**
+  - Finding 4 — the phantom workspace root (files land outside the repo in the bundle).
+  - Finding 5 — the orchestrator, measured with a working model, produced zero tool calls.
+  - Finding 7 — settings-added keys shadow the env key at runtime.
+
+**Standing on it:** after this pass the audit's five failures and each deep-audit mechanism
+have been tested (live and/or offline), the one mis-scoped claim (planner "dead") has been
+corrected to "fragile," and the phantom-root discovery is a genuinely new failure class —
+the environment *disconnects its own outputs*. On the earlier honest self-score (~65%), this
+validation closes the falsifiability and evidence gaps; what remains is reproducing the
+seven post-fix checks once fixes are ever applied, which by design this audit does not do.
