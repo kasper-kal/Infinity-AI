@@ -36,7 +36,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **21** | **AI-Powered Design Iteration (Variations, A/B, Analytics)** | ⚠️ **90%** — AnalyticsDashboard never rendered |
 | **22** | **Component Marketplace & Template Library (v0 Community)** | ❌ **~35%** — route orphaned (unmounted); UI hits dead `/api/marketplace` endpoints |
 | **23** | **v0-Level Polish (Performance, Accessibility, DX)** | ✅ **COMPLETE** |
-| **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ⚠️ **90%** — ChatSidebar/Composer panels unmounted (editor extensions only) |
+| **24** | **Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab)** | ✅ **100%** |
 | **25** | **Codebase Indexing & Semantic Search (Cursor @codebase)** | ✅ COMPLETE |
 | **26** | **Rules, Notepads & Customization (Cursor Personalization)** | ✅ **100%** |
 | **27** | **Shadow Workspaces & Agent Review (Cursor Autonomous QA)** | ⚠️ **90%** — 8 dims / 25 rules (not 9 / 40+) |
@@ -1045,7 +1045,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — ⚠️ **90%** (standalone Chat/Composer panels unmounted — only CodeMirror extensions wired)
+## 📦 Phase 24: Cursor-Level Code Intelligence (Chat, Composer, Agent, Tab) — ✅ **100%**
 
 ### Goal
 Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat with codebase context, Composer for multi-file editing, Agent for autonomous coding, Tab autocomplete with semantic understanding. All in-browser, $0 cost.
@@ -1078,6 +1078,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
   - [x] Local model option (Qwen2.5-Coder, DeepSeek-Coder) for privacy/speed
 - [x] **Cmd+K Inline Edit** — Quick targeted edits at cursor position
   - [x] Select code → Cmd+K → describe change → diff preview → accept
+- [x] **BuildView Integration** — ChatSidebar and Composer mounted as tabs in Overview panel
 
 ### Implementation Plan
 1. **Codebase Indexer** — semantic embeddings, incremental updates, @codebase retrieval ✅ COMPLETE
@@ -1086,6 +1087,7 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 4. **Tab Autocomplete** — Local LLM (WASM) or API streaming, prefix/suffix context ✅ COMPLETE
 5. **Chat Sidebar** — Reuse Universal Agent + codebase context, @ symbol parser, streaming UI ✅ COMPLETE
 6. **Cmd+K Inline Edit** — Quick targeted edits with diff preview ✅ COMPLETE
+7. **BuildView Integration** — Mount ChatSidebar and Composer as overview tabs ✅ COMPLETE
 
 ### Files Created/Modified ✅ ALL IMPLEMENTED
 - `artifacts/api-server/src/lib/codebase-indexer.ts` — Complete with tree-sitter parsing, embeddings, vector search (31KB)
@@ -1093,21 +1095,15 @@ Build **Cursor-equivalent code intelligence** — AI-native IDE features: Chat w
 - `artifacts/api-server/src/lib/embeddings.ts` — Local (WASM) + remote embeddings with caching (21KB)
 - `artifacts/api-server/src/lib/cursor-agent.ts` — Full agent with planning, debugging, git, MCP, subagents (44KB)
 - `artifacts/api-server/src/lib/cursor-composer.ts` — Multi-file diff engine with preview/apply (20KB)
-- `artifacts/api-server/src/routes/Infinity/cursor.ts` — 10 endpoints: chat, composer, agent, tab, cmd-k, index (28KB)
-- `artifacts/api-server/src/routes/Infinity/codebase-index.ts` — Index management endpoints (14KB)
+- `artifacts/api-server/src/routes/infinity/cursor.ts` — 10 endpoints: chat, composer, agent, tab, cmd-k, index (28KB)
+- `artifacts/api-server/src/routes/infinity/codebase-index.ts` — Index management endpoints (14KB)
 - `artifacts/infinity-ai/src/components/Cursor/ChatSidebar.tsx` — Full chat UI with @codebase, streaming, model selector
 - `artifacts/infinity-ai/src/components/Cursor/Composer.tsx` — Multi-file diff preview with side-by-side/unified views
 - `artifacts/infinity-ai/src/components/Cursor/TabAutocomplete.tsx` — Ghost text autocomplete with Tab/Esc handling
 - `artifacts/infinity-ai/src/components/Cursor/CmdKEdit.tsx` — Floating inline edit palette with diff preview
 - `artifacts/infinity-ai/src/components/Cursor/index.ts` — Barrel export
-
-### Remaining Integration Work
-- [x] Integrate ChatSidebar into ChatView/BuildView (currently standalone components)
-- [x] Integrate Composer into BuildView as tab
-- [x] Integrate Agent mode into BuildView
-- [x] Wire TabAutocomplete into CodeEditor component
-- [x] Wire CmdKEdit into CodeEditor (Cmd+K binding)
-- [x] Add Cursor components to BuildView sidebar/navigation
+- `artifacts/infinity-ai/src/components/views/BuildView.tsx` — Added ChatSidebar and Composer as overview tabs ('cursorChat', 'cursorComposer')
+- `artifacts/infinity-ai/src/lib/i18n.tsx` — Added EN/NL translations for cursorChat, cursorComposer tabs
 
 ---
 

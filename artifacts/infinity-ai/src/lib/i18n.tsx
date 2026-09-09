@@ -573,6 +573,8 @@ const en = {
   "overview.tabs.shadowWorkspaces": "Shadow Workspaces",
   "overview.tabs.agentReview": "Agent Review",
   "overview.tabs.automations": "Automations",
+  "overview.tabs.cursorChat": "Cursor Chat",
+  "overview.tabs.cursorComposer": "Cursor Composer",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deployment Pipeline",
@@ -3564,6 +3566,8 @@ const nl: Record<keyof typeof en, string> = {
   "overview.tabs.agents": "Agents",
   "overview.tabs.codebase": "Codebase",
   "overview.tabs.automations": "Automatiseringen",
+  "overview.tabs.cursorChat": "Cursor Chat",
+  "overview.tabs.cursorComposer": "Cursor Composer",
 
   /* Deploy Visual Panel */
   "deploy.pipeline": "Deploy Pipeline",

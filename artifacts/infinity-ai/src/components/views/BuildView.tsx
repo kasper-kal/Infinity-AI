@@ -53,7 +53,9 @@ import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
-import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Rocket, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
+import { ChatSidebar } from "@/components/Cursor/ChatSidebar";
+import { Composer } from "@/components/Cursor/Composer";
+import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Rocket, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu, Bot, FileCode } from "lucide-react";
 import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -915,6 +917,8 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'automations', label: t('overview.tabs.automations'), icon: <ZapIcon className="w-4 h-4" /> },
             { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" /> },
             { id: 'fileConverter', label: t('fileConvert.title'), icon: <FileText className="w-4 h-4" /> },
+            { id: 'cursorChat', label: t('overview.tabs.cursorChat'), icon: <MessageSquare className="w-4 h-4" /> },
+            { id: 'cursorComposer', label: t('overview.tabs.cursorComposer'), icon: <FileCode className="w-4 h-4" /> },
           ]}
           activeTab={overviewTab}
           onChange={(tab) => setOverviewTab(tab as typeof overviewTab)}
@@ -1018,6 +1022,27 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
         {overviewTab === 'fileConverter' && (
           <div className="flex flex-col h-full">
             <FileConverter projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'cursorChat' && (
+          <div className="flex flex-col h-full">
+            <ChatSidebar
+              projectId={projectId}
+              projectRoot="/"
+              isOpen={true}
+              onClose={() => {}}
+              onNewConversation={() => {}}
+            />
+          </div>
+        )}
+        {overviewTab === 'cursorComposer' && (
+          <div className="flex flex-col h-full">
+            <Composer
+              projectId={projectId}
+              projectRoot="/"
+              isOpen={true}
+              onClose={() => {}}
+            />
           </div>
         )}
       </div>
