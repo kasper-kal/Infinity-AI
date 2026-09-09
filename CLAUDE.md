@@ -38,8 +38,8 @@ WHEN USER SAYS "go" (OR ANY MESSAGE):
 4. Update LAST_UPDATED in session-brief.md.
 5. Go to step 2 — do the next action. Keep going.
 6. IMPORTANT EXTRA NOTE: NEVER fix typecheck errors without me specifically asking for it. When i ask you to do a task, you will NOT do typecheck before i specifically told you 'start a typecheck'
-8. IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
+7. IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
 GitHub: kasper-kal/Infinity-AI — user is Kasper Kal (kasperkal1970@gmail.com)
 
-IMPORTANT EXTRA NOTE: NEVER acces the folder 'remote-chat' and NEVER use the Lucide icon called 'Sparkles'
+IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
