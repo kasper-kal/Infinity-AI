@@ -12,6 +12,7 @@ import { getProjectDesignSystem } from '../../lib/design-canvas.js';
 import { generateDesignVariations, VariationGenerationRequestSchema, VariationGenerationResultSchema } from '../../lib/design-variations.js';
 import { getAnalyticsEngine, collectAnalytics, AnalyticsEventSchema, AnalyticsCollectionResponseSchema } from '../../lib/design-analytics.js';
 import { generateDesignSuggestions, SuggestionRequestSchema, SuggestionResultSchema } from '../../lib/suggestion-engine.js';
+import { getDeploymentEngine, DeployConfigSchema } from '../../lib/deployment-engine.js';
 import {
   parseCode,
   generateCode,
@@ -309,26 +310,85 @@ router.post('/deploy', async (req: Request, res: Response) => {
     const validated = DeployRequestSchema.parse(req.body);
     const authReq = req as AuthenticatedRequest;
 
-    // TODO: Implement actual deployment to providers
-    // For now, return a mock deployment response
-    const deploymentId = `deploy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    // Convert files to a temporary project directory
+    const projectPath = `/tmp/infinity-deploy-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const fs = await import('fs/promises');
+    const path = await import('path');
 
-    // Simulate deployment
-    await new Promise(r => setTimeout(r, 1000));
+    // Create project directory and write files
+    await fs.mkdir(projectPath, { recursive: true });
+    for (const file of validated.files) {
+      const filePath = path.join(projectPath, file.path);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, file.content, 'utf-8');
+    }
 
-    const previewUrl = `https://${deploymentId}.${validated.provider}.app`;
-    const productionUrl = validated.customDomain
-      ? `https://${validated.customDomain}`
-      : `https://${deploymentId}-prod.${validated.provider}.app`;
+    // Map provider to deployment engine hosting
+    const hostingMap: Record<string, string> = {
+      vercel: 'vercel',
+      netlify: 'netlify',
+      cloudflare: 'cloudflare-pages',
+      github: 'custom', // GitHub Pages handled via custom
+    };
 
-    res.json({
-      deploymentId,
-      status: 'success',
-      previewUrl,
-      productionUrl,
-      provider: validated.provider,
-      message: `Successfully deployed to ${validated.provider}`,
-    });
+    // Determine framework from files (check for package.json or default to nextjs)
+    let framework = 'nextjs';
+    const packageJsonPath = path.join(projectPath, 'package.json');
+    try {
+      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+      if (packageJson.dependencies?.astro) framework = 'astro';
+      else if (packageJson.dependencies?.remix) framework = 'remix';
+      else if (packageJson.dependencies?.svelte) framework = 'sveltekit';
+      else if (packageJson.dependencies?.vue) framework = 'vue-nuxt';
+      else if (packageJson.dependencies?.solid) framework = 'solidstart';
+      else framework = 'nextjs';
+    } catch {
+      framework = 'nextjs';
+    }
+
+    const deploymentEngine = getDeploymentEngine();
+
+    // Deploy using the real deployment engine
+    const deployConfig = {
+      projectPath,
+      framework: framework as 'nextjs' | 'astro' | 'remix' | 'vite-react' | 'sveltekit' | 'nuxt' | 'solidstart',
+      hosting: hostingMap[validated.provider] as 'vercel' | 'netlify' | 'cloudflare-pages' | 'railway' | 'flyio' | 'render' | 'custom',
+      envVars: validated.envVars || {},
+      customDomain: validated.customDomain,
+      buildCommand: undefined,
+      outputDirectory: undefined,
+      installCommand: undefined,
+      nodeVersion: undefined,
+      regions: undefined,
+      githubRepo: undefined,
+      previewDeployments: true,
+    };
+
+    const result = await deploymentEngine.deploy(deployConfig);
+
+    // Clean up temp directory
+    await fs.rm(projectPath, { recursive: true, force: true });
+
+    if (result.success) {
+      const deploymentId = result.deploymentId || `deploy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      res.json({
+        deploymentId,
+        status: 'success',
+        previewUrl: result.previewUrl || result.url,
+        productionUrl: validated.customDomain ? `https://${validated.customDomain}` : result.url,
+        provider: validated.provider,
+        message: `Successfully deployed to ${validated.provider}`,
+        logs: result.logs,
+      });
+    } else {
+      res.status(500).json({
+        deploymentId: `deploy_${Date.now()}`,
+        status: 'failed',
+        error: result.error || 'Deployment failed',
+        provider: validated.provider,
+        logs: result.logs,
+      });
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid request', details: error.errors });
@@ -346,7 +406,8 @@ router.get('/deploy/:deploymentId/status', async (req: Request, res: Response) =
   try {
     const { deploymentId } = req.params;
 
-    // TODO: Implement actual status checking
+    // For now, return a basic status since we don't have persistent deployment tracking
+    // In a full implementation, this would query the deployment engine's status
     res.json({
       deploymentId,
       status: 'completed',

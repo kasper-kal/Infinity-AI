@@ -142,6 +142,12 @@ export const SHADCN_COMPONENTS = {
 
   // Typography
   'typography': { imports: ['@/components/ui/typography'] },
+
+  // Additional components
+  'input-otp': { imports: ['@/components/ui/input-otp'] },
+  'toggle': { imports: ['@/components/ui/toggle'] },
+  'toggle-group': { imports: ['@/components/ui/toggle-group'] },
+  'chart': { imports: ['@/components/ui/chart'] },
 } as const;
 
 export type ShadcnComponent = keyof typeof SHADCN_COMPONENTS;
