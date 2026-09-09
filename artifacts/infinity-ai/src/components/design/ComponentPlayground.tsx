@@ -16,16 +16,14 @@ import {
   Code,
   Copy,
   Download,
-  Play,
-  Pause,
   RotateCcw,
-  Eye,
-  EyeOff,
   MousePointer,
   Zap,
   AlertTriangle,
   CheckCircle,
   XCircle,
+  Loader2,
+  Maximize2,
 } from 'lucide-react';
 
 interface ComponentProp {
@@ -751,6 +749,134 @@ interface ComponentPreviewProps {
   onError: (error: string | null) => void;
 }
 
+// Shared constants for iframe rendering (same as LivePreview)
+const TAILWIND_CDN = `
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: {
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
+            },
+            secondary: {
+              DEFAULT: 'hsl(var(--secondary))',
+              foreground: 'hsl(var(--secondary-foreground))',
+            },
+            destructive: {
+              DEFAULT: 'hsl(var(--destructive))',
+              foreground: 'hsl(var(--destructive-foreground))',
+            },
+            muted: {
+              DEFAULT: 'hsl(var(--muted))',
+              foreground: 'hsl(var(--muted-foreground))',
+            },
+            accent: {
+              DEFAULT: 'hsl(var(--accent))',
+              foreground: 'hsl(var(--accent-foreground))',
+            },
+            popover: {
+              DEFAULT: 'hsl(var(--popover))',
+              foreground: 'hsl(var(--popover-foreground))',
+            },
+            card: {
+              DEFAULT: 'hsl(var(--card))',
+              foreground: 'hsl(var(--card-foreground))',
+            },
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)',
+          },
+          fontFamily: {
+            sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+`;
+
+const REACT_CDN = `
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+`;
+
+const SHADCN_UTILS = `
+  const cn = (...classes) => classes.filter(Boolean).join(' ');
+`;
+
+const CSS_VARIABLES = `
+  <style>
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 222.2 84% 4.9%;
+      --card: 0 0% 100%;
+      --card-foreground: 222.2 84% 4.9%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222.2 84% 4.9%;
+      --primary: 221.2 83.2% 53.3%;
+      --primary-foreground: 210 40% 98%;
+      --secondary: 210 40% 96.1%;
+      --secondary-foreground: 222.2 47.4% 11.2%;
+      --muted: 210 40% 96.1%;
+      --muted-foreground: 215.4 16.3% 46.9%;
+      --accent: 210 40% 96.1%;
+      --accent-foreground: 222.2 47.4% 11.2%;
+      --destructive: 0 84.2% 60.2%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 214.3 31.8% 91.4%;
+      --input: 214.3 31.8% 91.4%;
+      --ring: 221.2 83.2% 53.3%;
+      --radius: 0.5rem;
+      --font-sans: 'Inter', system-ui, sans-serif;
+    }
+    .dark {
+      --background: 222.2 84% 4.9%;
+      --foreground: 210 40% 98%;
+      --card: 222.2 84% 4.9%;
+      --card-foreground: 210 40% 98%;
+      --popover: 222.2 84% 4.9%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 217.2 91.2% 59.8%;
+      --primary-foreground: 222.2 47.4% 11.2%;
+      --secondary: 217.2 32.6% 17.5%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 217.2 32.6% 17.5%;
+      --muted-foreground: 215 20.2% 65.1%;
+      --accent: 217.2 32.6% 17.5%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 217.2 32.6% 17.5%;
+      --input: 217.2 32.6% 17.5%;
+      --ring: 224.3 76.3% 48%;
+    }
+    * { border-color: hsl(var(--border)); }
+    body { @apply bg-background text-foreground; font-family: var(--font-sans); }
+  </style>
+`;
+
+// Component Preview Component (renders the actual component in the playground via iframe)
+interface ComponentPreviewProps {
+  component: ComponentRegistryEntry;
+  props: PropValues;
+  designTokens: DesignTokens;
+  device: DeviceKey;
+  onError: (error: string | null) => void;
+}
+
 const ComponentPreview: React.FC<ComponentPreviewProps> = ({
   component,
   props,
@@ -758,17 +884,146 @@ const ComponentPreview: React.FC<ComponentPreviewProps> = ({
   device,
   onError,
 }) => {
-  const [mounted, setMounted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const previewKey = useRef(0);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Generate preview HTML
+  const generatePreviewHTML = useCallback(() => {
+    // Build the component code with props applied
+    const propString = Object.entries(props)
+      .filter(([_, v]) => v !== '' && v !== false && v !== 0 && v !== undefined)
+      .map(([k, v]) => {
+        if (typeof v === 'string') return `${k}="${v}"`;
+        if (typeof v === 'boolean') return v ? k : undefined;
+        if (typeof v === 'number') return `${k}={${v}}`;
+        return `${k}={${JSON.stringify(v)}}`;
+      })
+      .filter(Boolean)
+      .join(' ');
+
+    // Extract imports from example usage
+    const importMatches = component.exampleUsage.match(/^import .+ from ['"].+['"];/gm) || [];
+    const imports = importMatches
+      .filter(imp => !imp.startsWith('import ') || !imp.includes('@/') && !imp.includes('./') && !imp.includes('../'))
+      .map(imp => imp.trim())
+      .join('\n');
+
+    // Get component definition from example usage (remove imports)
+    const componentCode = component.exampleUsage
+      .split('\n')
+      .filter(line => !line.trim().startsWith('import '))
+      .join('\n');
+
+    // Create CSS variables from design tokens
+    const cssVars: string[] = [];
+    if (designTokens.colors) {
+      Object.entries(designTokens.colors).forEach(([palette, shades]) => {
+        Object.entries(shades).forEach(([shade, value]) => {
+          cssVars.push(`  --color-${palette}-${shade}: ${value};`);
+        });
+      });
+    }
+    if (designTokens.spacing) {
+      Object.entries(designTokens.spacing).forEach(([key, value]) => {
+        cssVars.push(`  --spacing-${key}: ${value};`);
+      });
+    }
+    const cssVarsString = cssVars.join('\n');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Component Preview - ${component.name}</title>
+  ${TAILWIND_CDN}
+  ${REACT_CDN}
+  <style>
+    :root {
+${cssVarsString}
+    }
+    * { border-color: hsl(var(--border)); }
+    body { @apply bg-background text-foreground; font-family: var(--font-sans); margin: 0; padding: 1.5rem; min-height: 100vh; }
+    #root { width: 100%; }
+    .preview-container { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react,typescript">
+    ${SHADCN_UTILS}
+    ${imports}
+
+    ${componentCode}
+
+    const App = () => (
+      <div className="preview-container">
+        <${component.name} ${propString} />
+      </div>
+    );
+
+    // Override console for capture
+    const originalConsole = { ...console };
+    ['log', 'error', 'warn'].forEach(method => {
+      console[method] = (...args) => {
+        originalConsole[method](...args);
+        window.parent.postMessage({
+          type: 'console',
+          payload: { type: method, message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') }
+        }, '*');
+      };
+    });
+
+    // Handle errors
+    window.addEventListener('error', (event) => {
+      window.parent.postMessage({
+        type: 'error',
+        payload: { message: event.message, filename: event.filename, lineno: event.lineno, colno: event.colno }
+      }, '*');
+    });
+
+    // Notify parent when ready
+    window.parent.postMessage({ type: 'preview-ready' }, '*');
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>`;
+  }, [component, props, designTokens]);
+
+  // Render preview in iframe
   useEffect(() => {
-    setMounted(true);
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    setIsLoading(true);
     onError(null);
-  }, [component, props, onError]);
 
-  if (!mounted) return null;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'preview-ready') {
+        setIsLoading(false);
+      } else if (event.data.type === 'error') {
+        onError(event.data.payload.message);
+        setIsLoading(false);
+      } else if (event.data.type === 'console') {
+        // Could forward console logs if needed
+      }
+    };
 
-  // Apply design tokens as CSS variables
-  const style = useMemo(() => {
+    window.addEventListener('message', handleMessage);
+
+    const html = generatePreviewHTML();
+    iframe.srcdoc = html;
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [generatePreviewHTML, onError]);
+
+  // Apply design tokens as CSS variables for the container
+  const containerStyle = useMemo(() => {
     const vars: Record<string, string> = {};
     if (designTokens.colors) {
       Object.entries(designTokens.colors).forEach(([palette, shades]) => {
@@ -786,27 +1041,25 @@ const ComponentPreview: React.FC<ComponentPreviewProps> = ({
   }, [designTokens]);
 
   return (
-    <div style={style as React.CSSProperties} className="w-full h-full p-4">
-      {/* In a real implementation, this would dynamically render the actual component */}
-      <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-background rounded-lg border border-border-primary">
-        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-          <Code className="w-6 h-6 text-muted-foreground" />
-          <span className="font-mono text-sm">{component.name}</span>
-        </div>
-
-        <div className="text-center text-sm text-muted-foreground space-y-1">
-          <p>Component preview would render here</p>
-          <p className="text-xs">Dynamic component rendering requires</p>
-          <p className="text-xs">a component sandbox environment</p>
-        </div>
-
-        <div className="flex flex-wrap gap-1 justify-center">
-          {Object.entries(props).slice(0, 6).map(([key, val]) => (
-            <Badge key={key} variant="outline" className="text-[10px]">
-              {key}: {String(val).slice(0, 20)}
-            </Badge>
-          ))}
-        </div>
+    <div style={containerStyle as React.CSSProperties} className="w-full h-full p-4">
+      <div className="w-full h-full relative">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Rendering component...</span>
+            </div>
+          </div>
+        )}
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-0"
+          style={{
+            background: 'transparent',
+          }}
+          sandbox="allow-scripts allow-same-origin allow-forms"
+          title={`Preview of ${component.displayName}`}
+        />
       </div>
     </div>
   );
