@@ -44,6 +44,7 @@ import { AnalyticsDashboard } from "@/components/ui-builder/AnalyticsDashboard";
 import { UIBuilderView } from "@/components/ui-builder/UIBuilderView";
 import { LivePreview } from "@/components/ui-builder/LivePreview";
 import { CodebaseIndexPanel } from "@/components/build/CodebaseIndexPanel";
+import { UnifiedDeployPanel } from "@/components/build/UnifiedDeployPanel";
 import { RecipePanel } from "@/components/recipe";
 import { FileConverter } from "@/components/file-converter";
 import { ShadowWorkspacePanel } from "@/components/cursor/ShadowWorkspacePanel";
@@ -52,7 +53,7 @@ import { PlanningPanel } from "@/components/cursor/PlanningPanel";
 import { DebugPanel } from "@/components/cursor/DebugPanel";
 import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
-import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
+import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Rocket, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu } from "lucide-react";
 import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -893,6 +894,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
   const { t } = useI18n();
   const { build: buildTaskProvider } = useTaskProvider('BuildOverviewPanel');
   const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes' | 'fileConverter'>('progress');
+  const [deployMode, setDeployMode] = useState<'unified' | 'single'>('unified');
 
   return (
     <div className="flex flex-col h-full">
@@ -960,8 +962,15 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
           </div>
         )}
         {overviewTab === 'deploy' && (
-          <div className="flex flex-col h-full p-4">
-            <DeployVisualPanel projectId={projectId} />
+          <div className="flex flex-col h-full p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <DeployModeToggle mode={deployMode} onModeChange={setDeployMode} />
+            </div>
+            {deployMode === 'unified' ? (
+              <UnifiedDeployPanel projectId={projectId ?? 'default'} />
+            ) : (
+              <DeployVisualPanel projectId={projectId} />
+            )}
           </div>
         )}
         {overviewTab === 'agents' && parallelTask && (
@@ -1140,6 +1149,34 @@ const BuildProgressContent: React.FC<BuildProgressContentProps> = ({
           </Button>
         )}
       </div>
+    </div>
+  );
+};
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Deploy Mode Toggle — Unified Deploy (all artifacts) vs single-artifact pipeline
+ * ────────────────────────────────────────────────────────────────────────── */
+
+const DeployModeToggle: React.FC<{ mode: 'unified' | 'single'; onModeChange: (m: 'unified' | 'single') => void }> = ({ mode, onModeChange }) => {
+  const { t } = useI18n();
+  const options = [
+    { id: 'unified' as const, label: t('unifiedDeploy.modeUnified'), icon: <Globe className="w-3.5 h-3.5" /> },
+    { id: 'single' as const, label: t('unifiedDeploy.modeSingle'), icon: <Rocket className="w-3.5 h-3.5" /> },
+  ];
+  return (
+    <div className="inline-flex items-center rounded-md border border-border/70 bg-background/60 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onModeChange(o.id)}
+          className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+            mode === o.id ? 'bg-brand-500/15 text-brand-400' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {o.icon}
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 };

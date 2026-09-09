@@ -591,6 +591,17 @@ const en = {
   "deploy.openSite": "Open Site",
   "deploy.noLogs": "No logs yet — start a deployment to see output",
 
+  /* Unified Deploy (Phase 12) */
+  "unifiedDeploy.title": "Unified Deploy",
+  "unifiedDeploy.description": "Deploy all of this project's artifacts (web app, website, slides, API, CLI, extension) as one coordinated action with a single status view.",
+  "unifiedDeploy.deployAll": "Deploy All Artifacts",
+  "unifiedDeploy.deploying": "Deploying...",
+  "unifiedDeploy.succeeded": "Succeeded",
+  "unifiedDeploy.partial": "Partial",
+  "unifiedDeploy.empty": "Select targets above, then click \"Deploy All Artifacts\".",
+  "unifiedDeploy.modeUnified": "Unified",
+  "unifiedDeploy.modeSingle": "Single",
+
   /* Shadow Workspaces (Phase 27) */
   "shadowWorkspace.title": "Shadow Workspaces",
   "shadowWorkspace.subtitle": "Ephemeral isolated environments for agent QA with warm pool and artifact collection",
@@ -3478,6 +3489,17 @@ const nl: Record<keyof typeof en, string> = {
   "deploy.running": "Deployen...",
   "deploy.openSite": "Site Openen",
   "deploy.noLogs": "Nog geen logs — start een deployment om output te zien",
+
+  /* Unified Deploy (Phase 12) */
+  "unifiedDeploy.title": "Unified Deploy",
+  "unifiedDeploy.description": "Deploy alle artifacts van dit project (web-app, website, slides, API, CLI, extensie) als een gecoördineerde actie met één statusoverzicht.",
+  "unifiedDeploy.deployAll": "Deploy Alle Artifacts",
+  "unifiedDeploy.deploying": "Deployen...",
+  "unifiedDeploy.succeeded": "Geslaagd",
+  "unifiedDeploy.partial": "Gedeeltelijk",
+  "unifiedDeploy.empty": "Selecteer hierboven doelen en klik dan op \"Deploy Alle Artifacts\".",
+  "unifiedDeploy.modeUnified": "Unified",
+  "unifiedDeploy.modeSingle": "Enkel",
 
   /* Build View (legacy keys kept for compatibility) */
   "build.tabs.plan": "Plan",
