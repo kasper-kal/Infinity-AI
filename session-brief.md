@@ -1161,7 +1161,7 @@ All 42 phases COMPLETE.
 - **Gem → Expert rename** — **COMPLETE (10/10)**: User-facing + internal backend terminology now consistent. DB `kind:"gem"`, API `gemSystemPrompt`/`gemConversationId` kept as documented legacy contract.
 
 ## Next actions
-1. **IN PROGRESS — Exhaustive 42-phase audit (user request)** — produce `PHASES-CHECK.md` with overview table + granular evidence (`file:line — function`) per phase. Phases 1-7 verified ✅. Phases 8-42: 4 Explore agents (8-15, 16-23, 24-31, 32-42) re-launched after temp API failures; synthesize results → fill overview + granular sections → commit.
+1. **IN PROGRESS — Exhaustive 42-phase audit (user request)** — produce `PHASES-CHECK.md` with overview table + granular evidence (`file:line — function`) per phase. Phases 1-7 verified ✅. Phases 8-42: 4 Explore agents (8-15, 16-23, 24-31, 32-42) relaunched 2026-09-09 this session after temp API failures; awaiting results → synthesize → fill overview + granular sections → commit.
 2. **Servers** — api :8080 + frontend :5173 confirmed running; optionally address non-fatal boot warnings (missing DB relations `tasks`, `build_schedules`; `project_id` migration) later.
 3. **✅ DONE — ALL 42 PHASES COMPLETE** — roadmap finished per project records; audit independently verifies that claim with evidence.
 
