@@ -1840,6 +1840,285 @@ function registerRecipeTools(): void {
 registerRecipeTools();
 
 // ============================================================================
+// PHASE 33 — AI Automation Tools
+// ============================================================================
+// Uses the AutomationRegistry (DB CRUD), AutomationRuntime (execution) and
+// AutomationParser (natural-language → spec). Mirrors the REST route behavior
+// in routes/infinity/automations.ts but exposes it to the Universal Agent.
+
+function registerAutomationTools(): void {
+  import("./automation-runtime").then(({ AutomationRuntime }) => {
+    import("@workspace/db/lib/automation-registry").then(({ AutomationRegistry, automationRegistry }) => {
+      const runtime = new AutomationRuntime();
+
+      // automation.list — list automations for a project
+      registerTool({
+        name: "automation.list",
+        description: "List automations for a project. Use when the user asks what automated workflows exist, or to find an automation id to run/update/delete.",
+        category: "automation",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            status: { type: "string", enum: ["all", "enabled", "disabled"], description: "Filter by status", default: "all" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId, status = "all" } = args as { projectId: string; status?: string };
+          const automations = await AutomationRegistry.listByProject(projectId, { limit: 100 });
+          const filtered = status === "all" ? automations : automations.filter((a) =>
+            status === "enabled" ? a.enabled : !a.enabled
+          );
+          const summary = filtered.map((a) => `${a.name} (${a.enabled ? "enabled" : "disabled"}): ${a.description || ""}`).join("\n");
+          return {
+            success: true,
+            data: filtered.map((a) => ({
+              id: a.id,
+              name: a.name,
+              description: a.description,
+              enabled: a.enabled,
+              triggerType: (a.trigger as any)?.type,
+              version: a.version,
+              tags: a.tags,
+            })),
+            summary: summary || "No automations found for this project.",
+          };
+        },
+        timeoutMs: 10000,
+      });
+
+      // automation.get — fetch full automation spec
+      registerTool({
+        name: "automation.get",
+        description: "Get the full specification of an automation (trigger, conditions, actions, settings) by ID.",
+        category: "automation",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Automation ID" },
+          },
+          required: ["id"],
+        },
+        execute: async (args) => {
+          const { id } = args as { id: string };
+          const spec = await AutomationRegistry.getSpecById(id);
+          if (!spec) return { success: false, error: `Automation not found: ${id}` };
+          return { success: true, data: spec, summary: `${spec.settings.name} — ${spec.settings.description || ""}` };
+        },
+        timeoutMs: 10000,
+      });
+
+      // automation.parse — natural language → structured spec (no save)
+      registerTool({
+        name: "automation.parse",
+        description: "Parse a natural-language automation description into a structured spec (trigger, conditions, actions). Does NOT save — use automation.create to persist.",
+        category: "automation",
+        risk: "READ",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt: { type: "string", description: "Natural language description, e.g. 'Every morning at 08:00 check Amazon sales for electronics, notify me above 80%'" },
+            projectId: { type: "string", description: "Project ID (optional, for context)" },
+          },
+          required: ["prompt"],
+        },
+        execute: async (args) => {
+          const { prompt, projectId } = args as { prompt: string; projectId?: string };
+          const result = await AutomationRegistry.parseNaturalLanguage(prompt, { projectId });
+          if (!result?.spec) return { success: false, error: "Could not parse automation description." };
+          return {
+            success: true,
+            data: result.spec,
+            summary: `Parsed automation: trigger=${result.spec.trigger.type}, actions=${result.spec.actions.length}, conditions=${(result.spec.conditions || []).length}.`,
+          };
+        },
+        timeoutMs: 15000,
+      });
+
+      // automation.create — persist + register a new automation
+      registerTool({
+        name: "automation.create",
+        description: "Create a new automation. Pass a structured spec (trigger, conditions, actions, settings) OR a naturalLanguage description. The agent can propose automations from observed patterns.",
+        category: "automation",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "Project ID (required)" },
+            name: { type: "string", description: "Automation name" },
+            description: { type: "string", description: "Short description" },
+            naturalLanguage: { type: "string", description: "Natural-language description of the automation (alternative to structured spec)" },
+            trigger: { type: "object", description: "{ type: 'cron'|'webhook'|'connector_event'|'api_call'|'manual', cronExpression?, webhookPath?, event?, connector? }" },
+            conditions: { type: "array", description: "Array of condition objects (field, operator, value)" },
+            actions: { type: "array", description: "Array of action objects (type, params). e.g. { type: 'notification', channel: 'in_app', message: '...' }" },
+            enabled: { type: "boolean", description: "Whether to start enabled (default true)" },
+          },
+          required: ["projectId"],
+        },
+        execute: async (args) => {
+          const { projectId, name, description, naturalLanguage, trigger, conditions, actions, enabled = true } = args as any;
+          let spec: any;
+          if (naturalLanguage) {
+            const parsed = await AutomationRegistry.parseNaturalLanguage(naturalLanguage, { projectId });
+            if (!parsed?.spec) return { success: false, error: "Could not parse the natural-language automation description." };
+            spec = parsed.spec;
+          } else if (trigger && actions) {
+            spec = {
+              settings: { name: name || "Automation", projectId, enabled },
+              trigger,
+              conditions: conditions || [],
+              actions,
+            };
+          } else {
+            return { success: false, error: "Provide either naturalLanguage or trigger + actions to create an automation." };
+          }
+          const automation = await AutomationRegistry.create({
+            projectId,
+            name: spec.settings.name || name || "Automation",
+            description: description || spec.settings.description || spec.settings.name,
+            trigger: spec.trigger,
+            conditions: spec.conditions || [],
+            actions: spec.actions,
+            settings: spec.settings,
+          });
+          if (automation.enabled) await runtime.register(spec);
+          return {
+            success: true,
+            data: { id: automation.id, name: automation.name, enabled: automation.enabled, projectId },
+            summary: `Created automation "${automation.name}" (${automation.id}) — ${automation.enabled ? "enabled" : "disabled"}.`,
+          };
+        },
+        timeoutMs: 15000,
+      });
+
+      // automation.update — modify an existing automation
+      registerTool({
+        name: "automation.update",
+        description: "Update an existing automation's trigger, conditions, actions, or settings fields.",
+        category: "automation",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Automation ID" },
+            name: { type: "string", description: "New name" },
+            description: { type: "string", description: "New description" },
+            trigger: { type: "object", description: "New trigger spec" },
+            conditions: { type: "array", description: "New conditions" },
+            actions: { type: "array", description: "New actions" },
+          },
+          required: ["id"],
+        },
+        execute: async (args) => {
+          const { id, ...patch } = args as any;
+          const updated = await AutomationRegistry.update(id, patch);
+          if (!updated) return { success: false, error: `Automation not found: ${id}` };
+          // Re-register so scheduling reflects changes
+          await runtime.unregister(id);
+          const spec = await AutomationRegistry.getSpecById(id);
+          if (spec?.settings.enabled) await runtime.register(spec);
+          return { success: true, data: updated, summary: `Updated automation "${updated.name}" (${id}).` };
+        },
+        timeoutMs: 15000,
+      });
+
+      // automation.enable / automation.disable — toggle enabled state
+      const enableDisable = async (args: any, enabled: boolean) => {
+        const { id } = args as { id: string };
+        const updated = await AutomationRegistry.setEnabled(id, enabled);
+        if (!updated) return { success: false, error: `Automation not found: ${id}` };
+        const spec = await AutomationRegistry.getSpecById(id);
+        if (enabled && spec) await runtime.register(spec);
+        else await runtime.unregister(id);
+        return { success: true, data: { id, enabled }, summary: `${enabled ? "Enabled" : "Disabled"} automation ${id}.` };
+      };
+      registerTool({
+        name: "automation.enable",
+        description: "Enable a disabled automation (starts its schedule/webhook registration).",
+        category: "automation",
+        risk: "WRITE",
+        parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        execute: (args) => enableDisable(args, true),
+        timeoutMs: 10000,
+      });
+      registerTool({
+        name: "automation.disable",
+        description: "Disable an automation (stops its schedule/webhook registration).",
+        category: "automation",
+        risk: "WRITE",
+        parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        execute: (args) => enableDisable(args, false),
+        timeoutMs: 10000,
+      });
+
+      // automation.run — run an automation now (manual trigger)
+      registerTool({
+        name: "automation.run",
+        description: "Run an automation immediately with an optional input payload. Avoids idempotency collisions.",
+        category: "automation",
+        risk: "WRITE",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Automation ID" },
+            payload: { type: "object", description: "Input payload for the automation, mapped to its connector actions" },
+            idempotencyKey: { type: "string", description: "Optional idempotency key" },
+          },
+          required: ["id"],
+        },
+        execute: async (args) => {
+          const { id, payload, idempotencyKey } = args as { id: string; payload?: object; idempotencyKey?: string };
+          const automation = await AutomationRegistry.getById(id);
+          if (!automation) return { success: false, error: `Automation not found: ${id}` };
+          if (!automation.enabled) return { success: false, error: `Automation is disabled: ${id}. Use automation.enable first.` };
+          const spec = await AutomationRegistry.getSpecById(id);
+          if (!spec) return { success: false, error: `Automation spec not found: ${id}` };
+          if (idempotencyKey) {
+            const existing = await AutomationRegistry.checkIdempotency(idempotencyKey);
+            if (existing) return { success: false, error: `Duplicate run (existing run ${existing.id})`, runId: existing.id };
+          }
+          const run = await AutomationRegistry.createRun({
+            automationId: id,
+            projectId: automation.projectId,
+            triggerType: "manual" as any,
+            triggerPayload: payload,
+            idempotencyKey,
+          });
+          runtime.execute(automation.id, { triggerType: "manual" as any, payload: payload || {}, runId: run.id }).catch((err) => {
+            console.error("[tool-registry] automation.run failed:", err);
+          });
+          return { success: true, data: { runId: run.id, status: "started" }, summary: `Started run ${run.id} of automation "${automation.name}".` };
+        },
+        timeoutMs: 10000,
+      });
+
+      // automation.delete — remove an automation
+      registerTool({
+        name: "automation.delete",
+        description: "Delete an automation permanently (stops its schedule/webhook).",
+        category: "automation",
+        risk: "DANGEROUS",
+        parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+        execute: async (args) => {
+          const { id } = args as { id: string };
+          await runtime.unregister(id);
+          const ok = await AutomationRegistry.delete(id);
+          if (!ok) return { success: false, error: `Automation not found: ${id}` };
+          return { success: true, data: { id, deleted: true }, summary: `Deleted automation ${id}.` };
+        },
+        timeoutMs: 10000,
+      });
+    });
+  });
+}
+
+// Auto-register automation tools on module load
+registerAutomationTools();
+
+// ============================================================================
 // PHASE 41 — File Format Converter Tools
 // ============================================================================
 
