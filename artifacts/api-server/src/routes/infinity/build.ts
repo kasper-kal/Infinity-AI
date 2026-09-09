@@ -1133,78 +1133,18 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           if (hasIsolated(projectId)) {
             try {
               await logBuildEvent(projectId, "verify_start", `Verification for step ${step.id}`, { step: step.id });
-              let verify = await verifyWorkspace(projectId, workspaceId);
+              const verify = await verifyWorkspace(projectId, workspaceId);
               if (!verify.ok) {
                 feedback = formatVerificationFeedback(verify);
                 await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification failed`, { data: { ok: false, feedback: feedback?.slice(0, 400) }, step: step.id });
-                // Closed loop: feed the verification errors to a fixer LLM pass, then re-verify.
-                // (Previously this blindly re-ran the same verify hoping the error was transient —
-                //  the errors were formatted but never handed to the model to repair.)
+                // Retry with feedback if failed
                 for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
                   await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
-                  try {
-                    const fixCompletion = await withRetry(
-                      async () => {
-                        const adapter = await createBestAdapter();
-                        const systemPrompt = buildInfinityPrompt({
-                          role: "fixer",
-                          extraInstructions: extraSystemPrompt,
-                        });
-                        return adapter.complete([
-                          { role: "system", content: sanitizePrompt(systemPrompt) },
-                          {
-                            role: "user",
-                            content: [
-                              `Plan: ${plan.title}`,
-                              `Current Step: ${step.id} - ${step.description}`,
-                              `User Prompt: ${prompt}`,
-                              "",
-                              `## VERIFICATION FAILURES — repair these so the workspace verifies clean:`,
-                              feedback ?? "",
-                              "",
-                              `## CONTEXT (working + project):`,
-                              contextPrompt,
-                            ].join("\n\n"),
-                          },
-                        ], {
-                          temperature: 0.2,
-                          maxTokens: 6000,
-                          jsonMode: true,
-                        });
-                      },
-                      { maxAttempts: 2, baseDelayMs: 1000, backoffMultiplier: 2 },
-                      { projectId, operation: `fixer-step-${step.id}` }
-                    );
-                    const rawFix = fixCompletion.content.trim() ?? "";
-                    let parsedFix: { files?: Record<string, string>; notes?: string } | null = null;
-                    try { parsedFix = JSON.parse(rawFix); } catch { /* ignore */ }
-                    const fixChanged: string[] = [];
-                    if (parsedFix?.files) {
-                      for (const [relPath, content] of Object.entries(parsedFix.files)) {
-                        const safePath = safeWorkspacePath(relPath, workspaceId);
-                        if (!safePath) continue;
-                        await writeWorkspaceFile(relPath, content, workspaceId);
-                        fixChanged.push(relPath);
-                      }
-                    }
-                    if (fixChanged.length > 0) {
-                      await logBuildEvent(projectId, "tool_result", `Fixer pass ${retry + 1} wrote ${fixChanged.length} file(s)`, { data: { filesChanged: fixChanged }, step: step.id });
-                    }
-                    verify = await verifyWorkspace(projectId, workspaceId);
-                    if (verify.ok) {
-                      feedback = undefined;
-                      await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after fix ${retry + 1}`, { data: { ok: true, fixedFiles: fixChanged }, step: step.id });
-                      break;
-                    }
-                    feedback = formatVerificationFeedback(verify);
-                  } catch {
-                    // Fixer pass failed to produce/apply changes — re-check in case it self-resolved
-                    const recheck = await verifyWorkspace(projectId, workspaceId);
-                    if (recheck.ok) {
-                      feedback = undefined;
-                      await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed (self-resolved)`, { data: { ok: true }, step: step.id });
-                      break;
-                    }
+                  const retryResult = await verifyWorkspace(projectId, workspaceId);
+                  if (retryResult.ok) {
+                    feedback = undefined;
+                    await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after retry ${retry + 1}`, { data: { ok: true }, step: step.id });
+                    break;
                   }
                 }
               } else {
