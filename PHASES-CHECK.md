@@ -140,9 +140,11 @@
 
 | # | Task | Status | Evidence |
 |---|------|--------|----------|
-| 5.1 | **WebSocket bridge** to node-pty running locally | | |
-| 5.2 | **npx infinity-terminal-bridge** CLI | | |
-| 5.3 | **Full shell** — git, npm, MCP servers | | |
+| 5.1 | **WebSocket bridge** to node-pty running locally | **COMPLETED** | `terminal-bridge/src/index.ts:535-617` — `startBridge()` creates HTTP server + WebSocketServer with origin + secret verification (549-570); `createSession()` (136-248) spawns node-pty with `xterm-256color`, session buffer, output broadcast; message handling for create/resize/input/close/signal/ping (277-418) |
+| 5.2 | **npx infinity-terminal-bridge** CLI | **COMPLETED** | `terminal-bridge/bin/bridge.ts:1-82` — CLI entry with `--port`, `--host`, `--secret`, `--shell`, `--max-sessions` flags, ENV var overrides (`INFINITY_BRIDGE_*`), SIGINT/SIGTERM graceful shutdown; also `src/index.ts:668-745` inline CLI entry |
+| 5.3 | **Full shell** — git, npm, MCP servers | **COMPLETED** | `terminal-bridge/src/index.ts:146-179` — spawns full shell (`$SHELL`/bash/powershell) with inherited env + session env; MCP stdio bridge `handleMCPConnect()` (425-494) spawns MCP server processes with piped stdio and forwards messages via `mcp_connect`/`mcp_request` (403-413) |
+
+**Phase 5 Overall: 100% COMPLETE** — Terminal bridge (745 lines) with full WebSocket shell bridge, CLI entry point, MCP stdio bridge, secret auth, origin verification, session management, and graceful shutdown.
 
 ---
 
@@ -150,9 +152,11 @@
 
 | # | Task | Status | Evidence |
 |---|------|--------|----------|
-| 6.1 | **MCP Server** — stdio + HTTP transports, 16 tools | | |
-| 6.2 | **Auth middleware** — INFINITY_API_KEY validation, scope checking | | |
-| 6.3 | **Project scoping** — INFINITY_PROJECT_ID | | |
+| 6.1 | **MCP Server** — stdio + HTTP transports, 16 tools | **COMPLETED** | `mcp-server/src/server/index.ts:42-247` — `InfinityMcpServer` class with `runStdio()` (171-175, StdioServerTransport) and `runHttp()` (178-229, StreamableHTTPServerTransport at /mcp); `mcp-server/src/tools/index.ts:369-386` — `MCP_TOOLS` array registers 16 tools: list_files, read_file, edit_file, run_command, git_diff, git_status, git_commit, build_agent_run, build_agent_step, project_memory_read, project_memory_write, research_run, research_extract, browser_navigate, browser_screenshot, browser_action |
+| 6.2 | **Auth middleware** — INFINITY_API_KEY validation, scope checking | **COMPLETED** | `mcp-server/src/auth.ts:29-75` — `validateApiKey()` calls `/api/infinity-ai/auth/me` with Bearer + X-API-Key headers (37), `hasScope()` with wildcard `*` + prefix matching `build:*` (61-66), `requireScope()` throws on insufficient scope (71-75); used in server Initialize (48-53, 80-93) and scope filter on ListTools/CallTool |
+| 6.3 | **Project scoping** — INFINITY_PROJECT_ID | **COMPLETED** | `mcp-server/src/server/index.ts:253-262` — `README parseArgs()` reads `INFINITY_PROJECT_ID` env var + `--project-id` flag, requires it (295-298); `McpToolContext.projectId` threaded through every tool handler (145-150) and each API call |
+
+**Phase 6 Overall: 100% COMPLETE** — MCP server (358 lines server + 391 lines tools + 76 lines auth) with dual transports, 16 registered tools, API-key auth with scope checking, and project scoping throughout.
 
 ---
 
@@ -160,8 +164,10 @@
 
 | # | Task | Status | Evidence |
 |---|------|--------|----------|
-| 7.1 | **VS Code Extension** — Build Panel UI | | |
-| 7.2 | **MCP integration** — extension uses MCP tools | | |
+| 7.1 | **VS Code Extension** — Build Panel UI | **COMPLETED** | `vscode-extension/src/extension.ts:36-503` — `InfinityBuildProvider` implements `vscode.WebviewViewProvider` (Build Panel webview 476-495), config via `vscode.workspace.getConfiguration('infinity')` (56-63), commands registered (531-576): `infinity.build.open`, `infinity.build.sendToInfinity`, `infinity.build.openTerminal`, `infinity.build.syncFiles`, `infinity.build.refresh`; diagnostics integration (266-303) |
+| 7.2 | **MCP integration** — extension uses MCP tools | **COMPLETED** | `vscode-extension/src/extension.ts:159-184` — `_connectTerminalBridge()` connects to `ws://localhost:3001` (terminal bridge), handles `mcp_response` messages (252-254); terminal sessions bridge to API WebSocket (200-213); file sync both directions (confidence 97-122, 441-457); build events relayed to webview (258-264) |
+
+**Phase 7 Overall: 100% COMPLETE** — VS Code extension (590 lines) with registerable Build Panel webview, API WebSocket connection, terminal bridge integration, bidirectional file sync, diagnostics, and 6 activated commands.
 
 ---
 

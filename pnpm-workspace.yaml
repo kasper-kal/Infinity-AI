@@ -14,6 +14,7 @@ allowBuilds:
   keytar: true
   leveldown: false
   node-pty: true
+  onnxruntime-node: true
   protobufjs: true
   puppeteer: true
   sharp: false
@@ -80,12 +81,6 @@ minimumReleaseAgeExclude:
   # this setting guards against does not apply to our own packages.
   - '@replit/*'
   - stripe-replit-sync
-
-onlyBuiltDependencies:
-  - '@swc/core'
-  - esbuild
-  - msw
-  - unrs-resolver
 
 overrides:
   # replit uses linux-x64 only, we can exclude all other platforms

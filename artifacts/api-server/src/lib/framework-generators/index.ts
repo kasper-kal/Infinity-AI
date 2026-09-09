@@ -9,8 +9,8 @@ export * from '../framework-adapters';
 export * from '../component-ir';
 export { detectFramework, detectFrameworkFromFiles, type DetectionResult, type ProjectFileMap } from '../framework-adapters';
 
-// Cross-framework component library
-export * from '../cross-framework-components';
+// Cross-framework component library - exported dynamically to avoid .svelte import issues
+// export * from '../cross-framework-components';
 
 // Migration tools
 export * from '../migration-tools';
