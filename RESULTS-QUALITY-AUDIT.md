@@ -604,3 +604,155 @@ Every specific finding maps back to this:
 
 The fix isn't wiring in dead code. It's rebuilding the information environment so the
 model can make good decisions — and then getting out of its way.
+
+---
+
+# Deep audit — the broken reality contract
+
+The behavioral audit showed the model gets low-quality information. This section answers
+**why**, mechanically — and the answer is worse than "low quality": the system's
+instruments for confirming reality are *absent, stubbed, miscalibrated, or wired to a path
+the UI never runs*. The model is told to inspect, verify, and check, and the tools that
+would let it do so either don't exist at runtime, report success regardless of reality,
+or are never invoked. The output isn't just "ungrounded" — it's produced against
+**miscalibrated feedback**, so the model confidently concludes bad work is good.
+
+Four discoveries, each verified with file:line, explain the whole phenomenon.
+
+---
+
+## Discovery 1 — The build button runs the *worst* pipeline in the repo
+
+There are two complete build systems. The frontend uses the cheap one.
+
+**Path A — Build Studio** (the actual build button, `build-studio.tsx` → `/api/infinity/build/*`):
+1. `/build/ask` — **no LLM at all.** Regex feature detection + 4 static questions
+   (`build.ts:552-572`).
+2. `/build/plan` — **one** LLM call, `maxTokens: 900` (`build.ts:152-183`), to plan the entire
+   product.
+3. `/build/execute-plan` — for each step, **one** single-shot `adapter.complete()` call that
+   must produce *complete, bug-free file contents blind* (`build.ts:1082-1110`, maxTokens
+   6000, `jsonMode`). No tools. No self-correction. If the JSON is truncated or invalid,
+   the step silently produces nothing and execution continues.
+4. An 8-pass "iterate" loop (`build-studio.tsx:1497`) that runs the autonomous agent.
+
+**Path B — the orchestrator** (`/build/orchestrate`, `build-orchestrator.ts`) — the full
+multi-agent pipeline: tool-using coder, text-LLM reviewer, adversarial 3-vote finding
+verification, fixer agent, token budget, context compaction.
+
+**The UI never calls Path B.** `grep "orchestrat" build-studio.tsx` → zero results. The
+orchestrator is reachable only via direct API call. So all the most carefully built
+machinery — reviewer, fixer, adversarial verification, compacted context — is invisible to
+the product. *The one pipeline the user experiences is the one with a 900-token planner and
+a blind single-shot coder.*
+
+A 900-token planner output is a few hundred words. It must encode title, summary, every
+step with targets and acceptance criteria, every file, risks, and a parallelization map.
+One paragraph of planning for an entire product.
+
+---
+
+## Discovery 2 — Verification runs against a workspace with no dependencies, and reports FALSE PASS
+
+The `verifyWorkspace` gate (`structured-tools.ts:292-332`) — the only quality check in the
+product path — runs:
+
+```
+npx tsc --noEmit --pretty false          // real gate
+npx vitest run --reporter=json 2>&1 || true
+npx eslint -f json . 2>&1 || true
+npm run build 2>&1 || true
+```
+
+Four mechanical reasons this produces *false green* in a real build:
+
+1. **Nothing ever installs dependencies.** Workspace creation is `mkdir` only
+   (`workspace.ts:524-529`). There is no `npm install` anywhere in the tool layer — the only
+   installs in the repo are a SWE-bench harness and the user's own terminal. The
+   `node_modules` symlink into `.pnpm-store/v10` silently fails **on this machine** (only
+   `v11` exists) inside a swallowed try/catch. A generated project has a `package.json` and
+   **no `node_modules`**.
+2. **`npx tsc` in a dep-less dir resolves the npm-registry `tsc` shim**, not the project's
+   TypeScript — and `parseTypeScriptOutput` only recognizes lines matching
+   `file(line,col): error TSxxxx`. Any other output (npx noise, "No inputs found", module
+   not found) parses to **`[]` → tsc passes** (`structured-tools.ts:220-290`).
+3. **`|| true` swallows vitest, eslint, AND build.** Their failures exit 0, which
+   `allPassed` (requiring `buildResult.exitCode === 0`) counts as passing
+   (`structured-tools.ts:322`). `parseBuildArtifacts` is a stub that always returns `[]`.
+4. **And this gate only fires if `hasIsolated(projectId)` is true** — a `.git` directory
+   happens to exist in the worktree (`workspace.ts:880-883`). Not a dependency check.
+
+Net: in exactly the scenario the pipeline is meant to serve — generate a fresh project,
+verify it — verification *cannot produce a real failure*. It reports "all checks passed"
+on a broken, dep-less workspace. The system believes it verified. It did not.
+
+---
+
+## Discovery 3 — The agent's success flag reports failed commands as SUCCESS
+
+`toolRunCommand` (`build-tools.ts:347-383`) computes:
+
+```ts
+success: !err || (err as any).killed === false
+```
+
+When a command runs and exits non-zero (e.g. `npm run build` failing normally), Node's
+`err` object has `killed: false` — so `success = false || (false === false)` = **true**.
+Only a *killed* process (timeout) reports `success: false`. A failed build is reported to
+the model as a **successful** tool call. `exitCode` is included in the payload, so a
+careful model *could* read it — but the field the harness keys on for errors
+(`state.errors`, the `hasErrors` logic, the model's summary of "tool results") says success.
+
+Add to this: **`inspect_console` — the tool meant to surface runtime errors — is a stub.**
+`build-tools.ts:418-436` returns `success: true`, `logs: []`, and the placeholder text
+"*Console inspection requires an active preview agent session…*" with a `TODO`.
+The model is instructed to check for console errors; the tool returns an empty array.
+There is no path by which a runtime error reaches the model.
+
+And the phase "fixing" is a **one-way trap** (`build-agent.ts:271-277`): the phase
+switcher has no `fixing` case, so once a verification failure flips the phase to `fixing`,
+`verifyAfterSteps`' guard `phase === "verifying"` never becomes true again. Automatic
+verification runs **at most once per agent run.** And termination: `success = state.phase
+=== "done"` (`build-agent.ts:484`) — the loop reports success whenever the model emits
+`done`, even if the build is still red, and even though `done` isn't even in
+`TOOL_DEFINITIONS` (it executes as "Unknown tool: done" first, `checkDone` then sets
+phase). Broken build + `done` = `success: true` → UI shows the completion card.
+
+---
+
+## Discovery 4 — When things DO fail, the "fix" is a 1.5B model guessing
+
+`tryLocalModelFix` (`build-agent.ts:302-365`) uses **Qwen2.5-1.5B via Ollama** when
+verification fails. It receives only the error string and the last 3 tool results — **no
+file contents** — so it must *invent* `oldCode` from the error message. `apply_fix`
+(`build-tools.ts:529-567`) then does a raw substring `indexOf(oldCode)` on the file; if the
+hallucinated snippet isn't found (the usual case), it fails and the main agent just sees
+another error. No parse, no dry-run, no compile check of `newCode`, and — critically —
+**nothing re-runs verification after the patch**. And there is **zero detection of
+oscillation**: no repeated-call tracking, no "this fix didn't help" bookkeeping, no
+progress metric. The loop iterates until `done`, iteration 20, or a thrown exception, no
+matter how many identical broken edits it proposes.
+
+---
+
+## The mechanism, in one breath
+
+The user fires a build. The cheapest pipeline runs. The planner gets 900 tokens. Each step
+is one blind single-shot write. Verification runs in a workspace with no dependencies and
+reports false green (`|| true`, dep-less `npx tsc`, stub parser) — *or* doesn't run at all
+(no isolated worktree). Failed shell commands are reported as successes. Runtime errors
+cannot reach the model (`inspect_console` stub). When verification does finally fail
+(losing the coin flip), the "fixer" is a 1.5B model hallucinating patches that are applied
+blind, never re-verified, with no oscillation detection. Eventually the model emits `done`
+— which always counts as success — and the completion card renders.
+
+**Every joint in the chain between "model acts" and "reality" is either broken, stubbed,
+miscalibrated, or on a code path the UI doesn't take.** The model's reward signal is noise.
+A capable model told "verify yourself" will trust the harness; the harness returns
+plausible success. The output isn't bad because the model under-delivers — it's bad because
+**nothing anywhere confirms contact with reality**, and the model is rewarded for
+confident, plausible, unchecked output.
+
+This is why "improve the prompt" and "wire in the done contract" both miss it: the
+environment the agent lives in *inverts* success and failure. Fix the information
+environment and the feedback instruments first; behavior follows the instruments it trusts.
