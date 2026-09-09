@@ -21,6 +21,8 @@ import {
   reorderJSXElements,
   applyEdits,
   extractComponent,
+  addImport,
+  removeImport,
   getUsedComponents,
   getDesignTokenUsage,
 } from '../../lib/ast-editor.js';
@@ -557,6 +559,50 @@ router.post('/ast/sync-structure', async (req: Request, res: Response) => {
     }
     console.error('AST sync structure error:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'AST sync failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/add-import
+ * Add an import declaration to source code
+ */
+router.post('/ast/add-import', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      import: z.string().min(1),
+    }).parse(req.body);
+
+    const result = addImport(validated.code, validated.import);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST add import error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST add import failed' });
+  }
+});
+
+/**
+ * POST /api/infinity/ui-builder/ast/remove-import
+ * Remove import declarations matching a module path
+ */
+router.post('/ast/remove-import', async (req: Request, res: Response) => {
+  try {
+    const validated = z.object({
+      code: z.string(),
+      module: z.string().min(1),
+    }).parse(req.body);
+
+    const result = removeImport(validated.code, validated.module);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+    }
+    console.error('AST remove import error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'AST remove import failed' });
   }
 });
 

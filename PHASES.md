@@ -29,7 +29,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code, Re
 | **14** | **Enterprise Features (SSO, VPC, Single-Tenant, Audit)** | ✅ **COMPLETE** |
 | **15** | **Agent Skills & Custom Instructions Marketplace** | ⚠️ **85%** — Settings Skills tab broken (undefined `SkillsSettingsPanel`) |
 | **16** | **v0-Level Generative UI Engine (Chat → Code → Preview → Deploy)** | ⚠️ **90%** — /deploy is a mock; 47 (not 50+) components |
-| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ⚠️ **90%** — addImport/removeImport AST ops missing |
+| **17** | **Visual Component Editor (Direct Manipulation + Code Sync)** | ✅ **100%** |
 | **18** | **v0-Style Collaborative Workflows (Team, Comments, Reviews)** | ✅ **COMPLETE** |
 | **19** | **External API & Database Integration (v0 Extensibility)** | ✅ **COMPLETE** |
 | **20** | **Multi-Framework Support (Next.js, Astro, Remix, Vite, Svelte, Vue)** | ✅ **COMPLETE** |
@@ -704,7 +704,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 
 ---
 
-## 📦 Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — ⚠️ **90%** (addImport/removeImport AST ops missing)
+## 📦 Phase 17: Visual Component Editor (Direct Manipulation + Code Sync) — ✅ **100%** (addImport/removeImport AST ops implemented 2026-09-09)
 
 ### Goal
 **Direct manipulation of generated UI** — click any element in preview to edit props, styles, structure. Changes sync bidirectionally to code. Like v0's visual editing but fully code-connected.
@@ -738,7 +738,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 5. **Extract Component Refactoring** — AST transform to create new component file + imports ✅ (ComponentExtractor.tsx complete)
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/ast-editor.ts` ✅ **COMPLETE** (~670 lines)
+- `artifacts/api-server/src/lib/ast-editor.ts` ✅ **COMPLETE** (~830 lines, extended 2026-09-09: `addImport`/`removeImport` real AST ops)
 - `artifacts/Infinity/src/components/ui-builder/PropEditor.tsx` ✅ **COMPLETE** (~790 lines)
 - `artifacts/Infinity/src/components/ui-builder/VisualInspector.tsx` ✅ **COMPLETE** (~610 lines)
 - `artifacts/Infinity/src/components/ui-builder/ComponentExtractor.tsx` ✅ **COMPLETE** (~360 lines)
@@ -755,6 +755,7 @@ All routes require auth + build:write scope, integrate with getProjectDesignSyst
 - [x] **Conflict resolution UI integrated** — shows pending conflicts with visual/code wins/ignore buttons
 - [x] Add drag-drop reorder (@dnd-kit integration in VisualInspector element stack) — wired to /ast/reorder API
 - [x] Integrate useAstHistory hook into ChatView for actual undo/redo functionality
+- [x] **addImport/removeImport AST operations implemented** (2026-09-09) — real babel/recast ops in `ast-editor.ts` + `POST /api/infinity/ui-builder/ast/add-import` & `POST /ast/remove-import` routes
 - [x] Test the complete UI Builder workflow end-to-end
 
 ---

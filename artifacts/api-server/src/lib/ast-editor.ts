@@ -693,3 +693,121 @@ export function getDesignTokenUsage(source: string, tokens: Record<string, Recor
 
   return Array.from(new Set(usage));
 }
+
+/**
+ * Add an import declaration to the source code.
+ *
+ * @param source   The original source code
+ * @param importDecl  A full import statement, e.g. `import React from 'react'`
+ *                    or `import { useState } from 'react'`
+ * @returns        The modified source code with the import added at the top
+ */
+export function addImport(source: string, importDecl: string): TransformResult {
+  const ast = parseCode(source);
+
+  // Parse the import declaration in isolation so we get a clean AST node
+  const importAst = parseCode(importDecl);
+  const importNode = importAst.program.body.find(
+    (node): node is t.ImportDeclaration => t.isImportDeclaration(node),
+  );
+
+  if (!importNode) {
+    return {
+      code: source,
+      changes: [],
+    };
+  }
+
+  // Place new imports right after existing import declarations so the top
+  // of the file stays orderly.  If there are no existing imports, unshift
+  // onto program.body.
+  const programBody = ast.program.body;
+  let insertIndex = 0;
+  for (let i = 0; i < programBody.length; i++) {
+    if (t.isImportDeclaration(programBody[i])) {
+      insertIndex = i + 1;
+    }
+  }
+
+  // Avoid duplicate imports for the same module source
+  const moduleSource = importNode.source.value;
+  const isDuplicate = programBody.some(
+    (node) =>
+      t.isImportDeclaration(node) &&
+      t.isStringLiteral(node.source) &&
+      node.source.value === moduleSource &&
+      // Specifiers must also match (type-only vs value vs namespace)
+      node.importKind === importNode.importKind &&
+      node.specifiers.length === importNode.specifiers.length &&
+      node.specifiers.every((spec, idx) => {
+        const other = importNode.specifiers[idx];
+        if (spec.type !== other.type) return false;
+        if (spec.type === 'ImportDefaultSpecifier') return true;
+        if (spec.type === 'ImportNamespaceSpecifier') return true;
+        return t.isIdentifier(spec.local) &&
+          t.isIdentifier(other.local) &&
+          spec.local.name === other.local.name;
+      }),
+  );
+
+  if (isDuplicate) {
+    return {
+      code: source,
+      changes: [],
+    };
+  }
+
+  programBody.splice(insertIndex, 0, importNode);
+
+  return {
+    code: generateCode(ast, source).code,
+    changes: [
+      {
+        type: 'addImport',
+        nodeType: 'ImportDeclaration',
+        range: importNode.loc || { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } },
+        description: `Added import from '${moduleSource}'`,
+      },
+    ],
+  };
+}
+
+/**
+ * Remove an import declaration matching the given module source path.
+ *
+ * @param source      The original source code
+ * @param moduleName  The module specifier to remove, e.g. `'react'` or `"react"`
+ * @returns           The modified source code with matching imports removed
+ */
+export function removeImport(source: string, moduleName: string): TransformResult {
+  const ast = parseCode(source);
+  const programBody = ast.program.body;
+  const changes: TransformResult['changes'] = [];
+  const target = moduleName.replace(/^['"]|['"]$/g, '');
+
+  // Walk backwards so splicing doesn't shift indices
+  for (let i = programBody.length - 1; i >= 0; i--) {
+    const node = programBody[i];
+    if (
+      t.isImportDeclaration(node) &&
+      t.isStringLiteral(node.source) &&
+      node.source.value === target
+    ) {
+      const loc = node.loc;
+      programBody.splice(i, 1);
+      if (loc) {
+        changes.push({
+          type: 'removeImport',
+          nodeType: 'ImportDeclaration',
+          range: loc,
+          description: `Removed import from '${target}'`,
+        });
+      }
+    }
+  }
+
+  return {
+    code: generateCode(ast, source).code,
+    changes,
+  };
+}
