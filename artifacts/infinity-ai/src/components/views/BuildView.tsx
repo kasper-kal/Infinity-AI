@@ -55,7 +55,7 @@ import { DesignMode } from "@/components/design/DesignMode";
 import { BuildMap } from "@/components/build-map/BuildMap";
 import { ChatSidebar } from "@/components/Cursor/ChatSidebar";
 import { Composer } from "@/components/Cursor/Composer";
-import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Rocket, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu, Bot, FileCode } from "lucide-react";
+import { ChefHat, FileText, GitBranch, MessageSquare, Monitor, Smartphone, RotateCcw, Wrench, Shield, Zap, Globe, Rocket, Terminal as TerminalIcon, LayoutDashboard, Database, Server, GitPullRequest, MousePointer2, Zap as ZapIcon, Cpu, Bot, FileCode, BarChart2 } from "lucide-react";
 import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import type { ArtifactTemplate, ArtifactTypeId } from "@/components/artifact-template-selector";
 
@@ -895,7 +895,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
 }) => {
   const { t } = useI18n();
   const { build: buildTaskProvider } = useTaskProvider('BuildOverviewPanel');
-  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes' | 'fileConverter'>('progress');
+  const [overviewTab, setOverviewTab] = useState<'progress' | 'transcript' | 'plan' | 'terminal' | 'security' | 'deploy' | 'agents' | 'codebase' | 'shadowWorkspaces' | 'agentReview' | 'automations' | 'recipes' | 'fileConverter' | 'analytics' | 'cursorChat' | 'cursorComposer'>('progress');
   const [deployMode, setDeployMode] = useState<'unified' | 'single'>('unified');
 
   return (
@@ -917,6 +917,7 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
             { id: 'automations', label: t('overview.tabs.automations'), icon: <ZapIcon className="w-4 h-4" /> },
             { id: 'recipes', label: t('recipes.marketplace'), icon: <ChefHat className="w-4 h-4" /> },
             { id: 'fileConverter', label: t('fileConvert.title'), icon: <FileText className="w-4 h-4" /> },
+            { id: 'analytics', label: t('overview.tabs.analytics'), icon: <BarChart2 className="w-4 h-4" /> },
             { id: 'cursorChat', label: t('overview.tabs.cursorChat'), icon: <MessageSquare className="w-4 h-4" /> },
             { id: 'cursorComposer', label: t('overview.tabs.cursorComposer'), icon: <FileCode className="w-4 h-4" /> },
           ]}
@@ -1022,6 +1023,11 @@ const BuildOverviewPanel: React.FC<BuildOverviewPanelProps> = ({
         {overviewTab === 'fileConverter' && (
           <div className="flex flex-col h-full">
             <FileConverter projectId={projectId} />
+          </div>
+        )}
+        {overviewTab === 'analytics' && (
+          <div className="flex flex-col h-full">
+            <AnalyticsDashboard projectId={projectId} />
           </div>
         )}
         {overviewTab === 'cursorChat' && (
