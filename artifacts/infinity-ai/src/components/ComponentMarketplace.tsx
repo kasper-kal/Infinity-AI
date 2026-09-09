@@ -84,7 +84,7 @@ export const ComponentMarketplace: React.FC = () => {
       if (filters.framework) params.set('framework', filters.framework);
       params.set('limit', '50');
 
-      const response = await fetch(`/api/marketplace/${type}?${params.toString()}`);
+      const response = await fetch(`/api/infinity/marketplace/${type}?${params.toString()}`);
       const data = await response.json();
 
       if (type === 'components') {
@@ -118,7 +118,7 @@ export const ComponentMarketplace: React.FC = () => {
     try {
       if (isTemplate) {
         setInstallProgress('Customizing template...');
-        const res = await fetch('/api/marketplace/templates/install', {
+        const res = await fetch('/api/infinity/marketplace/templates/install', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -137,7 +137,7 @@ export const ComponentMarketplace: React.FC = () => {
         }
       } else {
         setInstallProgress('Installing component...');
-        const res = await fetch('/api/marketplace/components/install', {
+        const res = await fetch('/api/infinity/marketplace/components/install', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

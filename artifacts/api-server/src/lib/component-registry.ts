@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { ComponentIR } from './component-ir';
+import { ComponentIRSchema } from './component-ir';
 
 // ============================================================================
 // Package Manifest Schema (.infinity-component spec)
@@ -40,7 +40,7 @@ export const ComponentManifestSchema = z.object({
     svelte: z.string().optional(),
   }).default({}),
   designTokenDependencies: z.array(z.string()).default([]),
-  componentIR: ComponentIR.optional(),
+  componentIR: ComponentIRSchema.optional(),
   files: z.array(z.object({
     path: z.string(),
     content: z.string(),

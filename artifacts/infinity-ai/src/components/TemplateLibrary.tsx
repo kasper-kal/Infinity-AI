@@ -78,7 +78,7 @@ export const TemplateLibrary: React.FC = () => {
       if (filters.framework) params.set('framework', filters.framework);
       params.set('limit', '50');
 
-      const response = await fetch(`/api/marketplace/templates?${params.toString()}`);
+      const response = await fetch(`/api/infinity/marketplace/templates?${params.toString()}`);
       const data = await response.json();
       setTemplates(data.templates || []);
     } catch (error) {
@@ -176,7 +176,7 @@ export const TemplateLibrary: React.FC = () => {
     try {
       // Step 1: Customize template
       setInstallProgress({ step: 'customize', message: 'Writing template files...', progress: 30 });
-      const res = await fetch('/api/marketplace/templates/install', {
+      const res = await fetch('/api/infinity/marketplace/templates/install', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
