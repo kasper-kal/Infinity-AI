@@ -596,7 +596,7 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 
 ---
 
-## 📦 Phase 15: Agent Skills & Custom Instructions Marketplace — ⚠️ **85%** (Settings Skills tab broken — undefined `SkillsSettingsPanel`)
+## 📦 Phase 15: Agent Skills & Custom Instructions Marketplace — ✅ **100%**
 
 ### Goal
 **Customize agents per project/team** — Reusable skill definitions but user-editable, project-scoped, with marketplace for sharing.
@@ -609,18 +609,24 @@ Build an **infinite design canvas** embedded in the app (not a separate tool) �
 - [x] **Custom Instructions** — Free-form text appended to agent system prompt per project
 - [x] **Skill Inheritance** — Base skill → project skill → task-specific skill
 - [x] **Skill Analytics** — Which skills used, success rates, token costs
+- [x] **Skills Settings Panel** — Full CRUD UI in Settings → Skills tab with 5 tabs (All Skills, Project Skills, Team Skills, Marketplace, Custom Instructions)
+- [x] **Skill Editor Dialogs** — Create/Edit/Delete/Import/Export skills with validation
+- [x] **i18n Keys** — EN/NL translations for all Skills panel UI (~70 keys)
 
 ### Implementation Plan
 1. **Skill System Extension** — Add project/team scoping, marketplace, analytics ✅
 2. **Skill Editor UI** — Visual editor in Project Settings → Skills tab ✅
 3. **Marketplace Backend** — GitHub-based package index (free), local cache ✅
 4. **Agent Integration** — Universal Agent loads skills from project context automatically ✅
+5. **Frontend Skills Panel** — Complete Settings tab with SkillsSettingsPanel component ✅
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/build-skills.ts` (existing skills system — 800+ lines) ✅ COMPLETE
 - `artifacts/api-server/src/routes/infinity/skills.ts` (new — 770 lines) ✅ COMPLETE
-- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab added) ⚠️ **BROKEN (audit 2026-09-09):** tab renders `<SkillsSettingsPanel>` at `:665-667` but the component is **neither imported nor defined** anywhere — tab shows nothing. All backend (build-skills.ts, skills.ts routes, 9 built-in skills) verified complete.
+- `artifacts/Infinity/src/components/views/SettingsView.tsx` (Skills tab added, imports SkillsSettingsPanel) ✅ COMPLETE
 - 9 built-in skill definitions in `artifacts/api-server/src/lib/skills/` ✅ COMPLETE
+- `artifacts/infinity-ai/src/components/settings/SkillsSettingsPanel.tsx` (NEW — 1300+ lines, 5 tabs, full CRUD) ✅ COMPLETE
+- `artifacts/infinity-ai/src/lib/i18n.tsx` (added ~70 EN + ~70 NL keys) ✅ COMPLETE
 
 ---
 

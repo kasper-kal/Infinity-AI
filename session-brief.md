@@ -47,6 +47,7 @@ All 42 phases COMPLETE.
   - Phase 40 = 100% COMPLETE
 
 ## Just did (last action)
+- **2026-09-09 Phase 15 DONE — SkillsSettingsPanel created with full CRUD** — New component `artifacts/infinity-ai/src/components/settings/SkillsSettingsPanel.tsx` (1300+ lines) with 5 tabs: All Skills / Project Skills / Team Skills / Marketplace / Custom Instructions. Each tab has complete CRUD (Create/Edit/Delete/Import/Export dialogs with validation). Marketplace tab: install/publish/search with version cards. Custom Instructions: project/team/global scope with markdown preview. Import/Export supports JSON/YAML. Wired into `SettingsView.tsx` via import at top + rendered in Skills tab content area. Added ~70 EN + ~70 NL i18n keys in `lib/i18n.tsx` (skills.*, marketplace.*, customInstructions.*). Both esbuild builds pass cleanly (SkillsSettingsPanel 307KB, SettingsView 924KB output). Phase 15 now 100% COMPLETE.
 - **42-phase audit shipped** — Wrote full evidence into `PHASES-CHECK.md` (all 42 phases, `file:line — function` tables), reconciled `PHASES.md` (overview statuses AND per-phase task checkboxes), fixed stale notes. 29 phases fully verified; gaps documented for 13. Pushed `79f2277` + `477c20c` + `2bd15f5`.
 - **Phase 37: Fully Automated End-to-End Workflow — COMPLETE ✅** (Frontend fully implemented):
   - **5 new workflow components** created with full API integration:
@@ -529,7 +530,7 @@ All 42 phases COMPLETE.
 - **Phase 18 — v0-Style Collaborative Workflows — COMPLETE ✅**
 - **Phase 17 — Visual Component Editor — COMPLETE ✅**
 - **Phase 16 — v0-Level Generative UI Engine — COMPLETE ✅**
-- **Phase 15 — Agent Skills & Custom Instructions Marketplace — COMPLETE ✅**
+- **Phase 15 — Agent Skills & Custom Instructions Marketplace — COMPLETE ✅** (SkillsSettingsPanel created 1300+ lines with 5 tabs full CRUD, imported in SettingsView, i18n ~70 EN+NL keys, builds pass)
 - **Phase 14 — Enterprise Features — COMPLETE ✅**
 - **Phase 13 — External Service Connectors — COMPLETE ✅**
 - **Phase 12 — Multi-Artifact Support — COMPLETE ✅**

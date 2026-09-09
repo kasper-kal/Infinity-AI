@@ -32,6 +32,7 @@ import { SafetyWatcherTab } from "@/components/settings/SafetyWatcherTab";
 import { LLMKeysTab } from "@/components/settings/LLMKeysTab";
 import { MfaSettings } from "@/components/settings/MfaSettings";
 import { AccountSettings } from "@/components/settings/AccountSettings";
+import { SkillsSettingsPanel } from "@/components/settings/SkillsSettingsPanel";
 
 /* ── Enterprise Settings Panel ── */
 const EnterpriseSettingsPanel: React.FC = () => {
