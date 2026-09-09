@@ -458,24 +458,11 @@ async function refreshDesignTokens() {
 
 // ─── Safety Watcher Push Notification Handling (Phase 38) ───
 
-interface SafetyWatcherNotificationData {
-  type: 'safety';
-  notificationId: string;
-  severity: 'info' | 'warning' | 'critical' | 'emergency';
-  ruleId?: string;
-  eventId?: string;
-  projectId: string;
-  actionUrl?: string;
-  actionLabel?: string;
-  dismissAction?: string;
-  acknowledgeAction?: string;
-}
-
-function isSafetyWatcherData(data: any): data is SafetyWatcherNotificationData {
+function isSafetyWatcherData(data) {
   return data && data.type === 'safety';
 }
 
-function getSeverityIcon(severity: string): string {
+function getSeverityIcon(severity) {
   switch (severity) {
     case 'emergency': return '🚨';
     case 'critical': return '⚠️';
@@ -485,7 +472,7 @@ function getSeverityIcon(severity: string): string {
   }
 }
 
-function getSeverityColor(severity: string): string {
+function getSeverityColor(severity) {
   switch (severity) {
     case 'emergency': return '#dc2626';
     case 'critical': return '#ea580c';
@@ -499,7 +486,7 @@ function getSeverityColor(severity: string): string {
 self.addEventListener('push', event => {
   if (!event.data) return;
 
-  let data: any;
+  let data;
   try {
     data = event.data.json();
   } catch {
@@ -511,7 +498,7 @@ self.addEventListener('push', event => {
     const severityIcon = getSeverityIcon(data.severity);
     const severityColor = getSeverityColor(data.severity);
 
-    const actions: NotificationAction[] = [];
+    const actions = [];
 
     // Add dismiss action
     if (data.dismissAction) {
@@ -545,7 +532,7 @@ self.addEventListener('push', event => {
         body: data.body || data.message,
         icon: '/icon-192.png',
         badge: '/badge-72.png',
-        data: data as SafetyWatcherNotificationData,
+        data,
         actions,
         tag: `safety-${data.notificationId}`,
         requireInteraction: data.severity === 'emergency' || data.severity === 'critical',
@@ -572,11 +559,11 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  const data = event.notification.data as SafetyWatcherNotificationData;
+  const data = event.notification.data;
 
   // Handle Safety Watcher notification actions
   if (isSafetyWatcherData(data)) {
-    const handleAction = async (action: string) => {
+    const handleAction = async (action) => {
       // Send action to server
       try {
         await fetch(`/api/infinity/safety-watcher/in-app-notifications/${data.notificationId}/${action}`, {
@@ -630,7 +617,7 @@ self.addEventListener('notificationclick', event => {
 });
 
 // Helper to open or focus existing window
-async function openOrFocusWindow(url: string) {
+async function openOrFocusWindow(url) {
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
   // Try to find existing window with matching origin
@@ -652,7 +639,7 @@ async function openOrFocusWindow(url: string) {
 
 // Handle notification close (user dismissed without action)
 self.addEventListener('notificationclose', event => {
-  const data = event.notification.data as SafetyWatcherNotificationData;
+  const data = event.notification.data;
 
   if (isSafetyWatcherData(data)) {
     // Optionally send dismiss to server

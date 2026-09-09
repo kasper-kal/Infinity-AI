@@ -12,7 +12,7 @@ export { useOffline, useOfflineMutation, useOfflineCapability, OfflineIndicator,
 export { useBuildShortcuts } from './use-build-shortcuts';
 export { useBuildStudio } from './use-build-studio';
 export { useChatStream } from './use-chat-stream';
-export { useMobile } from './use-mobile';
+export { useIsMobile } from './use-mobile';
 export { useToast } from './use-toast';
 export { useTerminalBridge } from './useTerminalBridge';
 export { useDesignMode } from './useDesignMode';
