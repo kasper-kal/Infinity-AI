@@ -756,3 +756,78 @@ confident, plausible, unchecked output.
 This is why "improve the prompt" and "wire in the done contract" both miss it: the
 environment the agent lives in *inverts* success and failure. Fix the information
 environment and the feedback instruments first; behavior follows the instruments it trusts.
+
+---
+
+# Deep audit, layer 2 — the harness pays for a native tool channel, then throws it away
+
+The conversational form of point 7 in the architectural audit — confirmed at the code level:
+
+`build-agent.ts:229-242`
+```ts
+const options: LLMCompletionOptions = {
+  temperature: config.temperature,
+  maxTokens: 4000,
+  tools: getToolSchemas(),     // ← native tool declarations ARE sent to the API
+  toolChoice: "auto",
+};
+const completion = await withRetry(async () => adapter.complete(messages, options), ...);
+const toolCalls = parseToolCalls(completion.content);  // ← structured tool_calls is DISCARDED
+```
+
+And the adapter *did* capture it properly:
+
+`llm-adapter.ts:288-294`
+```ts
+return {
+  content: choice.message.content ?? "",
+  toolCalls: choice.message.tool_calls?.map(tc => ({ ... })),  // ← populated, then never read
+  ...
+};
+```
+
+`parseToolCalls` (`build-agent.ts:121-162`) re-extracts tool calls by regex-searching the
+text for JSON objects (`/\{[\s\S]*?\}/g` — non-greedy, so a `}` inside any string argument
+truncates the match). Every tool-call round-trip in the absorbing agent loop therefore:
+1. Costs the API a real structured `tool_choice` negotiation,
+2. Have the adapter faithfully extract `tool_calls`,
+3. Then has the harness ignore that and regex the prose instead.
+
+The model is communicating through a text protocol the harness constructed, when the model
+and the API both already speak the structured one natively. Friction, malformed calls,
+silent drops — every turn.
+
+---
+
+# Deep audit, layer 3 — the seven instruments, each built to exist, each failing to function
+
+Everything this audit found reduces to one pattern. The repo *has* the instruments — built,
+exported, sometimes wired — and they don't function:
+
+| Instrument | What it was supposed to do | What it actually does |
+|---|---|---|
+| `verifyWorkspace` (`structured-tools.ts:292-332`) | Gate: does the code typecheck/test/lint/build? | Runs `npx tsc` in a **dep-less dir** (resolves the registry shim), `vitest/eslint/build` under `|| true` → all report green |
+| `formatVerificationFeedback` | Turn failure into repair instructions | Computed, then never fed to the model in execute-plan; retry loop re-runs the *same* check |
+| `toolRunCommand` (`build-tools.ts:372`) | Model sees real command results | `success: !err \|\| err.killed === false` → **failed build reports success** |
+| `inspect_console` (`build-tools.ts:418-436`) | Model sees runtime errors | Stub: `success:true, logs:[]`, TODO comment in the body |
+| `runDoneContract` / `DoneContractEngine` | Acceptance bar | **Zero callers** anywhere |
+| `runReviewer` (`build-orchestrator.ts:863-882`) | Reviewer judges the code | Reads `[Modified by step-X: summary]` placeholders, never the code; no tools; on a route the UI never calls |
+| `runAutonomousAgent` phase machine (`build-agent.ts:271-277`) | Explore→plan→implement→verify→fix | `fixing` has **no case** in the phase switch → verification fires at most once, then never again |
+
+The user-facing build path (Build Studio) uses: the 900-token planner, the single-shot
+blind coder (`build.ts:1082-1115`), the false-green gate, the `|| true` piped checks —
+while the orchestrator with the real reviewer/fixer/adversarial-verify sits unreachable
+behind `POST /build/orchestrate` that the frontend never calls (`grep -c "orchestrat"
+build-studio.tsx` → **0**).
+
+A complete graph of cause → effect:
+
+```
+42 phases built capability-shaped features
+   → each "instrument" was validated by its existence, not its function
+   → nothing was ever connected as a REAL ingredient of the model's decisions
+   → the runtime rewards confident, plausible, unchecked output
+   → the output is "not good"
+```
+
+Fix the instruments — and then fix the fact that the model trusts them.
