@@ -37,7 +37,8 @@ export type ReviewDimension =
   | "tests"
   | "breaking-changes"
   | "accessibility"
-  | "documentation";
+  | "documentation"
+  | "maintainability";
 
 /**
  * Review severity levels
@@ -407,6 +408,134 @@ export const DEFAULT_REVIEW_RULES: ReviewRule[] = [
     prompt: "Identify exported functions, components, types, APIs without JSDoc/TSDoc comments or README updates.",
     enabled: true,
   },
+  {
+    id: "docs-outdated",
+    name: "Outdated Documentation",
+    description: "Check for docs that don't match implementation",
+    dimension: "documentation",
+    severity: "low",
+    prompt: "Identify documentation that describes old behavior, removed parameters, or changed return types.",
+    enabled: true,
+  },
+  {
+    id: "docs-examples",
+    name: "Missing Code Examples",
+    description: "Check for complex APIs without usage examples",
+    dimension: "documentation",
+    severity: "low",
+    prompt: "Identify complex public APIs, configuration options, or hooks without practical code examples.",
+    enabled: true,
+  },
+
+  // Maintainability rules
+  {
+    id: "maintainability-complexity",
+    name: "High Cyclomatic Complexity",
+    description: "Check for overly complex functions",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify functions with high cyclomatic complexity (many branches, nested conditions, long switch statements). Suggest decomposition.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-coupling",
+    name: "Tight Coupling",
+    description: "Check for excessive dependencies between modules",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Look for modules that import too many other modules, circular dependencies, god classes, or excessive cross-module references.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-duplication",
+    name: "Code Duplication",
+    description: "Check for duplicated logic across files",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify copy-pasted code blocks, repeated logic patterns, or similar functions that could be abstracted.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-naming",
+    name: "Unclear Naming",
+    description: "Check for ambiguous or misleading names",
+    dimension: "maintainability",
+    severity: "low",
+    prompt: "Identify single-letter variables (except loops), abbreviated names, misleading function names, or names that don't match behavior.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-magic-numbers",
+    name: "Magic Numbers/Strings",
+    description: "Check for unexplained literal values",
+    dimension: "maintainability",
+    severity: "low",
+    prompt: "Find hardcoded numbers, strings, or constants that should be named constants with clear meaning.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-long-functions",
+    name: "Long Functions",
+    description: "Check for functions exceeding reasonable length",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify functions longer than 50 lines or with too many parameters (>5). Suggest extraction or restructuring.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-global-state",
+    name: "Global State Mutation",
+    description: "Check for uncontrolled global state changes",
+    dimension: "maintainability",
+    severity: "high",
+    prompt: "Look for direct mutations of global variables, window/document globals, singleton mutations, or module-level state changes.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-error-handling",
+    name: "Inconsistent Error Handling",
+    description: "Check for mixed error handling patterns",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify mixed try/catch with .catch(), thrown errors vs returned error objects, missing error boundaries, unhandled rejections.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-deprecated",
+    name: "Deprecated API Usage",
+    description: "Check for usage of deprecated methods/patterns",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify usage of deprecated framework APIs, legacy patterns, or methods marked @deprecated in the codebase.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-architecture",
+    name: "Architecture Violations",
+    description: "Check for layer violations, wrong abstractions",
+    dimension: "maintainability",
+    severity: "high",
+    prompt: "Look for UI code importing database layers, business logic in components, direct API calls from views, missing service layers.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-async-patterns",
+    name: "Inconsistent Async Patterns",
+    description: "Check for mixed async/await and Promise patterns",
+    dimension: "maintainability",
+    severity: "low",
+    prompt: "Identify mixing of async/await with .then/.catch, Promise.all vs sequential awaits, missing await, fire-and-forget promises.",
+    enabled: true,
+  },
+  {
+    id: "maintainability-side-effects",
+    name: "Hidden Side Effects",
+    description: "Check for functions with unexpected side effects",
+    dimension: "maintainability",
+    severity: "medium",
+    prompt: "Identify functions that appear pure but mutate arguments, modify global state, make network calls, or trigger renders unexpectedly.",
+    enabled: true,
+  },
 ];
 
 /**
@@ -741,6 +870,7 @@ Focus on: ${dimension} issues that could cause bugs, security issues, performanc
       "breaking-changes": 0,
       accessibility: 0,
       documentation: 0,
+      maintainability: 0,
     };
 
     for (const comment of comments) {
@@ -798,6 +928,7 @@ Focus on: ${dimension} issues that could cause bugs, security issues, performanc
         "breaking-changes": 0,
         accessibility: 0,
         documentation: 0,
+        maintainability: 0,
       },
       approved: false,
       blockMerge: true,
