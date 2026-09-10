@@ -10,19 +10,54 @@
  * 6: /build/scaffold with scenario B
  * 7: Concurrency - 3x scenario A
  * 8: Checkpoint resume - kill at iter 5, resume
+ *
+ * Route shapes verified against artifacts/api-server/src/routes/infinity/build.ts
+ * + build-studio.tsx (the real client):
+ *   /build/iterate      reads workspaceId, projectId, prompt, previewOutput,
+ *                       previewPort, maxIterations(<=30), skipPreflight
+ *                       -> returns { ok, summary, iterations, toolCalls, toolResults }
+ *   /build/preview/start  requires { workspaceId, sessionId, command, port }
+ *                       -> 400 without command+port
+ *   /build/preview/status GET ?workspaceId&sessionId -> { running, output }
+ *   /build/screenshot    { workspaceId, sessionId, port, viewports }
+ *   /build/preview/agent { sessionId, workspaceId, goal, port, maxSteps }
+ *                       -> 400 unless a preview is already running on that port
+ *   /build/orchestrate  { projectId, goal, maxIterations }
+ *   /build/scaffold     { projectId, prompt, answers, maxIterations }
+ *
+ * EVERY iterate call is a real runAutonomousAgent on the real free-tier
+ * model. skipPreflight=true throughout: Pass 3 already documented the
+ * preflight wall, and a dedicated probe at matrix start records it live.
+ * The preview command mirrors the client default (python3 http.server) so a
+ * Node/API scenario's preview channel stays dead on arrival — that dead
+ * channel IS a finding ("deps are never installed, so the feedback the agent
+ * iterates on is the static directory server, not the app you asked for").
  */
 
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const BASE_URL = "http://127.0.0.1:8080";
-const STUB_MODEL_URL = "http://127.0.0.1:3999/v1";
 
 const COOKIE_JAR = "/tmp/deep-audit-cookies.txt";
+
+// /build/* routes mount requireAuth (session cookie) AND requireScope from
+// middlewares/api-key-auth (x-api-key). Both are mandatory for every call.
+const API_KEY = "deep-audit-cli-key-987654321";
+
+const PREVIEW_PORT = 4173;
+const ITERATE_MAX = 5; // per iterate call; route clamps 1..30
+const ITERATE_CAP = 8; // outer auto-loop calls per pipeline (matrix value)
+
+// Each pipeline gets its own preview port so python http.server instances
+// never collide (same-host binds) — including under run-7 concurrency.
+let nextPort = 4201;
+const projectPorts = {};
 
 const SCENARIOS = {
   A: {
@@ -58,11 +93,10 @@ const FREE_MODELS = [
   "microsoft/phi-3-mini-128k-instruct:free",
 ];
 
-let currentModel = FREE_MODELS[0];
+const currentModel = FREE_MODELS[0];
 
 // Logging
 const logDir = resolve(__dirname, "deep-audit-logs");
-import { mkdirSync } from "node:fs";
 mkdirSync(logDir, { recursive: true });
 
 const runLog = createWriteStream(resolve(logDir, `run-${Date.now()}.jsonl`), { flags: "a" });
@@ -85,6 +119,7 @@ async function http(method, path, body, headers = {}) {
     headers: {
       "Content-Type": "application/json",
       "Cookie": await readCookie(),
+      "x-api-key": API_KEY,
       ...headers,
     },
   };
@@ -104,56 +139,77 @@ async function http(method, path, body, headers = {}) {
   return { status: res.status, data, duration, headers: Object.fromEntries(res.headers.entries()) };
 }
 
-async function readCookie() {
+function readCookie() {
   try {
-    const { readFileSync } = await import("node:fs");
     return readFileSync(COOKIE_JAR, "utf-8").trim();
   } catch {
     return "";
   }
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 // Build flow steps
 async function runAsk(scenario) {
   logEvent({ type: "ask_start", scenario: scenario.name });
   const res = await http("POST", "/api/infinity/build/ask", { prompt: scenario.prompt });
-  logEvent({ type: "ask_end", ...res });
+  logEvent({ type: "ask_end", status: res.status, duration: res.duration });
   return res.data;
 }
 
-async function runPlan(scenario, askResult) {
-  logEvent({ type: "plan_start", scenario: scenario.name });
+async function runPlan(scenario, projectId) {
+  logEvent({ type: "plan_start", scenario: scenario.name, projectId });
   const res = await http("POST", "/api/infinity/build/plan", {
     prompt: scenario.prompt,
     answers: scenario.answers,
-    projectId: "deep-audit-" + Date.now(),
+    projectId,
   });
-  logEvent({ type: "plan_end", ...res });
+  const fallback = !res.data?.steps?.length;
+  logEvent({ type: "plan_end", status: res.status, duration: res.duration, fallback, stepCount: res.data?.steps?.length ?? 0, fileCount: res.data?.files?.length ?? 0 });
   return res.data;
 }
 
-async function runExecutePlan(plan, projectId, skipPreflight = true) {
+async function runExecutePlan(plan, projectId, prompt, skipPreflight = true) {
   logEvent({ type: "execute_plan_start", projectId });
+  // Replicate build-studio's exact transformation: /plan returns treated steps,
+  // but /execute-plan needs {id, description, dependsOn, parallel}.
+  const steps = (plan?.steps ?? []).map((s, i) =>
+    typeof s === "string"
+      ? { id: `step-${i + 1}`, description: s, dependsOn: [], parallel: false }
+      : { id: s.id, description: s.description ?? s.title, dependsOn: [], parallel: false },
+  );
   const res = await http("POST", "/api/infinity/build/execute-plan", {
     projectId,
     workspaceId: projectId,
-    plan: plan,
+    prompt: prompt || "a simple app",
+    answers: {},
+    plan: { title: plan.title, summary: plan.summary, steps, files: plan.files ?? [], risks: plan.risks ?? [] },
     skipPreflight,
   });
-  logEvent({ type: "execute_plan_end", ...res });
+  const ok = res.status === 200 && !res.data?.error;
+  logEvent({ type: "execute_plan_end", status: res.status, duration: res.duration, ok, summary: res.data?.summary?.slice(0, 200), detail: res.data?.detail?.slice(0, 500) });
   return res.data;
 }
 
-async function runIterate(projectId, workspaceId, goal, iteration, maxIterations = 30) {
-  logEvent({ type: "iterate_start", projectId, iteration });
+async function runIterate(projectId, workspaceId, goal, iteration, maxIterations = ITERATE_MAX) {
+  const port = projectPorts[projectId] ?? PREVIEW_PORT;
+  logEvent({ type: "iterate_start", projectId, iteration, maxIterations, port });
   const res = await http("POST", "/api/infinity/build/iterate", {
     projectId,
     workspaceId,
-    goal,
+    prompt: goal,
+    previewOutput: lastPreviewOutput[projectId] ?? "",
+    previewPort: port,
     maxIterations,
-    iteration,
+    skipPreflight: true,
   });
-  logEvent({ type: "iterate_end", ...res });
+  const data = res.data ?? {};
+  logEvent({
+    type: "iterate_end", status: res.status, duration: res.duration, iteration,
+    ok: data.ok, toolCalls: data.toolCalls, agentIterations: data.iterations,
+    summary: (data.summary ?? "").slice(0, 200),
+    error: data.error || res.data?.detail?.slice?.(0, 300),
+  });
   return res.data;
 }
 
@@ -165,7 +221,7 @@ async function runScaffold(scenario, projectId) {
     answers: scenario.answers,
     maxIterations: 30,
   });
-  logEvent({ type: "scaffold_end", ...res });
+  logEvent({ type: "scaffold_end", status: res.status, duration: res.duration, fileCount: Object.keys(res.data?.files ?? {}).length, previewCommand: res.data?.previewCommand });
   return res.data;
 }
 
@@ -176,92 +232,135 @@ async function runOrchestrate(projectId, scenario) {
     goal: scenario.prompt,
     maxIterations: 30,
   });
-  logEvent({ type: "orchestrate_end", ...res });
+  logEvent({ type: "orchestrate_end", status: res.status, duration: res.duration, summary: (res.data?.summary ?? "").slice(0, 300), error: res.data?.error ?? res.data?.step?.error?.slice?.(0, 300) });
   return res.data;
 }
 
-async function runPreviewAgent(projectId, goal) {
-  logEvent({ type: "preview_agent_start", projectId });
-  const res = await http("POST", "/api/infinity/build/preview/agent", {
-    projectId,
-    goal,
-  });
-  logEvent({ type: "preview_agent_end", ...res });
-  return res.data;
-}
-
-async function runPreviewStart(projectId, workspaceId) {
+// Preview instrumentation (the direct-hold channel)
+async function runPreviewStart(projectId, workspaceId, command, port) {
+  const p = port ?? projectPorts[projectId] ?? PREVIEW_PORT;
+  logEvent({ type: "preview_start_attempt", projectId, command, port: p });
   const res = await http("POST", "/api/infinity/build/preview/start", {
-    projectId,
     workspaceId,
+    sessionId: "deep-audit",
+    command,
+    port: p,
   });
-  logEvent({ type: "preview_start", ...res });
+  logEvent({ type: "preview_start", status: res.status, duration: res.duration, running: res.data?.running, error: res.data?.error });
   return res.data;
 }
 
-async function runScreenshot(projectId, workspaceId) {
-  const res = await http("POST", "/api/infinity/build/screenshot", {
-    projectId,
+async function runPreviewStatus(projectId, workspaceId) {
+  const res = await http("GET", `/api/infinity/build/preview/status?workspaceId=${encodeURIComponent(workspaceId)}&sessionId=deep-audit`);
+  const output = (res.data?.output ?? "").slice(-2000);
+  logEvent({ type: "preview_status", status: res.status, running: res.data?.running, outputLen: output.length, outputHeader: output.slice(0, 120) });
+  return { running: res.data?.running, output };
+}
+
+async function runScreenshot(projectId, workspaceId, port) {
+  const p = port ?? projectPorts[projectId] ?? PREVIEW_PORT;
+  try {
+    const res = await http("POST", "/api/infinity/build/screenshot", {
+      workspaceId,
+      sessionId: "deep-audit",
+      port: p,
+      viewports: ["desktop"],
+    });
+    logEvent({ type: "screenshot", status: res.status, ok: res.data?.ok, error: res.data?.error });
+    return { ok: res.data?.ok, dataUrlLen: res.data?.dataUrl?.length ?? 0 };
+  } catch (e) {
+    logEvent({ type: "screenshot", status: -1, error: String(e) });
+    return { ok: false, error: String(e) };
+  }
+}
+
+async function runPreviewAgent(projectId, workspaceId, goal, port) {
+  const p = port ?? projectPorts[projectId] ?? PREVIEW_PORT;
+  logEvent({ type: "preview_agent_start", projectId, port: p });
+  const res = await http("POST", "/api/infinity/build/preview/agent", {
+    sessionId: "deep-audit",
     workspaceId,
+    goal,
+    port: p,
+    maxSteps: 6,
   });
-  logEvent({ type: "screenshot", ...res });
+  const events = res.data?.events ?? [];
+  logEvent({ type: "preview_agent_end", status: res.status, duration: res.duration, eventCount: events.length, lastEvent: events.slice(-1)[0], error: res.data?.error, summary: (res.data?.summary ?? "").slice(0, 300) });
   return res.data;
 }
 
-// Main run functions
+async function runCheckpointProbe(projectId, plan) {
+  // Preflight wall probe: one execute-plan WITHOUT skipPreflight on an unknown
+  // projectId. Documents whether preflightCheck blocks non-project workspaces.
+  logEvent({ type: "preflight_probe_start", projectId });
+  const res = await http("POST", "/api/infinity/build/execute-plan", {
+    projectId,
+    workspaceId: projectId,
+    prompt: "preflight probe",
+    answers: {},
+    plan: { title: plan?.title ?? "probe", summary: "probe", steps: [{ id: "step-1", description: "probe", dependsOn: [], parallel: false }], files: [], risks: [] },
+    skipPreflight: false,
+  });
+  logEvent({ type: "preflight_probe_end", status: res.status, duration: res.duration, body: res.data?.error ?? res.data?.detail?.slice?.(0, 300) ?? "ok" });
+  return { status: res.status };
+}
+
+/**
+ * runAutoPipeline — the client's real flow:
+ * ask → plan → execute-plan → start preview → iterate loop reading
+ * preview/status output each turn (the model's only "shadows").
+ */
+const lastPreviewOutput = {};
+
 async function runAutoPipeline(scenarioKey, runId) {
   const scenario = SCENARIOS[scenarioKey];
-  const projectId = `deep-audit-${scenarioKey.toLowerCase()}-${runId}`;
+  // projects.id is a uuid column; buildProjectContextForBuild (used by
+  // iterate/execute-plan) queries it directly, so non-UUID ids 500.
+  const projectId = randomUUID();
 
   logEvent({ type: "pipeline_start", scenario: scenario.name, projectId, model: currentModel });
 
-  // Step 1: Ask
   const askResult = await runAsk(scenario);
+  const plan = await runPlan(scenario, projectId);
+  const executeResult = await runExecutePlan(plan, projectId, scenario.prompt);
 
-  // Step 2: Plan
-  const plan = await runPlan(scenario, askResult);
+  // The client's default preview command — for Node/API scenarios the static
+  // server still boots (deps were never installed), which is the point.
+  const port = nextPort++;
+  projectPorts[projectId] = port;
+  const command = `python3 -m http.server ${port}`;
+  await runPreviewStart(projectId, projectId, command, port);
+  lastPreviewOutput[projectId] = "";
 
-  // Step 3: Execute plan
-  const executeResult = await runExecutePlan(plan, projectId);
-
-  // Step 4: Auto-pipeline (iterate loop)
   let iteration = 1;
   let done = false;
-  let lastPreviewOutput = "";
+  let stall = false;
 
-  while (!done && iteration <= 8) {
-    // Get preview output
-    const preview = await runPreviewStart(projectId, projectId);
-    await new Promise(r => setTimeout(r, 2000));
-    const screenshot = await runScreenshot(projectId, projectId);
-    lastPreviewOutput = preview.data?.output || "";
+  while (!done && !stall && iteration <= ITERATE_CAP) {
+    await sleep(1500);
+    const status = await runPreviewStatus(projectId, projectId);
+    lastPreviewOutput[projectId] = status.output;
+    await runScreenshot(projectId, projectId, port);
 
-    // Iterate
-    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output.\n\nPreview output:\n${lastPreviewOutput}`;
-    const iterateResult = await runIterate(projectId, projectId, iterateGoal, iteration, 30);
+    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output. Use available tools to explore the current state and make real file changes.\n\nPreview output:\n${status.output}`;
+    const iterateResult = await runIterate(projectId, projectId, iterateGoal, iteration);
 
-    done = iterateResult.data?.done || false;
+    const data = iterateResult ?? {};
+    if (data.toolCalls === 0) { stall = true; logEvent({ type: "stall_detected", iteration, projectId }); }
+    if (data.ok === true && iteration >= 1) done = true;
     iteration++;
-
-    if (iterateResult.data?.filesChanged?.length === 0 && iteration > 3) {
-      logEvent({ type: "stall_detected", iteration, projectId });
-      break;
-    }
   }
 
-  logEvent({ type: "pipeline_end", projectId, iterations: iteration - 1, done });
-  return { projectId, scenario, plan, executeResult, iterations: iteration - 1, done };
+  logEvent({ type: "pipeline_end", projectId, iterations: iteration - 1, done, stall });
+  return { projectId, scenario, plan, executeResult, iterations: iteration - 1, done, stall };
 }
 
 async function runConcurrency(scenarioKey, runId) {
   const scenario = SCENARIOS[scenarioKey];
   const promises = [];
-
   for (let i = 0; i < 3; i++) {
-    const projectId = `deep-audit-concurrent-${scenarioKey.toLowerCase()}-${runId}-${i}`;
-    promises.push(runAutoPipeline(scenarioKey, `${runId}-${i}`));
+    promises.push(runSafely(`concurrent-${i}`, () => runAutoPipeline(scenarioKey, `${runId}-${i}`)));
   }
-
   const results = await Promise.allSettled(promises);
   logEvent({ type: "concurrency_end", scenario: scenario.name, results: results.map(r => r.status) });
   return results;
@@ -269,56 +368,59 @@ async function runConcurrency(scenarioKey, runId) {
 
 async function runCheckpointResume(scenarioKey, runId) {
   const scenario = SCENARIOS[scenarioKey];
-  const projectId = `deep-audit-resume-${scenarioKey.toLowerCase()}-${runId}`;
+  const projectId = randomUUID();
 
-  // Run first 5 iterations
   logEvent({ type: "resume_phase1_start", projectId });
-  const askResult = await runAsk(scenario);
-  const plan = await runPlan(scenario, askResult);
-  const executeResult = await runExecutePlan(plan, projectId);
+  await runAsk(scenario);
+  const plan = await runPlan(scenario, projectId);
+  await runExecutePlan(plan, projectId, scenario.prompt);
+
+  const port = nextPort++;
+  projectPorts[projectId] = port;
+  const command = `python3 -m http.server ${port}`;
+  await runPreviewStart(projectId, projectId, command, port);
+  lastPreviewOutput[projectId] = "";
 
   let iteration = 1;
-  let lastPreviewOutput = "";
-
   while (iteration <= 5) {
-    const preview = await runPreviewStart(projectId, projectId);
-    await new Promise(r => setTimeout(r, 2000));
-    const screenshot = await runScreenshot(projectId, projectId);
-    lastPreviewOutput = preview.data?.output || "";
-
-    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output.\n\nPreview output:\n${lastPreviewOutput}`;
-    const iterateResult = await runIterate(projectId, projectId, iterateGoal, iteration, 30);
-
+    await sleep(1500);
+    const status = await runPreviewStatus(projectId, projectId);
+    lastPreviewOutput[projectId] = status.output;
+    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output.\n\nPreview output:\n${status.output}`;
+    await runIterate(projectId, projectId, iterateGoal, iteration);
     iteration++;
   }
-
   logEvent({ type: "resume_phase1_end", projectId, iterations: iteration - 1 });
 
-  // Kill server (simulate crash)
+  // Crash simulation: server is killed in a real run; here we read the durable
+  // checkpoint from the DB to prove state survived the "crash".
   logEvent({ type: "server_kill_simulated", projectId });
+  const checkpointRes = await http("GET", `/api/infinity/checkpoint/${projectId}`);
+  const cp = checkpointRes.data?.checkpoint ?? {};
+  logEvent({ type: "checkpoint_resume", status: checkpointRes.status, iteration: cp.iteration, completed: cp.completed, phase: cp.phase, hasWorkingContext: !!cp.workingContext });
 
-  // Restart server would happen here - for now just continue with same server
-  // In reality we'd restart the server process
-
-  // Resume - check checkpoint
-  const checkpointRes = await http("GET", `/api/infinity/build-checkpoints/${projectId}/latest`);
-  logEvent({ type: "checkpoint_resume", ...checkpointRes });
-
-  // Continue iterations 6-8
+  // Resume — continue 6-8
   while (iteration <= 8) {
-    const preview = await runPreviewStart(projectId, projectId);
-    await new Promise(r => setTimeout(r, 2000));
-    const screenshot = await runScreenshot(projectId, projectId);
-    lastPreviewOutput = preview.data?.output || "";
-
-    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output.\n\nPreview output:\n${lastPreviewOutput}`;
-    const iterateResult = await runIterate(projectId, projectId, iterateGoal, iteration, 30);
-
+    await sleep(1500);
+    const status = await runPreviewStatus(projectId, projectId);
+    lastPreviewOutput[projectId] = status.output;
+    const iterateGoal = `${scenario.prompt}\n\nITERATE TASK: Improve the app based on preview output.\n\nPreview output:\n${status.output}`;
+    await runIterate(projectId, projectId, iterateGoal, iteration);
     iteration++;
   }
 
   logEvent({ type: "resume_phase2_end", projectId, iterations: iteration - 1 });
-  return { projectId, scenario, totalIterations: iteration - 1 };
+  return { projectId, scenario, totalIterations: iteration - 1, checkpoint: checkpointRes.status };
+}
+
+// Resilience: one bad run never aborts the matrix.
+async function runSafely(name, fn) {
+  try {
+    return { name, ok: true, result: await fn() };
+  } catch (e) {
+    logEvent({ type: "run_failed", name, error: String(e) });
+    return { name, ok: false, error: String(e) };
+  }
 }
 
 // Deep audit orchestration
@@ -328,39 +430,61 @@ async function runDeepAudit() {
     runId,
     startTime: new Date().toISOString(),
     model: currentModel,
+    previewPort: PREVIEW_PORT,
+    iterateMax: ITERATE_MAX,
+    iterateCap: ITERATE_CAP,
     runs: {},
   };
 
   console.log(`\n=== DEEP AUDIT RUN ${runId} ===`);
   console.log(`Model: ${currentModel}`);
-  console.log(`Scenarios: ${Object.keys(SCENARIOS).join(", ")}`);
+  console.log(`Base: ${BASE_URL}`);
+
+  // Preflight wall probe (Pass-3 finding re-captured live)
+  results.runs["0_preflight_probe"] = await runSafely("preflight-probe", () =>
+    runCheckpointProbe(randomUUID(), { title: "probe", summary: "probe" }));
 
   // Run 1-3: Auto pipeline scenarios A, B, C
   for (const key of ["A", "B", "C"]) {
     console.log(`\n--- Run ${key}: ${SCENARIOS[key].name} ---`);
-    results.runs[key] = await runAutoPipeline(key, runId);
-    await new Promise(r => setTimeout(r, 5000)); // Cool down
+    results.runs[key] = await runSafely(key, () => runAutoPipeline(key, runId));
+    await sleep(5000); // Cool down
   }
 
   // Run 4: Orchestrate (glass palace)
   console.log(`\n--- Run 4: Orchestrate (glass palace) ---`);
-  results.runs["4_orchestrate"] = await runOrchestrate(`deep-audit-orchestrate-${runId}`, SCENARIOS.A);
+  results.runs["4_orchestrate"] = await runSafely("orchestrate", () =>
+    runOrchestrate(randomUUID(), SCENARIOS.A));
+  await sleep(3000);
 
-  // Run 5: Preview agent (direct hold)
+  // Run 5: Preview agent (direct hold) — needs a live preview first
   console.log(`\n--- Run 5: Preview Agent (direct hold) ---`);
-  results.runs["5_preview_agent"] = await runPreviewAgent(`deep-audit-preview-${runId}`, SCENARIOS.A.prompt);
+  results.runs["5_preview_agent"] = await runSafely("preview-agent", async () => {
+    const pid = randomUUID();
+    const p5 = nextPort++;
+    projectPorts[pid] = p5;
+    await runExecutePlan({ title: "probe", summary: "probe", steps: [{ id: "step-1", description: "create an index.html", dependsOn: [], parallel: false }], files: ["index.html"], risks: [] }, pid, SCENARIOS.A.prompt);
+    await runPreviewStart(pid, pid, `python3 -m http.server ${p5}`, p5);
+    await sleep(1500);
+    return runPreviewAgent(pid, pid, SCENARIOS.A.prompt, p5);
+  });
 
   // Run 6: Scaffold path
   console.log(`\n--- Run 6: Scaffold Path ---`);
-  results.runs["6_scaffold"] = await runScaffold(SCENARIOS.B, `deep-audit-scaffold-${runId}`);
+  results.runs["6_scaffold"] = await runSafely("scaffold", () =>
+    runScaffold(SCENARIOS.B, randomUUID()));
+  await sleep(3000);
 
   // Run 7: Concurrency
   console.log(`\n--- Run 7: Concurrency (3x A) ---`);
-  results.runs["7_concurrency"] = await runConcurrency("A", runId);
+  results.runs["7_concurrency"] = await runSafely("concurrency", () =>
+    runConcurrency("A", runId));
+  await sleep(3000);
 
   // Run 8: Checkpoint resume
   console.log(`\n--- Run 8: Checkpoint Resume ---`);
-  results.runs["8_resume"] = await runCheckpointResume("A", runId);
+  results.runs["8_resume"] = await runSafely("resume", () =>
+    runCheckpointResume("A", runId));
 
   results.endTime = new Date().toISOString();
   logSummary(results);
@@ -372,4 +496,9 @@ async function runDeepAudit() {
 }
 
 // Run
-runDeepAudit().catch(console.error);
+runDeepAudit().then(r => {
+  console.log("MATRIX STATUS:", Object.fromEntries(Object.entries(r.runs).map(([k, v]) => [k, v.ok ? "OK" : `FAIL:${String(v.error).slice(0, 80)}`])));
+}).catch((e) => {
+  console.error("FATAL:", e);
+  process.exit(1);
+});

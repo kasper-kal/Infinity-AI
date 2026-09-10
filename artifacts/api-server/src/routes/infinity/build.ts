@@ -177,9 +177,18 @@ async function createBuildPlan(
       maxTokens: 900,
     });
     return parseBuildPlan(result.content.trim() ?? "", prompt, existingFiles) ?? fallback;
-  } catch {
+  } catch (e) {
+    console.error("[AUDIT] buildPlan model call failed:", (e as Error)?.message, "status:", (e as {status?: number})?.status, "adapter:", adapterName());
     return fallback;
   }
+}
+
+/** [AUDIT] temporary diagnostic — which adapter the planner actually got */
+function adapterName(): string {
+  const bb = process.env.OPENROUTER_BASE_URL || "openrouter-default";
+  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
+  const hasKey = Boolean(process.env.OPENROUTER_API_KEY);
+  return JSON.stringify({ baseUrl: bb, model, hasKey, nvidia: Boolean(process.env.OPENAI_LLM_API_KEY) });
 }
 
 interface BuildReviewResult {
