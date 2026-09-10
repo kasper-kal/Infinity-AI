@@ -2244,3 +2244,193 @@ The end-to-end flow-trace produced findings that reading alone could not have su
 3. **The runAutoPipeline is an 8-pass cap, not the 30 maxIterations** (from build-studio.tsx:1494 `maxReviewPasses = 8` vs build.ts:730 `maxIterations = 30`): two different iteration budgets, user-visible pass count vs backend limit, the frontend provides a tighter cap than the backend permits — a rare instance of the frontend constraining what the backend doesn't.
 
 4. **The verifyErrors-are-computed-but-the-loop-ignores-them** (Finding N7): `formatVerificationFeedback` is called at build.ts:1138 and then the loop sleeps and re-runs `verifyWorkspace`. The `feedback` variable holds the right data — it's just never sent anywhere that can act on it. This is a "failure of connection," not a "failure of implementation": the fix is one line of code (`pass feedback to the iterate call`), not a rewrite.
+
+---
+
+# Pass 3 — Run the real build (required discovery instrument)
+
+> **Purpose:** execute the Build Studio path end-to-end (ask → plan → execute-plan → iterate)
+> with a free-tier model (€0, no trial) on the production bundle against a real database.
+> Record every divergence between the harness's claims and observed reality: where the
+> agent decided blind, where an instrument reported green against an empty/non-verifying
+> workspace, how "done" was reached and what it meant. The run is a **discovery pass**,
+> not a check: run-surfaced candidates fold into the claim surface.
+
+**Environment used (2026-09-10, this session):**
+
+| Component | What it was |
+|---|---|
+| Server | `node ./dist/index.mjs` from `artifacts/api-server` — the compiled production bundle |
+| DB | Local PostgreSQL 16 (`postgres://audit:auditpw@127.0.0.1:5432/infinity_audit`), auto-migrate statement-by-statement (all but the two `push_subscriptions` indexes) |
+| Model | Stub OpenAI-compatible endpoint at `127.0.0.1:3999/v1` — records every request, returns deterministic valid completions |
+| Auth | Seeded session cookie (`infinity_session=audit-session-token`) + DB `llm_keys` row with `source='user-api'`, scopes `build:read/write/project:read`, priority 0 (wins over env key) |
+| Build access | `POST /api/infinity/build/ask`, `/plan`, `/execute-plan`, `/iterate` |
+
+**Transparency — test scaffolding, all reversible and none in product code:**
+1. Auto-migrate aborts on `projects` → `accounts` FK order bug (reproduced live). Re-ran its DDL statement-by-statement to bring schema up.
+2. `llm_keys` missing `source/scopes/project_id/account_id` columns (auto-migrate never adds them). Added via SQL.
+3. API-key creation is broken (array into jsonb[]). Seeded the one key directly via SQL.
+4. Bundle fails to boot with zero API keys — `UnifiedDeployService` constructor eagerly calls `getLLMAdapter()` → `DefaultAdapterFactory.createAdapter()` → synchronous throw on empty key pool (reproduced live). Booted with stub env keys so the server could start.
+
+Every product-code path measured ran unmodified. The DB patches and stub model are measurement scaffolding, not fixes.
+
+---
+
+## Finding P1 — The server cannot boot with zero API keys
+
+**Method:** start production bundle with `DATABASE_URL` set but `OPENROUTER_API_KEY` unset.
+
+**Observed:** `UnifiedDeployService` class-field initializer executes `new DeploymentEngine()` whose constructor calls `getLLMAdapter()` (async) → the first line of `factory.createAdapter()` throws `CONFIG_ERROR: "API key not configured"` **before any await**, so the throw propagates synchronously through module init and kills the entire server at static load. The health endpoint never comes up.
+
+**Verdict:** confirmed. The harness assumes an API key is present in the environment or DB before *any* request arrives. A fresh user (no keys seeded) hits a server that literally will not start.
+
+---
+
+## Finding P2 — The migration chain aborts on the first FK, leaving half the schema
+
+**Method:** start server against pristine DB, watch `ensureTables()` transaction.
+
+**Observed:** `CREATE_TABLES` is order-broken: `projects` (line ~196) has `"account_id" uuid REFERENCES "accounts"("id")` but `accounts` isn't created until line ~372. The transaction aborts at the first statement that references a non-existent table. **Result: 7 tables created (conversations, messages, gmail_tokens, files, app_secrets, infinity_settings, llm_keys), then abort.** `accounts`, `sessions`, `projects`, `build_checkpoints`, and ~46 others never exist.
+
+The log then says *"Database migration skipped, DB unreachable"* — the DB was reachable; the log lies about the cause.
+
+**Verdict:** confirmed. The prior Validation called this "drift"; this run proves it is a **shipped DDL ordering bug** that breaks every fresh install. The "drift" language understates the severity — it's an unscaffoldable install.
+
+---
+
+## Finding P3 — `build_checkpoints` DDL/DML contract break (not drift)
+
+**Method:** drive execute-plan past preflight (skipPreflight=true) with a real project uuid.
+
+**Observed:** both coder steps write files and report `done:true` → `saveCheckpoint` inserts into `build_checkpoints` with columns `compacted_context`, `file_snapshots`, `token_usage` **that the auto-migrate CREATE never defines**. The table exists but lacks `compacted_context`; no ALTER adds it. Every fresh install 500s at the final checkpoint **after the work was done**, surfacing success as failure.
+
+**Verdict:** confirmed. This is stronger than "drift": the DML in `build-checkpoints.ts` and the DDL in `auto-migrate.ts` are out of sync *at commit time*. The columns exist in the drizzle schema (`build-checkpoints.ts:20`) but never made it into the shipped SQL.
+
+---
+
+## Finding P4 — The UI's exact execute-plan path is permanently 409-gated by preflight
+
+**Method:** call `/api/infinity/build/execute-plan` with the exact payload `build-studio.tsx` sends: `projectId = workspaceId = "build-<uuid>"`, no `skipPreflight`.
+
+**Observed:** 409 `"Pre-flight check failed: Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker; Git status check failed; 1 unresolved edge case(s); Another build is in progress"`.
+
+Root cause: `ensureWorkspace()` only `mkdir`s (no `git init`, no `.infinity` marker). The UI never sends `skipPreflight`. The git-first paths (`createBuildWorktree`) create the marker, but the plain build button never calls them. **A fresh Build Studio session is gated before the coder ever runs.**
+
+**Verdict:** confirmed. The prior Validation drove with `skipPreflight:true` and missed this. The plain build button has a permanent wall that the product's own code never clears.
+
+---
+
+## Finding P5 — The coder's complete perception (execute-plan): 591 chars, zero file bytes
+
+**Captured request (stub-model full-bodies.jsonl):**
+
+```json
+{
+  "user": "Plan: Increment counter app\n\nCurrent Step: html - Create index.html with two buttons and a counter display\n\nStep 1 of 2\n\nWorkspace: audit-run\n\nUser Prompt: Build a dashboard web app that shows analytics with charts and a sidebar navigation, with a login screen.\n\nAnswers: {\"appType\":\"Dashboard\",\"uiStyle\":\"Clean and minimal\",\"aiProvider\":\"No AI needed\",\"scope\":\"Multi-page feel\"}\n\nExtra Instructions: (none)\n\n## CONTEXT (working + project):\n\nPROJECT GOAL: Build a dashboard web app that shows analytics with charts and a sidebar navigation, with a login screen.\nTOKEN BUDGET: 0/200000 used"
+}
+```
+
+**System prompt:** ~700 lines of identity boilerplate + ~30 lines of coder role instructions. Zero file contents. Zero project conventions. The user's prompt ("dashboard with charts + sidebar + login") is carried through unprocessed; the plan's step ("Create index.html with two buttons...") bears no semantic relation to the original request.
+
+**Verdict:** empirical capture of "perceptions are shadows" thesis claim #2. The agent produces complete `index.html` + `app.js` in one JSON blob having seen nothing of the workspace.
+
+---
+
+## Finding P6 — Files land in a phantom root outside the repo
+
+**Observed:** the two files from Finding P5 were written to `/workspaces/artifacts/workspace/projects/audit-run/` — a sibling of the repo made up on the fly. The compiled bundle's `WORKSPACE_ROOT = path.resolve(__dirname, "..","..","..","..", "artifacts","workspace")` overshoots by one level because `__dirname` is `…/api-server/dist` in the single-file bundle.
+
+The repo (and the user's project list) never sees these files. Verification would check a directory nothing else can read.
+
+**Verdict:** live reproduction of Validation Finding 4, now on a pristine schema and production bundle.
+
+---
+
+## Finding P7 — The iterate agent loop: fresh 2-message calls, phase stuck in "exploring"
+
+**Captured sequence (stub-model requests.jsonl):**
+
+| Call | nMessages | hasTools | phase | iteration |
+|---|---|---|---|---|
+| 0 | 0 | false | — | (models.list) |
+| 1 | 2 | true (10 tools) | exploring | 1/8 |
+| 2 | 2 | true (10 tools) | exploring | 2/8 |
+| 3 | 2 | true (10 tools) | exploring | 3/8 |
+
+- Each iteration is a **fresh 2-message call** (system + user). No conversation history carried.
+- User message grows: iteration 3 carries 1,807 chars including **only the last iteration's `read_file` result** (`.slice(-5)` window).
+- Phase machine stayed in `exploring` for all three turns despite `read_file` succeeding and the stub returning `done` on turn 3. The phase re-derivation in `build-agent.ts:262-277` only advances on `hasFileEdits → implementing` and `hasVerification → verifying`; `done` tool is not in `TOOL_DEFINITIONS`, so it neither advances phase nor triggers verification.
+
+**Verdict:** confirmed — the loop is structurally incapable of recognizing completion. It spins, reports `completed:1` in the checkpoint, and internally also records `"Unknown tool: done"` — two contradictory records of the same moment, both persisted.
+
+---
+
+## Finding P8 — The iterate agent is fed Vite stdout, not the user's screenshot
+
+**Request body field:** `previewOutput: "VITE v5.4.21 ready in 312 ms\n200 GET /index.html 1.2ms\n200 GET /app.js 0.8ms"`
+
+**What the model sees:** HTTP request logs and server startup banner.
+
+**What the user saw:** `captureScreenshot()` produced a real browser screenshot displayed in the UI — but it was **never sent to any model**. The `/build/preview/agent` route (Puppeteer DOM inspection) exists and works but is **manual-only** (user types a goal and clicks "Run agent").
+
+**Verdict:** live confirmation of Pass 2's Finding N2 (channel mismatch). The signal that would tell the model what the user sees is the one it never receives.
+
+---
+
+## Finding P9 — The preflight gate instruments evidence but nothing acts on it
+
+**Preflight reports:** `"Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker"`
+
+**Execute-plan's `queue` telemetry for the same run:** `"Another build is in progress" (queueAvailable:false)` + `"No tracked files in git repo" + "Missing .infinity workspace marker"` → edge case `workspace_corruption`.
+
+**Yet:** the run proceeded anyway (with `skipPreflight:true`) and wrote correct files. The queue and edge-case gate *accumulate evidence that nothing downstream uses in this path*. They are telemetry, not control.
+
+**Verdict:** confirmed — instruments that compute the right signal but are wired to nothing.
+
+---
+
+## Finding P10 — The checkpoint records contradictory "done" records simultaneously
+
+**Saved checkpoint `completed_steps` for the iterate run:**
+
+```json
+[
+  {"step":"tool-0-read_file","done":true,"filesChanged":[]},
+  {"step":"tool-1-done","done":false,"filesChanged":[],"feedback":"Unknown tool: done"}
+]
+```
+
+**Top-level checkpoint:** `"completed": 1` (success).
+
+The same artifact says: the run succeeded (`completed:1`) AND the tool "done" is unknown (`done:false, feedback:"Unknown tool: done"`). Both records persisted without reconciliation.
+
+**Verdict:** the stop rule (`done` not in `TOOL_DEFINITIONS` + `checkDone` scans for it) and the persistence layer (`saveCheckpoint`) have different truth models. The harness records its own confusion.
+
+---
+
+## Live Pass Summary
+
+| Finding | Thesis claim instantiated | Severity |
+|---|---|---|
+| P1: server won't boot without keys | world is simulated (env mismatch) | blocks all fresh installs |
+| P2: migration aborts at first FK | completion is theater (half-built schema) | unscaffoldable |
+| P3: DDL/DML contract break | feedback is simulated (checkpoint 500) | work done, surfaced as fail |
+| P4: UI path 409-gated by preflight | world is simulated (phantom git state) | plain build button dead |
+| P5: coder perception = 591 chars | perceptions are shadows | empirical capture |
+| P6: phantom root outside repo | world is simulated (phantom FS) | verification checks nothing |
+| P7: phase stuck "exploring", fresh calls | completion is theater | can't recognize done |
+| P8: fed Vite stdout, screenshot to user | channel miswired | model blind to UI |
+| P9: preflight evidence unused | feedback simulated | computed, dropped |
+| P10: contradictory "done" in checkpoint | completion is theater | records own confusion |
+
+**Thesis refinement from the run:** the thesis's four claims are not merely supported — **each run-surfaced finding is a distinct mechanism that the thesis names abstractly**. The run didn't just "agree with" the thesis; it produced ten separate, empirically captured instances of the four claims. The "simulated world" is the harness's own infrastructure (phantom FS, half-schema, identity boilerplate, Vite stdout channel, preflight wall) that exists but is disconnected from the model's decision points. The gap is not "model quality" — it is the harness's own machinery.
+
+---
+
+## Open unknowns (what this run couldn't cover)
+
+1. **Multi-step iterative engineering** — the stub returned a fixed counter app; a real goal would iterate 8+ times. The phase machine's stuck-in-exploring was observed at 3 turns; the 8-turn cap vs 30 maxIterations divergence was confirmed but not stressed.
+2. **Dependency installation / real build tooling** — the workspace has no `package.json`, no `npm install`, no `tsc`/`vitest`/`eslint` that actually run. `verifyWorkspace`'s false-green gates (`|| true`) were observed in the offline harness but not triggered live because `hasIsolated(projectId)` was false.
+3. **The `/build/preview/agent` DOM inspection path** — only the manual button reaches it. The auto-pipeline never does.
+4. **Claude Code's actual behaviors** — only the auditor's lived experience is available as comparison; no instrument can reproduce Claude Code's user-steered, repo-native loop.
+5. **Cost/token economics** — the stub model has no real token accounting; the `tokenBudget` in context is decorative.
