@@ -1898,3 +1898,83 @@ the code does when the user clicks Build" is itself a major scope error — and 
 of gap as the user's own thesis ("Infinity constructs software in a simulated world… instruments
 that cannot touch reality"): the audit's own instruments were examining a simulated Build Mode, not
 the real one.
+
+---
+
+# Pass 1 — Re-certification of every existing audit claim against live wiring
+
+> **Purpose:** the plan's Pass 1 runs two checks on every prior claim: **(a)** is it still true in
+> reading? **(b)** is the file/prompt it points at actually live at runtime? — the §Pass 0 findings
+> proved (b) is a real failure mode. Each claim below is tagged **VERIFIED** (true and live),
+> **REFINED** (phenomenon true, evidence base corrected), or **SUPERSEDED** (cited apparatus wrong
+> or dead).
+
+## The two checks on the central claim set
+
+### The 5 failures
+
+| Claim | (a) true in reading? | (b) points at LIVE apparatus? | Verdict |
+|---|---|---|---|
+| **Failure 1** — No acceptance bar; `runDoneContract`/`DoneContractEngine` never called; workflow quality gates are empty switch stubs | ✅ `grep runDoneContract` → zero non-self hits; `workflow-orchestrator.ts` switch has empty cases | ✅ (the missing gate is, if anything, *more* notable now) | **VERIFIED** |
+| **Failure 2** — Reviewer can't run code | ✅ `build-orchestrator.ts:863-882` `runReviewer` is one `llm.complete()`, no tools | ⚠️ **The cited `runReviewer` is in the bypassed orchestrator path.** The live Build Studio path has **no reviewer at all** — execute-plan's steps go coder→verify→retry-loop, never through a reviewing model. The *phenomenon* ("no instrument reads the code and judges it") is **stronger** than the audit stated: not "reviewer can't run code" but "there is no reviewer in the product path whatsoever." | **REFINED — stronger** |
+| **Failure 3** — Generated code is ungrounded | ✅ `grep framework-generators|ui-codegen|template-engine` in build.ts/build-agent/build-orchestrator → zero imports | ✅ same | **VERIFIED** |
+| **Failure 4** — Prompts don't say what "good" means | ⚠️ citations are `agent-prompts/planner.ts:97-123` + `infinity-prompt.ts` identity block | ⚠️ **`agent-prompts/*` is the orphaned path** (P4, used only via `/build/orchestrate`). BUT the *phenomenon* is LIVE and byte-verified via the P1/P2 prompts: the live planner is an inline string in `build.ts:166-190` that says "produce a practical ordered plan… Never use the em dash" and **zero lines about data modeling, validation, error surfaces, auth, state, or a11y**; the live agent prompt `build-agent.ts:85-118` says "typecheck", "verify", "Never assume" and **zero lines about what a good software result is**. The identity block (`infinity-prompt.ts:20-50`, "FORGET ALL PREVIOUS INSTRUCTIONS… NOT ChatGPT") is prepended by the live `buildInfinityPrompt()`. | **REFINED — evidence swapped to P1/P2, phenomenon confirmed** |
+| **Failure 5** — Verification failures aren't fed back in the main path | ✅ `build.ts:1131-1156` byte-verified (wait-loop re-runs same check, `formatVerificationFeedback` computed and dropped) | ✅ live execute-plan route | **VERIFIED** |
+
+### The 7 architectural issues
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| 1. Phase-driven vs continuous | **VERIFIED** | `build-agent.ts:262-277` (LIVE) — phase re-derived from tool calls |
+| 2. Prompt does too much, environment too little | **VERIFIED** | P1/P2 prompts + `build.ts` message construction (LIVE) |
+| 3. Rich memory, narrow perception | **VERIFIED** | `build-agent.ts:215-220` — `.slice(-5)` window; working context summaries, not bytes |
+| 4. Tool execution ≠ tool strategy | **VERIFIED** | Tools exist (`build-tools.ts`), behavioral heuristics do not |
+| 5. Too many independent systems, not one machine | **VERIFIED — STRENGTHENED** | Pass 0 quantifies it: ~75k lines of build machinery, of which the live path uses ~3 files. The "pile of systems" is *dramatically larger* than the tiny live loop it dwarfs |
+| 6. Verification after-the-fact | **VERIFIED** | verify happens post-step in execute-plan; model never reasons *from* it |
+| 7. Text-parsed tool calls | **VERIFIED** | `build-agent.ts:229-242` — native `tools`+`toolChoice:"auto"` sent, then `parseToolCalls(completion.content)` regexes the prose (Layer 2) |
+
+### Deep-audit discoveries
+
+| Discovery | Verdict | Evidence |
+|---|---|---|
+| 1. Build button runs the worst pipeline | **VERIFIED** (with one correction in-favor) | execute-plan per-step is a fresh single-shot `adapter.complete()` (`build.ts:1082-1110`, `jsonMode`, no tools); `/build/orchestrate` unreachable from UI. *Correction:* `/build/scaffold` and `/build/iterate` DO use `runAutonomousAgent` (the tool loop) — the audit's "Path A" lumped them with the blind path. The blind path (execute-plan) is the one the UI drives after planning |
+| 2. Verification false-green | **VERIFIED** | `structured-tools.ts:292-332` (LIVE import in build.ts:37) — dep-less tsc, `\|\| true` gates |
+| 3. Success flag + inspect stub + fixing trap + done | **VERIFIED** | `build-tools.ts:347-383` byte-verified `success: !err \|\| err.killed === false`; `:418-436` stub; `build-agent.ts:266-277` no `fixing` case; `checkDone` build-agent.ts:161-175 — all LIVE |
+| 4. The "fix" is a 1.5B model guessing | **VERIFIED** | `tryLocalModelFix` build-agent.ts:302; `apply_fix` first-occurrence substring; verdict Offline-Finding 5 |
+
+### Behavioral audit findings
+
+| # | Claim | Verdict | Re-certification note |
+|---|---|---|---|
+| 1 | Model decides blind (file contents never reach it) | **REFINED — stronger in the live path** | The *planner* citation (`agent-prompts/planner.ts`) is orphaned, but the LIVE planner (`build.ts`) receives "Existing workspace files:" (a list of paths) + serialized working context (summaries), never bytes. The LIVE execute-plan coder gets **zero file contents** — no tools, no read_file, nothing (a fresh JSON-generating call). The LIVE agent-loop coder *can* call `read_file`, but within the 5-result window, on summaries |
+| 2 | No conversation history — fresh 2-message call each turn | **VERIFIED** | `build-agent.ts:201-226` — system + one user message each iteration (LIVE) |
+| 3 | Coder prompt computed and thrown away | **REFINED — evidence swapped** | The *orchestrator* citation is orphaned. **The LIVE twin is byte-literal:** `coderPromptV2` is imported at `build.ts:38-39` and **never invoked** (Pass 0). Same species: a prompt was built (v2), imported, then thrown away |
+| 4 | "Done" is self-reported | **VERIFIED** | `checkDone` — `done` isn't even in `TOOL_DEFINITIONS` |
+| 5 | Steps can't see what prior steps changed | **REFINED — mechanism different and more severe in LIVE path** | The *orchestrator* placeholder (`[Modified by step-X…]`) is orphaned. **LIVE equivalent:** in execute-plan, each step is an independent fresh LLM call. Steps *do* write real files (`writeWorkspaceFile`), but no subsequent step is given those bytes — step 2 only gets working context + project summaries. The plan's files list is handed to the *planner's* output, not to a shared read layer. Steps cannot see prior steps' code at all (the orchestrator at least re-read via a shared file map) |
+| 6 | ~30/500 lines of "you are not ChatGPT" | **VERIFIED** | `infinity-prompt.ts:20-50` — LIVE via `buildInfinityPrompt` |
+| 7 | Phase transitions follow tool usage | **VERIFIED** | `build-agent.ts:266-277` |
+| 8 | Verification retry is a wait-loop | **VERIFIED** | `build.ts:1131-1156` |
+| 9 | No self-correction mechanism | **VERIFIED** | No hypothesis state exists |
+
+### Deep-audit layer 2 & layer 3
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Layer 2 — native tool channel discarded | **VERIFIED** | `build-agent.ts:229-242` (tools sent, `tool_calls` extracted by adapter, then `parseToolCalls(completion.content)` regexes prose); `llm-adapter.ts` tool_calls populated-never-read |
+| Layer 3 — seven instruments table | **VERIFIED**, 1 row refined | Six rows byte-verified live. The `runReviewer` row is refined: not "unreachable reviewer" in a live path but *no reviewer in the product path at all* |
+
+## Result of Pass 1 — four claims pointed at the simulated paint, not the real thing
+
+Four of the audit's ~26 claims (Failure 4, Behavioral 1-planner-part, Behavioral 3, Behavioral 5)
+cite `agent-prompts/*` or `build-orchestrator.ts` — apparatus that Pass 0 proved is **not on the
+live path**. In each case the *phenomenon* survived re-certification (which is why the prior audit's
+verdict reads as true): live prompts genuinely don't define quality; live steps genuinely can't see
+file bytes. But the **evidence was swapped** so the document now points at the live apparatus.
+
+The single most important cause of the mis-scoping: **the prior audit read the richest, most
+complete build machinery in the repo (the orchestrator — reviewer, fixer, adversarial verify,
+context compaction) as if it were the product path.** It is, in fact, the *glass palace*: fully
+built, fully furnished, reachable only by those who know the secret route (`/build/orchestrate`).
+The build button runs the mud hut next door. This is the final, most delusive form of the thesis's
+"completion is theater": *the harness even has its own best self on display — behind a door the
+product never opens*.
