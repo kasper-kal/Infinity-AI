@@ -2672,3 +2672,74 @@ The following are **not** gaps in the audit — they are **inherent limits of th
 5. **Revisit the 7 unknowns** — each is a named entry point for deeper investigation
 
 The audit is complete. The fixes are documented. The gate honestly passes.
+---
+
+# Pass 6 — Live matrix run (the 8-run deep audit, in progress)
+
+**Status:** matrix running against the real server (8080) with a real free-tier model
+(`nex-agi/nex-n2.5-pro:free` via the user's OpenRouter key). Every endpoint below was
+executed in the same shapes the client (`build-studio.tsx`) uses. Run log:
+`deep-audit-logs/run-*.jsonl` (gitignored; this section is the durable record).
+
+## Run-enabling fixes the matrix required (each is itself a finding)
+
+| # | Fix | The finding it exposed |
+|---|---|---|
+| R1 | Minted a `user-api` row in Neon `llm_keys` (`source='user-api'`, scopes `build:read/build:write/project:read`) | `/build/*` routes double-gate: session cookie (`requireAuth`) **and** an API key (`requireScope` from `middlewares/api-key-auth`, NOT the session-scope middleware). The browser client works because it supplies a key; a cookie-only CLI cannot drive a build. |
+| R2 | Backfilled `compacted_context jsonb` on Neon `build_checkpoints` | **Checkpoint DDL drift, confirmed live.** `build-checkpoints.ts:20` requires the column; the DB lacks it → every `saveCheckpoint` INSERT throws **500 after the agent's work is done** (iterate runs fully, then checkpointing fails). |
+| R3 | Switched the driver to `randomUUID()` projectIds | `projects.id` is `uuid`; `build-project-context` queries it by id → `deep-audit-*` ids crash **every** iterate/execute-plan with a PG `invalid input for type uuid`. |
+
+## Confirmed live findings (instrumented, in-run)
+
+### F1 — The preflight wall is real and blocks fresh builds (409)
+Probe: `/build/execute-plan` with `skipPreflight:false` on an unknown project →
+`409 {"error":"Pre-flight check failed: Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker; Git status check failed; 1 unresolved edge case(s); Another build is in progress"}` (154–220 ms).
+A brand-new workspace is **not** a git repo and has no `.infinity` marker, so the
+"check" fails on the very state every new build starts from. The client is hardwired
+to `skipPreflight` — the gate protects nothing and blocks everything.
+
+### F2 — Plan fallback is silent; partial parse produces mixed canned/real plans
+`/build/plan` warms the model for 43–71 s, then the route substitutes without any
+marker. Detected in-run by signature only (the canned 4-step text
+"Translate the request into a focused implementation…"):
+- **Run A:** 42.5 s → **real** 7-step plan, 2 files listed.
+- **Run B:** 71.5 s → **canned** 4 steps **but** 8 real file paths — the
+  `parseBuildPlan` (`build.ts:146-147`) fills each missing field from its own source,
+  so a model that returns a file list without steps yields canned steps **plus** real
+  files. There is no way for the client (or the user) to see this happened. The
+  `[AUDIT]` log fires **only on throw**, not on non-JSON.
+
+### F3 — The false-green "success" is now measured, not argued
+`/build/execute-plan` for the two real runs:
+- **Run A:** 7/7 steps `ok`, **217 s**, **0 files changed**, workspace dir = `.tmp/` only.
+- **Run B:** 4/4 steps `ok`, **272 s**, **0 files changed** (plan had even listed 8 files).
+
+Mechanism (read live, `build.ts:1088-1166`): a step's `ok = !feedback`
+(line 1165), and `feedback` is only ever set inside `if (hasIsolated(projectId))`
+(line 1142). A plain UUID workspace is never isolated → the `verifyWorkspace` block is
+**skipped entirely** → `feedback` stays `undefined` → every step is `ok:true`
+**regardless of whether anything was written**. The coder is `jsonMode:true` and returns
+JSON without a `files` key → nothing saved → still `ok`. A 7-step "successful" build
+produces zero bytes and the route reports `{ok:true, batches:2}`.
+
+### F4 — The iterate agent makes zero tool calls; "done" is only a counter
+Every `/build/iterate` call runs `runAutonomousAgent` for `maxIterations` and returns
+`{ok:false, toolCalls:0, "Agent stopped after 5 iterations (max reached)"}` — the model
+used **no tools** in either 2-message shadow, and the stop rule was the iteration count.
+The driver's stall detector (predicting the client's auto-stop) fired at **iteration 1**,
+both runs: ask→plan→"execute"→preview-of-nothing→iterate-does-nothing→"pipeline complete".
+
+### F5 — The direct-hold visual channel is dead at the infrastructure layer
+`/build/screenshot` → `500 desktop screenshot failed, the headless browser is
+unavailable` (`libatk-1.0.so.0` missing on the host). The user's preview screenshot —
+the one channel that would show Earth — cannot be produced in this environment.
+
+## The thesis, in one row
+**2 consecutive "successful" real builds = 0 files on disk; 7+4 coder calls; 489 s of
+model time; "7/7 ok" and "4/4 ok".** A Claude Code run with the same model would have
+measurably produced a repo the model is reasoning over. Infinity's "simulated world"
+is not a metaphor here — the world literally contains zero bytes after a completed build.
+
+## Remaining matrix runs (armed, results to append)
+Run 3 (C) → 4 orchestrate → 5 preview-agent → 6 scaffold → 7 concurrency (3×A) →
+8 checkpoint resume. This section will be updated as they land.

@@ -6,3 +6,31 @@
 {"timestamp":"2026-09-10T21:35:42.619Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4"}
 {"timestamp":"2026-09-10T21:36:25.106Z","type":"plan_end","status":200,"duration":42486,"cannedFallback":false,"stepCount":7,"fileCount":2}
 {"timestamp":"2026-09-10T21:36:25.106Z","type":"execute_plan_start","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4"}
+{"timestamp":"2026-09-10T21:40:02.407Z","type":"execute_plan_end","status":200,"duration":217301,"ok":true,"stepCount":7,"stepsOk":7,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:40:02.407Z","type":"preview_start_attempt","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4","command":"python3 -m http.server 4201","port":4201}
+{"timestamp":"2026-09-10T21:40:02.462Z","type":"preview_start","status":201,"duration":54,"running":true}
+{"timestamp":"2026-09-10T21:40:04.018Z","type":"preview_status","status":200,"running":false,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:40:04.098Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:40:04.098Z","type":"iterate_start","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4","iteration":1,"maxIterations":5,"port":4201}
+{"timestamp":"2026-09-10T21:40:16.408Z","type":"iterate_end","status":200,"duration":12310,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":5,"summary":"Agent stopped after 5 iterations (max reached)"}
+{"timestamp":"2026-09-10T21:40:16.408Z","type":"stall_detected","iteration":1,"projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4"}
+{"timestamp":"2026-09-10T21:40:16.408Z","type":"pipeline_end","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:40:21.411Z","type":"pipeline_start","scenario":"Multi-page app + API + DB","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:40:21.411Z","type":"ask_start","scenario":"Multi-page app + API + DB"}
+{"timestamp":"2026-09-10T21:40:21.456Z","type":"ask_end","status":200,"duration":44}
+{"timestamp":"2026-09-10T21:40:21.456Z","type":"plan_start","scenario":"Multi-page app + API + DB","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53"}
+{"timestamp":"2026-09-10T21:41:32.960Z","type":"plan_end","status":200,"duration":71504,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:41:32.960Z","type":"execute_plan_start","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53"}
+{"timestamp":"2026-09-10T21:46:04.970Z","type":"execute_plan_end","status":200,"duration":272008,"ok":true,"stepCount":4,"stepsOk":4,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:46:04.970Z","type":"preview_start_attempt","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53","command":"python3 -m http.server 4202","port":4202}
+{"timestamp":"2026-09-10T21:46:05.020Z","type":"preview_start","status":201,"duration":50,"running":true}
+{"timestamp":"2026-09-10T21:46:06.565Z","type":"preview_status","status":200,"running":false,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:46:06.646Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:46:06.646Z","type":"iterate_start","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53","iteration":1,"maxIterations":5,"port":4202}
+{"timestamp":"2026-09-10T21:46:22.242Z","type":"iterate_end","status":200,"duration":15596,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":5,"summary":"Agent stopped after 5 iterations (max reached)"}
+{"timestamp":"2026-09-10T21:46:22.243Z","type":"stall_detected","iteration":1,"projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53"}
+{"timestamp":"2026-09-10T21:46:22.243Z","type":"pipeline_end","projectId":"cc40ed5c-c4d4-43cf-89c4-52cc74fa0a53","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:46:27.245Z","type":"pipeline_start","scenario":"Component library + Storybook","projectId":"1436d9fc-f7d8-4cbc-bf9b-617d2eb4bc77","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:46:27.245Z","type":"ask_start","scenario":"Component library + Storybook"}
+{"timestamp":"2026-09-10T21:46:27.289Z","type":"ask_end","status":200,"duration":44}
+{"timestamp":"2026-09-10T21:46:27.289Z","type":"plan_start","scenario":"Component library + Storybook","projectId":"1436d9fc-f7d8-4cbc-bf9b-617d2eb4bc77"}
