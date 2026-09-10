@@ -1,0 +1,6 @@
+{"timestamp":"2026-09-10T21:35:42.351Z","type":"preflight_probe_start","projectId":"0489ea60-decb-4b7a-821a-d145db4b9930"}
+{"timestamp":"2026-09-10T21:35:42.572Z","type":"preflight_probe_end","status":409,"duration":220,"body":"Pre-flight check failed: Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker; Git status check failed; 1 unresolved edge case(s); Another build is in progress"}
+{"timestamp":"2026-09-10T21:35:42.573Z","type":"pipeline_start","scenario":"Dashboard with charts + sidebar + login","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:35:42.573Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:35:42.617Z","type":"ask_end","status":200,"duration":43}
+{"timestamp":"2026-09-10T21:35:42.619Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"6d559f3d-fdf4-4f39-851d-ded3268353e4"}

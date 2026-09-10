@@ -164,9 +164,15 @@ async function runPlan(scenario, projectId) {
     answers: scenario.answers,
     projectId,
   });
-  const fallback = !res.data?.steps?.length;
-  logEvent({ type: "plan_end", status: res.status, duration: res.duration, fallback, stepCount: res.data?.steps?.length ?? 0, fileCount: res.data?.files?.length ?? 0 });
-  return res.data;
+  // Route returns { ok, plan } — the plan lives under .plan.
+  const plan = res.data?.plan ?? res.data;
+  const steps = Array.isArray(plan?.steps) ? plan.steps : [];
+  // cannedFallback: the route's fallbackBuildPlan has exactly 4 generic steps
+  // headed by "Translate the request into a focused implementation". There is
+  // no response marker, so this signature is the only way to detect it live.
+  const cannedFallback = steps.length === 4 && String(steps[0] ?? "").includes("Translate the request into a focused implementation");
+  logEvent({ type: "plan_end", status: res.status, duration: res.duration, cannedFallback, stepCount: steps.length, fileCount: plan?.files?.length ?? 0 });
+  return plan;
 }
 
 async function runExecutePlan(plan, projectId, prompt, skipPreflight = true) {
@@ -187,7 +193,15 @@ async function runExecutePlan(plan, projectId, prompt, skipPreflight = true) {
     skipPreflight,
   });
   const ok = res.status === 200 && !res.data?.error;
-  logEvent({ type: "execute_plan_end", status: res.status, duration: res.duration, ok, summary: res.data?.summary?.slice(0, 200), detail: res.data?.detail?.slice(0, 500) });
+  const stepResults = Array.isArray(res.data?.results) ? res.data.results : null;
+  const filesChanged = stepResults ? stepResults.flatMap(r => r.filesChanged ?? []) : [];
+  logEvent({
+    type: "execute_plan_end", status: res.status, duration: res.duration, ok,
+    stepCount: steps.length,
+    stepsOk: stepResults ? stepResults.filter(r => r.ok).length : null,
+    filesChangedCount: filesChanged.length, filesChangedFirst: filesChanged.slice(0, 8),
+    summary: res.data?.summary?.slice(0, 200), detail: res.data?.detail?.slice(0, 500),
+  });
   return res.data;
 }
 

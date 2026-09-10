@@ -1,0 +1,36 @@
+{"timestamp":"2026-09-10T21:31:18.083Z","type":"preflight_probe_start","projectId":"c7207a9f-49d8-4b46-b8ca-553a7b6987c1"}
+{"timestamp":"2026-09-10T21:31:18.240Z","type":"preflight_probe_end","status":409,"duration":154,"body":"Pre-flight check failed: Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker; Git status check failed; 1 unresolved edge case(s); Another build is in progress"}
+{"timestamp":"2026-09-10T21:31:18.240Z","type":"pipeline_start","scenario":"Dashboard with charts + sidebar + login","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:31:18.240Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:31:18.275Z","type":"ask_end","status":200,"duration":34}
+{"timestamp":"2026-09-10T21:31:18.276Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353"}
+{"timestamp":"2026-09-10T21:32:17.605Z","type":"plan_end","status":200,"duration":59329,"fallback":true,"stepCount":0,"fileCount":0}
+{"timestamp":"2026-09-10T21:32:17.606Z","type":"execute_plan_start","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353"}
+{"timestamp":"2026-09-10T21:32:17.707Z","type":"execute_plan_end","status":200,"duration":101,"ok":true}
+{"timestamp":"2026-09-10T21:32:17.707Z","type":"preview_start_attempt","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353","command":"python3 -m http.server 4201","port":4201}
+{"timestamp":"2026-09-10T21:32:17.767Z","type":"preview_start","status":201,"duration":60,"running":true}
+{"timestamp":"2026-09-10T21:32:19.313Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:32:19.398Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:32:19.399Z","type":"iterate_start","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353","iteration":1,"maxIterations":5,"port":4201}
+{"timestamp":"2026-09-10T21:32:25.609Z","type":"iterate_end","status":200,"duration":6209,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":5,"summary":"Agent stopped after 5 iterations (max reached)"}
+{"timestamp":"2026-09-10T21:32:25.609Z","type":"stall_detected","iteration":1,"projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353"}
+{"timestamp":"2026-09-10T21:32:25.609Z","type":"pipeline_end","projectId":"4e99971d-3b52-4b8d-8a6e-4801ec5bb353","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:32:30.611Z","type":"pipeline_start","scenario":"Multi-page app + API + DB","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:32:30.611Z","type":"ask_start","scenario":"Multi-page app + API + DB"}
+{"timestamp":"2026-09-10T21:32:30.660Z","type":"ask_end","status":200,"duration":48}
+{"timestamp":"2026-09-10T21:32:30.660Z","type":"plan_start","scenario":"Multi-page app + API + DB","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b"}
+{"timestamp":"2026-09-10T21:33:13.491Z","type":"plan_end","status":200,"duration":42830,"fallback":true,"stepCount":0,"fileCount":0}
+{"timestamp":"2026-09-10T21:33:13.491Z","type":"execute_plan_start","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b"}
+{"timestamp":"2026-09-10T21:33:13.583Z","type":"execute_plan_end","status":200,"duration":92,"ok":true}
+{"timestamp":"2026-09-10T21:33:13.585Z","type":"preview_start_attempt","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b","command":"python3 -m http.server 4202","port":4202}
+{"timestamp":"2026-09-10T21:33:13.684Z","type":"preview_start","status":201,"duration":99,"running":true}
+{"timestamp":"2026-09-10T21:33:15.222Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:33:15.292Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:33:15.292Z","type":"iterate_start","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b","iteration":1,"maxIterations":5,"port":4202}
+{"timestamp":"2026-09-10T21:33:34.672Z","type":"iterate_end","status":200,"duration":19380,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":5,"summary":"Agent stopped after 5 iterations (max reached)"}
+{"timestamp":"2026-09-10T21:33:34.673Z","type":"stall_detected","iteration":1,"projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b"}
+{"timestamp":"2026-09-10T21:33:34.673Z","type":"pipeline_end","projectId":"86f1d71a-86e0-4cdc-966d-2c9b06af3a7b","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:33:39.675Z","type":"pipeline_start","scenario":"Component library + Storybook","projectId":"7f771241-bdad-4cf9-9445-c53c92818aff","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:33:39.675Z","type":"ask_start","scenario":"Component library + Storybook"}
+{"timestamp":"2026-09-10T21:33:39.724Z","type":"ask_end","status":200,"duration":49}
+{"timestamp":"2026-09-10T21:33:39.724Z","type":"plan_start","scenario":"Component library + Storybook","projectId":"7f771241-bdad-4cf9-9445-c53c92818aff"}
