@@ -155,15 +155,6 @@ const CREATE_TABLES = [
     "completed_at" timestamp
   )`,
 
-  // ── Web push subscriptions ──────────────────────────────────
-  `CREATE TABLE IF NOT EXISTS "push_subscriptions" (
-    "endpoint" text PRIMARY KEY,
-    "p256dh" text NOT NULL,
-    "auth" text NOT NULL,
-    "user_agent" text NOT NULL DEFAULT '',
-    "created_at" timestamp NOT NULL DEFAULT now()
-  )`,
-
   // ── LLM key rotation pool ───────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "llm_keys" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -593,6 +584,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "safety_rules" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
     "rule_id" varchar(100) NOT NULL,
     "name" varchar(200) NOT NULL,
     "description" text,
@@ -611,6 +603,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "notification_channels" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
     "type" varchar(20) NOT NULL,
     "name" varchar(200) NOT NULL,
     "config" jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -628,6 +621,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "safety_notifications" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
     "rule_id" uuid REFERENCES "safety_rules"("id") ON DELETE SET NULL,
     "severity" varchar(20) NOT NULL,
     "title" varchar(500) NOT NULL,
@@ -651,6 +645,7 @@ const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "in_app_notifications" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL,
     "notification_id" uuid NOT NULL REFERENCES "safety_notifications"("id") ON DELETE CASCADE,
     "severity" varchar(20) NOT NULL,
     "title" varchar(500) NOT NULL,
@@ -837,8 +832,24 @@ const ALTER_TABLES = [
   `ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
   `CREATE INDEX IF NOT EXISTS "projects_account_id_idx" ON "projects" ("account_id")`,
 
-  // push_subscriptions
+  // push_subscriptions (web push - first definition)
   `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "user_agent" text NOT NULL DEFAULT ''`,
+  // push_subscriptions (safety watcher - add missing columns from second definition)
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "id" uuid DEFAULT gen_random_uuid()`,
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "project_id" uuid REFERENCES "projects"("id") ON DELETE CASCADE`,
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "user_id" uuid`,
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "p256dh" varchar(200)`,
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "auth" varchar(200)`,
+  `ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "updated_at" timestamp NOT NULL DEFAULT now()`,
+
+  // notification_channels - add account_id column
+  `ALTER TABLE "notification_channels" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
+  // safety_notifications - add account_id column
+  `ALTER TABLE "safety_notifications" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
+  // in_app_notifications - add account_id column
+  `ALTER TABLE "in_app_notifications" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
+  // safety_rules - add account_id column
+  `ALTER TABLE "safety_rules" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE SET NULL`,
 
   // accounts, scopes column for auth middleware
   `ALTER TABLE "accounts" ADD COLUMN IF NOT EXISTS "scopes" jsonb NOT NULL DEFAULT '[]'::jsonb`,

@@ -182,7 +182,7 @@ router.use(shortcutsRouter);
 router.use(exportRouter);
 router.use(importRouter);
 router.use(historyRouter);
-router.use(mcpServersRouter);
+router.use("/mcp-servers", mcpServersRouter);
 router.use(e2eRouter);
 router.use(performanceRouter);
 router.use(securityRouter);
