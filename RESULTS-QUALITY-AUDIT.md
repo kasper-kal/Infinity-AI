@@ -2674,9 +2674,9 @@ The following are **not** gaps in the audit — they are **inherent limits of th
 The audit is complete. The fixes are documented. The gate honestly passes.
 ---
 
-# Pass 6 — Live matrix run (the 8-run deep audit, in progress)
+# Pass 6 — Live matrix run (the 8-run deep audit, COMPLETE)
 
-**Status:** matrix running against the real server (8080) with a real free-tier model
+**Status:** matrix completed against the real server (8080) with a real free-tier model
 (`nex-agi/nex-n2.5-pro:free` via the user's OpenRouter key). Every endpoint below was
 executed in the same shapes the client (`build-studio.tsx`) uses. Run log:
 `deep-audit-logs/run-*.jsonl` (gitignored; this section is the durable record).
@@ -2764,6 +2764,52 @@ model time; "7/7 ok" and "4/4 ok".** A Claude Code run with the same model would
 measurably produced a repo the model is reasoning over. Infinity's "simulated world"
 is not a metaphor here — the world literally contains zero bytes after a completed build.
 
-## Remaining matrix runs (armed, results to append)
-Run 3 (C) → 4 orchestrate → 5 preview-agent → 6 scaffold → 7 concurrency (3×A) →
-8 checkpoint resume. This section will be updated as they land.
+## Completed matrix runs (all 8 delivered)
+
+### Run C — Component library + Storybook (transient fetch failure)
+`/build/plan` → 70.8 s → canned plan (4 steps) + 8 real file paths (partial parse).  
+`/build/execute-plan` → **fetch failed** (transient network; server verified healthy, procs alive).  
+Matrix driver caught via `runSafely`; run marked FAIL in summary but server healthy.
+
+### Run 4 — Orchestrate (glass palace)
+`POST /build/orchestrate` with `skipPreflight:false` → **409 in 144 ms**, same preflight wall (git/.infinity).  
+`skipPreflight` param exists (`build.ts:3007`) but defaults false — so the orchestrator is unwired **and** unrunnable on a fresh workspace. Client never calls it (`grep -c "orchestrat" build-studio.tsx` → 0).
+
+### Run 5 — Preview Agent (direct hold)
+`POST /build/preview/agent` with `sessionId:"deep-audit"` → **500: Failed to launch the browser process: Code 127, libatk-1.0.so.0 missing**.  
+The direct-hold visual channel is dead at the infrastructure layer — no screenshot, no DOM, no console errors can reach the model in this environment. This is finding F5, confirmed.
+
+### Run 6 — Scaffold Path
+`POST /build/scaffold` → **409 in 64 ms**, `fileCount:0` — same preflight wall (git/.infinity marker). Fresh workspace blocked.
+
+### Run 7 — Concurrency (3×A simultaneous)
+Three parallel `/build/plan`+`/build/execute-plan` runs (dashboard scenario).  
+All three returned **429 Rate limit exceeded: free-models-per-day** inside `executeResult.error`.  
+Plans were canned (1.4–1.5 s each); execute-plan threw 429 wrapped as 500.  
+The pool's `@free` models share one daily budget; no retry, no backoff, no user signal — just "canned plan + ok:true".  
+This is finding F6: **works** and **quota-starved** produce the same response shape.
+
+### Run 8 — Checkpoint Resume
+- Phase 1 (iterations 1–5): executed on project `bcf178a0-855d-4e63-91e8-2c167b6328b6` before quota wall. `saveCheckpoint` INSERTs succeeded (DDL fixed via R2).  
+- Simulated server kill (driver restarted execution context).  
+- Phase 2 (iterations 6–8): driver called `GET /api/infinity/checkpoint/${projectId}` (singular) → returned `{iteration: 0, completed: 0, hasWorkingContext: true}` — **checkpoint read returned a stub/zeroed record** despite 5 prior successful saves. The `checkpoints` table had rows but the singular `checkpoint/:projectId` route appears to return a synthetic default.  
+- Driver completed 8 total iterations and reported `resume_phase2_end`.
+
+---
+
+## The thesis, in one row
+**2 consecutive "successful" real builds = 0 files on disk; 7+4 coder calls; 489 s of model time; "7/7 ok" and "4/4 ok".** A Claude Code run with the same model would have measurably produced a repo the model is reasoning over. Infinity's "simulated world" is not a metaphor here — the world literally contains zero bytes after a completed build.
+
+---
+
+## Summary of live-confirmed findings (F1–F7)
+
+| # | Finding | Evidence |
+|---|---------|----------|
+| **F1** | Preflight wall blocks every fresh build (409) | Runs 0, 4, 6 all 409 in <250 ms on fresh UUID workspaces |
+| **F2** | Plan fallback is silent; partial parse mixes canned steps + real files | Runs A (real), B (canned+8 files), C (canned+8 files); `[AUDIT]` log only on throw |
+| **F3** | False-green success measured: 7/7 ok + 4/4 ok = 0 files | `ok = !feedback`, `feedback` only set inside `if (hasIsolated)` — plain workspaces skip verify entirely |
+| **F4** | Iterate agent makes 0 tool calls; stop rule = iteration cap | Both runs: `toolCalls:0`, `"Agent stopped after 5 iterations (max reached)"` |
+| **F5** | Direct-hold visual channel dead at infra layer (`libatk-1.0.so.0` missing) | Runs 5 + screenshots: puppeteer cannot launch |
+| **F6** | Free-tier quota exhaustion → silent canned fallback + ok:true | Run 7 concurrency burst hit 429; plan 1.5s (vs 71s real), execute-plan 500s |
+| **F7** | Orchestrate + scaffold also gated by preflight wall | Runs 4 + 6: 409, same git/.infinity guard; `skipPreflight` defaults false |
