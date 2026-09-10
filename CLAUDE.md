@@ -5,6 +5,12 @@ CRITICAL RULE — ENFORCED AT END OF EVERY RESPONSE:
 - User requirement: ALWAYS PUSH AND COMMIT AFTER EVERY SINGLE RESPONSE, EVERY
 - IMPORTANT EXTRA NOTE: NEVER use the Lucide icon called 'Sparkles'
 
+AUTO-COMMIT CRON — SET UP ON EVERY SESSION START:
+- At the START of EVERY session (first thing after reading CLAUDE.md), run CronCreate:
+  cron: "*/5 * * * *", recurring: true, prompt: "Auto-commit: run `git add -A && git diff --cached --stat` to check what changed, then if there are staged changes, commit with a brief descriptive message based on the diff stats and push. If nothing changed, do nothing (noop)."
+- This ensures every 5 minutes, uncommitted work is auto-committed and pushed
+- This MUST happen on every machine, every session, no exceptions
+
 CRITICAL ROUTINE FOR EVERY SINGLE MESSAGE:
 1. Read the user's new message carefully.
 2. Read 'PHASES.md' — the MASTER ROADMAP: all phases, current phase, requirements, implementation plans, autonomous execution rules. **Read this FIRST.**

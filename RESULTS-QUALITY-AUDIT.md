@@ -1653,3 +1653,248 @@ corrected to "fragile," and the phantom-root discovery is a genuinely new failur
 the environment *disconnects its own outputs*. On the earlier honest self-score (~65%), this
 validation closes the falsifiability and evidence gaps; what remains is reproducing the
 seven post-fix checks once fixes are ever applied, which by design this audit does not do.
+
+---
+
+# Pass 0 — Exhaustiveness Map: the real entirety of Build Mode
+
+> **Purpose:** enumerate every file participating in Build Mode, verified against live wiring,
+> so the audit's scope is *checkable* rather than asserted. Each file is tagged:
+>
+> - **🟢 LIVE-PRIMARY** — in the runtime path the UI actually drives
+> - **🟡 LIVE-INFRASTRUCTURE** — mounted, reachable, but not called by Build Studio (alternative
+>   entry point, background job, or scheduled task)
+> - **🔴 DEAD** — no reference at runtime, or imported but never invoked
+> - **⚫ EXCLUDED** — out of audit scope (model selection, UI/UX, auth, unrelated feature)
+
+## A. The prompt surface (what the agent actually reads)
+
+The prior audit assumed two prompt systems: `build-prompts.ts` (v2) and `agent-prompts/*`. The real
+situation is **four**, and the live product path uses *neither* v2 nor `agent-prompts/*`:
+
+| # | Source file | Prompt name | Size | Where used | Path |
+|---|------------|-------------|------|-----------|------|
+| **P1** | `routes/infinity/build.ts:166–190` | Inline planner string via `buildInfinityPrompt({role:"planner"})` | ~300 tokens | `POST /build/plan` | **🟢 LIVE-PRIMARY** (the route the UI calls) |
+| **P2** | `lib/build-agent.ts:85–118` | `buildAgentSystemPrompt()` — "You are Infinity, an autonomous software engineering agent…" | ~200 tokens | `POST /build/scaffold`, `/iterate`, `/execute-plan`, `/agent/run`, `/agent/step` | **🟢 LIVE-PRIMARY** (the agent loop the UI drives) |
+| **P3** | `lib/build-prompts.ts` (81 lines) | `plannerPromptV2`, `coderPromptV2`, `reviewerPromptV2`, `fixerPromptV2`, `BUILD_PROMPTS` | 4 functions | **NONE** — `coderPromptV2` and `fixerPromptV2` are imported at `build.ts:38–39` but never invoked anywhere in the codebase | **🔴 DEAD** |
+| **P4** | `lib/agent-prompts/*` (630 lines) | `PLANNER_SYSTEM_PROMPT`, `CODER_SYSTEM_PROMPT`, `REVIEWER_SYSTEM_PROMPT`, `FIXER_SYSTEM_PROM_PROMPT` | 4 functions | `build-orchestrator.ts:20–23` → `POST /build/orchestrate` (bypassed — UI never calls it) | **🟡 LIVE-ORPHANED** |
+
+### What this means for the existing audit
+
+**Audit Failure 4** ("the planner's prompt is a static template that returns a fixed JSON schema")
+is entirely argued from `agent-prompts/planner.ts` (P4). P4 is only imported by `build-orchestrator.ts`,
+which is only reachable via `/build/orchestrate`, which the frontend **never calls**
+(`grep "orchestrat" build-studio.tsx → 0` hits, build-studio.tsx line count = 0 matches).
+
+The *actual* planner the user experiences (P1) is an inline string in the route file calling
+`buildInfinityPrompt()` — a completely different apparatus. The v2 prompts (P3) are dead code:
+imported but never invoked. The audit's central claim (Failure 4) analyzed a prompt system that
+does not participate in the live product.
+
+**This is a scope error of the same species as the phantom workspace root (Validation Finding 4):**
+the audit pointed at a system that *exists* but is *not the one doing the work*.
+
+---
+
+## B. The complete Build Mode file map
+
+### B1. Core runtime (the live path — Build Studio → backend)
+
+| File | Lines | Role | Verdict | Notes |
+|------|-------|------|---------|-------|
+| `routes/infinity/build.ts` | 3101 | **The hub**: plan, scaffold, execute-plan, iterate, verify, fix, diff, walkthrough, screenshot, preview, terminal, budget, snapshots, browser pool, rollback, resume, agent/run, agent/step, context/*, orchestrate | **🟢 LIVE-PRIMARY** | 52 routes. 12 `maxIterations` refs across 4 agent paths (scaffold:30, iterate:30, execute-plan:30, step:15). Lines 38–39: dead imports of coderPromptV2/fixerPromptV2. Line 101: imports runMultiAgentBuild (bypassed). Lines 142/158: silent fallbackBuildPlan. Lines 2992–3039: orchestrate route → runMultiAgentBuild |
+| `lib/build-agent.ts` | 528 | **The agent loop**: `runAutonomousAgent()` and `runAgentForStep()` — the actual iteration machinery | **🟢 LIVE-PRIMARY** | `buildAgentSystemPrompt()` at line 85: inline prompt (P2). `parseToolCalls()` at line 120: text-parses JSON (Layer 2 confirmed). `checkDone()` at line 161: done is "a tool named done" (not a tool in TOOL_DEFINITIONS). Phase re-derived from tool usage at line 262: phase machine |
+| `lib/build-tools.ts` | 1222 | Tool implementations: list_files, read_file, edit_file, run_command, screenshot, inspect_console, inspect_dom, git_diff, apply_fix | **🟢 LIVE-PRIMARY** | 10 tools. verify() at ~line 645: four || true gates (Validation Finding 2). inspect_console returns `{logs:[], errors:[]}` when no browser. apply_fix first-occurrence only (offline Finding 5). |
+| `lib/infinity-prompt.ts` | varies | `buildInfinityPrompt()` — the planner's system prompt builder | **🟢 LIVE-PRIMARY** | Used by P1 planner in build.ts |
+| `lib/build-project-context.ts` | 156 | `buildProjectContextForBuild()` — workspace context builder for the agent loop | **🟢 LIVE-PRIMARY** | Feeds the agent's user message |
+| `lib/build-checkpoints.ts` | 1177 | Workspace checkpointing (save/restore/compact) | **🟢 LIVE-PRIMARY** | DB table `build_checkpoints` — missing at runtime (Validation Finding 3: schema drift). Compaction produces `compacted_context` string. |
+| `lib/build-budgets.ts` | 430 | Token/cost budgets, daily limits, alerts | **🟢 LIVE-PRIMARY** | Called by build.ts budget routes |
+| `lib/build-sandbox.ts` | ~300 | Command allowlist/denylist, env sanitization, workspace boundary | **🟢 LIVE-PRIMARY** | Security fix #4 |
+| `lib/build-security.ts` | 782 | Environment restriction, secret redaction, permission checks | **🟢 LIVE-PRIMARY** | Wired into build-tools execution |
+| `lib/build-context.ts` | 925 | Working memory for the agent (per-project context, decision history, error patterns) | **🟢 LIVE-PRIMARY** | `getWorkingContext()` called each iteration in build-agent.ts |
+| `lib/workspace.ts` | varies | `WORKSPACE_ROOT` calculation, file I/O, runTerminalCommand | **🟢 LIVE-PRIMARY** | Phantom root (Validation Finding 4): `WORKSPACE_ROOT` resolves outside the repo |
+| `lib/llm-adapter.ts` | varies | LLM adapter abstraction, `createBestAdapter()` | **🟢 LIVE-PRIMARY** | Called by planner, agent, all routes |
+
+### B2. Dead or unreachable files (read by audit, not wired into live path)
+
+| File | Lines | Role | Verdict | Notes |
+|------|-------|------|---------|-------|
+| `lib/build-prompts.ts` | 81 | v2 prompt system (planner/coder/reviewer/fixer) | **🔴 DEAD** | All 4 exports unused. coderPromptV2/fixerPromptV2 imported at build.ts:38-39 but never called. plannerPromptV2/reviewerPromptV2: zero importers. |
+| `lib/agent-prompts/planner.ts` | 122 | "PLANNER AGENT" prompt with acceptance criteria schema | **🟡 LIVE-ORPHANED** | Imported only by build-orchestrator.ts → `/build/orchestrate` (UI never calls) |
+| `lib/agent-prompts/coder.ts` | 147 | "CODER AGENT" prompt | **🟡 LIVE-ORPHANED** | Same as above |
+| `lib/agent-prompts/reviewer.ts` | 162 | "REVIEWER AGENT" prompt | **🟡 LIVE-ORPHANED** | Same as above |
+| `lib/agent-prompts/fixer.ts` | 115 | "FIXER AGENT" prompt | **🟡 LIVE-ORPHANED** | Same as above |
+| `lib/agent-prompts/index.ts` | 3 | Barrel re-export | **🟡 LIVE-ORPHANED** | |
+| `lib/build-orchestrator.ts` | varies | Full planner→coder→reviewer→fixer pipeline with shadow workspaces | **🟡 LIVE-ORPHANED** | Imported at build.ts:101, used only at build.ts:3039 (`/build/orchestrate` route) — unreachable from UI |
+| `lib/iteration-controller.ts` | 224 | "Unlimited iteration — replaces old 2-pass limit" | **🔴 DEAD** | Zero references anywhere in `src/` outside itself |
+| `lib/build-done-contract.ts` | 1338 | `runDoneContract` — structured done-verification | **🔴 DEAD** | Zero callers at runtime (already noted in audit) |
+| `lib/agent-registry.ts` | 118 | Agent type registry | **🔴 DEAD** | Zero references outside itself |
+| `lib/multi-agent-orchestrator.ts` | 785 | MultiAgentOrchestrator: 6 orchestration patterns | **🔴 DEAD** | Referenced by build-orchestrator.ts but that path is itself unreachable |
+
+### B3. Infrastructure files (mounted, reachable, but not called by Build Studio)
+
+| File | Lines | Role | Verdict | Notes |
+|------|-------|------|---------|-------|
+| `routes/infinity/build-checkpoints.ts` | 111 | Checkpoint CRUD routes | **🟡 LIVE-INFRASTRUCTURE** | Mounted at `/api/infinity/checkpoint/*` — callable via direct API but Build Studio never calls it |
+| `routes/infinity/build-telemetry.ts` | 140 | Build telemetry routes | **🟡 LIVE-INFRASTRUCTURE** | Mounted but not called by UI |
+| `routes/infinity/build-schedules.ts` | 155 | Scheduled build routes | **🟡 LIVE-INFRASTRUCTURE** | Mounted but not called by UI |
+| `routes/infinity/build-export.ts` | 480 | Export build artifacts routes | **🟡 LIVE-INFRASTRUCTURE** | Mounted but not called by UI |
+| `routes/infinity/build-map.ts` | 1094 | Build map routes | **🟡 LIVE-INFRASTRUCTURE** | Mounted; only reachable via BuildMapSidePanel (command palette trigger), not the core build flow |
+| `lib/build-scheduler.ts` | 434 | Build job scheduler | **🟡 LIVE-INFRASTRUCTURE** | Mounted in index.ts |
+| `lib/build-telemetry.ts` | 192 | Telemetry recording | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-map.ts` | varies | Build map engine | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-map-agent.ts` | varies | Build map AI agent | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-human-interface.ts` | 706 | Human interaction prompts | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-edge-cases.ts` | 849 | Edge case handling | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-visual-verification.ts` | 766 | Visual verification with Puppeteer | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/tool-resilience.ts` | 740 | Tool retry/fallback/circuit-breaker | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/build-events.ts` | 493 | Build event emitters/SSE | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/virtual-worktree.ts` | 988 | Virtual filesystem (4 backends: OPFS/IndexedDB/NodeFS/Memory) | **🟡 LIVE-INFRASTRUCTURE** | Imported by build-orchestrator.ts (bypassed path) |
+| `lib/shadow-workspace.ts` | 619 | Shadow workspace manager | **🟡 LIVE-INFRASTRUCTURE** | Imported by multi-agent-orchestrator.ts (dead) |
+| `lib/parallel-agents.ts` | 460 | Parallel agent runner with isolated worktrees | **🔴 DEAD** | Imported by multi-agent-orchestrator.ts (dead) |
+| `lib/cloud-agent-runtime.ts` | 1052 | Cloud agent execution runtime | **🟡 LIVE-INFRASTRUCTURE** | |
+| `lib/workflow-orchestrator.ts` | 1382 | Workflow orchestration engine | **🟡 LIVE-INFRASTRUCTURE** | Imported by index.ts |
+| `lib/llm.ts` | varies | LLM utilities | **🟢 LIVE-PRIMARY** | Used by agent-prompts and general LLM calls |
+
+### B4. Agent subsystems (parallel/multi/orchestration — wired into imports but unreachable from live path)
+
+| File | Lines | Role | Verdict | Notes |
+|------|-------|------|---------|-------|
+| `lib/orchestration-engine.ts` | varies | Orchestration primitives: pipeline, parallel, adversarial verify, judge panel | **🟡 LIVE-ORPHANED** | Imported by build-orchestrator.ts; not called by live path |
+| `lib/subagents.ts` | varies | 5 subagents: code-reviewer, planner, researcher, fixer, synthesizer | **🟡 LIVE-ORPHANED** | |
+| `lib/universal-agent.ts` | varies | Universal Agent (iterative LLM→tool loop, SSE streaming) | **🟡 LIVE-ORPHANED** | Separate from build-agent.ts; wired into chat.ts `agentMode`, not Build Studio |
+| `lib/tool-registry.ts` | varies | Universal Tool Registry (40+ tools) | **🟡 LIVE-ORPHANED** | Tools registered but not used by build-agent.ts's build-tool loop |
+| `lib/tool-types.ts` | varies | Tool type contracts | **🟡 LIVE-ORPHANED** | |
+| `lib/tools/build.ts` | varies | 10 namespaced build tools for Universal Tool Registry | **🟡 LIVE-ORPHANED** | Wraps build-tools.ts for universal-agent, not for build-agent.ts |
+| `lib/build-skills.ts` | 926 | Skill definitions, registry, loading, marketplace | **🟡 LIVE-INFRASTRUCTURE** | Skills routes mounted; not called by Build Studio |
+| `lib/build-project-map.ts` | varies | Pre-build project analysis (framework detection, impact analysis) | **🟡 LIVE-INFRASTRUCTURE** | Phase 1 feature |
+| `lib/context-compactor.ts` | varies | Context compaction for long conversations | **🟡 LIVE-PRIMARY** | Used by build-checkpoints |
+| `lib/project-memory.ts` | varies | Project-scoped memory | **🟡 LIVE-PRIMARY** | Used by build-context.ts |
+| `lib/codebase-indexer.ts` | varies | Codebase indexing for semantic search | **🟡 LIVE-PRIMARY** | Used for context |
+
+### B5. Frontend components (Build Studio and related UI)
+
+| File | Lines | Role | Verdict | Notes |
+|------|-------|------|---------|-------|
+| `components/build-studio.tsx` | varies | **The main Build Studio** — drives the entire build flow | **🟢 LIVE-PRIMARY** | Calls: /build/plan, /build/scaffold, /build/execute-plan, /build/iterate, /build/ask, /build/diff, /build/screenshot, /build/walkthrough, /build/preview/*, terminal/*, workspace/* |
+| `components/build-plan-view.tsx` | varies | Plan visualization (steps, files, risks) | **🟢 LIVE-PRIMARY** | |
+| `components/build-progress-panel.tsx` | varies | Progress display | **🟢 LIVE-PRIMARY** | |
+| `components/build-progress-ring.tsx` | varies | Circular progress indicator | **🟢 LIVE-PRIMARY** | |
+| `components/build-transcript.tsx` | varies | Build step transcript | **🟢 LIVE-PRIMARY** | |
+| `components/build-live-preview.tsx` | varies | Live preview iframe | **🟢 LIVE-PRIMARY** | |
+| `components/build-diff-preview.tsx` | varies | Diff visualization | **🟢 LIVE-PRIMARY** | |
+| `components/build-toast.tsx` | varies | Toast notifications for build events | **🟢 LIVE-PRIMARY** | |
+| `components/build-debug-panel.tsx` | varies | Debug panel | **🟢 LIVE-PRIMARY** | |
+| `components/build-command-palette.tsx` | varies | Cmd+K command palette for builds | **🟢 LIVE-PRIMARY** | |
+| `components/build-skeleton.tsx` | varies | Loading skeleton | **⚫ EXCLUDED** | UI/UX only |
+| `components/views/BuildView.tsx` | varies | Top-level view container, tab routing | **🟢 LIVE-PRIMARY** | |
+| `components/cursor/BuildModeSelector.tsx` | varies | Build mode selector UI | **🟢 LIVE-PRIMARY** | |
+| `components/build-map/BuildMap.tsx` | varies | Visual build map canvas | **🟡 LIVE-INFRASTRUCTURE** | Not called by core build flow |
+| `components/build-map/BuildMapNode.tsx` | varies | Map node component | **🟡 LIVE-INFRASTRUCTURE** | |
+| `components/build-map/BuildMapEdge.tsx` | varies | Map edge component | **🟡 LIVE-INFRASTRUCTURE** | |
+| `components/build-map/BuildMapSidePanel.tsx` | varies | Map side panel | **🟡 LIVE-INFRASTRUCTURE** | |
+| `components/build-map/BuildMapToolbar.tsx` | varies | Map toolbar | **🟡 LIVE-INFRASTRUCTURE** | |
+
+### B6. Excluded from scope (per user's audit boundary)
+
+| Category | Files | Reason |
+|----------|-------|--------|
+| LLM model selection / routing | `lib/model-router.ts`, `lib/llm-client.ts` | Model choice per user constraint ("not about the model") |
+| UI/UX design | Component styling, animations, responsive layout | Per user scope |
+| Auth / MFA | `lib/mfa-login.ts`, `lib/webauthn.ts`, `lib/totp.ts`, auth routes | Security infrastructure, not build-intelligence |
+| Non-build features | book-engine, promo-maker, deep-research, maps, recipes, file-converter | Out of Build Mode scope |
+
+---
+
+## C. Verified facts from Pass 0 (superseding or refining prior audit)
+
+### C1. The prompt-surface error (supersedes Failure 4)
+
+**The audit's Failure 4 is built on the wrong prompt system.** The argument proceeds from
+`agent-prompts/planner.ts` (a static template returning fixed JSON). The actual planner the
+user experiences is P1: an inline string in `build.ts:166–190` passed to
+`buildInfinityPrompt({role:"planner"})`. The agent-loop prompt is P2: `buildAgentSystemPrompt()`
+in `build-agent.ts:85–118`. Neither of these is the system Failure 4 analyzes.
+
+Additionally, the `coderPromptV2`/`fixerPromptV2` from `build-prompts.ts` — which this audit
+assumed was "v2, the live system" — are **dead imports**: imported at `build.ts:38–39` but never
+invoked. The entire 81-line `build-prompts.ts` file is unused.
+
+**Implication for the audit:** the failure class "prompt is a static template that returns
+fixed JSON" may or may not apply to P1 and P2 — but the *specific evidence* cited
+(PLANNER_SYSTEM_PROMPT, PlanSchema) does not. Failure 4 must be **re-evaluated** against
+the actual P1/P2 prompts in Pass 1.
+
+### C2. The live product call chain (verified)
+
+The complete path the user's "Build" button executes:
+
+```
+UI: Build Studio (build-studio.tsx)
+  ↓ POST /build/plan → build.ts:574 → createBuildPlan()
+      → buildInfinityPrompt({role:"planner"}) [P1] → adapter.complete()
+      → parseBuildPlan() → if error → fallbackBuildPlan() (canned 3-step template)
+  ↓ UI: user reviews plan → clicks Execute
+  ↓ POST /build/execute-plan → build.ts:1005
+      → for each step: runAgentForStep() [build-agent.ts]
+          → buildAgentSystemPrompt() [P2]
+          → adapter.complete(messages, {tools: getToolSchemas(), toolChoice: "auto"})
+          → parseToolCalls(completion.content) ← TEXT parsing (Layer 2 confirmed)
+          → executeToolSequence(toolCalls) [build-tools.ts]
+          → checkDone(toolCalls) → done = "a tool named done" not in TOOL_DEFINITIONS
+          → fresh system+user message each iteration (no growing conversation)
+          → context: combineBuildMemory + buildProjectContextForBuild
+          → PREVIOUS TOOL RESULTS: .slice(-5) only
+  ↓ If verify fails → POST /build/iterate → build.ts:718
+      → runAutonomousAgent() [same build-agent.ts loop, same P2 prompt]
+      → maxIterations=30 default, 30 hard cap
+  ↓ Meanwhile: /build/scaffold (scaffold path), /build/agent/run, /build/agent/step
+      → all use the same build-agent.ts loop with same P2 prompt
+  ↓ /build/orchestrate (BYPASSED, UI never calls)
+      → runMultiAgentBuild [build-orchestrator.ts] → agent-prompts/* [P4]
+```
+
+### C3. The 12 maxIterations bottleneck (verified)
+
+Four separate agent routes, each gated only by iteration budget:
+- `/build/scaffold` (build.ts:628): `maxIterations = min(30, max(1, req.body?.maxIterations || 20))`
+- `/build/iterate` (build.ts:730): `maxIterations = min(30, max(1, req.body?.maxIterations || 20))`
+- `/build/execute-plan` (build.ts:1218): `maxIterations = min(30, max(1, req.body?.maxIterations || 20))`
+- `/build/agent/step` (build.ts:1318): `maxIterations = min(15, max(1, req.body?.maxIterations || 10))`
+
+No quality gate, no success condition, no artifact-state check between iterations. The loop runs
+until done-tool-called or maxIterations exhausted. This is the universal stop rule.
+
+### C4. Dead code inventory (confirmed)
+
+| File | Status | Evidence |
+|------|--------|----------|
+| `build-prompts.ts` | All exports unused | grep: 0 callers of plannerPromptV2/reviewerPromptV2; 2 imports of coderPromptV2/fixerPromptV2 at build.ts:38-39 but 0 invocations |
+| `iteration-controller.ts` | Fully dead | grep -rn "IterationTracker\|determineNextAction\|iteration-controller" src/ → 0 |
+| `build-done-contract.ts` | Zero runtime callers | grep: 0 |
+| `agent-registry.ts` | Zero references | grep: 0 |
+| `multi-agent-orchestrator.ts` | Zero direct callers (imported by dead orchestrator path) | Only reachable via build-orchestrator.ts → /build/orchestrate (UI unreachable) |
+| `parallel-agents.ts` | Imported by dead multi-agent-orchestrator | Zero live callers |
+
+### C5. Scope conclusion
+
+The "Build Mode" surface as the user experiences it consists of:
+- **3 route handlers**: `/build/plan`, `/build/execute-plan`, `/build/iterate`
+- **2 agent loop files**: `build-agent.ts` (agent loop) + `build-tools.ts` (tool implementations)
+- **1 planner construction**: inline in `build.ts`
+- **5 supporting lib files**: `build-project-context.ts`, `build-checkpoints.ts`, `build-budgets.ts`,
+  `build-context.ts`, `build-sandbox.ts`
+- **1 LLM abstraction**: `llm-adapter.ts`
+- **~12 frontend components**: build-studio + plan-view + progress + transcript + preview + diff + debug
+
+Everything else — the orchestration engine, subagents, shadow workspaces, virtual worktrees,
+universal agent, tool registry, build-prompts v2, agent-prompts/*, iteration-controller,
+build-done-contract — is either dead code or infrastructure mounted but not reached by the build
+button. The audit's 1650 lines and 7+ architectural claims were largely built on reading files that
+do not participate in the live path.
+
+**This is the most important finding of Pass 0:** the gap between "what the audit read" and "what
+the code does when the user clicks Build" is itself a major scope error — and it is the same class
+of gap as the user's own thesis ("Infinity constructs software in a simulated world… instruments
+that cannot touch reality"): the audit's own instruments were examining a simulated Build Mode, not
+the real one.
