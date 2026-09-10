@@ -34,3 +34,99 @@
 {"timestamp":"2026-09-10T21:46:27.245Z","type":"ask_start","scenario":"Component library + Storybook"}
 {"timestamp":"2026-09-10T21:46:27.289Z","type":"ask_end","status":200,"duration":44}
 {"timestamp":"2026-09-10T21:46:27.289Z","type":"plan_start","scenario":"Component library + Storybook","projectId":"1436d9fc-f7d8-4cbc-bf9b-617d2eb4bc77"}
+{"timestamp":"2026-09-10T21:47:22.204Z","type":"plan_end","status":200,"duration":54913,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:47:22.204Z","type":"execute_plan_start","projectId":"1436d9fc-f7d8-4cbc-bf9b-617d2eb4bc77"}
+{"timestamp":"2026-09-10T21:52:22.931Z","type":"run_failed","name":"C","error":"TypeError: fetch failed"}
+{"timestamp":"2026-09-10T21:52:27.932Z","type":"orchestrate_start","projectId":"462ba214-7887-4d8d-b7f2-e4053cd26dfa"}
+{"timestamp":"2026-09-10T21:52:28.077Z","type":"orchestrate_end","status":409,"duration":144,"summary":"","error":"Pre-flight check failed: Git status failed - possible repo corruption; No tracked files in git repo; Missing .infinity workspace marker; Git status check failed; 1 unresolved edge case(s); Another build is in progress"}
+{"timestamp":"2026-09-10T21:52:31.081Z","type":"execute_plan_start","projectId":"e9529572-7cb2-41cc-a17d-d44b693e994f"}
+{"timestamp":"2026-09-10T21:52:32.727Z","type":"execute_plan_end","status":500,"duration":1645,"ok":false,"stepCount":1,"stepsOk":null,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:52:32.727Z","type":"preview_start_attempt","projectId":"e9529572-7cb2-41cc-a17d-d44b693e994f","command":"python3 -m http.server 4203","port":4203}
+{"timestamp":"2026-09-10T21:52:32.784Z","type":"preview_start","status":201,"duration":56,"running":true}
+{"timestamp":"2026-09-10T21:52:34.285Z","type":"preview_agent_start","projectId":"e9529572-7cb2-41cc-a17d-d44b693e994f","port":4203}
+{"timestamp":"2026-09-10T21:52:34.369Z","type":"preview_agent_end","status":500,"duration":84,"eventCount":1,"lastEvent":{"type":"error","message":"Failed to launch the browser process:  Code: 127\n\nstderr:\n/home/codespace/.cache/puppeteer/chrome/linux-150.0.7871.24/chrome-linux64/chrome: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory\n\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n"},"error":"Failed to launch the browser process:  Code: 127\n\nstderr:\n/home/codespace/.cache/puppeteer/chrome/linux-150.0.7871.24/chrome-linux64/chrome: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory\n\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n","summary":""}
+{"timestamp":"2026-09-10T21:52:34.370Z","type":"scaffold_start","projectId":"bdc64061-3528-4bce-9bd9-4775f382f35b"}
+{"timestamp":"2026-09-10T21:52:34.434Z","type":"scaffold_end","status":409,"duration":64,"fileCount":0}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"pipeline_start","scenario":"Dashboard with charts + sidebar + login","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"pipeline_start","scenario":"Dashboard with charts + sidebar + login","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"pipeline_start","scenario":"Dashboard with charts + sidebar + login","projectId":"6390efb3-3f93-40b4-a150-08edf178c441","model":"nex-agi/nex-n2.5-pro:free"}
+{"timestamp":"2026-09-10T21:52:37.435Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:52:37.485Z","type":"ask_end","status":200,"duration":50}
+{"timestamp":"2026-09-10T21:52:37.485Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6"}
+{"timestamp":"2026-09-10T21:52:37.502Z","type":"ask_end","status":200,"duration":67}
+{"timestamp":"2026-09-10T21:52:37.502Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"6390efb3-3f93-40b4-a150-08edf178c441"}
+{"timestamp":"2026-09-10T21:52:37.521Z","type":"ask_end","status":200,"duration":85}
+{"timestamp":"2026-09-10T21:52:37.521Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f"}
+{"timestamp":"2026-09-10T21:52:38.954Z","type":"plan_end","status":200,"duration":1452,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:52:38.954Z","type":"execute_plan_start","projectId":"6390efb3-3f93-40b4-a150-08edf178c441"}
+{"timestamp":"2026-09-10T21:52:38.960Z","type":"plan_end","status":200,"duration":1474,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:52:38.960Z","type":"execute_plan_start","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6"}
+{"timestamp":"2026-09-10T21:52:39.064Z","type":"plan_end","status":200,"duration":1543,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:52:39.065Z","type":"execute_plan_start","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f"}
+{"timestamp":"2026-09-10T21:52:40.299Z","type":"execute_plan_end","status":500,"duration":1344,"ok":false,"stepCount":4,"stepsOk":null,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:52:40.299Z","type":"preview_start_attempt","projectId":"6390efb3-3f93-40b4-a150-08edf178c441","command":"python3 -m http.server 4204","port":4204}
+{"timestamp":"2026-09-10T21:52:40.352Z","type":"preview_start","status":201,"duration":53,"running":true}
+{"timestamp":"2026-09-10T21:52:40.356Z","type":"execute_plan_end","status":500,"duration":1396,"ok":false,"stepCount":4,"stepsOk":null,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:52:40.356Z","type":"preview_start_attempt","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6","command":"python3 -m http.server 4205","port":4205}
+{"timestamp":"2026-09-10T21:52:40.422Z","type":"preview_start","status":201,"duration":66,"running":true}
+{"timestamp":"2026-09-10T21:52:40.606Z","type":"execute_plan_end","status":500,"duration":1541,"ok":false,"stepCount":4,"stepsOk":null,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:52:40.607Z","type":"preview_start_attempt","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f","command":"python3 -m http.server 4206","port":4206}
+{"timestamp":"2026-09-10T21:52:40.661Z","type":"preview_start","status":201,"duration":53,"running":true}
+{"timestamp":"2026-09-10T21:52:41.902Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:41.969Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:41.998Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:52:41.998Z","type":"iterate_start","projectId":"6390efb3-3f93-40b4-a150-08edf178c441","iteration":1,"maxIterations":5,"port":4204}
+{"timestamp":"2026-09-10T21:52:42.064Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:52:42.064Z","type":"iterate_start","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6","iteration":1,"maxIterations":5,"port":4205}
+{"timestamp":"2026-09-10T21:52:42.211Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:42.290Z","type":"screenshot","status":500,"error":"desktop screenshot failed, the headless browser is unavailable"}
+{"timestamp":"2026-09-10T21:52:42.290Z","type":"iterate_start","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f","iteration":1,"maxIterations":5,"port":4206}
+{"timestamp":"2026-09-10T21:52:43.597Z","type":"iterate_end","status":200,"duration":1598,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:52:43.597Z","type":"stall_detected","iteration":1,"projectId":"6390efb3-3f93-40b4-a150-08edf178c441"}
+{"timestamp":"2026-09-10T21:52:43.597Z","type":"pipeline_end","projectId":"6390efb3-3f93-40b4-a150-08edf178c441","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:52:43.723Z","type":"iterate_end","status":200,"duration":1659,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:52:43.723Z","type":"stall_detected","iteration":1,"projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6"}
+{"timestamp":"2026-09-10T21:52:43.723Z","type":"pipeline_end","projectId":"2c3658f4-4fec-4783-9281-e00e1253f8d6","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:52:43.836Z","type":"iterate_end","status":200,"duration":1545,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:52:43.836Z","type":"stall_detected","iteration":1,"projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f"}
+{"timestamp":"2026-09-10T21:52:43.836Z","type":"pipeline_end","projectId":"1fec5a7b-11ec-4b8d-80db-e0c3e649ae6f","iterations":1,"done":false,"stall":true}
+{"timestamp":"2026-09-10T21:52:43.836Z","type":"concurrency_end","scenario":"Dashboard with charts + sidebar + login","results":["fulfilled","fulfilled","fulfilled"]}
+{"timestamp":"2026-09-10T21:52:46.837Z","type":"resume_phase1_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6"}
+{"timestamp":"2026-09-10T21:52:46.837Z","type":"ask_start","scenario":"Dashboard with charts + sidebar + login"}
+{"timestamp":"2026-09-10T21:52:46.891Z","type":"ask_end","status":200,"duration":54}
+{"timestamp":"2026-09-10T21:52:46.891Z","type":"plan_start","scenario":"Dashboard with charts + sidebar + login","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6"}
+{"timestamp":"2026-09-10T21:52:48.317Z","type":"plan_end","status":200,"duration":1425,"cannedFallback":true,"stepCount":4,"fileCount":8}
+{"timestamp":"2026-09-10T21:52:48.317Z","type":"execute_plan_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6"}
+{"timestamp":"2026-09-10T21:52:49.683Z","type":"execute_plan_end","status":500,"duration":1366,"ok":false,"stepCount":4,"stepsOk":null,"filesChangedCount":0,"filesChangedFirst":[]}
+{"timestamp":"2026-09-10T21:52:49.683Z","type":"preview_start_attempt","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","command":"python3 -m http.server 4207","port":4207}
+{"timestamp":"2026-09-10T21:52:49.744Z","type":"preview_start","status":201,"duration":60,"running":true}
+{"timestamp":"2026-09-10T21:52:51.291Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:51.291Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":1,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:52:53.108Z","type":"iterate_end","status":200,"duration":1817,"iteration":1,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:52:54.654Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:54.654Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":2,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:52:56.536Z","type":"iterate_end","status":200,"duration":1882,"iteration":2,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:52:58.085Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:52:58.085Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":3,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:52:59.696Z","type":"iterate_end","status":200,"duration":1610,"iteration":3,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:01.248Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:53:01.248Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":4,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:53:02.950Z","type":"iterate_end","status":200,"duration":1701,"iteration":4,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:04.508Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:53:04.508Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":5,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:53:06.272Z","type":"iterate_end","status":200,"duration":1764,"iteration":5,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:06.273Z","type":"resume_phase1_end","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iterations":5}
+{"timestamp":"2026-09-10T21:53:06.273Z","type":"server_kill_simulated","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6"}
+{"timestamp":"2026-09-10T21:53:06.309Z","type":"checkpoint_resume","status":200,"iteration":0,"completed":0,"hasWorkingContext":true}
+{"timestamp":"2026-09-10T21:53:07.861Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:53:07.861Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":6,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:53:09.603Z","type":"iterate_end","status":200,"duration":1742,"iteration":6,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:11.152Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:53:11.152Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":7,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:53:12.828Z","type":"iterate_end","status":200,"duration":1675,"iteration":7,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:14.387Z","type":"preview_status","status":200,"running":true,"outputLen":0,"outputHeader":""}
+{"timestamp":"2026-09-10T21:53:14.387Z","type":"iterate_start","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iteration":8,"maxIterations":5,"port":4207}
+{"timestamp":"2026-09-10T21:53:16.170Z","type":"iterate_end","status":200,"duration":1783,"iteration":8,"ok":false,"toolCalls":0,"agentIterations":0,"summary":"Agent failed: 429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}
+{"timestamp":"2026-09-10T21:53:16.170Z","type":"resume_phase2_end","projectId":"bcf178a0-855d-4e63-91e8-2c167b6328b6","iterations":8}

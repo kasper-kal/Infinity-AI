@@ -2734,6 +2734,30 @@ both runs: ask→plan→"execute"→preview-of-nothing→iterate-does-nothing→
 unavailable` (`libatk-1.0.so.0` missing on the host). The user's preview screenshot —
 the one channel that would show Earth — cannot be produced in this environment.
 
+### F6 — Free-tier quota exhaustion is the harness's real degradation story
+Mid-matrix (during the run-7 concurrency burst) OpenRouter returned
+`429 Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free
+model requests per day`. The harness's full response to quota depletion:
+- `/build/plan` silently returns the **canned 4-step fallback** in ~1.5 s (no marker).
+- `/build/execute-plan` per-step coder throws the 429 (wrapped as a `500` "Rate limit
+  exceeded") — steps that ran earlier in quota show `ok:true`; the outer route still
+  wraps failures as opaque 500s.
+- The pool's `@free` models share one daily budget; there is **no retry, no
+  model/harness backoff, no user-facing signal** — just "canned plan, ok:true".
+
+The data split is therefore: runs A/B/C exercised the **real** model loop while quota
+held (plans warmed 42–71 s, coders returned model content); run 7 onwards ran inside
+the quota wall (all plans canned at ~1.4–1.5 s, execute-plan 500s). A quota-exhausted
+run is indistinguishable at the API layer from a healthy one that is merely weak —
+which is itself a finding: **"works" and "quota-starved" produce the same response shape.**
+
+### F7 — Orchestrate and scaffold are also gated shut by the preflight wall
+- `/build/orchestrate` (the ~1300-line multi-agent orchestrator): `409` in 144 ms —
+  same git/.infinity-marker guard. The client never calls it (0 refs in
+  build-studio.tsx) and its `skipPreflight` (build.ts:3007) defaults false, so it is
+  unwired **and** unrunnable on a fresh workspace.
+- `/build/scaffold`: `409` in 64 ms, `fileCount:0` — same gate, same story.
+
 ## The thesis, in one row
 **2 consecutive "successful" real builds = 0 files on disk; 7+4 coder calls; 489 s of
 model time; "7/7 ok" and "4/4 ok".** A Claude Code run with the same model would have
