@@ -1978,3 +1978,269 @@ built, fully furnished, reachable only by those who know the secret route (`/bui
 The build button runs the mud hut next door. This is the final, most delusive form of the thesis's
 "completion is theater": *the harness even has its own best self on display — behind a door the
 product never opens*.
+
+---
+
+# Pass 2 — Attack the design: seven lenses on the live path
+
+> **Purpose:** for each decision point on the live path, run all seven critique lenses and tag
+> verdict: **supports** / **refines** / **contradicts** the §1 thesis. New findings carry:
+> file:line, lens, Claude-Code difference step with honest "bites even a strong model" / "a
+> stronger model damps this" call. The pass is instructed to *try to break the thesis* —
+> counter-evidence is a first-class deliverable.
+
+## A. The live flow-trace — every decision point, every shadow
+
+### A1. The end-to-end path
+
+```
+1. beginScaffold(prompt)
+   → POST /build/ask  (build.ts:552-572)
+     ↳ Regex inventory + 4 fixed multiple-choice questions
+     ↳ NO LLM, no dynamic questioning
+
+2. requestPlan(prompt, answers)
+   → POST /build/plan  (build.ts:574)
+     ↳ P1: buildInfinityPrompt({role:"planner"}) [infinity-prompt.ts:20 + build.ts:166-190]
+     ↳ adapter.complete(messages, {temperature:0.2, maxTokens:900})
+     ↳ Receives: goal + answers + "Existing workspace files:" (list of paths) + serializedWorkingContext (file summaries + decisions + errors) + projectContext (instructions/memory/activity/names)
+     ↳ Receives: ZERO file contents
+     ↳ On ANY error → fallbackBuildPlan(): canned 3-step template (build.ts:142-158)
+     ↳ Returns: {title, summary, steps: string[], files: string[], risks: string[]}
+
+3. acceptPlan()
+   → POST /build/execute-plan  (build.ts:1005)
+     ↳ For each batch (parallel steps):
+       adapter.complete([system: buildInfinityPrompt(role:"coder"), user: ...], {jsonMode:true, maxTokens:6000})
+       ↳ system: buildInfinityPrompt({role:"coder"}) = identity block + coder role instructions
+       ↳ user: plan title + step.id + step.description + step number + workspaceId + prompt + answers + contextPrompt
+       ↳ contextPrompt = combineBuildMemory(serializeContext, projectContext) = file summaries (name+purpose+8 exports) + decisions + errors + activity + file names
+       ↳ Receives: ZERO file contents (no read_file, no bytes)
+       ↳ jsonMode: must return {files: Record<string,string>}
+       ↳ Files written via writeWorkspaceFile (phantom root)
+     ↳ After each step: verifyWorkspace (false-green) → retry loop (1 second sleep, no model) → done
+
+4. runAutoPipeline()
+   → launchPreview()  → POST /build/preview/start (spawns Vite dev server)
+   → captureScreenshot() → POST /build/screenshot (screenshot to UI, NEVER to model)
+   → LOOP up to 8 passes:
+     ↳ POST /build/iterate (build.ts:718)
+       iterateGoal = prompt + "ITERATE TASK: ...Preview output:\n" + previewOutput
+       previewOutput = Vite dev server stdout (entry.output.slice(-4000))
+       ↳ runs runAutonomousAgent(iterateGoal, context, config) — the tool loop
+       ↳ agent receives: system P2 prompt + goal-as-user-message + tool schemas + toolChoice:auto
+       ↳ model text → parseToolCalls (regex) → executeToolSequence → results.slice(-5)
+       ↳ phase derived from tool calls (exploring→implementing→verifying→fixing→done)
+       ↳ done = "done" tool not in TOOL_DEFINITIONS → checkDone manually
+     ↳ If files changed → relaunchPreview → wait 1.2s → captureScreenshot → next pass
+     ↳ Ends: data.done || no fixRequest || pass >= 8
+```
+
+### A2. Decision points that run on absent or shadow information
+
+| # | What the agent must decide | What it actually receives | The shadow |
+|---|---|---|---|
+| D1 | **How to decompose the goal into steps** (planner) | Goal text + 4 multiple-choice answers + existing file paths + file summaries | Zero file contents. No data-model look. No framework assessment. "Dashboard" is decided from a dropdown option |
+| D2 | **What files to write and their contents** (coder, execute-plan) | Plan step description + file summaries + answers | Zero file contents of the workspace. A jsonMode call that must produce complete TypeScript in one shot |
+| D3 | **Whether the step succeeded** (verify in execute-plan) | verifyWorkspace exit codes | tsc in a dep-less dir → parses the registry shim noise; vitest/eslint/build exit 0 via \|\| true; gate always green |
+| D4 | **What to fix in the app** (iterate agent) | Preview server stdout (e.g. "VITE ready in 380ms; 200 GET /index.html") | The user's screenshot. The rendered app. The actual DOM. The console errors (unless the model reads a file that reports them). Server output ≠ app state |
+| D5 | **When the task is done** (done tool) | Model's own internal judgment | Zero external artifact-state check; success = model called "done" |
+| D6 | **What the product requirements actually are** (planner) | User's prompt + 4 fixed questions + "What kind of app is this?" [Landing page / Dashboard / Portfolio / Game / Tool] | What a human product manager would do: ask clarifying questions, read context, look at the repo, understand constraints. 4 fixed dropdown options are the entire spec |
+| D7 | **Whether the browser UI works** (review pass) | Console text from Vite server | The screenshot that was captured and displayed to the user, but never sent to any model |
+
+---
+
+## B. New design findings through the lenses
+
+### Finding N1 — The blind-collective problem (lens: Proportion + Locus)
+
+**File:** `build.ts:1082-1110` (execute-plan per-step) + `build.ts:1136` (verify) + `build-studio.tsx:1520-1534` (iterate call)
+
+Every step in execute-plan is a *separate, stateless LLM call* that produces complete file contents. No step has access to what the previous step actually wrote on disk — only summaries appended to `serializeContext`. Step 1 writes `auth.ts`; step 2 must handle `auth.ts` in its implementation but only sees the summary `[auth.ts: authentication middleware]`. The model must infer all structure from a file-path name and an 8-word summary, then output a complete file in one shot.
+
+**Why this is worse than it sounds:** in Claude Code, the model would (a) read the file it just wrote, (b) notice if its edit changed the structure it expected, (c) re-read the files the new code depends on before calling `edit_file`. A single agent with growing context. Here, the same model in the same context window cannot read the workspace between steps. The batch parallelism (`getParallelizableSteps`) compounds this — parallel steps share *zero* file state and can write to the same file paths.
+
+**Bites a strong model?** Yes — even a 400K-context model cannot read what a prior step wrote if that context was never assembled. The information doesn't exist in the message.
+
+---
+
+### Finding N2 — The preview-to-fix pipeline is wired to the wrong signal (lens: Channel + Timing + Coherence)
+
+**File:** `build.ts:760-768` (iterate route builds `iterateGoal` with previewOutput), `build-studio.tsx:1455-1466` (captureScreenshot exists, never forwarded to iterate)
+
+The auto-pipeline: (a) captures a screenshot, (b) calls `/build/iterate` with the Vite server's stdout. The screenshot is displayed to the user; the server text is fed to the model.
+
+The model is asked to fix "the app" based on:
+- Vite's `output` field: typically `VITE v5.x ready in 380ms` + HTTP request logs + transpile errors
+- Not: the rendered DOM, the visible UI, the button text, the layout, the colors, the broken state
+
+Meanwhile the same page showed the user a screenshot with *exactly* what the model needs to see. The channel mismatch is precise and exquisite: **the one signal that would tell the model what the user sees is the one signal it never receives.**
+
+The `/build/preview/agent` route (Puppeteer-based DOM inspection, `build.ts:1617-1728`) solves this — it inspects interactive elements, runs browser automation, makes LLM decisions from real page state. It IS wired into Build Studio (`build-studio.tsx:1463`). But it is a **manual button**: the user must type a goal and click "Run agent." It is not part of the auto-pipeline. The real observation channel exists, is built, is live — and is waiting for the user to use it manually.
+
+**Bites a strong model?** Yes — a model that sees a Vite startup banner cannot deduce that the login button is red instead of blue. The channel is miswired regardless of model capability.
+
+---
+
+### Finding N3 — Requirements distilled to a 5-option dropdown (lens: Abstraction + Locus)
+
+**File:** `build.ts:552-572` (`/build/ask`), `build-studio.tsx:1333-1354` (wizard shown)
+
+The `/build/ask` route returns:
+- Feature inventory: 7 boolean flags regex'd from the prompt
+- 4 fixed questions with 4-5 option dropdowns: "What kind of app is this?" / "What UI style?" / "AI provider?" / "Scope?"
+
+The user's entire product specification is: a free-text prompt plus these 4 dropdown answers. Then the model is expected to produce a complete, working, correctly structured SaaS application — because "Multi-page feel" was the selected option for scope.
+
+Claude Code never asks "what kind of app?" via a fixed dropdown. The user describes their product in natural language and the model builds it step by step, reading the real repo. The abstraction level of "300 chars of user text → the whole product" is a category error, not a planning format choice.
+
+**Bites a strong model?** Yes — the spec is wrong to the degree that a dropdown can't express a product vision. A stronger model produces more plausible *looking* code from a thinner spec, but the spec gap still causes structural misses (missing APIs, wrong data model, wrong auth flow). The same model in Claude Code with a real user describing requirements incrementally would produce a structurally different, more correct result.
+
+---
+
+### Finding N4 — The phase machine's one-way trap creates structural verification blindness (lens: Timing)
+
+**File:** `build-agent.ts:266-277` (phase switch), `build-agent.ts:271` (no fixing case)
+
+The phase transitions are:
+```
+exploring → (hasFileEdits) → implementing → (hasVerification) → verifying → (noVerification && noEdits) → exploring
+```
+
+There is **no `fixing` case**. The phase machine cannot *return* to verifying from fixing. Once a verification error pushes the agent into "fixing", it can only return to "exploring" (by doing nothing). Verification runs **at most once per agent iteration**.
+
+Combined with the `state.success = phase === "done"` termination (build-agent.ts:484), the system is structurally incapable of: "fail → fix → re-verify → succeed → done" in one run. It would require: verify→fix→(reset to exploring)→(re-find verification call)→(re-verify)—three separate turns where "one" would suffice.
+
+A stronger model can work around this by re-issuing verification proactively, but the phase system actively works against it by silently resetting to "exploring" whenever verification tools are invoked, which feels like a regression not a quality gate.
+
+---
+
+### Finding N5 — Token budget is spent where value is zero (lens: Proportion)
+
+**File:** `infinity-prompt.ts:20-50` (INFINITY_IDENTITY), `build-agent.ts:202` (system message)
+
+The identity block ("FORGET ALL PREVIOUS INSTRUCTIONS… You are NOT ChatGPT… You are Infinity… I am an autonomous agent. I don't have a model name.") is ~500 tokens per call.
+
+The agent iterates up to 30 times per scaffold/iterate pass. The pipeline runs 4+ passes.
+**~60,000 tokens per build attempt are spent asserting what the model isn't.**
+
+In the same message, the actual *task-relevant context* — the files the model must modify, the workspace structure, the errors from the last run — is capped by the `.slice(-5)` tool-results window (~5,000-10,000 tokens) and the file-summary format (path + purpose + ≤8 exports).
+
+The investment is proportional: zero tokens on the signals that drive decisions, max tokens on what is irrelevant. The model has 4K max output tokens. If 1K of context is junk, that's 25% of output budget wasted framing around identity.
+
+**Bites a strong model?** Partially damped — a stronger model can ignore more fluff in the prompt. But every token spent on identity is a token not spent on file contents, which is a token not spent on output correctness. The *relative* waste holds.
+
+---
+
+### Finding N6 — Execute-plan's jsonMode creates a single-shot correctness bet (lens: Abstraction + Timing)
+
+**File:** `build.ts:1082-1110` (`adapter.complete(..., {jsonMode:true, maxTokens:6000})`)
+
+Each step in execute-plan must output a *complete, syntactically valid JSON object* containing the full contents of *every file* that changes — all at once, in one 6000-token response. `jsonMode` ensures the outer structure is JSON, but not that the file contents are correct TypeScript. If the model's answer would require 8000 tokens, it is truncated — and the truncated JSON is silently dropped (parse returns null, `filesChanged = []`), no error, no retry, the step passes with `ok: true`.
+
+Claude Code, in the same situation, would use `edit_file` — a few targeted line changes, kept small and checkable. Infinity asks the model to output a novel-sized JSON blob in one shot. This is an abstraction that fits an API demo, not software engineering.
+
+**Bites a strong model?** Yes — even the best models truncate on complex multi-file outputs. The difference: Claude Code's model writes `edit_file` calls; Infinity's model writes the whole file in one shot and has no way to know if it was complete.
+
+---
+
+### Finding N7 — The verify loop is a polling semaphore, not a repair (lens: Feedback + Timing)
+
+**File:** `build.ts:1136-1156`
+
+```
+for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
+  await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
+  const retryResult = await verifyWorkspace(projectId, workspaceId);
+  if (retryResult.ok) { feedback = undefined; break; }
+}
+```
+
+- `maxRetries` defaults to 1 (`Number(req.body?.maxRetries) || 1`)
+- The model is never invoked in the retry loop
+- The errors are computed (`formatVerificationFeedback`) and then discarded
+- The loop waits for transient filesystem issues (a race condition), not for code correction
+- If the code actually had a compile error, it would persist past every sleep
+
+**Why it's worse than "blind retry":** the *errors are already computed and right there in scope* (`feedback` holds them), but they are not connected to anything. The model could fix them if told — but the loop chooses to sleep and re-check instead.
+
+---
+
+### Finding N8 — The done contract is externally dead but functionally vital (lens: Emergence)
+
+**File:** `build-agent.ts:161-175` (checkDone), `build-done-contract.ts` (entire file)
+
+`runDoneContract` (1338 lines) has **zero callers**. But `checkDone` (the 15-line text-based version) is the actual stop rule for every agent run. The relationship:
+
+- `runDoneContract` = intended: a structured quality gate checking build/typecheck/test/lint/a11y
+- `checkDone` = reality: "did the model type `done`?"
+
+The original design anticipated that "done" would eventually be wired through the quality gate. It was never connected. The placeholder function (`checkDone`) became the permanent behavior. The elaborate system (`DoneContractEngine`) atrophied into dead code.
+
+**What this means for the thesis:** this is the exact species of "completion is theater" the thesis names — a large, purpose-built instrument that was built to check reality, was never wired in, and the runtime happily completes without it. The build goes from "red" → model says `done` → `success: true` → UI shows completion card. No gate refused.
+
+---
+
+## C. The seven lenses — verdict summary
+
+| # | Lens | Verdict on thesis | Key evidence |
+|---|---|---|---|
+| 1 | **Abstraction** | **Supports** | "batch of LLM calls" ≠ engineering; "fixed dropdown = spec"; jsonMode one-shot ≠ incremental editing |
+| 2 | **Locus** | **Supports** | Behavior lives in the prompt, not the loop; environment has no installation, no real git, no real dependencies |
+| 3 | **Proportion** | **Supports** | 60K tokens of identity, 0 of file bytes; 5-result window; rich memory architecture feeding nothing to decisions |
+| 4 | **Emergence** | **Supports** | 10 tools exist; no behavioral heuristics use them well; tools create a *feeling* of capability, not the habit of quality |
+| 5 | **Coherence** | **Supports** | Pass 0 map: ~75k lines, live path uses ~3k; "pile of systems, not one machine" is now quantified |
+| 6 | **Timing** | **Supports** | Verify-after-step, not during; screenshot captured and shown to user, not to model; errors computed and dropped |
+| 7 | **Channel** | **Supports** | Native tool-calls discarded for text-parsing; image channel exists (screenshot) but not connected to model; preview-agent exists but manual-only |
+
+**Verdict: the thesis is supported on all seven lenses.** The live path's design decisions consistently allocate capability to infrastructure that exists but is disconnected from the model's decision points. The gap is not "any one missing feature" — it is a systematic misallocation across all seven dimensions.
+
+---
+
+## D. Thesis-breaking attempt — trying to falsify the answer
+
+### The strongest counter-claim
+
+> *The same model would produce equivalent-quality results in both harnesses if the task
+> were simple enough (e.g. a single-file TODO app). The divergence the thesis measures
+> might be amplified by Infinity's more complex pipeline (42-phase sprawl, dead code,
+> multiple agent paths) — not solely by the "simulated world." The thesis conflates
+> two problems: the quality of the harness, and the quality of the orchestration layer.*
+
+### The honest response
+
+The counter-claim is **partially valid and important to state.** It is true that:
+
+1. **For trivial tasks** (a single component, a two-file prototype), the model's own capability dominates. A strong model produces a usable single-file TODO app in *both* harnesses. The environment matters less.
+
+2. **Infinity's sprawl does hurt.** The 42-phase expansion created dead paths, confusing routing, multiple prompt systems, and the passage from "planner → execute-plan → iterate → done" has a complexity cost — the model must navigate infrastructure that exists for features it will never use. Claude Code doesn't have this problem because it has one clean loop.
+
+3. **The comparison is asymmetric.** Claude Code: one agent, one prompt, one loop, the user's actual repo. Infinity: 4 agent paths, 4 prompt systems, multiple verification loops, a sandbox workspace, no dependency installation, no git. Comparing "one clean machine" to "a pile of machines" isn't the same as saying "the world is the problem."
+
+### But the refraction still holds
+
+The thesis is **refined, not broken.** The refined statement:
+
+> *The results differ for two reasons: (a) the harness environment (which the user can
+> control and Infinity can fix), and (b) the harness architecture (which the user cannot
+> control and which Infinity has built — then neglected to connect). The thesis is correct
+> that "same model, different world" is the dominant factor for tasks that require real
+> engineering (multi-file, dependency-requiring, iterative verification). For trivial tasks,
+> the gap is smaller. The opportunity is that both causes are fixable by Infinity without
+> changing the model — which is precisely what the thesis claims.*
+
+The counter-claim does not rescue the status quo. It clarifies the fix surface.
+
+---
+
+## E. What the live trace surfaced that the reading missed
+
+The end-to-end flow-trace produced findings that reading alone could not have surfaced:
+
+1. **The screenshot-to-user, server-text-to-model channel split** (Finding N2): discovered only by tracing `captureScreenshot` + `/build/iterate` together — the screenshot is *right there*, displayed on the same screen, but the model reads Vite's startup banner instead.
+
+2. **Execute-plan's silent truncation pass** (Finding N6): `jsonMode: true` + `maxTokens: 6000` + a three-file output = silent truncation → null parse → step passes → `ok: true`. The step *succeeded in reporting* that it failed (it didn't even report that — it just passed with zero files changed, silently).
+
+3. **The runAutoPipeline is an 8-pass cap, not the 30 maxIterations** (from build-studio.tsx:1494 `maxReviewPasses = 8` vs build.ts:730 `maxIterations = 30`): two different iteration budgets, user-visible pass count vs backend limit, the frontend provides a tighter cap than the backend permits — a rare instance of the frontend constraining what the backend doesn't.
+
+4. **The verifyErrors-are-computed-but-the-loop-ignores-them** (Finding N7): `formatVerificationFeedback` is called at build.ts:1138 and then the loop sleeps and re-runs `verifyWorkspace`. The `feedback` variable holds the right data — it's just never sent anywhere that can act on it. This is a "failure of connection," not a "failure of implementation": the fix is one line of code (`pass feedback to the iterate call`), not a rewrite.
