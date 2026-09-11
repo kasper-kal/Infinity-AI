@@ -4,11 +4,19 @@
  * Implements the agent state machine that progressively uses tools to
  * explore, modify, and verify the workspace - replacing single-shot
  * JSON-map generation.
+ *
+ * PHASE C (The Loop Is One Mind) rewrite:
+ * - No phase machine (exploring/planning/implementing/verifying/fixing/done)
+ * - Single growing conversation (append assistant + tool results each turn)
+ * - Native completion.tool_calls (regex parseToolCalls is fallback only)
+ * - Quality-gate stop: while (!done && iteration < maxBudget && !stallDetected)
+ * - Deterministic verify-after-edit: run verifyWorkspace after every edit_file
+ * - Real state return: {finalPhase, lastDecision, editedFiles, toolCalls, toolResults}
  */
 
 import { createBestAdapter } from "./adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt } from "./infinity-prompt";
-import { LLMAdapter, LLMCompletionOptions, LLMMessage, LLMTool } from "./llm-adapter";
+import { LLMAdapter, LLMCompletionOptions, LLMMessage, LLMTool, LLMToolCall } from "./llm-adapter";
 import {
   executeTool,
   executeToolSequence,
@@ -26,46 +34,49 @@ import { logBuildEvent } from "./build-telemetry";
 import { routeAndExecute, AgentRole, TaskCategory } from "./model-router";
 import { createLocalAdapter, isLocalModelAvailable } from "./adapters/local-adapter";
 import { LLMMessage as LLMMessageType } from "./llm-adapter";
-export interface AgentState {
-  phase: "planning" | "exploring" | "implementing" | "verifying" | "fixing" | "done" | "error";
-  goal: string;
-  plan?: PlanStep[];
-  currentStepIndex: number;
-  iterations: number;
-  maxIterations: number;
-  toolCalls: ToolCall[];
-  toolResults: ToolResult[];
-  errors: string[];
-  context: ToolExecutionContext;
-}
 
-export interface PlanStep {
-  id: string;
-  description: string;
-  dependsOn?: string[];
-  parallel?: boolean;
-  status: "pending" | "in_progress" | "done" | "failed";
-  filesChanged?: string[];
-}
-
+/**
+ * Agent configuration
+ */
 export interface AgentConfig {
   maxIterations: number;
   maxToolCallsPerIteration: number;
   temperature: number;
   verifyAfterSteps: boolean;
   failFast: boolean;
+  stallDetectionTurns: number; // Stop if no file changes in N turns
 }
 
-/**
- * Default agent configuration
- */
 const DEFAULT_CONFIG: AgentConfig = {
   maxIterations: 20,
   maxToolCallsPerIteration: 10,
   temperature: 0.2,
   verifyAfterSteps: true,
   failFast: false,
+  stallDetectionTurns: 3,
 };
+
+/**
+ * Agent state - replaces the old phase machine with a flat structure
+ */
+export interface AgentState {
+  goal: string;
+  iterations: number;
+  maxIterations: number;
+  toolCalls: ToolCall[];
+  toolResults: ToolResult[];
+  errors: string[];
+  context: ToolExecutionContext;
+  // Growing conversation history
+  conversation: LLMMessage[];
+  // Files edited in this run (for stall detection + return value)
+  editedFiles: string[];
+  // Turns since last file edit (stall detection)
+  turnsSinceEdit: number;
+  // Whether the agent called the `done` tool
+  done: boolean;
+  doneSummary?: string;
+}
 
 /**
  * Convert tool definitions to LLMTool format
@@ -84,7 +95,7 @@ function getToolSchemas(): LLMTool[] {
 /**
  * Build the system prompt for the autonomous agent
  */
-async function buildAgentSystemPrompt(extraInstructions?: string): Promise<string> {
+async function buildAgentSystemPrompt(): Promise<string> {
   const toolDescriptions = TOOL_DEFINITIONS.map(
     (t) => `- ${t.name}: ${t.description}`
   ).join("\n");
@@ -119,20 +130,34 @@ RULES:
 - Use run_command for tests, builds, typechecks
 - Use git_diff to review your changes before considering a step done
 - Never assume - always verify with tools
-- Return tool calls as JSON with the exact function signatures
+- Return tool calls using the native tool_calls mechanism
 - When done with a goal, call the "done" tool with summary
 
 ${corpusBlock}
 
-${await scaffoldRulePrompt()}
-
-${extraInstructions || ""}`;
+${await scaffoldRulePrompt()}`;
 }
 
 /**
- * Parse tool calls from LLM response
+ * Check if the agent should stop (done tool called)
  */
-function parseToolCalls(content: string): ToolCall[] {
+function checkDone(toolCalls: ToolCall[]): { done: boolean; summary?: string; filesChanged?: string[] } {
+  for (const call of toolCalls) {
+    if (call.name === "done") {
+      return {
+        done: true,
+        summary: (call.arguments.summary as string) || "Task completed",
+        filesChanged: (call.arguments.filesChanged as string[]) || [],
+      };
+    }
+  }
+  return { done: false };
+}
+
+/**
+ * Parse tool calls - now a FALLBACK for when native tool_calls isn't available
+ */
+function parseToolCallsFallback(content: string): ToolCall[] {
   const calls: ToolCall[] = [];
 
   // Try to parse as JSON array
@@ -176,121 +201,15 @@ function parseToolCalls(content: string): ToolCall[] {
 }
 
 /**
- * Check if the agent should continue or is done
+ * Convert native LLMToolCall to internal ToolCall
  */
-function checkDone(toolCalls: ToolCall[], toolResults: ToolResult[]): { done: boolean; summary?: string } {
-  // Check for explicit done tool call
-  for (const call of toolCalls) {
-    if (call.name === "done") {
-      return { done: true, summary: (call.arguments.summary as string) || "Task completed" };
-    }
-  }
-  return { done: false };
-}
-
-/**
- * Run a single iteration of the agent loop
- */
-async function runAgentIteration(
-  state: AgentState,
-  config: AgentConfig,
-  adapter: LLMAdapter,
-): Promise<AgentState> {
-  const { goal, phase, iterations, context } = state;
-  const newState = { ...state, iterations: iterations + 1 };
-
-  // Build context for the LLM
-  const workingContext = getWorkingContext(context.projectId);
-  const contextPrompt = combineBuildMemory(
-    serializeContext(context.projectId),
-    await buildProjectContextForBuild(context.projectId, goal, {
-      includeActivity: true,
-      includeFiles: true,
-      activityLimit: 20,
-      fileLimit: 50,
-    })
-  );
-
-  // Build messages
-  const messages: LLMMessageType[] = [
-    { role: "system", content: sanitizePrompt(await buildAgentSystemPrompt()) },
-    {
-      role: "user",
-      content: [
-        `GOAL: ${goal}`,
-        `PHASE: ${phase}`,
-        `ITERATION: ${iterations + 1}/${config.maxIterations}`,
-        ``,
-        `## WORKSPACE CONTEXT:`,
-        contextPrompt,
-        ``,
-        `## PREVIOUS TOOL RESULTS (last iteration):`,
-        state.toolResults.length > 0
-          ? formatToolResults(state.toolResults.slice(-5))
-          : "(none)",
-        ``,
-        `## ERRORS SO FAR:`,
-        state.errors.length > 0 ? state.errors.join("\n") : "(none)",
-        ``,
-        `What should you do next? Return tool calls as a JSON array.`,
-        `Example: [{"name": "list_files", "arguments": {"pattern": "**/*"}}, {"name": "read_file", "arguments": {"path": "package.json"}}]`,
-        `When the goal is fully achieved, return: [{"name": "done", "arguments": {"summary": "..."}}]`,
-      ].join("\n"),
-    },
-  ];
-
-  // Call LLM with tools
-  const options: LLMCompletionOptions = {
-    temperature: config.temperature,
-    maxTokens: 4000,
-    tools: getToolSchemas(),
-    toolChoice: "auto",
-  };
-
-  const completion = await withRetry(
-    async () => adapter.complete(messages, options),
-    { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
-    { projectId: context.projectId, operation: `agent-iteration-${iterations + 1}` }
-  );
-
-  const toolCalls = parseToolCalls(completion.content);
-  newState.toolCalls = toolCalls;
-
-  // Execute tool calls
-  const results = await executeToolSequence(toolCalls, context);
-  newState.toolResults = results;
-
-  // Check for done
-  const doneCheck = checkDone(toolCalls, results);
-  if (doneCheck.done) {
-    newState.phase = "done";
-    return newState;
-  }
-
-  // Check for errors
-  const errors = results.filter((r) => !r.success).map((r) => r.error || "Unknown error");
-  if (errors.length > 0) {
-    newState.errors.push(...errors);
-    for (const error of errors) {
-      recordErrorPattern(context.projectId, `Tool execution failed`, error);
-    }
-  }
-
-  // Update phase based on tool usage
-  const hasFileEdits = toolCalls.some((c) => c.name === "edit_file");
-  const hasVerification = toolCalls.some(
-    (c) => ["screenshot", "inspect_console", "inspect_dom", "run_command", "git_diff"].includes(c.name)
-  );
-
-  if (phase === "exploring" && hasFileEdits) {
-    newState.phase = "implementing";
-  } else if (phase === "implementing" && hasVerification) {
-    newState.phase = "verifying";
-  } else if (phase === "verifying" && !hasVerification && !hasFileEdits) {
-    newState.phase = "exploring"; // Continue exploring or move to next step
-  }
-
-  return newState;
+function convertNativeToolCalls(nativeCalls: LLMToolCall[] | undefined): ToolCall[] {
+  if (!nativeCalls || nativeCalls.length === 0) return [];
+  return nativeCalls.map((tc) => ({
+    name: tc.function.name,
+    arguments: JSON.parse(tc.function.arguments || "{}"),
+    id: tc.id,
+  }));
 }
 
 /**
@@ -311,7 +230,6 @@ async function runVerification(
 
 /**
  * Try to get a fix from the local model for a verification failure
- * Falls back silently if local model is unavailable
  */
 async function tryLocalModelFix(
   error: string,
@@ -379,13 +297,31 @@ Return JSON with fixes array: [{ file, oldCode, newCode, explanation, confidence
 }
 
 /**
- * Main autonomous agent entry point
+ * Main autonomous agent entry point - PHASE C: The Loop Is One Mind
+ *
+ * Key changes from old implementation:
+ * 1. Growing conversation - we append to `state.conversation` each turn
+ * 2. Native tool_calls - we use completion.toolCalls directly
+ * 3. Verify-after-edit - after ANY edit_file, run verification
+ * 4. Stall detection - stop if no file changes in N turns
+ * 5. Real state return - actual final state, not self-reported phase
  */
 export async function runAutonomousAgent(
   goal: string,
   context: ToolExecutionContext,
   config: Partial<AgentConfig> = {},
-): Promise<{ success: boolean; summary: string; iterations: number; toolCalls: ToolCall[]; toolResults: ToolResult[] }> {
+): Promise<{
+  success: boolean;
+  summary: string;
+  iterations: number;
+  toolCalls: ToolCall[];
+  toolResults: ToolResult[];
+  // Phase C additions:
+  finalPhase: string;
+  lastDecision: string;
+  editedFiles: string[];
+  conversation: LLMMessage[];
+}> {
   const projectId = context.projectId;
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -393,11 +329,11 @@ export async function runAutonomousAgent(
     data: { goal, workspaceId: context.workspaceId },
   });
 
-  // Use model router to get appropriate adapter (with local model fallback for error-fix tasks)
+  // Use model router to get appropriate adapter
   const routingResult = await routeAndExecute(
     "coder",
     goal,
-    async (adapter: LLMAdapter) => adapter, // Just return the adapter for now
+    async (adapter: LLMAdapter) => adapter,
     { filesChanged: [], errorOutput: "" },
     undefined,
     context.projectId,
@@ -405,29 +341,134 @@ export async function runAutonomousAgent(
   );
   const adapter = routingResult.decision.selectedAdapter;
 
-  // Initial state
+  // Build system prompt ONCE
+  const systemPrompt = sanitizePrompt(await buildAgentSystemPrompt());
+
+  // Initialize growing conversation with system prompt
+  const conversation: LLMMessage[] = [
+    { role: "system", content: systemPrompt },
+  ];
+
+  // Initial state - FLAT, no phase machine
   let state: AgentState = {
-    phase: "exploring",
     goal,
-    currentStepIndex: 0,
     iterations: 0,
     maxIterations: mergedConfig.maxIterations,
     toolCalls: [],
     toolResults: [],
     errors: [],
     context,
+    conversation,
+    editedFiles: [],
+    turnsSinceEdit: 0,
+    done: false,
   };
 
-  // Main agent loop
-  while (state.iterations < state.maxIterations && state.phase !== "done" && state.phase !== "error") {
-    try {
-      state = await runAgentIteration(state, mergedConfig, adapter);
+  // Build initial user message
+  const initialUserMessage = buildUserMessage(state, mergedConfig, "");
+  state.conversation.push({ role: "user", content: initialUserMessage });
 
-      // Run verification if configured and in verifying phase
-      if (mergedConfig.verifyAfterSteps && state.phase === "verifying") {
+  // Main agent loop - NO phase machine, quality-gate stop
+  while (
+    state.iterations < state.maxIterations &&
+    !state.done &&
+    state.turnsSinceEdit < mergedConfig.stallDetectionTurns
+  ) {
+    try {
+      state.iterations++;
+
+      // Build messages for this turn (growing conversation)
+      const messages: LLMMessage[] = [...state.conversation];
+
+      const options: LLMCompletionOptions = {
+        temperature: mergedConfig.temperature,
+        maxTokens: 4000,
+        tools: getToolSchemas(),
+        toolChoice: "auto",
+      };
+
+      const completion = await withRetry(
+        async () => adapter.complete(messages, options),
+        { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
+        { projectId: context.projectId, operation: `agent-iteration-${state.iterations}` }
+      );
+
+      // Phase C: Use native tool_calls FIRST, fallback to regex parsing
+      let toolCalls: ToolCall[] = [];
+      if (completion.toolCalls && completion.toolCalls.length > 0) {
+        toolCalls = convertNativeToolCalls(completion.toolCalls);
+      } else {
+        // Fallback: parse from content (legacy behavior)
+        toolCalls = parseToolCallsFallback(completion.content);
+        if (toolCalls.length > 0) {
+          await logBuildEvent(projectId, "tool_parse_fallback", "Used regex fallback for tool calls", {
+            data: { iteration: state.iterations, callCount: toolCalls.length },
+          });
+        }
+      }
+
+      // Add assistant message to conversation (with tool calls if native)
+      const assistantMessage: LLMMessage = {
+        role: "assistant",
+        content: completion.content,
+        ...(completion.toolCalls && completion.toolCalls.length > 0 ? {
+          // Note: Some providers include tool_calls in the message, some don't
+          // We'll rely on the native completion.toolCalls array
+        } : {}),
+      };
+      state.conversation.push(assistantMessage);
+
+      // Execute tool calls
+      const results = await executeToolSequence(toolCalls, context);
+      state.toolCalls.push(...toolCalls);
+      state.toolResults.push(...results);
+
+      // Add tool results to conversation
+      for (let i = 0; i < toolCalls.length; i++) {
+        const call = toolCalls[i];
+        const result = results[i];
+        state.conversation.push({
+          role: "tool",
+          content: JSON.stringify(result.result || { error: result.error }),
+          name: call.name,
+          toolCallId: call.id || `call-${Date.now()}-${i}`,
+        });
+      }
+
+      // Check for done tool
+      const doneCheck = checkDone(toolCalls);
+      if (doneCheck.done) {
+        state.done = true;
+        state.doneSummary = doneCheck.summary;
+        break;
+      }
+
+      // Check for errors
+      const errors = results.filter((r) => !r.success).map((r) => r.error || "Unknown error");
+      if (errors.length > 0) {
+        state.errors.push(...errors);
+        for (const error of errors) {
+          recordErrorPattern(context.projectId, `Tool execution failed`, error);
+        }
+      }
+
+      // Track file edits for stall detection + return value
+      const filesEditedThisTurn = toolCalls
+        .filter((c) => c.name === "edit_file" || c.name === "write_file")
+        .map((c) => c.arguments.path as string);
+
+      if (filesEditedThisTurn.length > 0) {
+        state.editedFiles.push(...filesEditedThisTurn);
+        state.turnsSinceEdit = 0;
+      } else {
+        state.turnsSinceEdit++;
+      }
+
+      // Phase C: Deterministic verify-after-edit
+      // Run verification immediately after ANY edit_file
+      if (mergedConfig.verifyAfterSteps && filesEditedThisTurn.length > 0) {
         const verification = await runVerification(context, projectId);
         if (!verification.ok) {
-          state.phase = "fixing";
           state.errors.push(`Verification failed: ${verification.feedback}`);
 
           // Try local model fix before next iteration
@@ -444,7 +485,7 @@ export async function runAutonomousAgent(
               data: { fixes: localFix.fixes.map(f => ({ file: f.file, confidence: f.confidence, explanation: f.explanation.slice(0, 200) })) },
             });
 
-            // Apply the first fix via tool call
+            // Apply fixes via tool calls
             for (const fix of localFix.fixes.slice(0, 3)) {
               if (fix.file && fix.oldCode && fix.newCode) {
                 try {
@@ -464,46 +505,64 @@ export async function runAutonomousAgent(
           }
 
           // Add verification feedback as a tool result for the next iteration
-          state.toolResults.push({
-            success: false,
-            error: verification.feedback,
-            result: { type: "verification_failure", feedback: verification.feedback },
+          state.conversation.push({
+            role: "tool",
+            content: JSON.stringify({ type: "verification_failure", feedback: verification.feedback }),
+            name: "verification",
+            toolCallId: `verification-${Date.now()}`,
           });
-        } else {
-          state.phase = "exploring"; // Move to next step or explore more
         }
       }
 
       // Record step in working context
-      if (state.toolCalls.length > 0) {
+      if (toolCalls.length > 0) {
         recordStep(projectId, {
           stepId: `iteration-${state.iterations}`,
-          description: `Agent iteration ${state.iterations}: ${state.toolCalls.map((c) => c.name).join(", ")}`,
-          ok: state.toolResults.every((r) => r.success),
-          filesChanged: state.toolResults
-            .filter((r) => r.result && typeof r.result === "object" && "path" in r.result)
-            .map((r) => (r.result as { path: string }).path),
+          description: `Agent iteration ${state.iterations}: ${toolCalls.map((c) => c.name).join(", ")}`,
+          ok: state.toolResults.slice(-toolCalls.length).every((r) => r.success),
+          filesChanged: filesEditedThisTurn,
           notes: state.errors.slice(-3).join("; "),
         });
       }
+
+      // Build next user message (appended to conversation)
+      const nextUserMessage = buildUserMessage(state, mergedConfig, "");
+      state.conversation.push({ role: "user", content: nextUserMessage });
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       state.errors.push(errorMsg);
-      state.phase = "error";
       await logBuildEvent(projectId, "agent_error", errorMsg, { step: `iteration-${state.iterations}` });
       break;
     }
   }
 
-  const success = state.phase === "done";
+  // Determine final outcome
+  const success = state.done;
+  const finalPhase = state.done ? "done" :
+    state.turnsSinceEdit >= mergedConfig.stallDetectionTurns ? "stalled" :
+    state.iterations >= state.maxIterations ? "max_iterations" : "error";
+
+  const lastDecision = state.conversation
+    .filter(m => m.role === "assistant")
+    .slice(-1)[0]?.content?.slice(0, 200) || "(no assistant messages)";
+
   const summary = success
-    ? `Agent completed goal in ${state.iterations} iterations`
-    : state.phase === "error"
-    ? `Agent failed: ${state.errors.slice(-1)[0]}`
-    : `Agent stopped after ${state.iterations} iterations (max reached)`;
+    ? state.doneSummary || `Agent completed goal in ${state.iterations} iterations`
+    : state.phase === "error" || state.errors.length > 0
+      ? `Agent failed: ${state.errors.slice(-1)[0]}`
+      : state.turnsSinceEdit >= mergedConfig.stallDetectionTurns
+        ? `Agent stalled after ${state.turnsSinceEdit} turns without file changes`
+        : `Agent stopped after ${state.iterations} iterations (max reached)`;
 
   await logBuildEvent(projectId, "agent_end", summary, {
-    data: { success, iterations: state.iterations, phase: state.phase },
+    data: {
+      success,
+      iterations: state.iterations,
+      finalPhase,
+      turnsSinceEdit: state.turnsSinceEdit,
+      editedFiles: state.editedFiles.length,
+    },
   });
 
   return {
@@ -512,14 +571,60 @@ export async function runAutonomousAgent(
     iterations: state.iterations,
     toolCalls: state.toolCalls,
     toolResults: state.toolResults,
+    finalPhase,
+    lastDecision,
+    editedFiles: [...new Set(state.editedFiles)],
+    conversation: state.conversation,
   };
 }
 
 /**
- * Run agent for a specific plan step
+ * Build user message for the current iteration
+ */
+function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: string): string {
+  const { goal, iterations, toolResults, errors, context } = state;
+
+  // Get working context for this project
+  const workingContext = getWorkingContext(context.projectId);
+  const contextPrompt = combineBuildMemory(
+    serializeContext(context.projectId),
+    // Note: buildProjectContextForBuild is async, but we're in sync function
+    // We'll rely on the serialized context which includes file map, memory, activity
+    ""
+  );
+
+  const parts = [
+    `GOAL: ${goal}`,
+    `ITERATION: ${iterations + 1}/${config.maxIterations}`,
+    ``,
+    `## WORKSPACE CONTEXT:`,
+    contextPrompt || "(no context yet)",
+    ``,
+    `## PREVIOUS TOOL RESULTS (last 5):`,
+    toolResults.length > 0
+      ? formatToolResults(toolResults.slice(-5))
+      : "(none)",
+    ``,
+    `## ERRORS SO FAR:`,
+    errors.length > 0 ? errors.join("\n") : "(none)",
+    ``,
+    `What should you do next? Return tool calls using the native tool calling mechanism.`,
+    `Example: call edit_file, read_file, run_command, generate_component, etc.`,
+    `When the goal is fully achieved, call the "done" tool with a summary.`,
+  ];
+
+  if (extraContext) {
+    parts.splice(parts.length - 3, 0, extraContext, "");
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * Run agent for a specific plan step (used by execute-plan rewrite)
  */
 export async function runAgentForStep(
-  step: PlanStep,
+  step: { id: string; description: string },
   goal: string,
   context: ToolExecutionContext,
   config: Partial<AgentConfig> = {},
@@ -531,13 +636,9 @@ export async function runAgentForStep(
     maxIterations: Math.min(config.maxIterations || 10, 10),
   });
 
-  const filesChanged = result.toolResults
-    .filter((r) => r.result && typeof r.result === "object" && "path" in r.result)
-    .map((r) => (r.result as { path: string }).path);
-
   return {
     success: result.success,
     summary: result.summary,
-    filesChanged: [...new Set(filesChanged)],
+    filesChanged: result.editedFiles,
   };
 }

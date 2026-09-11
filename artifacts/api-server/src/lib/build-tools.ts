@@ -190,6 +190,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["name"],
     },
   },
+  {
+    name: "done",
+    description: "Signal that the goal is complete. Provide a summary of what was accomplished. This is the ONLY way to mark a task as finished — do not just stop calling tools.",
+    parameters: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "What was accomplished — files created, changes made, verification results" },
+        filesChanged: { type: "array", items: { type: "string" }, description: "List of file paths that were created or modified" },
+      },
+      required: ["summary"],
+    },
+  },
 ];
 
 /**
@@ -258,6 +270,10 @@ export async function executeTool(
 
       case "generate_component":
         result = await toolGenerateComponent(args, context);
+        break;
+
+      case "done":
+        result = await toolDone(args, context);
         break;
 
       default:
@@ -662,6 +678,28 @@ async function toolGenerateComponent(args: Record<string, unknown>, context: Too
       component: name,
       operation: "generate_component",
       note: "Known-good corpus component. Dependencies already in package.json.",
+    },
+  };
+}
+
+/**
+ * Signal that the goal is complete — the ONLY way to finish a task.
+ */
+async function toolDone(args: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+  const summary = (args.summary as string) || "";
+  const filesChanged = (args.filesChanged as string[]) || [];
+
+  if (!summary) {
+    return { success: false, error: "summary is required" };
+  }
+
+  return {
+    success: true,
+    result: {
+      operation: "done",
+      summary,
+      filesChanged,
+      note: "Task marked complete. The agent loop will stop after this tool result.",
     },
   };
 }

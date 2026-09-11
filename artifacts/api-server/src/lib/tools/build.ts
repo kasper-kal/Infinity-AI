@@ -34,6 +34,9 @@ function wrapBuildTool(def: typeof BUILD_TOOL_DEFINITIONS[number]): UniversalToo
     inspect_accessibility: "browser.inspect_accessibility",
     git_diff: "git.diff",
     apply_fix: "build.apply_fix",
+    // Phase C: New tools added for The Loop Is One Mind
+    generate_component: "build.generate_component",
+    done: "build.done",
   };
 
   // Map Build Mode tools to risk levels
@@ -48,6 +51,8 @@ function wrapBuildTool(def: typeof BUILD_TOOL_DEFINITIONS[number]): UniversalToo
     inspect_accessibility: "READ",
     git_diff: "READ",
     apply_fix: "WRITE",
+    generate_component: "WRITE",
+    done: "READ",
   };
 
   // Map Build Mode tools to categories
@@ -62,6 +67,8 @@ function wrapBuildTool(def: typeof BUILD_TOOL_DEFINITIONS[number]): UniversalToo
     inspect_accessibility: "browser",
     git_diff: "build",
     apply_fix: "files",
+    generate_component: "build",
+    done: "build",
   };
 
   const universalName = nameMap[def.name] ?? def.name;

@@ -1036,7 +1036,10 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
     ? rawPlan as { title: string; summary: string; steps: Array<{id: string; description: string; dependsOn?: string[]; parallel?: boolean}>; files: string[]; risks: string[] }
     : null;
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
-  const maxRetries = Math.min(3, Math.max(0, Number(req.body?.maxRetries) || 1));
+  const maxIterations = Math.min(30, Math.max(1, Number(req.body?.maxIterations) || 20));
+  const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
+  const verifyAfterSteps = Boolean(req.body?.verifyAfterSteps !== false);
+  const failFast = Boolean(req.body?.failFast);
   const skipPreflight = req.body?.skipPreflight !== false;
 
   if (!plan || !plan.steps || !Array.isArray(plan.steps)) {
@@ -1078,143 +1081,60 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         fileLimit: 50,
       });
 
-      // Phase 2.3: Get parallelizable batches from plan steps
-      const steps = plan.steps.map(s => ({
-        id: s.id,
-        description: s.description,
-        dependsOn: s.dependsOn ?? [],
-        parallel: s.parallel ?? false,
-      }));
-      const batches = getParallelizableSteps(steps);
+      // Prepare execution context for the agent
+      const executionContext: ToolExecutionContext = {
+        projectId,
+        workspaceId,
+      };
 
-      const allResults: Array<{ stepId: string; ok: boolean; filesChanged: string[]; feedback?: string }> = [];
-      let overallOk = true;
+      // Phase C (3.4): Replace jsonMode one-shot with tool-based incremental coder
+      // Run the autonomous agent with the full plan as the goal
+      const fullPlanGoal = [
+        `Plan: ${plan.title}`,
+        `Summary: ${plan.summary}`,
+        `Steps: ${plan.steps.map(s => `- ${s.id}: ${s.description}`).join("\n")}`,
+        `User Prompt: ${prompt}`,
+        `Answers: ${JSON.stringify(answers)}`,
+        `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
+      ].join("\n\n");
 
-      // Execute each batch (batches run sequentially, steps within batch run in parallel)
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
-        req.log.info({ projectId, batch: batchIndex + 1, steps: batch.map(s => s.id) }, "Executing plan batch");
-        await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length}: ${batch.map(s => s.id).join(", ")}`, { data: { steps: batch.map(s => s.id) }, step: `batch-${batchIndex + 1}` });
+      const agentConfig: AgentConfig = {
+        maxIterations,
+        maxToolCallsPerIteration: 10,
+        temperature,
+        verifyAfterSteps,
+        failFast,
+        stallDetectionTurns: 3,
+      };
 
-        // Get serialized working context for injection
-        const contextPrompt = combineBuildMemory(serializeContext(projectId), projectContext);
+      const agentResult = await runAutonomousAgent(fullPlanGoal, executionContext, agentConfig);
 
-        // Run steps in this batch in parallel
-        const batchResults = await Promise.all(batch.map(async (step) => {
-          const iteration = allResults.length + 1;
-
-          // Use the coder prompt to implement this step with retry for network failures
-          const completion = await withRetry(
-            async () => {
-              const adapter = await createBestAdapter();
-              const systemPrompt = buildInfinityPrompt({
-                role: "coder",
-                extraInstructions: extraSystemPrompt,
-              });
-              return adapter.complete([
-                { role: "system", content: sanitizePrompt(systemPrompt) },
-                {
-                  role: "user",
-                  content: [
-                    `Plan: ${plan.title}`,
-                    `Current Step: ${step.id} - ${step.description}`,
-                    `Step ${iteration} of ${steps.length}`,
-                    `Workspace: ${workspaceId}`,
-                    `User Prompt: ${prompt}`,
-                    `Answers: ${JSON.stringify(answers)}`,
-                    `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
-                    "",
-                    `## CONTEXT (working + project):`,
-                    contextPrompt,
-                  ].join("\n\n"),
-                },
-              ], {
-                temperature: 0.2,
-                maxTokens: 6000,
-                jsonMode: true,
-              });
-            },
-            { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
-            { projectId, operation: `coder-step-${step.id}` }
-          );
-
-          const raw = completion.content.trim() ?? "";
-          let parsed: { files?: Record<string, string>; notes?: string } | null = null;
-          try { parsed = JSON.parse(raw); } catch { /* ignore */ }
-
-          const filesChanged: string[] = [];
-          if (parsed?.files) {
-            for (const [relPath, content] of Object.entries(parsed.files)) {
-              const safePath = safeWorkspacePath(relPath, workspaceId);
-              if (!safePath) continue;
-              await writeWorkspaceFile(relPath, content, workspaceId);
-              filesChanged.push(relPath);
-            }
-          }
-          await logBuildEvent(projectId, "tool_result", `Step ${step.id} ${filesChanged.length > 0 ? "wrote" : "completed"}: ${filesChanged.length} file(s)`, { data: { filesChanged }, step: step.id });
-          // Verify this step if workspace has checks
-          let feedback: string | undefined;
-          if (hasIsolated(projectId)) {
-            try {
-              await logBuildEvent(projectId, "verify_start", `Verification for step ${step.id}`, { step: step.id });
-              const verify = await verifyWorkspace(projectId, workspaceId);
-              if (!verify.ok) {
-                feedback = formatVerificationFeedback(verify);
-                await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification failed`, { data: { ok: false, feedback: feedback?.slice(0, 400) }, step: step.id });
-                // Retry with feedback if failed
-                for (let retry = 0; retry < maxRetries && !verify.ok; retry++) {
-                  await new Promise(r => setTimeout(r, 1000 * (retry + 1)));
-                  const retryResult = await verifyWorkspace(projectId, workspaceId);
-                  if (retryResult.ok) {
-                    feedback = undefined;
-                    await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed after retry ${retry + 1}`, { data: { ok: true }, step: step.id });
-                    break;
-                  }
-                }
-              } else {
-                await logBuildEvent(projectId, "verify_result", `Step ${step.id} verification passed`, { data: { ok: true }, step: step.id });
-              }
-            } catch { /* no checks configured */ }
-          }
-
-          return { stepId: step.id, ok: !feedback, filesChanged, feedback };
-        }));
-
-        for (const result of batchResults) {
-          allResults.push(result);
-          // Phase 3.1: Record step in working context
-          recordStep(projectId, {
-            stepId: result.stepId,
-            description: steps.find(s => s.id === result.stepId)?.description ?? result.stepId,
-            ok: result.ok,
-            filesChanged: result.filesChanged,
-            notes: result.feedback,
-          });
-          if (!result.ok) overallOk = false;
-        }
-
-        await logBuildEvent(projectId, "step_start", `Batch ${batchIndex + 1}/${batches.length} complete`, { data: { steps: batch.map(s => s.id), overallOk: allResults.slice(-batch.length).every(r => r.ok) }, step: `batch-${batchIndex + 1}` });
-        // If any step in batch failed and we shouldn't continue, stop
-        if (!overallOk && req.body?.failFast) break;
-      }
-
-      // Final checkpoint
+      // Final checkpoint - use REAL final phase from agent
       if (hasIsolated(projectId)) {
-        await commitIteration(projectId, allResults.length, steps.length, "plan execution complete");
+        await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "plan execution complete");
       }
       await saveCheckpoint({
         projectId,
-        iteration: allResults.length,
-        completed: overallOk ? 1 : 0,
-        phase: "planning",
+        iteration: agentResult.iterations,
+        completed: agentResult.success ? 1 : 0,
+        phase: agentResult.finalPhase, // REAL phase, not hardcoded "planning"
         plan: { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks },
-        completedSteps: allResults.map(r => ({ step: r.stepId, done: r.ok, filesChanged: r.filesChanged, feedback: r.feedback })),
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
         workingContext: { prompt, workspaceId },
         tokenUsage: { prompt: 0, completion: 0, total: 0 },
       });
       // Phase 3.2: Log build activity
-      await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${allResults.length} steps, ${overallOk ? "success" : "partial"}`);
-      return { ok: overallOk, results: allResults, batches: batches.length };
+      await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${agentResult.iterations} iterations, ${agentResult.success ? "success" : "partial"}`);
+      return {
+        ok: agentResult.success,
+        summary: agentResult.summary,
+        iterations: agentResult.iterations,
+        toolCalls: agentResult.toolCalls.length,
+        toolResults: agentResult.toolResults,
+        finalPhase: agentResult.finalPhase,
+        lastDecision: agentResult.lastDecision,
+        editedFiles: agentResult.editedFiles,
+      };
     }, { priority: "normal" });
 
     res.json(result);
@@ -1302,7 +1222,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
 
       const agentResult = await runAutonomousAgent(prompt, executionContext, agentConfig);
 
-      // Final checkpoint
+      // Final checkpoint - use REAL final phase, not hardcoded "planning"
       if (hasIsolated(projectId)) {
         await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "agent run complete");
       }
@@ -1310,7 +1230,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
         projectId,
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
-        phase: "planning",
+        phase: agentResult.finalPhase, // REAL phase from agent
         plan: { title: "Autonomous agent run", summary: prompt, steps: [], files: [], risks: [] },
         completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
         workingContext: { prompt, workspaceId },
@@ -1318,7 +1238,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
       });
 
       await logActivity(projectId, "agent_ran", `Autonomous agent: ${agentResult.success ? "completed" : "stopped"} — ${agentResult.summary}`);
-      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults };
+      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults, finalPhase: agentResult.finalPhase, lastDecision: agentResult.lastDecision, editedFiles: agentResult.editedFiles, conversation: agentResult.conversation };
     }, { priority: "normal" });
 
     res.json(result);

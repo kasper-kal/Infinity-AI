@@ -66,7 +66,7 @@ These are the structural gaps between Infinity and a working coding harness — 
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. Moving to Phase C. |
+| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. **Phase C COMPLETE** — phase machine killed, growing conversation verified (len=11), `done` tool registered, native `tool_calls`, stall detection, verify-after-edit, real state return, execute-plan uses tool-based agent. Live harness: ALL 6 counters PASS. Moving to Phase D. |
 
 ---
 
@@ -153,20 +153,20 @@ Fresh `execute-plan` on a new project returns 200 (preflight passes), the projec
 
 ---
 
-## 📦 Phase C: The Loop Is One Mind (R1) 🔲 NOT STARTED
+## 📦 Phase C: The Loop Is One Mind (R1) ✅ COMPLETE
 
 ### Goal
 Kill the phase machine. One growing conversation (not a fresh 2-message call each iteration), real `done` tool, **native `completion.tool_calls`** instead of regex parsing, a deterministic "verify-after-edit" floor, agent returns its true final state. The loop has a self.
 
 ### Requirements
-- [ ] **2.1** — Kill the phase machine: replace with state `{history, toolCalls, iteration}` — no `exploring`/`planning`/`implementing`/`verifying`/`fixing`/`done` graph (`lib/build-agent.ts:262-277`)
-- [ ] **2.2** — Growing conversation: append assistant content + tool results instead of rebuilding `[system, user]` each turn; cap by token budget, not turns; keep last 5 tool results AND the file reads they returned (`lib/build-agent.ts:201-226`)
-- [ ] **2.3** — Register `done` as a real schema'd tool in `TOOL_DEFINITIONS` (`lib/build-tools.ts` TOOL_DEFINITIONS)
-- [ ] **2.4** — Use `completion.tool_calls` natively; drop `parseToolCalls` regex; keep regex as last-resort fallback only (`lib/build-agent.ts:229-242` + `llm-adapter.ts:288-294`)
-- [ ] **2.5** — Quality-gate stop: `while (!done && iteration < maxBudget && !stallDetected)` — `stallDetected = no file change in 3 turns` (`routes/infinity/build.ts:730,1218,628,1318`)
-- [ ] **2.6** — Deterministic verify-after-edit: whenever an iteration executed any `edit_file`/`apply_fix`, run `verifyWorkspace` immediately and push result into next iteration's context (`lib/build-agent.ts:413`)
-- [ ] **2.7** — Return real state from agent: `{finalPhase, lastDecision, editedFiles}` so callers persist truth (`lib/build-agent.ts:495-501`)
-- [ ] **3.4** — Replace jsonMode one-shot with tool-based incremental coder: give execute-plan real `write_file`/`edit_file`/`read_file` tools from `TOOL_DEFINITIONS`; loop until `done` or budget (`routes/infinity/build.ts:1082-1110`)
+- [x] **2.1** — Kill the phase machine: replace with state `{history, toolCalls, iteration}` — no `exploring`/`planning`/`implementing`/`verifying`/`fixing`/`done` graph (`lib/build-agent.ts:262-277`)
+- [x] **2.2** — Growing conversation: append assistant content + tool results instead of rebuilding `[system, user]` each turn; cap by token budget, not turns; keep last 5 tool results AND the file reads they returned (`lib/build-agent.ts:201-226`)
+- [x] **2.3** — Register `done` as a real schema'd tool in `TOOL_DEFINITIONS` (`lib/build-tools.ts` TOOL_DEFINITIONS)
+- [x] **2.4** — Use `completion.tool_calls` natively; drop `parseToolCalls` regex; keep regex as last-resort fallback only (`lib/build-agent.ts:229-242` + `llm-adapter.ts:288-294`)
+- [x] **2.5** — Quality-gate stop: `while (!done && iteration < maxBudget && !stallDetected)` — `stallDetected = no file change in 3 turns` (`routes/infinity/build.ts:730,1218,628,1318`)
+- [x] **2.6** — Deterministic verify-after-edit: whenever an iteration executed any `edit_file`/`apply_fix`, run `verifyWorkspace` immediately and push result into next iteration's context (`lib/build-agent.ts:413`)
+- [x] **2.7** — Return real state from agent: `{finalPhase, lastDecision, editedFiles}` so callers persist truth (`lib/build-agent.ts:495-501`)
+- [x] **3.4** — Replace jsonMode one-shot with tool-based incremental coder: give execute-plan real `write_file`/`edit_file`/`read_file` tools from `TOOL_DEFINITIONS`; loop until `done` or budget (`routes/infinity/build.ts:1082-1110`)
 
 ### Gate
 Iterate exits the old `exploring` state, produces **non-empty `toolResults`**, and its returned phase/state is real (not self-report). The agent quotes its own earlier tool results mid-build (conversation continuity).

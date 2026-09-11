@@ -72,3 +72,8 @@ screenshots
 claude_changes_log.txt
 .aider*
 deep-audit-logs/
+
+# Runtime workspace artifacts (created by ensureWorkspace / git init at build time)
+artifacts/workspace/
+artifacts/artifacts/
+.infinity/
