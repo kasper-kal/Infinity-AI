@@ -2737,21 +2737,21 @@ Single-source prompts (3.5) ──▶ all role fixes  (one prompt system before 
 
 ## What the Method Cannot See (Honest Limitations)
 
-The following are **not** gaps in the audit — they are **inherent limits of the method** that no amount of reading, flow-tracing, or single-run execution can resolve. They are enumerated so the next investigator knows exactly where to pick up:
+*Since this list was first written, **Pass 7** ran a real free-tier model through the full shipped loop (ask→plan→execute-plan→iterate) on a real project. Items marked ⋆ are now **live-observed** (the code-level guess replaced by a run-level fact); the rest remain inherent limits.*
 
 1. **Claude Code's actual internal behavior** — only the auditor's lived experience is available. No instrument can reproduce the user-steered, repo-native, continuous-reasoning loop. The comparison points are *reasoned from experience*, not measured.
 
-2. **Multi-iteration stress on real engineering tasks** — the stub model returned a fixed counter app in 3 turns. A real task (dashboard with charts + auth + API) would iterate 8–30 times, exercise the phase machine at depth, hit token limits, and expose behaviors the 3-turn run didn't. The audit has the *structure* of the failure (phases, fresh calls, no history) but not the *compounded* failure.
+2. **Multi-iteration stress on real engineering tasks** — ⋆ **passively observed, not stressed.** Pass 7 ran a real task through 5 iterate iterations and witnessed the compounded failure live (`success:false`, `phase:"exploring"`, HTTP 200, empty tool-results). Still not observed at 8–30 turns, token-limit exhaustion, or phase-machine depth, but the *shape* of the compounded failure is now run-proof rather than structural.
 
-3. **Real dependency installation and build tooling** — the workspace has no `package.json`, no `npm install`, no `tsc`/`vitest`/`eslint` that actually run. `verifyWorkspace`'s false-green gates were observed offline but not triggered live. Stage 1.4 + 6.1 fixes this, but the *behavior of the loop with real tooling* is unobserved.
+3. **Real dependency installation and build tooling** — ⋆ **partially inverted.** Pass 7 observed live that verification **never runs**: no `.git` → `hasIsolated` false → the whole `verifyWorkspace` branch (tsc/vitest/eslint) is skipped and zero `verify_start` events fire — so an empty step is definitionally `ok`. What remains truly unobserved is the behavior *with* tooling installed (Stage 1.4 + 6.1).
 
-4. **The `/build/preview/agent` DOM path under auto-pipeline** — only the manual button reaches it. The audit traced the code and confirmed it works, but the *interaction* between auto-pipeline and preview agent is untested. Stage 4.3 + 7.2 fixes the wiring; the integrated behavior is unobserved.
+4. **The `/build/preview/agent` DOM path under auto-pipeline** — only the manual button reaches it. The audit traced the code and confirmed it works, but the *interaction* between auto-pipeline and preview agent is untested. Stage 4.3 + 7.2 fixes the wiring; the integrated behavior is unobserved. (Pass 7 confirmed the **absence** of that feedback: `Preview output:\n` was empty in the iterate goal.)
 
-5. **Token economics under real model pricing** — the stub model has no token accounting. The `tokenBudget` in context is decorative. The audit knows ~500 tokens/call of identity waste (N5/7.5) but cannot measure the dollar impact on a real provider.
+5. **Token economics under real model pricing** — ⋆ **observed in its worst form.** Pass 7's iterate ran 5 real LLM calls and the server's own checkpoint recorded `tokenUsage:{prompt:0,completion:0,total:0}` *by construction* (build.ts:799 hardcodes zeros). The system does not just fail to measure cost — it fabricates "zero cost". What remains unobserved: the dollar impact if token accounting were wired (N5/7.5 ~500 tokens/call identity waste stands).
 
 6. **Cross-session / multi-user / concurrent build behavior** — the audit ran one linear session. The queue system, edge cases, checkpoint resume, and parallel builds are untested.
 
-7. **Long-term memory / learning across builds** — `build-checkpoints.ts` and `build-context.ts` exist but their multi-build accumulation is unexercised. The audit doesn't know if the memory system helps or hurts over 10+ builds.
+7. **Long-term memory / learning across builds** — Pass 7 observed `compactedContext:null` and `fileSnapshots:null` on a real saved checkpoint (the "memory" columns literally never populated). The multi-build accumulation and whether it helps or hurts over 10+ builds remains unexercised.
 
 ---
 
@@ -2924,6 +2924,88 @@ This is finding F6: **works** and **quota-starved** produce the same response sh
 | **F5** | Direct-hold visual channel dead at infra layer (`libatk-1.0.so.0` missing) | Runs 5 + screenshots: puppeteer cannot launch |
 | **F6** | Free-tier quota exhaustion → silent canned fallback + ok:true | Run 7 concurrency burst hit 429; plan 1.5s (vs 71s real), execute-plan 500s |
 | **F7** | Orchestrate + scaffold also gated by preflight wall | Runs 4 + 6: 409, same git/.infinity guard; `skipPreflight` defaults false |
+
+---
+
+# Pass 7 — Live Proof: one clean full-loop run on a real free-tier model
+
+**Preamble — what this Pass closes.** The honest self-assessment (Pass 5) flagged that every prior live run crashed into broken/starved infra: F1 preflight 409, F5 missing `libatk`, F6 quota 429, F7 preflight 409, and the Pass 3 run used a recording stub. The proof layer was therefore *"do the routes even work when the model does?"* — unproven. This Pass runs the **exact shipped `dist`** (server not rebuilt, no `[AUDIT]` instrumentation) through the **exact path build-studio drives** — ask → plan → execute-plan → iterate — with a working OpenRouter free-tier key and fresh credentials, and captures what lands on disk plus every server-side decision record (telemetry + checkpoint).
+
+## Setup (what had to be true for the model to finally answer)
+
+| Item | State | Meaning |
+|------|-------|---------|
+| OpenRouter key | rotated in Neon `llm_keys` row `audit-run-key` → `nex-agi/nex-n2.5-pro:free`, `enabled`, `healthy` | daily free-tier quota had reset (previous day's 429s were quota, not a dead key) |
+| Session | fresh throwaway account via `POST /api/auth/register` + `login` | prior driver cookie was days-stale (401) |
+| User API key | `deep-audit-cli-key-987654321` still valid in `llm_keys` | the `x-api-key` gate authenticates the driver |
+| Project row | created via `POST /api/infinity/projects` → `87e9f562-1444-4da5-be41-6fcfc2aada35` | **required** — see Live-I: execute-plan hard-500s on any UUID that isn't already a `projects` row |
+| Workspace root | `/workspaces/artifacts/workspace` (outside the repo — see Live-H) | files land outside git; the repo is never polluted by builds |
+
+The server was **not rebuilt and not restarted** for this run (it has been up since Sep 10). Everything below is the production behavior of the shipped build with a working model.
+
+## The run (one pipeline, all live, all 200 except where noted)
+
+| Step | HTTP | Duration | Observed result |
+|------|------|----------|-----------------|
+| `ask` | 200 | 0.1 s | returned follow-up questions |
+| `plan` | 200 | 26.2 s | **real** plan — title *"Single-file live counter dashboard"*, 2 files planned, 4 concrete steps. **Not** the canned signature |
+| `plan` (2nd attempt, same session, different projectId) | 200 | 52.1 s | **silent canned fallback** — 4 generic steps headed *"Translate the request into a focused implementation"*. No marker in the response (Live-B) |
+| `execute-plan` | 200 | 74.2 s | `4/4 steps OK`, reported `filesChanged: [index.html, index.html, index.html]` (Live-C), 3 file-writes claimed |
+| `iterate` | 200 | 27.5 s | internal agent reported **`success:false`, `iterations:5`, `phase:"exploring"`** — the route still returned HTTP 200 (Live-D), with **`toolResults: []`** despite 5 tool calls (Live-E) |
+| **files on disk** | — | — | `projects/87e9f562-…/index.html` — **real bytes**: `<!DOCTYPE html>`… full inline-CSS dark-themed counter page |
+
+Telemetry (`telemetry/87e9f562-…log`, seq 148–157) — the server's own decision record of the same run:
+
+```
+148 plan_start      "Execute plan: ..."  steps step-1..step-4  (Batch 1/1)
+150 tool_result     "Step step-1 completed: 0 file(s)"          filesChanged:[]
+151 tool_result     "Step step-4 wrote: 1 file(s)"              ["index.html"]
+152 tool_result     "Step step-3 wrote: 1 file(s)"              ["index.html"]
+153 tool_result     "Step step-2 wrote: 1 file(s)"              ["index.html"]
+154 step_start      "Batch 1/1 complete"                        overallOk:true  ⚠ step-1 wrote nothing
+156 agent_start     "Autonomous agent started: ITERATE ... \n\nPreview output:\n"  ← EMPTY preview
+157 agent_end       "Agent stopped after 5 iterations (max reached)"  success:false phase:"exploring"
+```
+
+Checkpoint stored after "success" (`GET /api/infinity/checkpoint/:projectId`): `completed:0`, `completedSteps:[]`, `tokenUsage:{prompt:0,completion:0,total:0}`, `phase:"planning"` (hardcoded — build.ts:798), `workingContext` = the raw prompt + **empty** `previewOutput`, `compactedContext:null`, `fileSnapshots:null`. (Live-F)
+
+## Live-F series — what the run proves that code-inference only guessed
+
+**Live-A — the harness CAN emit real, good output.** A 200-line HTML page with coherent CSS was written to disk by a real model through the real routes. The gap is *not* "io broken". This is the counter-proof Pass 6's "0 bytes on disk" runs needed: with working quota and a pre-existing project row, files happen.
+
+**Live-B — N3 (silent canned fallback) is run-proven, with a nasty shape.** Same endpoint, same session: 26.2 s → real plan; 52.1 s → canned plan. Nothing in the response distinguishes them — a client cannot know it is executing "inspect the existing project files" against a nonexistent scaffold. The fallback is *not* a cold-start artifact; the model was healthy the whole time. The failure signal is swallowed by `build.ts:120-147`.
+
+**Live-C — N6 (`ok = !feedback`) is run-proven, and the "4/4 OK" is fabricated.** Telemetry seq 150 vs 154: `step-1` wrote **zero files**, yet `overallOk:true`. Mechanism (build.ts:1156): `ok: !feedback`, and `feedback` is only ever set inside `if (hasIsolated(projectId))` — the workspace has no `.git`, so the entire `verifyWorkspace` branch (tsc/vitest/eslint) **never ran**, and not one `verify_start` event appears in telemetry. An empty step is not just "OK" — it is *literally definitionally true* with no verification witness.
+
+**Live-D — iterate masks an internal failure behind HTTP 200.** The agent's own log says `success:false`, `phase:"exploring"` — it never left exploring across 5 iterations, never self-reported ready. The route still returns HTTP 200 (enqueueBuild → `res.json`) with `ok:false` buried in the body (`build.ts:812`). Any client that checks status (or the cloud's request logs) sees a "completed" iteration. This is N14 in its live position.
+
+**Live-E — N2 (tool results discarded) is run-proven.** The iterate loop logged 5 iterations and the route returned `toolCalls.length` (5 calls happened) but `toolResults` empty (`[]`). The model *was* calling tools in exploring and the results were **never recorded** for it to act on — the agent flew blind through all 5 iterations. Combined with the fresh-2-message restart per iteration (build-agent.ts:201-226), the "iterative improvement" loop cannot accumulate any evidence.
+
+**Live-F — N9 (checkpoints are labels) is run-proven at the construction site.** `build.ts:798-800`: `phase:"planning"` (hardcoded every save), `tokenUsage:{prompt:0,completion:0,total:0}` (hardcoded — 0 tokens despite 5 real LLM calls), `completed: agentResult.success?1:0` (was 0 in a 200-returned run), `workingContext` = raw prompt + empty preview. A resume (getLatestCheckpoint, rows[0]) restores a *prompt string and an iteration count* — not files, not reasoning, not tool history. The checkpoint that looks like state is a stub that lies about tokens, phase, and completion.
+
+**Live-G — the iterate "feedback" the agent improves on is empty.** `agent_start` shows `Preview output:\n` with nothing after it. The static preview server never produces app output for a `python3 http.server` default, and dependency install never runs (Pass 4 fix 2.x). So the improvement loop's *input channel* is dead even when the model and the loop themselves work.
+
+**Live-H — the workspace root escapes the repository.** The running bundle resolves `WORKSPACE_ROOT` from `__dirname` (esbuild bundle = `dist/`) via 4×`..` → `/workspaces/artifacts/workspace`, **outside `/workspaces/Infinity-AI`**. Builds write outside the repo and are invisible to git; on another host the same code lands elsewhere. Environment-coupled, and every "build output" is silently out-of-repo.
+
+**Live-I — the build system is bolted onto a CRUD seam.** Executing a plan with a fresh UUID (the Pass 6 pattern) hard-500s in 167 ms: `Failed query: select id,name,description,instructions from projects where id=$1`. The "agent" cannot act unless a `projects` row already exists via `POST /projects`. A build system whose model pipeline depends on an unrelated UI-CRUD table is a coupling that the 0-files matrix runs tripped over head-first.
+
+## The answer, sharpened by the live run
+
+Pass 2 said Infinity is *a pipeline of stateless fresh API calls*; Claude Code is *one continuous self-correcting loop*. The live run now shows both halves cleanly:
+
+1. **The pipeline half works.** A real free-tier model, through the real routes, wrote a real, coherent, working HTML page to disk in ~74 s. File generation is not the 42-phase failure.
+2. **The loop half is a label, as designed.** The "iterations" that are supposed to improve the output: fly blind (Live-E), on empty feedback (Live-G), stall in `exploring` (Live-D), get stored as a fabricated checkpoint (Live-F), and are reported "complete" with `overallOk:true` while one step wrote nothing and zero verification ran (Live-C). The produce-then-improve model, which is the entire point of Claude Code's advantage, contributes **zero measurable signal** in this run — and that is not quota or a flaky model, it is the harness's construction: `ok:!feedback`, hardcoded phase/tokens, empty tool-results, all visible as code.
+
+After 42 phases, Infinity generates files as well as a single-shot prompt does, and *worse* than one in every other respect the loop is meant to add. That is the precise, now-run-backed statement of the gap.
+
+## Evidence trail
+
+- Workspace/file on disk: `/workspaces/artifacts/workspace/projects/87e9f562-1444-4da5-be41-6fcfc2aada35/index.html`
+- Telemetry (server-written decision log): `/workspaces/artifacts/workspace/telemetry/87e9f562-1444-4da5-be41-6fcfc2aada35.log`, seq 148–157 (plan → step results → overallOk → agent start/end)
+- Checkpoint JSON: `GET /api/infinity/checkpoint/87e9f562…` (`completed:0`, tokenUsage zeros, phase `planning`)
+- Canned-plan evidence: plan attempt on `proof-1789091783319` (52.1 s, 4 generic steps, canned signature)
+- Driver: single-loop harness at `/tmp/single-loop-proof.mjs` (reads exactly the routes build-studio reads)
+- Model: `nex-agi/nex-n2.5-pro:free` via OpenRouter (Neon `llm_keys` row `audit-run-key`)
 
 ---
 
