@@ -4,6 +4,25 @@
 
 ---
 
+## 🎯 Mission
+Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local models, and open source. STRICTLY ZERO free trials; every service/API/library stays permanently 100% free.
+
+---
+
+## 📋 Phase Overview
+
+| Phase | Title | Status |
+|-------|-------|--------|
+| **A** | **Real Workspace (R2)** | 🔲 **NOT STARTED** |
+| **B** | **The Loop Is One Mind (R1)** | 🔲 **NOT STARTED** |
+| **C** | **The World Comes Back In (R2)** | 🔲 **NOT STARTED** |
+| **D** | **Green Must Mean Something (R3)** | 🔲 **NOT STARTED** |
+| **E** | **The Model Sees Bytes (R2/R3)** | 🔲 **NOT STARTED** |
+
+**Root causes (from the audit):** **R1** the loop has no self · **R2** the world never re-enters · **R3** green is a label, not a check.
+
+---
+
 ## The Audit — why the 42-phase build failed
 
 The 42-phase build didn't fail because the phases were wrong — it failed because **every phase was measured against a checkbox, never against the live loop**. 42 phases shipped MFA, a marketplace, connectors — while the four-file core that IS Build Mode was left with its loop unwired. The deep audit (`RESULTS-QUALITY-AUDIT.md`, Passes 0–7, 63 findings) proved it live, driving a real free-tier model through the exact shipped bundle:
@@ -19,20 +38,7 @@ The 42-phase build didn't fail because the phases were wrong — it failed becau
 
 ---
 
-## 🎯 Mission
-Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local models, and open source. STRICTLY ZERO free trials; every service/API/library stays permanently 100% free.
-
----
-
-## Why we are here (short version)
-
-See **The Audit** above for the full story. In one line: the 42-phase build was measured against checkboxes, never against the live loop — so it built features while the loop that makes a build tool competitive stayed unwired. This roadmap exists to rewire it.
-
-**(Caveat on purpose: this file deliberately replaces the 42-phase list. We are not "adding a phase 43" — we are finishing the one system that matters.)**
-
----
-
-## Current status
+## Current Status
 
 | Item | State |
 |------|-------|
@@ -43,52 +49,165 @@ See **The Audit** above for the full story. In one line: the 42-phase build was 
 
 ---
 
-## The fix campaign (5 phases, dependency-ordered)
+## 📦 Phase A: Real Workspace (R2) 🔲 NOT STARTED
 
-Map: 3 roots (Pass 4) — **R1** the loop has no self · **R2** the world never re-enters · **R3** green is a label, not a check.
+### Goal
+Workspaces become real git repos with installed deps; the build button stops hitting the preflight wall. Workspace = a real git repo with deps, not an empty `mkdir`.
 
-**The five repair fronts (Pass 4, mapped to the roots):**
+### Requirements
+- [ ] **0.1–0.5** — Boot/DB/key fixes (infrastructure prerequisites)
+- [ ] **1.1** — `WORKSPACE_ROOT` points to in-repo root, not a temp directory
+- [ ] **1.2** — `ensureWorkspace` runs `git init` + creates `.infinity/` directory
+- [ ] **1.3** — Preflight advisory: checks for missing workspace and surfaces actionable error
+- [ ] **1.4** — `package.json` present and `npm install` runs successfully on workspace creation
 
-| # | Front | Root it kills | What changes | Key fixes |
-|---|-------|---------------|--------------|-----------|
-| 1 | **Real workspace** | R2 | Workspace = a real git repo with deps, not an empty `mkdir`. Preflight stops being a wall | 1.1–1.4, 0.x |
-| 2 | **The loop becomes one conversation** | R1 | Kill the phase machine. One growing conversation, real `done` tool, native tool calls (not regex), a deterministic "verify after every edit" floor | 2.1–2.4, 2.6, 2.7 |
-| 3 | **The world comes back in** | R2 | Deps run → `tsc`/`vitest`/eslint actually report reality; the rendered app + DOM reaches the model; the reviewer reads file bytes, not `[Modified by step-X]` labels | 4.1–4.5, 6.4 |
-| 4 | **Green must mean something** | R3 | `ok` requires a real artifact (files written *and* a gate passed), `done` is a real tool, checkpoint persists reasoning not hardcoded strings/zero tokens, no silent degraded success | 5.1–5.6 |
-| 5 | **The model sees bytes** | R2 | Planner/coder fed real file contents (not a 900-token map), execute-plan uses tools instead of blind `jsonMode`; one prompt system, not four | 3.1–3.5, 7.x |
+### Gate
+Fresh `execute-plan` on a new project returns 200 (preflight passes) and the project dir is a git repo with `node_modules`.
 
-*Phases A–E below expand the five fronts in order (A = front 1, B = front 2, … E = front 5).*
+### Implementation Plan
+1. Fix boot/DB/key infrastructure (fixes 0.1–0.5)
+2. Rewrite `WORKSPACE_ROOT` to point to in-repo root
+3. Extend `ensureWorkspace` with `git init` + `.infinity/` directory creation
+4. Add preflight advisory that checks workspace state and reports clearly
+5. Ensure `package.json` is created and `npm install` runs on workspace setup
+6. Run harness — counter 1 (files on disk) must pass
 
-### Phase A — Real workspace (R2)
-*What:* workspaces become real git repos with installed deps; the build button stops hitting the preflight wall.
-*Fixes:* 0.1–0.5 (boot/DB/key fixes), 1.1–1.4 (WORKSPACE_ROOT → in-repo root, `ensureWorkspace` git-init + `.infinity`, preflight advisory, package.json + `npm install`).
-*Gate:* fresh `execute-plan` on a new project returns 200 (preflight passes) and the project dir is a git repo with node_modules.
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/workspace.ts` — WORKSPACE_ROOT, ensureWorkspace rewrite
+- `artifacts/api-server/src/routes/infinity/build.ts` — preflight checks, workspace validation
 
-### Phase B — The loop is one mind (R1)
-*What:* kill the phase machine. One growing conversation (not a fresh 2-message call each iteration), real `done` tool, **native `completion.tool_calls`** instead of regex parsing, a deterministic "verify-after-edit" floor, agent returns its true final state.
-*Fixes:* 2.1–2.4, 2.6, 2.7 (+ 3.4 when execute-plan gains tools).
-*Gate:* iterate exits `exploring`, produces **non-empty toolResults**, and its returned phase/state is real (not self-report).
+---
 
-### Phase C — The world comes back in (R2)
-*What:* verification reports reality; the reviewer judges code not labels; the executed app reaches the model.
-*Fixes:* 1.4 + 4.1 (deps → real `tsc`/`vitest`/eslint gates with the `|| true` tautologies removed), 4.2/5.2 (feedback→iterate), 4.3–4.4 (preview agent + DOM to model; needs Chrome deps on host), 4.5 (reviewer reads file bytes), 6.4 (wire the dead generators/templates into scaffold).
-*Gate:* `verify_start` events appear in telemetry; a broken file makes `ok` flip to false; reviewer output reflects real code.
+## 📦 Phase B: The Loop Is One Mind (R1) 🔲 NOT STARTED
 
-### Phase D — Green must mean something (R3)
-*What:* success is earned, not labeled.
-*Fixes:* 5.4 (`ok` requires files-written AND a real gate — the 0-file false-green is impossible), 5.1 (done-contract wired as the stop rule), 5.3/5.5 (checkpoint persists real phase/reasoning, not hardcoded `"planning"`/zero tokens), 5.6 (no degraded path may report success), 5.2 (per-step quality gate).
-*Gate:* the 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned plan is never returned as success.
+### Goal
+Kill the phase machine. One growing conversation (not a fresh 2-message call each iteration), real `done` tool, **native `completion.tool_calls`** instead of regex parsing, a deterministic "verify-after-edit" floor, agent returns its true final state.
 
-### Phase E — The model sees bytes (R2/R3)
-*What:* planner and coder read real file contents, not a 900-token map; one prompt system, not four.
-*Fixes:* 3.1 (file bytes at decisions), 3.2 (planner gets repo context), 3.4 (execute-plan uses tools), 3.5 (single prompt source — delete imports-only `coderPromptV2`/`fixerPromptV2`), 7.1–7.20 design fixes tail.
-*Gate:* captured coder request contains real file bytes; truncated file-map JSON can no longer produce a silent zero-write "ok".
+### Requirements
+- [ ] **2.1** — Agent uses one growing conversation across iterations (not fresh 2-message calls)
+- [ ] **2.2** — Real `done` tool: agent signals completion via tool call, not self-report
+- [ ] **2.3** — Native `completion.tool_calls` used instead of regex `parseToolCalls`
+- [ ] **2.4** — Deterministic "verify after every edit" floor (hard gate, not optional)
+- [ ] **2.6** — Agent returns its true final state (phase, reasoning, files changed)
+- [ ] **2.7** — Identity context preserved across iterations (no boilerplate re-injection every turn)
+- [ ] **3.4** — When execute-plan gains tools (deferred from Phase E if needed)
+
+### Gate
+Iterate exits `exploring`, produces **non-empty `toolResults`**, and its returned phase/state is real (not self-report).
+
+### Implementation Plan
+1. Rewrite build-agent iteration loop to grow conversation instead of resetting
+2. Add `done` tool to tool registry — agent calls it when work is complete
+3. Switch from regex `parseToolCalls` to native `completion.toolCalls`
+4. Add deterministic verify-after-edit gate (runs verification after every file write)
+5. Remove hardcoded state returns — agent outputs real phase + reasoning
+6. Run harness — counters 2 (toolResults non-empty) and 3 (leaves exploring) must pass
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/build-agent.ts` — iteration loop, conversation growth, tool calls
+- `artifacts/api-server/src/lib/tool-registry.ts` — add `done` tool
+- `artifacts/api-server/src/lib/llm-adapter.ts` — use native toolCalls
+
+---
+
+## 📦 Phase C: The World Comes Back In (R2) 🔲 NOT STARTED
+
+### Goal
+Verification reports reality; the reviewer judges code not labels; the executed app reaches the model.
+
+### Requirements
+- [ ] **1.4 + 4.1** — Deps installed → real `tsc`/`vitest`/eslint gates; remove `|| true` tautologies
+- [ ] **4.2 + 5.2** — Feedback channel alive: preview output → iterate (not blank)
+- [ ] **4.3–4.4** — Preview agent runs → DOM reaches the model (needs Chrome deps on host)
+- [ ] **4.5** — Reviewer reads file bytes, not `[Modified by step-X]` placeholder labels
+- [ ] **6.4** — Wire dead generators/templates (`framework-generators/`, `template-engine.ts`) into scaffold
+
+### Gate
+`verify_start` events appear in telemetry; a broken file makes `ok` flip to false; reviewer output reflects real code.
+
+### Implementation Plan
+1. Ensure deps are installed before verification; remove `|| true` from verify commands
+2. Fix preview channel so iterate receives real feedback (Vite output or DOM)
+3. Wire preview agent to produce DOM model accessible to the coder agent
+4. Rewrite reviewer to read actual file contents from workspace
+5. Wire framework generators and templates into the build scaffold step
+6. Run harness — counter 4 (`verify_start` events, bad file → `ok:false`) must pass
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/structured-tools.ts` — verifyWorkspace, remove `|| true`
+- `artifacts/api-server/src/lib/build-orchestrator.ts` — reviewer reads file bytes
+- `artifacts/api-server/src/routes/infinity/build.ts` — preview agent, feedback channel
+- `artifacts/api-server/src/lib/framework-generators/` — wire into scaffold
+- `artifacts/api-server/src/lib/template-engine.ts` — wire into scaffold
+
+---
+
+## 📦 Phase D: Green Must Mean Something (R3) 🔲 NOT STARTED
+
+### Goal
+Success is earned, not labeled.
+
+### Requirements
+- [ ] **5.4** — `ok` requires files-written AND a real gate passed (0-file false-green becomes impossible)
+- [ ] **5.1** — Done-contract wired as the actual stop rule (not advisory)
+- [ ] **5.3 + 5.5** — Checkpoint persists real phase/reasoning, not hardcoded `"planning"` / zero tokens
+- [ ] **5.6** — No degraded path may report success
+- [ ] **5.2** — Per-step quality gate (each step verified before marking complete)
+
+### Gate
+The 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned plan is never returned as success.
+
+### Implementation Plan
+1. Rewrite `ok` logic: requires `filesWritten > 0` AND a verification gate passed
+2. Wire `DoneContractEngine` as the actual stop rule in iterate/execute-plan
+3. Fix checkpoint to persist actual phase, reasoning, and token usage (not hardcoded values)
+4. Remove all degraded success paths — failure is failure
+5. Add per-step quality gate: each step must pass verification before marking complete
+6. Run harness — counter 5 (0-file step never `ok:true`) must pass
+
+### Files to Create/Modify
+- `artifacts/api-server/src/routes/infinity/build.ts` — `ok` logic, checkpoint fields
+- `artifacts/api-server/src/lib/build-done-contract.ts` — wire as stop rule
+- `artifacts/api-server/src/lib/build-agent.ts` — per-step quality gate
+
+---
+
+## 📦 Phase E: The Model Sees Bytes (R2/R3) 🔲 NOT STARTED
+
+### Goal
+Planner and coder read real file contents, not a 900-token map; one prompt system, not four.
+
+### Requirements
+- [ ] **3.1** — Planner/coder fed real file contents at decision time (not 900-token summaries)
+- [ ] **3.2** — Planner gets repo context (file tree, key files, config)
+- [ ] **3.4** — Execute-plan uses tools instead of blind `jsonMode` single-shot
+- [ ] **3.5** — Single prompt source: delete imports-only `coderPromptV2` / `fixerPromptV2`
+- [ ] **7.1–7.20** — Design fixes tail (remaining audit findings)
+
+### Gate
+Captured coder request contains real file bytes; truncated file-map JSON can no longer produce a silent zero-write `ok`.
+
+### Implementation Plan
+1. Feed planner real file contents (not just path + purpose + 8 symbols)
+2. Extend planner input with repo context: file tree, config files, key modules
+3. Rewrite execute-plan to use tool-use agent instead of blind JSON single-shot
+4. Consolidate prompt system: one source (`agent-prompts/*`), delete `build-prompts.ts` duplicates
+5. Work through remaining design fixes (7.1–7.20)
+6. Run full harness — all 5 counters green, campaign complete
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/agent-prompts/planner.ts` — real file contents at input
+- `artifacts/api-server/src/routes/infinity/build.ts` — execute-plan rewrite (tools, not jsonMode)
+- `artifacts/api-server/src/lib/build-prompts.ts` — delete (replaced by agent-prompts)
+- `artifacts/api-server/src/lib/build-agent.ts` — extended for tool-use execute-plan
+
+---
 
 > **Definition of done for the campaign:** after Phase D, a green verdict is backed by a real gate + real artifact (false-green class gone). After Phase E, the model reasons over the same files and UI the user sees — **the loop is Claude Code's loop, within free-model limits.** Direct-hold (Chrome) is the one infra exception (free, `sudo apt`).
 
 ---
 
-## How we measure each phase (the 5 live counters)
+## How We Measure Each Phase (the 5 live counters)
 
 Re-run the Pass 7 harness after every phase and check:
 
@@ -102,19 +221,39 @@ When 2–5 flip, the loop works; that is the definition of progress, not vibes.
 
 ---
 
-## Autonomous Execution Rules
+## 🔄 Autonomous Execution Rules
 
-- **Read `session-brief.md` first** (live state, change record, next actions) — it is the day-to-day continuation of this roadmap.
-- Execute the **next action** in the current Phase; after **every** change, update `session-brief.md`'s Change record + project state.
-- After **every** phase completes: run the full harness (5 counters), update this file's status, update `PHASES.md` phase table, commit + push.
-- **NEVER fix typecheck errors unless explicitly asked.** Never use the Lucide icon `Sparkles`.
-- Every response ends with `git add -A && commit && push`. Every 5 min an auto-commit cron covers stragglers.
-- Escalate (ask the user) when a Phase's Gate cannot pass after genuine attempts, or when a fix would cost > €0.
-- Audit constraint: product code is changed only when the user says "go" on implementation — this roadmap is the agreed direction.
+### For the Agent Running This Plan
+```yaml
+loop:
+  interval: "30 minutes"  # or until phase complete
+  max_iterations: 999
+  on_error:
+    - log error to session-brief.md
+    - commit current state
+    - wait 5 min, retry once
+    - if still failing: create GitHub issue, move to next phase
+  on_phase_complete:
+    - run the full harness (5 counters)
+    - update PHASES.md status to ✅ DONE
+    - update session-brief.md Change record
+    - git commit -m "Phase X complete: <title>"
+    - git push
+    - proceed to next phase
+  commit_rule: "Every response → git add -A && git commit -m '<what I just did>' && git push"
+  budget: "$0 — only free tiers, local models, open source"
+```
+
+### Escalation Triggers (Stop and Notify)
+- [ ] 3 consecutive failures on same task
+- [ ] Token budget > 80% used
+- [ ] Architectural decision needed (not in plan)
+- [ ] Security concern
+- [ ] Breaking change to existing working features
 
 ---
 
-## How this roadmap interacts with the rest of the repo
+## How This Roadmap Interacts with the Rest of the Repo
 
 - **`RESULTS-QUALITY-AUDIT.md`** — the evidence + the full 56-fix spec (Stages 0–7, file:line, exact changes, dependency graph, rollout order). This roadmap is its executive summary.
 - **`session-brief.md`** — live project state; update every change.
