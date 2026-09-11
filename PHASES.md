@@ -13,7 +13,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 
 | Phase | Title | Root Cause | Status |
 |-------|-------|------------|--------|
-| **A** | **Fix the Environment** | prerequisite | 🔲 **NOT STARTED** |
+| **A** | **Fix the Environment** | prerequisite | ✅ **COMPLETE** |
 | **B** | **Real Workspace (R2)** | R2 | 🔲 **NOT STARTED** |
 | **C** | **The Loop Is One Mind (R1)** | R1 | 🔲 **NOT STARTED** |
 | **D** | **World Comes Back In (R2)** | R2 | 🔲 **NOT STARTED** |
@@ -66,26 +66,26 @@ These are the structural gaps between Infinity and a working coding harness — 
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **NOT STARTED** — we are at Phase A, step 0. |
+| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. Moving to Phase B. |
 
 ---
 
-## 📦 Phase A: Fix the Environment 🔲 NOT STARTED
+## 📦 Phase A: Fix the Environment ✅ COMPLETE
 
 ### Goal
 The server boots, the DB is whole, dependencies install, and the phantom-workspace root points inside the repo. Everything downstream assumes this works.
 
 ### Requirements
-- [ ] **0.1** — Fix `WORKSPACE_ROOT`: drop one `..` so the bundle resolves inside the repo, not a phantom sibling (`lib/workspace.ts:15`)
-- [ ] **0.2** — Lazy adapter boot: move adapter acquisition out of class-field initializer; stub adapter throws only when invoked, not at startup (`lib/adapter-factory.ts:50`)
-- [ ] **0.3** — Ordered DDL: reorder `CREATE_TABLES` so `accounts` → `projects` → `sessions` (`lib/auto-migrate.ts:196,372,398`)
-- [ ] **0.4** — Column sync: add missing `source/scopes/project_id/account_id/priority` columns to `llm_keys` in `ALTER_TABLES` (`lib/auto-migrate.ts`)
-- [ ] **0.5** — DDL/DML sync: add `compacted_context`, `file_snapshots`, `token_usage` columns to `build_checkpoints` CREATE (`lib/auto-migrate.ts`)
-- [ ] **0.6** — JSONB fix: `scopes: JSON.stringify(req.body.scopes ?? [])` not a raw array insert (`routes/infinity/api-keys.ts` POST)
-- [ ] **0.7** — `ensureWorkspaceDeps`: add `npm install` step to workspace creation so verification has dependencies to run (`lib/workspace.ts`, `lib/structured-tools.ts`, `lib/build-tools.ts`)
-- [ ] **0.8** — Fix inverted success flag: `toolRunCommand` at `build-tools.ts:372` — change `success: !err || (err as any).killed === false` to `success: !err`
-- [ ] **0.9** — Implement `inspect_console` for real using BrowserPool, replacing the stub at `build-tools.ts:418-436` (`success:true, logs:[]` → real console output)
-- [ ] **0.10** — Remove `|| true` from `verifyWorkspace` build/vitest/eslint commands; read real exit codes (`lib/structured-tools.ts:292-332`)
+- [x] **0.1** — Fix `WORKSPACE_ROOT`: drop one `..` so the bundle resolves inside the repo, not a phantom sibling (`lib/workspace.ts:15`)
+- [x] **0.2** — Lazy adapter boot: move adapter acquisition out of class-field initializer; stub adapter throws only when invoked, not at startup (`lib/adapter-factory.ts:50`)
+- [x] **0.3** — Ordered DDL: reorder `CREATE_TABLES` so `accounts` → `projects` → `sessions` (`lib/auto-migrate.ts:196,372,398`)
+- [x] **0.4** — Column sync: add missing `source/scopes/project_id/account_id/priority` columns to `llm_keys` in `ALTER_TABLES` (`lib/auto-migrate.ts`)
+- [x] **0.5** — DDL/DML sync: add `compacted_context`, `file_snapshots`, `token_usage` columns to `build_checkpoints` CREATE (`lib/auto-migrate.ts`)
+- [x] **0.6** — JSONB fix: `scopes: JSON.stringify(req.body.scopes ?? [])` not a raw array insert (`routes/infinity/api-keys.ts` POST)
+- [x] **0.7** — `ensureWorkspaceDeps`: add `npm install` step to workspace creation so verification has dependencies to run (`lib/workspace.ts`, `lib/structured-tools.ts`, `lib/build-tools.ts`)
+- [x] **0.8** — Fix inverted success flag: `toolRunCommand` at `build-tools.ts:372` — change `success: !err || (err as any).killed === false` to `success: !err`
+- [x] **0.9** — Implement `inspect_console` for real using BrowserPool, replacing the stub at `build-tools.ts:418-436` (`success:true, logs:[]` → real console output)
+- [x] **0.10** — Remove `|| true` from `verifyWorkspace` build/vitest/eslint commands; read real exit codes (`lib/structured-tools.ts:292-332`)
 
 ### Gate
 Fresh `node ./dist/index.mjs` boots without throwing. `POST /build/plan` returns a real plan (not a canned fallback). `POST /build/execute-plan` with a real project UUID succeeds without a checkpoint 500.

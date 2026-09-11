@@ -432,8 +432,16 @@ export async function cleanupOldBuildWorktrees(projectId: string, keep: number =
   return removed;
 }
 
+/**
+ * Workspace root — resolved from the compiled bundle's directory.
+ *
+ * The api-server is produced by esbuild into a single `dist/index.mjs`, so at
+ * runtime `__dirname` here is `<repo>/artifacts/api-server/dist`. Three `..`
+ * walk back to the repo root: dist → api-server → artifacts → repo. (A fourth
+ * `..` overshoots into the repo's *parent* — the phantom-root bug, P6.)
+ */
 export const WORKSPACE_ROOT = path.resolve(
-  __dirname, "..", "..", "..", "..", "artifacts", "workspace",
+  __dirname, "..", "..", "..", "artifacts", "workspace",
 );
 export const WORKSPACE_URL = "/api/infinity/workspace";
 
@@ -526,6 +534,62 @@ export async function ensureWorkspace(workspaceId = "default"): Promise<string> 
   await fs.mkdir(root, { recursive: true });
   await fs.mkdir(path.join(root, ".tmp"), { recursive: true });
   return root;
+}
+
+/**
+ * Ensure a workspace has its dependencies installed (Fix 0.7).
+ *
+ * Verification gates run tsc/vitest/eslint/build in the workspace; those are
+ * meaningless (or resolve to registry shims) without node_modules. This runs
+ * `npm install` once per workspace when a package.json exists but node_modules
+ * is absent, and is a fast no-op afterwards. It is a best-effort helper — a
+ * failed install is reported honestly, it is not retried or fatal.
+ */
+const DEP_INSTALLED_CACHE = new Map<string, number>();
+const DEP_CACHE_TTL_MS = 5 * 60_000;
+
+export interface DepInstallResult {
+  installed: boolean;
+  cached: boolean;
+  reason?: string;
+  exitCode?: number;
+  stderr?: string;
+}
+
+export async function ensureWorkspaceDeps(workspaceId = "default"): Promise<DepInstallResult> {
+  const root = getWorkspaceRoot(workspaceId);
+  if (!fsSync.existsSync(path.join(root, "package.json"))) {
+    return { installed: false, cached: false, reason: "no-package.json" };
+  }
+
+  const cachedAt = DEP_INSTALLED_CACHE.get(workspaceId);
+  if (cachedAt && Date.now() - cachedAt < DEP_CACHE_TTL_MS) {
+    return { installed: fsSync.existsSync(path.join(root, "node_modules")), cached: true };
+  }
+
+  if (fsSync.existsSync(path.join(root, "node_modules"))) {
+    DEP_INSTALLED_CACHE.set(workspaceId, Date.now());
+    return { installed: true, cached: false };
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      "npm",
+      ["install", "--no-audit", "--no-fund", "--loglevel", "error"],
+      { cwd: root, timeout: 300_000, maxBuffer: 1024 * 1024 * 4, env: getWorkspaceCommandEnvironment() },
+      (err, _stdout, stderr) => {
+        const exitCode = err && typeof err === "object" && "code" in err ? (err as { code?: number | string }).code : 0;
+        const installed = !err || (typeof err === "object" && (err as { code?: number }).code === 0);
+        if (installed) DEP_INSTALLED_CACHE.set(workspaceId, Date.now());
+        resolve({
+          installed,
+          cached: false,
+          exitCode: typeof exitCode === "number" ? exitCode : 1,
+          stderr: stderr?.slice(-4000) || "",
+        });
+      },
+    );
+  });
 }
 
 export function getSessionCwd(sessionId: string, workspaceId = "default"): string {

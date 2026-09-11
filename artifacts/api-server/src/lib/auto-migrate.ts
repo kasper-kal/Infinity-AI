@@ -11,6 +11,30 @@
 import { pool, filesPool } from "@workspace/db";
 
 const CREATE_TABLES = [
+  // ── Accounts + sessions (invited users, minimal local auth) ────
+  // Created FIRST because accounts is referenced by FK from projects,
+  // sessions, llm_keys, mfa_* and push_subscriptions. (Fix 0.3 — the
+  // previous position after group_members aborted fresh-db migration at the
+  // first FK violation.)
+  `CREATE TABLE IF NOT EXISTS "accounts" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "email" text NOT NULL UNIQUE,
+    "password_hash" text NOT NULL,
+    "display_name" text NOT NULL DEFAULT '',
+    "avatar_url" text,
+    "scopes" jsonb NOT NULL DEFAULT '[]'::jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "updated_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS "sessions" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "token" text NOT NULL UNIQUE,
+    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
+    "created_at" timestamp NOT NULL DEFAULT now(),
+    "expires_at" timestamp,
+    "revoked_at" timestamp
+  )`,
+
   // ── Core chat ────────────────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "conversations" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -169,6 +193,10 @@ const CREATE_TABLES = [
     "uses" integer NOT NULL DEFAULT 0,
     "failures" integer NOT NULL DEFAULT 0,
     "last_used_at" timestamp,
+    "source" text NOT NULL DEFAULT 'llm-provider',
+    "project_id" text,
+    "scopes" text[] DEFAULT '{}',
+    "account_id" uuid REFERENCES "accounts"("id") ON DELETE CASCADE,
     "created_at" timestamp NOT NULL DEFAULT now()
   )`,
 
@@ -359,26 +387,6 @@ const CREATE_TABLES = [
 
   `ALTER TABLE "group_chats" ADD COLUMN IF NOT EXISTS "owner_token_hash" text`,
 
-  // ── Accounts + sessions (invited users, minimal local auth) ────
-  `CREATE TABLE IF NOT EXISTS "accounts" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    "email" text NOT NULL UNIQUE,
-    "password_hash" text NOT NULL,
-    "display_name" text NOT NULL DEFAULT '',
-    "avatar_url" text,
-    "scopes" jsonb NOT NULL DEFAULT '[]'::jsonb,
-    "created_at" timestamp NOT NULL DEFAULT now(),
-    "updated_at" timestamp NOT NULL DEFAULT now()
-  )`,
-  `CREATE TABLE IF NOT EXISTS "sessions" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    "token" text NOT NULL UNIQUE,
-    "account_id" uuid NOT NULL REFERENCES "accounts"("id") ON DELETE CASCADE,
-    "created_at" timestamp NOT NULL DEFAULT now(),
-    "expires_at" timestamp,
-    "revoked_at" timestamp
-  )`,
-
   // ── Infinity Build saved apps ────────────────────────────────────
   `CREATE TABLE IF NOT EXISTS "build_apps" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -415,6 +423,7 @@ const CREATE_TABLES = [
     "plan" jsonb NOT NULL DEFAULT '{}'::jsonb,
     "completed_steps" jsonb NOT NULL DEFAULT '[]'::jsonb,
     "working_context" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "compacted_context" jsonb,
     "file_snapshots" jsonb,
     "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb,
     "created_at" timestamp NOT NULL DEFAULT now(),
@@ -815,6 +824,11 @@ const ALTER_TABLES = [
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "failures" integer NOT NULL DEFAULT 0`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "last_used_at" timestamp`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "created_at" timestamp NOT NULL DEFAULT now()`,
+  // llm_keys, user-api key columns (source/scopes/project_id/account_id)
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "source" text NOT NULL DEFAULT 'llm-provider'`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "project_id" text`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "scopes" text[] DEFAULT '{}'`,
+  `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "account_id" uuid REFERENCES "accounts"("id") ON DELETE CASCADE`,
   // Phase 39: Enhanced LLM API Key System columns
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "model_access" text[] DEFAULT '{}'`,
   `ALTER TABLE "llm_keys" ADD COLUMN IF NOT EXISTS "rate_limit" jsonb`,
@@ -864,6 +878,12 @@ const ALTER_TABLES = [
   // gmail / spotify
   `ALTER TABLE "gmail_tokens" ADD COLUMN IF NOT EXISTS "email" text NOT NULL DEFAULT ''`,
   `ALTER TABLE "spotify_tokens" ADD COLUMN IF NOT EXISTS "display_name" text`,
+
+  // build_checkpoints, resume-system columns (Fix 0.5 — DDL/DML contract with
+  // lib/db/src/schema/build-checkpoints.ts)
+  `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "compacted_context" jsonb`,
+  `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "file_snapshots" jsonb`,
+  `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb`,
 ];
 
 export async function ensureTables(): Promise<void> {

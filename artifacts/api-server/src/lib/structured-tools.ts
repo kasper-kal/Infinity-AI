@@ -1,5 +1,6 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { promises as fs } from "node:fs";
+import * as fsSync from "node:fs";
 import path from "node:path";
 import { createIsolated, getWorkspaceRoot, getWorkspaceCommandEnvironment } from "./workspace";
 
@@ -68,6 +69,9 @@ export interface BuildArtifact {
   path: string;
   size: number;
   type: "js" | "css" | "html" | "map" | "other";
+  /** True when this artifact represents a build failure (stderr tail), not a real file. */
+  failed?: boolean;
+  message?: string;
 }
 
 export interface BrowserLogEntry {
@@ -194,7 +198,7 @@ function runCommand(
 }
 
 /** Parse TypeScript compiler output (tsc --noEmit --pretty false). */
-function parseTypeScriptOutput(output: string): TypeScriptError[] {
+function parseTypeScriptOutput(output: string, exitCode?: number): TypeScriptError[] {
   const errors: TypeScriptError[] = [];
   // tsc output format: file.ts(line,col): error TS1234: message
   const regex = /^(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+TS(\d+):\s+(.+)$/gm;
@@ -207,6 +211,19 @@ function parseTypeScriptOutput(output: string): TypeScriptError[] {
       code: `TS${match[5]}`,
       message: match[6].trim(),
       severity: match[4] === "error" ? "error" : "warning",
+    });
+  }
+  // Fix 0.10: a non-zero tsc exit whose output matched no `error TSxxxx` line
+  // (e.g. "Cannot find module" lines, version shim chatter) must surface as a
+  // failure, not parse to `[]` → silent pass.
+  if (errors.length === 0 && exitCode && exitCode !== 0 && output.trim()) {
+    errors.push({
+      file: "(tsc)",
+      line: 0,
+      column: 0,
+      code: `TSC-EXIT-${exitCode}`,
+      message: output.trim().slice(0, 800),
+      severity: "error",
     });
   }
   return errors;
@@ -273,14 +290,38 @@ function parseESLintOutput(output: string): LintIssue[] {
 }
 
 /** Parse build artifacts from build output. */
-function parseBuildArtifacts(workspacePath: string, buildOutput: string): BuildArtifact[] {
+function parseBuildArtifacts(workspacePath: string, buildOutput: string, exitCode: number): BuildArtifact[] {
   const artifacts: BuildArtifact[] = [];
   try {
-    const distPath = path.join(workspacePath, "dist");
-    // This would be enhanced to actually scan the dist directory
-    // For now, return empty - can be expanded
+    if (fsSync.existsSync(path.join(workspacePath, "dist"))) {
+      // scan the dist directory for real emitted artifacts (js/css/html/maps)
+      const files: string[] = [];
+      readDirRecursive(path.join(workspacePath, "dist"), files, 200);
+      for (const file of files) {
+        let size = 0;
+        try { size = fsSync.statSync(file).size; } catch { /* ignore */ }
+        const rel = file.replace(path.join(workspacePath, "dist"), "dist");
+        const ext = path.extname(file).replace(".", "");
+        artifacts.push({ path: rel, size, type: (["js", "css", "html", "map"].includes(ext) ? ext : "other") as BuildArtifact["type"] });
+      }
+    }
+    // Fix 0.10: surface a real failed build instead of an empty array.
+    if (exitCode !== 0) {
+      const tail = buildOutput.trim().split("\n").slice(-25).join("\n");
+      artifacts.unshift({ path: "(build)", size: 0, type: "other", failed: true, message: tail || `build exited ${exitCode}` });
+    }
   } catch { /* ignore */ }
   return artifacts;
+}
+
+function readDirRecursive(dir: string, out: string[], max: number): void {
+  let entries: fsSync.Dirent[];
+  try { entries = fsSync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    if (out.length >= max) return;
+    if (e.isDirectory()) readDirRecursive(path.join(dir, e.name), out, max);
+    else out.push(path.join(dir, e.name));
+  }
 }
 
 /**
@@ -297,29 +338,43 @@ export async function verifyWorkspace(
   const workspacePath = getWorkspaceRoot(wsId);
   const startTime = Date.now();
 
-  // Run all verification commands in parallel
+  // Fix 0.10 — no `|| true`. Each command's real exit code is honored.
+  // Commands that can't run in this workspace (no config, no project) are
+  // reported as *skipped*, not as "passed" and not as "failed": the distinction
+  // is surfaced honestly so a green verdict is never an accident.
   const [tscResult, testResult, lintResult, buildResult] = await Promise.all([
     runCommand("npx tsc --noEmit --pretty false", workspacePath, 120_000),
-    runCommand("npx vitest run --reporter=json 2>&1 || true", workspacePath, 120_000),
-    runCommand("npx eslint -f json . 2>&1 || true", workspacePath, 60_000),
-    runCommand("npm run build 2>&1 || true", workspacePath, 180_000),
+    runCommand("npx vitest run --reporter=json", workspacePath, 120_000),
+    runCommand("npx eslint -f json .", workspacePath, 60_000),
+    runCommand("npm run build", workspacePath, 180_000),
   ]);
 
   const durationMs = Date.now() - startTime;
 
+  const hasTsConfig = fsSync.existsSync(path.join(workspacePath, "tsconfig.json"));
+  const hasPackageJson = fsSync.existsSync(path.join(workspacePath, "package.json"));
+  const noTestsFound = /no test files found/i.test(testResult.stdout + testResult.stderr);
+  const noLintConfig = /config|couldn't find|with `--no-config-lookup`/i.test(lintResult.stdout + lintResult.stderr) && lintResult.exitCode !== 0;
+
+  const tscSkipped = !hasTsConfig && tscResult.exitCode !== 0;
+  const testsSkipped = noTestsFound;
+  const lintSkipped = noLintConfig;
+  const buildSkipped = !hasPackageJson;
+
   const parsed = {
-    typeErrors: parseTypeScriptOutput(tscResult.stdout + tscResult.stderr),
+    typeErrors: parseTypeScriptOutput(tscResult.stdout + tscResult.stderr, tscResult.exitCode),
     testResults: parseVitestOutput(testResult.stdout),
     lintIssues: parseESLintOutput(lintResult.stdout),
-    buildArtifacts: parseBuildArtifacts(workspacePath, buildResult.stdout),
+    buildArtifacts: parseBuildArtifacts(workspacePath, buildResult.stdout + buildResult.stderr, buildResult.exitCode),
     browserLogs: [], // Would be populated from preview agent
   };
 
-  const allPassed =
-    parsed.typeErrors.filter(e => e.severity === "error").length === 0 &&
-    parsed.testResults.every(t => t.failed === 0) &&
-    parsed.lintIssues.filter(i => i.severity === "error").length === 0 &&
-    buildResult.exitCode === 0;
+  const tscOk = tscSkipped || (tscResult.exitCode === 0 && parsed.typeErrors.filter(e => e.severity === "error").length === 0);
+  const testsOk = testsSkipped || (testResult.exitCode === 0 && parsed.testResults.every(t => t.failed === 0));
+  const lintOk = lintSkipped || (lintResult.exitCode === 0 && parsed.lintIssues.filter(i => i.severity === "error").length === 0);
+  const buildOk = buildSkipped || buildResult.exitCode === 0;
+
+  const allPassed = tscOk && testsOk && lintOk && buildOk;
 
   return {
     ok: allPassed,
@@ -328,6 +383,9 @@ export async function verifyWorkspace(
     exitCode: allPassed ? 0 : 1,
     durationMs,
     parsed,
+    ...(tscSkipped || testsSkipped || lintSkipped || buildSkipped ? {
+      skipped: { tsc: tscSkipped, tests: testsSkipped, lint: lintSkipped, build: buildSkipped },
+    } : {}),
   };
 }
 

@@ -369,7 +369,11 @@ async function toolRunCommand(args: Record<string, unknown>, context: ToolExecut
       (err, stdout, stderr) => {
         const code = err && typeof err === "object" && "code" in err ? (err as { code?: number | string }).code : 0;
         resolve({
-          success: !err || (err as any).killed === false,
+          // Fix 0.8 — a failed command (non-zero exit) must report failure.
+          // The old `|| (err as any).killed === false` inverted this: execFile
+          // sets `.killed = false` on normal failure, so every failed build
+          // was reported to the model as a *successful* tool call.
+          success: !err,
           result: {
             stdout: stdout?.slice(-10000) || "",
             stderr: stderr?.slice(-10000) || "",
@@ -413,26 +417,64 @@ async function toolScreenshot(args: Record<string, unknown>, context: ToolExecut
 }
 
 /**
- * Get browser console logs
+ * Get browser console logs (Fix 0.9 — real capture, not a stub).
+ *
+ * Acquires a browser slot, attaches console + pageerror listeners, navigates
+ * to the preview URL, and collects messages for a short settle window. This
+ * gives the model the app's actual console output (including uncaught runtime
+ * errors via `pageerror`) instead of a fabricated empty success.
  */
 async function toolInspectConsole(args: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
-  // This would need to connect to an active preview page
-  // For now, return a placeholder - actual implementation requires
-  // connecting to a running browser page with console listener
   const maxEntries = (args.maxEntries as number) || 50;
   const filter = (args.filter as "error" | "warning" | "log" | "all") || "all";
+  const settleMs = (args.settleMs as number) || 1500;
+  const url = args.url as string | undefined;
 
-  // TODO: Implement actual console capture from browser pool
-  // This requires maintaining a persistent page connection
-  return {
-    success: true,
-    result: {
-      logs: [],
-      message: "Console inspection requires an active preview agent session. Use /build/preview/agent for live console capture.",
-      filter,
-      maxEntries,
-    },
-  };
+  const pool = getBrowserPool();
+  const slot = await pool.acquire(`inspect-console-${Date.now()}`);
+
+  try {
+    const targetUrl = url || context.previewUrl || `http://127.0.0.1:${context.previewPort}`;
+    if (!targetUrl) {
+      return { success: false, error: "No preview URL available" };
+    }
+
+    const page = slot.browser.getPage();
+    if (!page) {
+      return { success: false, error: "Browser slot has no live page" };
+    }
+
+    interface ConsoleEntry { type: string; text: string; location?: string; }
+    const entries: ConsoleEntry[] = [];
+    const allowed = filter === "all" ? ["log", "debug", "info", "error", "warning", "dir", "trace"] : [filter];
+
+    const onConsole = (msg: { type: () => string; text: () => string; location: () => { url: string; lineNumber: number; columnNumber: number } | undefined }) => {
+      const type = msg.type();
+      if (allowed.includes(type) || filter === "all") {
+        entries.push({ type, text: msg.text(), location: msg.location() ? `${msg.location()?.url}:${msg.location()?.lineNumber}` : undefined });
+      }
+    };
+    const onPageError = (err: Error) => {
+      entries.push({ type: "error", text: `Uncaught: ${err.message}` });
+    };
+
+    page.on("console", onConsole as any);
+    page.on("pageerror", onPageError);
+
+    await pool.navigate(slot.id, targetUrl);
+    await new Promise((r) => setTimeout(r, Math.max(0, Math.min(settleMs, 10_000))));
+
+    page.off("console", onConsole as any);
+    page.off("pageerror", onPageError);
+
+    const logs = entries.slice(-maxEntries).map(({ type, text, location }) => ({ type, text: text?.slice(0, 2000), location }));
+    return {
+      success: true,
+      result: { logs, count: logs.length, url: targetUrl, filter, message: logs.length ? undefined : "No console output captured during the settle window." },
+    };
+  } finally {
+    pool.release(slot.id);
+  }
 }
 
 /**
