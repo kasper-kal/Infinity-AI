@@ -4,14 +4,29 @@
 
 ---
 
-## 🎯 Mission
-Make Infinity **THE BEST IT CAN BE for $0** — competitive with Claude Code — using only free tiers, local models, and open source. STRICTLY ZERO free trials; every service/API/library stays permanently 100% free.
+## The Audit — why the 42-phase build failed
+
+The 42-phase build didn't fail because the phases were wrong — it failed because **every phase was measured against a checkbox, never against the live loop**. 42 phases shipped MFA, a marketplace, connectors — while the four-file core that IS Build Mode was left with its loop unwired. The deep audit (`RESULTS-QUALITY-AUDIT.md`, Passes 0–7, 63 findings) proved it live, driving a real free-tier model through the exact shipped bundle:
+
+- a step that wrote **0 files** was reported `overallOk:true` — verification literally never runs without a git workspace, and `ok = !feedback` (`build.ts:1156`);
+- the iterate agent stalled in `exploring` for all 5 iterations with `toolResults:[]` (tool effects never recorded), and the route still returned **HTTP 200**;
+- the checkpoint saved **hardcoded** `tokenUsage:0` and `phase:"planning"` (`build.ts:798-799`) — the state is a label, not reality;
+- the "feedback" the loop iterates on was **blank** (preview channel dead).
+
+**The structural answer: Infinity Build is a pipeline of stateless fresh API calls; Claude Code is one continuous self-correcting loop.** That is why no number of feature phases — 42 or 100 — closes the gap: a stronger model cannot fix a loop that was never wired. This roadmap exists to rewire the loop and to measure every phase against the live harness, not a checkbox.
+
+> **Why this won't be enough by itself:** a plan is not a fix — the 42-phase failure was a planning-then-not-measuring failure, and this roadmap can repeat it. The only thing that makes it "enough" is that each phase below is gated by the **5 live counters** (§ How we measure each phase), not by a written "done". No phase is complete until the harness flips its counters.
 
 ---
 
-## Why we are here (the answer, in one paragraph)
+## 🎯 Mission
+Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local models, and open source. STRICTLY ZERO free trials; every service/API/library stays permanently 100% free.
 
-The 42-phase feature build is done — and it produced the exact gap this roadmap exists to close. The deep audit (`RESULTS-QUALITY-AUDIT.md`, Pass 2 + Pass 7) proved it live: **Infinity Build is a pipeline of stateless fresh API calls; Claude Code is one continuous self-correcting loop.** A real free-tier model ran the full shipped loop and wrote a real file to disk — but a step that wrote **0 files** counted as `overallOk:true` (verification never runs without a git workspace), the iterate agent stalled in `exploring` for 5 iterations with `toolResults:[]` and still came back HTTP 200, and the checkpoint recorded **hardcoded** `tokenUsage:0` / `phase:"planning"`. The gap is **harness-inherent, not model-quality**: a stronger model cannot fix a loop that was never wired. More phases won't close it — rebuilding the loop will. That is this roadmap.
+---
+
+## Why we are here (short version)
+
+See **The Audit** above for the full story. In one line: the 42-phase build was measured against checkboxes, never against the live loop — so it built features while the loop that makes a build tool competitive stayed unwired. This roadmap exists to rewire it.
 
 **(Caveat on purpose: this file deliberately replaces the 42-phase list. We are not "adding a phase 43" — we are finishing the one system that matters.)**
 
