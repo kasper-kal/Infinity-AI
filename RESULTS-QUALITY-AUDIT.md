@@ -2813,3 +2813,139 @@ This is finding F6: **works** and **quota-starved** produce the same response sh
 | **F5** | Direct-hold visual channel dead at infra layer (`libatk-1.0.so.0` missing) | Runs 5 + screenshots: puppeteer cannot launch |
 | **F6** | Free-tier quota exhaustion → silent canned fallback + ok:true | Run 7 concurrency burst hit 429; plan 1.5s (vs 71s real), execute-plan 500s |
 | **F7** | Orchestrate + scaffold also gated by preflight wall | Runs 4 + 6: 409, same git/.infinity guard; `skipPreflight` defaults false |
+
+---
+
+# Pass 2 — Design Attack (New Findings)
+
+Method: every design decision in the build system attacked through 7 structural lenses (Abstraction / Locus / Proportion / Emergence / Coherence / Timing / Channel). Each finding names the design choice, gives `file:line`, describes the **mechanism** by which it degrades output, and — crucially — states honestly whether a stronger model would make it go away. Findings that survive a strong model are **harness-inherent**: no model can fix them through this architecture, which is precisely what makes the gap permanent rather than a "just needs more phases" problem.
+
+## The Answer
+
+**Infinity Build and Claude Code do not differ in model — they differ in that Claude Code is one continuous loop and Infinity Build is a pipeline of stateless calls.** Every stage of Infinity (plan → coder → reviewer → fixer → iterate) is a *fresh* API call that reconstructs its world from summaries, placeholders, and canned defaults, and the harness decides "ok" / "done" by absence-of-complaint rather than by reading the world. Three properties do the damage:
+
+1. **The loop has no self.** The model never re-reads its own reasoning or output; each call is stateless, so there is nothing to correct across turns. (N1, N2, N9)
+2. **The world never re-enters.** Verification is either a tautology (`|| true`, then checking the exit code it zeroed) or depends on the model *choosing* to call a verify tool; the app's rendered state never reaches the model at all — it gets a Vite log tail. (N4, N5, N10)
+3. **Green is a label, not a check.** `ok = !feedback`, `done = self-report`, checkpoint phase is hardcoded to `"planning"`. The verdicts that reach the user are produced by the harness's bookkeeping, not by anything real. (N6, N12, N14)
+
+That is the "nowhere near as good": not model quality, not youth — the build is structurally unable to let the model see its own handiwork. The 42 phases kept adding *systems*; they never built the *loop*.
+
+---
+
+## Findings (N1–N14)
+
+### N1 — The agent's "conversation" is never a conversation; it cannot see itself
+- **Lens:** Locus / Timing
+- **Design attacked:** Coder iterate loop — every iteration is exactly 2 messages (system + one user), context rebuilt from DB each turn.
+- **Mechanism:** `build-agent.ts:201-226` constructs `[system, user]` fresh every iteration. The model's *previous output is never re-sent*; its "memory" is `getWorkingContext` + `buildProjectContextForBuild` (`:189-198`), regenerated summaries. Claude Code's loop appends the prior turn + tool results as real history, so the model reads its own reasoning and corrects it. In Infinity, the trajectory of reasoning is discarded every call — the agent literally cannot see what it just decided. Files read are purged from context; the next call must re-learn them via new list/read calls.
+- **Bites a strong model?** Only masked, never fixed. A stronger model makes each *single* turn better and needs fewer turns, but the inability to self-correct across turns is structural — the harness refuses to pass the model its own mind.
+- **Thesis:** feedback simulated (claim 3). The agent reacts to a reconstructed snapshot, not its own work.
+
+### N2 — Native tool calls are discarded; free-text regex is the real protocol
+- **Lens:** Channel
+- **Design attacked:** Tool registry — adapter returns structured `completion.toolCalls`, loop parses `completion.content` with regex.
+- **Mechanism:** `llm-adapter.ts:288-294` faithfully returns `entry.tool_calls` (the provider-guaranteed, schema-valid channel). `build-agent.ts:242` ignores it: `parseToolCalls(completion.content)` regex-hunts `{...}` blocks out of prose (`:121-161`). Whatever arguments the model produced natively are thrown away; the harness then re-parses free text with `/\{[\s\S]*?\}/g` — the exact place where hallucinated paths, malformed values, and "arguments the model never intended" slip in.
+- **Bites a strong model?** Partially damped (stronger models emit cleaner free-text JSON) but the interface *discards a structured primitive the model was trained to emit* — a Channel inversion a stronger model cannot undo.
+- **Thesis:** perceptions are shadows (claim 2). The model's cleanest output is filtered, and the noisy channel is kept.
+
+### N3 — The `done` tool is a phantom: named in the prompt, absent from the schemas
+- **Lens:** Coherence / Abstraction
+- **Design attacked:** Completion contract — success hinges on a tool call that was never defined.
+- **Mechanism:** `build-agent.ts:113` tells the model "When done with a goal, call the 'done' tool"; `checkDone` (`:167-175`) treats a call named `done` as task completion; but `TOOL_DEFINITIONS` (`build-tools.ts:57-169`) lists 10 tools and **no `done`**. The entire completion mechanism depends on the model gratuitously emitting a JSON object naming a tool that has no schema, no parameters contract, and no existence — legal only because N2's regex intercepts free text. The success of every build rides this coincidence.
+- **Bites a strong model?** Not damped — inverted. A strongly-native-calling model would emit a genuine structured call to a tool that isn't registered (or refuse), on a channel the harness discards anyway.
+- **Thesis:** completion is theater (claim 4). "Done" is a convention the harness invented and never installed.
+
+### N4 — 3 of 4 verification gates structurally cannot fail
+- **Lens:** Timing
+- **Design attacked:** Verification — commands run under `|| true`, then their (always-zeroed) exit codes are read.
+- **Mechanism:** `structured-tools.ts:302-305` runs `npx tsc --noEmit` (the only *real* gate, no `|| true`), then `npx vitest run ... || true`, `npx eslint -f json . ... || true`, `npm run build ... || true`. Line `:322` declares `allPassed` requires `buildResult.exitCode === 0`. But `npm run build 2>&1 || true` exits 0 whether or not the build failed — `allPassed`'s build gate is a tautology. A broken build is only caught if `tsc` happens to flag it; a runtime/bundling failure that `tsc` doesn't see is invisible. Claude Code reads the command's real exit code and real output.
+- **Bites a strong model?** Zero. The failure never exists as an observable to *any* model — the gate zeroes it before it can be read. Purely harness-inherent.
+- **Thesis:** feedback simulated (claim 3). The model's primary error signal is pre-erased.
+
+### N5 — Verification only fires if the model happens to call a verify tool
+- **Lens:** Emergence
+- **Design attacked:** Agent loop guarantee — the harness has no unconditional "after edits, run checks" step.
+- **Mechanism:** `build-agent.ts:413` runs verification *only when `state.phase === "verifying"`*, and the phase reaches `verifying` only when a model-selected tool call contains a verify name (`hasVerification`, `:266-269`). A free-tier coder that loops `edit_file → edit_file → edit_file` never transitions, and **no verification ever runs** — not a single typecheck, for the entire build. Having the capability (verifyWorkspace exists, `structured-tools.ts:292`) creates no disposition; the harness wrote both the tool and no guaranteed path to it.
+- **Bites a strong model?** Damped for strong models (they naturally verify), but there is *no floor*: even the strongest model can skip a verify call, and then the harness has nothing — no backstop. Partially harness-inherent.
+- **Thesis:** feedback simulated (claim 3). "Verify after steps" is a config flag (`verifyAfterSteps:true`, `:413`), not a guarantee.
+
+### N6 — `ok` means "nobody complained", and even that only inside git workspaces
+- **Lens:** Locus
+- **Design attacked:** Step verdict — success is the *absence* of a complaint, and the absence is not even computed for plain workspaces.
+- **Mechanism:** `build.ts:1156` `return { stepId, ok: !feedback, filesChanged, feedback }`. `feedback` is set only inside `if (hasIsolated(projectId))` (`:1133`) — for any workspace without a git/`.infinity` marker, `ok` is unconditionally `true`, regardless of whether the model wrote zero files. Even inside the isolated branch, `feedback` comes from N4's gated verification, so a broken workspace verifies "green". The matrix measured the consequence: "7/7 ok" and "4/4 ok" with 0 files on disk (Runs A/B).
+- **Bites a strong model?** Not damped — a strong model writes better code, but the harness's verdict is still `absence-of-complaint`, so it reports success identically whether the step produced files or nothing. Harness-inherent.
+- **Thesis:** completion is theater (claim 4).
+
+### N7 — The reviewer reviews labels, never code: a summary of a summary
+- **Lens:** Channel / Locus
+- **Design attacked:** Review gate — the model is fed placeholder strings instead of the code on disk.
+- **Mechanism:** `build-orchestrator.ts:964` stores `[Modified by ${stepId}: ${summary}]` in `modifiedFiles` — a one-line *label*, never content. `runReviewer` (`:863-882`) feeds `Object.fromEntries(this.context.modifiedFiles)` straight into the review prompt. The reviewer's entire evidence about what the coder wrote is `"Modified by step-2: ..."`. The real bytes are on disk (`writeWorkspaceFile`, `build.ts:1126`) and `read_file` exists in the tool registry, but the review path deliberately shows labels. (And this entire reviewer lives on the `orchestrate` path the UI never calls.)
+- **Bites a strong model?** Zero — a review cannot recover code that was never in the input, regardless of reviewer strength. Harness-inherent.
+- **Thesis:** perceptions are shadows (claim 2).
+
+### N8 — The best-engineered subsystems are dead imports; the live path runs generic prompts
+- **Lens:** Proportion
+- **Design attacked:** Prompt + scaffolding architecture — three prompt systems; the crafted ones are not on the production path.
+- **Mechanism (verified):** `coderPromptV2`/`fixerPromptV2` are imported at `build.ts:38-39` and used **nowhere** (repo-wide grep: imports only). `agent-prompts/planner.ts` / `agent-prompts/reviewer.ts` (rich, domain-crafted, imported by orchestrator) are also bypassed by the live path: `/build/plan`'s planner (`build.ts:161-171`) and execute-plan's coder (`:1086-1089`) both use generic `buildInfinityPrompt({role: "planner"|"coder", ...})` inline. The framework generators / UI-codegen corpus (`lib/framework-generators/`, `ui-codegen.ts`, `template-engine.ts`) are imported by `tech-stack-selector`, `deployment-engine`, `ui-builder`, `frameworks` — by **no build route** (grep confirms). The done-contract engine (`build-done-contract.ts`) has **zero callers**. Investment sits where decisions are not made; the build's own scaffolding and conclusion machinery are disconnected from it.
+- **Bites a strong model?** The generic-prompt half is damped (a strong model tolerates generic prompts). The dead-corpus half is not — effort by 42 phases contributes literally nothing to output. Largely harness-inherent.
+- **Thesis:** abstraction (claim 1). The system believes it has a prompt/contract architecture; it has files.
+
+### N9 — Resumed state is a label, and the label is wrong anyway
+- **Lens:** Timing / Abstraction
+- **Design attacked:** Checkpoints — resume promises state and stores a name.
+- **Mechanism:** After an agent iterate, `build.ts:794-803` `saveCheckpoint(...)` hardcodes `phase: "planning"` no matter which phase the agent actually reached, and `completedSteps` records `{ step: tool-${i}-${name}, done: success }` — tool *call names*, not understanding. The schema's `fileSnapshots` is "path → content hash" (`build-checkpoints.ts:22`): hashes, not bytes, and not the model's reasoning. Matrix Run 8 gave the empirical shape: resume returned `{iteration: 0, completed: 0, hasWorkingContext: true}` — a stub fresh-brain, after 5 real saved iterations. A resumed model is a *new* model reading labels.
+- **Bites a strong model?** Not damped — the model's actual reasoning is never persisted, so resumption is always amnesia, independent of model strength. Harness-inherent.
+- **Thesis:** feedback simulated / world simulated (claims 1 + 3).
+
+### N10 — The app's rendered state never reaches the model; the one real visual agent is unplugged
+- **Lens:** Channel / Proportion
+- **Design attacked:** Iterate feedback channel — Vite stdout instead of the rendered app.
+- **Mechanism:** The iterate auto-pipeline threads `previewOutput` = a dev-server log tail into the goal (`build.ts:778`; fed by `build-studio.tsx:1497`). The model iterates against *compiler logs*, not the app. Meanwhile the genuine visual agent (`build.ts:1660-1700`) is the one Claude-Code-shaped loop in the repo — real DOM inventory with numeric ids, real console errors, explicit "never invent selectors" instruction, act→observe→re-decide — and it is (a) gated behind headless Chrome (`libatk-1.0.so.0` missing → 500, matrix Run 5) and (b) never called in the auto-pipeline. The finest sense organ the system built is the most disconnected; the second-best is a log.
+- **Bites a strong model?** Partially — a strong model reads a Vite log better, but the *rendered UI that the log omits* is structurally unreachable in the auto path. Perceptions are shadows.
+- **Thesis:** perceptions are shadows (claim 2).
+
+### N11 — Planning is done from a map of the territory, on a 900-token budget, for a whole product
+- **Lens:** Abstraction / Proportion
+- **Design attacked:** Planner — one bounded call over serialized *summaries*, never file bytes.
+- **Mechanism:** `createBuildPlan` (`build.ts:152-183`) gives `maxTokens: 900` for a plan containing title + summary + steps + files + risks for the entire product (`:177`). Context is `buildProjectContextForBuild` + `serializeContext` — path/purpose/symbol summaries (`build-agent.ts:189-198`; planner path same shape). File *contents* are never sent to the planner even though `readWorkspaceFile` exists. Claude Code plans *inside* the code with the code open; Infinity's planner decomposes a product from a table of contents.
+- **Bites a strong model?** Partially damped (stronger planner squeezes more from 900 tokens), but the information-theoretic floor is the map — there is not enough bound to reason about real cross-file interactions that the map omits. Largely harness-inherent.
+- **Thesis:** world simulated (claim 1).
+
+### N12 — A truncated file-map JSON = a step with zero files written, still "ok"
+- **Lens:** Timing / Abstraction
+- **Design attacked:** Coder single-shot whole-file-map — no partial credit, no delta, truncation is silent.
+- **Mechanism:** Each execute-plan step is one `adapter.complete(..., jsonMode:true, maxTokens:6000)` that must emit the complete file map for the step in one reply (`build.ts:1083-1110`). If the reply is truncated (maxTokens is a real ceiling for a multi-file map), `JSON.parse` fails → `parsed` is null → the `if (parsed?.files)` block writes nothing (`:1118-1129`) → and the step is recorded via N6's `ok: !feedback`: **green, with zero artifacts**. There is no re-ask-in-parts, no diff-based continuation, no partial write.
+- **Bites a strong model?** Stronger models truncate less often, but the failure class is harness-shaped: when it happens there is neither partial credit nor a mechanism to continue, and the verdict doesn't know a file-map was lost. Partially damped, structurally unresilient.
+- **Thesis:** completion is theater (claim 4).
+
+### N13 — The phase machine has no `fixing` transition: a one-way trap
+- **Lens:** Timing
+- **Design attacked:** Phase machine — 5 states, transitions keyed on tool names, no edge out of `fixing`.
+- **Mechanism:** Transitions in `build-agent.ts:271-277` only handle `exploring`, `implementing`, `verifying`. When verification fails, `state.phase = "fixing"` (`:416`). From `fixing` there is **no transition case** — the agent can never return to `verifying`/`implementing`, and since verification only runs in `verifying` (`:413`), the agent can never re-verify after fixing. It edits in the dark until the phantom `done` (N3) or the iteration cap. Also, `verifying` with no verify/no-edit tools silently walks back to `exploring` (`:275-276`), letting a model quit a step it never verified.
+- **Bites a strong model?** Not damped. A perfect model cannot traverse a missing graph edge — the state machine is wrong irrespective of who powers it. Harness-inherent.
+- **Thesis:** feedback simulated (claim 3).
+
+### N14 — `success` is the model's self-report; the only alternative is hitting the wall
+- **Lens:** Locus / Abstraction
+- **Design attacked:** Done contract — completion never consults the world; the real engine is unwired.
+- **Mechanism:** `runAutonomousAgent` returns `success: state.phase === "done"` (`build-agent.ts:484`) — i.e. the model emitted (or never emitted) the phantom `done` (N3); otherwise it's `"Agent stopped after N iterations (max reached)"` (`:489`). Iterate relays that verdict to the UI verbatim (`build.ts:806`). The 1300-line `build-done-contract.ts` engine — the *actual* completion machinery with 9 gates — has zero callers. So "Infinity completed your request" is unbacked by build, test, DOM, or screenshot: all of those are tautological (N4), gated on model whim (N5), or dead (N10).
+- **Bites a strong model?** Inverted — a strong model can false-self-report with more confidence. Completion-by-self-report is the exact locus where Claude Code (done when the user's conditions are *observed* true) and Infinity (done when the model says so) diverge. Harness-inherent.
+- **Thesis:** completion is theater (claim 4).
+
+---
+
+## Gap-share ranking — which choices explain the bulk of "nowhere near as good"
+
+| Rank | Finding | Share of the gap | Strong model damps it? |
+|------|---------|------------------|------------------------|
+| 1 | N1 loop has no self (stateless calls) | **Very large** — no cross-turn correction is the whole loop | No (masked only) |
+| 2 | N4/N6 green is absence-of-complaint + tautological gates | **Very large** — failure can never be observed | No |
+| 3 | N14 done = self-report, contract engine unwired | **Very large** — completion is unbacked | No (worse) |
+| 4 | N2/N3 tool channel discarded + phantom `done` | **Large** — model's real output discarded | Partially |
+| 5 | N13 phase machine one-way trap | **Large** — fixing is blind | No |
+| 6 | N10/N11/N7 world never re-enters (log-not-app, map-planning, labels-as-code) | **Large** — perception is filtered | Partially |
+| 7 | N5 verification on model whim | Medium | Partially |
+| 8 | N8 dead investment (prompts, scaffolds, contracts) | Medium | Mixed |
+| 9 | N9/N12 resume ≠ understanding, truncation = silent green | Medium | Partially |
+
+**Read of the table:** the top three rows — all harness-inherent, none damped by a stronger model — are why 42 phases cannot close the gap. They are not youth problems; they are the loop itself.
