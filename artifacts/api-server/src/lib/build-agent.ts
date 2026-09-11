@@ -75,7 +75,23 @@ export interface AgentState {
   turnsSinceEdit: number;
   // Whether the agent called the `done` tool
   done: boolean;
+  // Phase E: real token usage accumulated across completions (5.5)
+  tokenUsage: { prompt: number; completion: number; total: number };
+  // Phase E: real gate results backing the success verdict (5.1/5.2/5.4)
+  gates: AgentGateResult[];
   doneSummary?: string;
+}
+
+/**
+ * Phase E 5.1/5.2/5.4 — One real gate evaluation that backed the verdict.
+ * `ok` is earned: files written AND a verification gate that passed at that moment.
+ */
+export interface AgentGateResult {
+  gate: string;
+  ok: boolean;
+  atIteration: number;
+  filesWritten: number;
+  feedback?: string;
 }
 
 /**
@@ -147,6 +163,33 @@ ${conventionsBlock}
 ${corpusBlock}
 
 ${await scaffoldRulePrompt()}`;
+}
+
+/**
+ * Phase E 5.4 + 5.1 — The done GATE. `done` is no longer a self-report:
+ * it is accepted only when at least one real file was written AND a real
+ * verification gate passes right now. Otherwise the rejection reason is
+ * returned as feedback the agent can act on (the loop continues).
+ */
+async function evaluateDoneGate(
+  state: AgentState,
+  projectId: string,
+): Promise<{ accept: boolean; feedback?: string }> {
+  const filesWritten = state.editedFiles.length;
+  if (filesWritten === 0) {
+    return {
+      accept: false,
+      feedback: "The done gate rejected your 'done' call: no files were written to the workspace in this run (0 file edits). A green verdict requires a real artifact. Keep working — create or modify actual project files (edit_file / write_file / apply_fix / generate_component), then call done again.",
+    };
+  }
+  const verification = await runVerification(state.context, projectId);
+  if (!verification.ok) {
+    return {
+      accept: false,
+      feedback: `The done gate ran a real build+typecheck+test verification and it FAILED. A red build cannot be marked done. Fix the failures below, then call done again.\n\n${verification.feedback}`,
+    };
+  }
+  return { accept: true };
 }
 
 /**
@@ -337,6 +380,9 @@ export async function runAutonomousAgent(
   lastDecision: string;
   editedFiles: string[];
   conversation: LLMMessage[];
+  // Phase E additions: real evidence behind the verdict
+  tokenUsage: { prompt: number; completion: number; total: number };
+  gates: AgentGateResult[];
 }> {
   const projectId = context.projectId;
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
@@ -379,6 +425,8 @@ export async function runAutonomousAgent(
     editedFiles: [],
     turnsSinceEdit: 0,
     done: false,
+    tokenUsage: { prompt: 0, completion: 0, total: 0 },
+    gates: [],
   };
 
   // Build initial user message
@@ -409,6 +457,13 @@ export async function runAutonomousAgent(
         { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
         { projectId: context.projectId, operation: `agent-iteration-${state.iterations}` }
       );
+
+      // Phase E 5.5: accumulate real token usage into the checkpoint source-of-truth
+      if (completion.usage) {
+        state.tokenUsage.prompt += completion.usage.promptTokens;
+        state.tokenUsage.completion += completion.usage.completionTokens;
+        state.tokenUsage.total += completion.usage.totalTokens;
+      }
 
       // Phase C: Use native tool_calls FIRST, fallback to regex parsing
       let toolCalls: ToolCall[] = [];
@@ -452,12 +507,33 @@ export async function runAutonomousAgent(
         });
       }
 
-      // Check for done tool
+      // Check for done tool — Phase E 5.1/5.4: `done` must EARN success through
+      // the real gate (files written + live verification passing); a rejection
+      // is fed back as a tool result so the next iteration can act on it.
       const doneCheck = checkDone(toolCalls);
       if (doneCheck.done) {
-        state.done = true;
-        state.doneSummary = doneCheck.summary;
-        break;
+        const gate = await evaluateDoneGate(state, projectId);
+        state.gates.push({ gate: "done", ok: gate.accept, atIteration: state.iterations, filesWritten: state.editedFiles.length, feedback: gate.feedback });
+        if (gate.accept) {
+          state.done = true;
+          state.doneSummary = doneCheck.summary;
+          await logBuildEvent(projectId, "done_gate", "Done accepted by gate", {
+            data: { filesWritten: state.editedFiles.length, iterations: state.iterations },
+          });
+          break;
+        }
+        state.errors.push(gate.feedback ?? "done gate rejected the done call");
+        state.conversation.push({
+          role: "tool",
+          content: JSON.stringify({ type: "done_gate_rejected", feedback: gate.feedback }),
+          name: "done_gate",
+          toolCallId: `done-gate-${Date.now()}`,
+        });
+        await logBuildEvent(projectId, "done_gate", gate.feedback?.slice(0, 200) ?? "Done rejected", {
+          data: { accepted: false, filesWritten: state.editedFiles.length, atIteration: state.iterations },
+        });
+        // A rejection is not progress toward completion — count it toward stall.
+        state.turnsSinceEdit++;
       }
 
       // Check for errors
@@ -469,10 +545,14 @@ export async function runAutonomousAgent(
         }
       }
 
-      // Track file edits for stall detection + return value
+      // Track file edits for stall detection + return value. A file is "written"
+      // by any tool that produces a real file on disk — this list also powers the
+      // done gate's files-written requirement (5.4), so every writing tool must
+      // be counted here or a legitimately-built app could be falsely rejected.
       const filesEditedThisTurn = toolCalls
-        .filter((c) => c.name === "edit_file" || c.name === "write_file")
-        .map((c) => c.arguments.path as string);
+        .filter((c) => c.name === "edit_file" || c.name === "write_file" || c.name === "apply_fix" || c.name === "generate_component")
+        .map((c) => c.arguments.path as string)
+        .filter(Boolean);
 
       if (filesEditedThisTurn.length > 0) {
         state.editedFiles.push(...filesEditedThisTurn);
@@ -481,10 +561,12 @@ export async function runAutonomousAgent(
         state.turnsSinceEdit++;
       }
 
-      // Phase C: Deterministic verify-after-edit
-      // Run verification immediately after ANY edit_file
+      // Phase C + Phase E: Deterministic verify-after-edit (5.2 per-step gate).
+      // Run verification immediately after ANY file-writing tool; the result is
+      // recorded as a real gate (5.1) so the success verdict cites evidence.
       if (mergedConfig.verifyAfterSteps && filesEditedThisTurn.length > 0) {
         const verification = await runVerification(context, projectId);
+        state.gates.push({ gate: "verify-after-edit", ok: verification.ok, atIteration: state.iterations, filesWritten: state.editedFiles.length, feedback: verification.ok ? undefined : verification.feedback.slice(0, 400) });
         if (!verification.ok) {
           state.errors.push(`Verification failed: ${verification.feedback}`);
 
@@ -511,6 +593,9 @@ export async function runAutonomousAgent(
                     arguments: { file: fix.file, oldCode: fix.oldCode, newCode: fix.newCode, explanation: fix.explanation },
                   }, context);
                   state.toolResults.push(toolResult);
+                  if (toolResult.success && fix.file) {
+                    state.editedFiles.push(fix.file);
+                  }
                   if (!toolResult.success && "error" in toolResult) {
                     console.warn(`[build-agent] Failed to apply local fix to ${fix.file}:`, toolResult.error);
                   }
@@ -592,6 +677,8 @@ export async function runAutonomousAgent(
     lastDecision,
     editedFiles: [...new Set(state.editedFiles)],
     conversation: state.conversation,
+    tokenUsage: state.tokenUsage,
+    gates: state.gates,
   };
 }
 
@@ -627,7 +714,7 @@ function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: 
     ``,
     `What should you do next? Return tool calls using the native tool calling mechanism.`,
     `Example: call edit_file, read_file, run_command, generate_component, etc.`,
-    `When the goal is fully achieved, call the "done" tool with a summary.`,
+    `When the goal is fully achieved, call the "done" tool with a summary. IMPORTANT: "done" is not a self-report — it is REQUESTED completion. The harness only accepts it if real files were written this run and a verification pass succeeded. If you call done without that, it will be rejected and you must keep working.`,
   ];
 
   if (extraContext) {
@@ -645,7 +732,16 @@ export async function runAgentForStep(
   goal: string,
   context: ToolExecutionContext,
   config: Partial<AgentConfig> = {},
-): Promise<{ success: boolean; summary: string; filesChanged: string[] }> {
+): Promise<{
+  success: boolean;
+  summary: string;
+  filesChanged: string[];
+  // Phase E 5.5: carry the real evidence through so step checkpoints persist it
+  tokenUsage: { prompt: number; completion: number; total: number };
+  gates: AgentGateResult[];
+  finalPhase: string;
+  lastDecision: string;
+}> {
   const stepGoal = `${goal}\n\nCURRENT STEP: ${step.id} - ${step.description}`;
 
   const result = await runAutonomousAgent(stepGoal, context, {
@@ -657,5 +753,9 @@ export async function runAgentForStep(
     success: result.success,
     summary: result.summary,
     filesChanged: result.editedFiles,
+    tokenUsage: result.tokenUsage,
+    gates: result.gates,
+    finalPhase: result.finalPhase,
+    lastDecision: result.lastDecision,
   };
 }

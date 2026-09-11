@@ -32,6 +32,7 @@ import { pooledClient } from "../../lib/llm-client";
 import { createBestAdapter, createManualAdapter } from "../../lib/adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt, validateInfinityPrompt } from "../../lib/infinity-prompt";
 import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
+import { runDoneContract, type DoneContractResult } from "../../lib/build-done-contract";
 import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
@@ -96,7 +97,7 @@ import {
   checkDiskSpace,
 } from "../../lib/build-edge-cases";
 import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, TOOL_DEFINITIONS } from "../../lib/build-tools";
-import { runAutonomousAgent, runAgentForStep, type AgentConfig, type PlanStep as AgentPlanStep } from "../../lib/build-agent";
+import { runAutonomousAgent, runAgentForStep, type AgentConfig, type PlanStep as AgentPlanStep, type AgentGateResult } from "../../lib/build-agent";
 import { runMultiAgentBuild, type OrchestratorEvent } from "../../lib/build-orchestrator";
 
 const puppeteerPromise = import("puppeteer");
@@ -153,31 +154,132 @@ async function createBuildPlan(
   answers: Record<string, string>,
   existingFiles: string[],
   extraSystemPrompt = "",
-): Promise<BuildPlan> {
+  projectId = "default",
+): Promise<{ plan: BuildPlan; usedFallback: boolean; error?: string }> {
   const fallback = fallbackBuildPlan(prompt, existingFiles);
+  const systemPrompt = buildInfinityPrompt({
+    role: "planner",
+    extraInstructions: withExtraBuildInstructions(
+      "You are the planning layer inside Infinity Build. Plan substantial implementation requests before any files are changed. " +
+      "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
+      "Do not write code and do not claim that anything has been implemented. Return ONLY valid JSON with this shape: " +
+      "{title:string,summary:string,steps:string[],files:string[],risks:string[]}. " +
+      "Keep the plan concrete, honest, and concise. Reuse existing files when appropriate. Never use the em dash character.",
+      extraSystemPrompt,
+    ),
+  });
+  // Honest failure handling: retry transient errors (rate limit / quota / gateway)
+  // with exponential backoff; only degrade to the canned plan as a LAST resort,
+  // and always report that a fallback was used so green is never a lie (5.6).
+  let lastError = "";
+  let attempt = 0;
+  const maxAttempts = 3;
+  while (attempt < maxAttempts) {
+    try {
+      const adapter = await createBestAdapter();
+      const result = await adapter.complete([
+        { role: "system", content: sanitizePrompt(systemPrompt) },
+        { role: "user", content: `Request:\n${prompt}\n\nClarifying answers:\n${JSON.stringify(answers)}\n\nExisting workspace files:\n${existingFiles.join("\\n") || "(empty workspace)"}` },
+      ], {
+        temperature: 0.2,
+        maxTokens: 900,
+      });
+      const plan = parseBuildPlan(result.content.trim() ?? "", prompt, existingFiles);
+      if (!plan) {
+        lastError = "Planner returned unparseable output";
+        break;
+      }
+      return { plan, usedFallback: false };
+    } catch (err) {
+      const code = err instanceof LLMAdapterError ? err.code : "";
+      const retryable = err instanceof LLMAdapterError
+        ? err.code === "RATE_LIMITED" || err.code === "QUOTA_EXCEEDED" || err.code === "SERVICE_UNAVAILABLE" || err.code === "TIMEOUT"
+        : false;
+      lastError = err instanceof Error ? err.message : String(err);
+      await logBuildEvent(projectId, "info", `Plan attempt ${attempt + 1}/${maxAttempts} failed (${code || "unknown"})`, {
+        data: { code, retryable, error: lastError.slice(0, 200) },
+        step: "plan-retry",
+      });
+      if (!retryable || attempt === maxAttempts - 1) break;
+      const delay = 1000 * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+      attempt++;
+    }
+  }
+  await logBuildEvent(projectId, "plan_fallback", "Plan degraded to canned fallback plan", {
+    data: { error: lastError.slice(0, 300) },
+    step: "plan-fallback",
+  });
+  return { plan: fallback, usedFallback: true, error: lastError };
+}
+
+type AgentRunEvidence = {
+  success: boolean;
+  editedFiles: string[];
+  gates: AgentGateResult[];
+};
+
+/**
+ * Phase E 5.3 — Living plan object. Rebuilds the plan so each step carries
+ * real progress evidence: its status, the files touched by the run, and the
+ * verification result that backs the status. Honest mapping: because the
+ * tool-agent works on the whole plan autonomously, a step can only claim
+ * "done" when the run's verification actually passed; otherwise every step is
+ * marked failed/in_progress with the failing gate's feedback attached, so a
+ * resumed session sees exactly where green was NOT earned.
+ */
+function buildLivingPlan(
+  planSteps: Array<{ id: string; description: string; dependsOn?: string[]; parallel?: boolean }>,
+  evidence: AgentRunEvidence,
+): Array<Record<string, unknown>> {
+  const lastGate = evidence.gates.length > 0
+    ? evidence.gates[evidence.gates.length - 1]
+    : null;
+  const lastOkGate = [...evidence.gates].reverse().find((g) => g.ok) ?? null;
+  const verifyResult = lastGate
+    ? { ok: lastGate.ok, atIteration: lastGate.atIteration, feedback: lastGate.feedback }
+    : { ok: false, atIteration: 0, feedback: "No verification gate ran during this run" };
+  const status = evidence.success ? "done" : "failed";
+  return planSteps.map((step) => ({
+    id: step.id,
+    description: step.description,
+    status,
+    files: evidence.editedFiles,
+    verifyResult: lastOkGate ? { ok: true, atIteration: lastOkGate.atIteration } : verifyResult,
+  }));
+}
+
+/**
+ * Phase E 5.5 — Resume injection. If the project has an incomplete checkpoint,
+ * returns a text block carrying the persisted mind: phase, decisions, files
+ * touched, token budget already consumed, and the last verification verdict.
+ * The caller prepends this to the goal so a resumed run reasons with its own
+ * prior evidence instead of starting from zero. Returns "" when there is
+ * nothing incomplete to resume.
+ */
+async function buildResumeContext(projectId: string): Promise<string> {
   try {
-    const adapter = await createBestAdapter();
-    const systemPrompt = buildInfinityPrompt({
-      role: "planner",
-      extraInstructions: withExtraBuildInstructions(
-        "You are the planning layer inside Infinity Build. Plan substantial implementation requests before any files are changed. " +
-        "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
-        "Do not write code and do not claim that anything has been implemented. Return ONLY valid JSON with this shape: " +
-        "{title:string,summary:string,steps:string[],files:string[],risks:string[]}. " +
-        "Keep the plan concrete, honest, and concise. Reuse existing files when appropriate. Never use the em dash character.",
-        extraSystemPrompt,
-      ),
-    });
-    const result = await adapter.complete([
-      { role: "system", content: sanitizePrompt(systemPrompt) },
-      { role: "user", content: `Request:\n${prompt}\n\nClarifying answers:\n${JSON.stringify(answers)}\n\nExisting workspace files:\n${existingFiles.join("\\n") || "(empty workspace)"}` },
-    ], {
-      temperature: 0.2,
-      maxTokens: 900,
-    });
-    return parseBuildPlan(result.content.trim() ?? "", prompt, existingFiles) ?? fallback;
-  } catch (e) {
-    return fallback;
+    const checkpoint = await getLatestCheckpoint(projectId);
+    if (!checkpoint || checkpoint.completed) return "";
+    const ctx = (checkpoint.workingContext ?? {}) as Record<string, unknown>;
+    const gates = (ctx.gates as AgentGateResult[] | undefined) ?? [];
+    const lastGate = gates.length > 0 ? gates[gates.length - 1] : null;
+    const tokenUsage = checkpoint.tokenUsage as Record<string, unknown> | undefined;
+    const planObj = (checkpoint.plan ?? {}) as Record<string, unknown>;
+    const files = Array.isArray(planObj.files) ? (planObj.files as string[]) : [];
+    return [
+      "## RESUMED BUILD — YOUR PREVIOUS MIND (from checkpoint)",
+      `Previous phase: ${checkpoint.phase} | iterations completed: ${checkpoint.iteration}`,
+      `Last decision: ${typeof ctx.lastDecision === "string" ? ctx.lastDecision : "(none)"}`,
+      `Token budget consumed: ${tokenUsage ? JSON.stringify(tokenUsage) : "0"}`,
+      `Files already touched: ${files.length > 0 ? files.join(", ") : "(none)"}`,
+      lastGate
+        ? `Verification verdict at stop: ${lastGate.gate} ${lastGate.ok ? "PASSED" : "FAILED"}\n${lastGate.feedback ?? ""}`
+        : "No verification had run when the build stopped",
+      "Context: the previous run stopped before it verified green. Confirm what state you inherited, then finish the work and call done.",
+    ].join("\n");
+  } catch {
+    return "";
   }
 }
 
@@ -637,7 +739,12 @@ router.post("/build/plan", requireAuth, async (req, res) => {
       .filter((entry) => entry.type === "file" && !/^\\.?env/i.test(entry.path))
       .map((entry) => entry.path)
       .slice(0, 120);
-    const plan = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt);
+    const { plan, usedFallback, error } = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt, workspaceId);
+    if (usedFallback) {
+      // A canned plan is a degraded service condition, never a success (5.6).
+      res.status(503).json({ ok: false, error: error || "Planner unavailable; generated a best-effort fallback plan", plan });
+      return;
+    }
     res.json({ ok: true, plan });
   } catch (err) {
     req.log.error({ err }, "Failed to create Infinity Build plan");
@@ -881,10 +988,12 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
       }
 
       // Run the autonomous agent with the iterate goal (verification feedback + preview feedback)
+      const resumeContext = await buildResumeContext(projectId);
       const iterateGoal = [
+        resumeContext,
         `${prompt}`,
         "ITERATE TASK: Continue developing this project based on the verification + preview feedback and user requests. Use the available tools to explore the current state, make improvements, and repair anything broken. Do NOT return a JSON file map - use tools to modify files progressively.",
-      ];
+      ].filter(Boolean);
       if (verifyFeedback) {
         iterateGoal.push("## REAL VERIFICATION FAILURES TO FIX (fix these first)\n" + verifyFeedback);
       }
@@ -906,19 +1015,20 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
       if (hasIsolated(projectId)) {
         await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "agent iterate complete");
       }
+      // Phase E 5.5: persist real token usage + gates + lastDecision
       await saveCheckpoint({
         projectId,
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
         phase: agentResult.finalPhase,
-        plan: { title: "Autonomous agent iterate", summary: prompt, steps: [], files: [], risks: [] },
-        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
-        workingContext: { prompt, workspaceId, previewOutput: previewOutput.slice(0, 200) },
-        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+        plan: { title: "Autonomous agent iterate", summary: prompt, steps: buildLivingPlan([], { success: agentResult.success, editedFiles: agentResult.editedFiles, gates: agentResult.gates }), files: agentResult.editedFiles, risks: [], status: agentResult.success ? "done" : "failed" },
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: agentResult.editedFiles, feedback: agentResult.toolResults[i]?.error })),
+        workingContext: { prompt, workspaceId, previewOutput: previewOutput.slice(0, 200), lastDecision: agentResult.lastDecision, gates: agentResult.gates },
+        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
       });
 
       await logActivity(projectId, "agent_ran", `Autonomous agent iterate: ${agentResult.success ? "completed" : "stopped"} — ${agentResult.summary}`);
-      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults };
+      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults, finalPhase: agentResult.finalPhase, lastDecision: agentResult.lastDecision, editedFiles: agentResult.editedFiles, tokenUsage: agentResult.tokenUsage, gates: agentResult.gates };
     }, { priority: "normal" });
 
     res.json(iterationResult);
@@ -956,6 +1066,10 @@ router.get("/build/resume/:projectId", requireAuth, async (req, res) => {
       res.status(404).json({ error: "No checkpoint found to resume" });
       return;
     }
+    const workingContext = (checkpoint.workingContext ?? {}) as Record<string, unknown>;
+    const planObj = (checkpoint.plan ?? {}) as Record<string, unknown>;
+    // Phase E 5.5: expose the persisted MIND — real phase, token budget, gates,
+    // decisions, and edited files so a resume injects evidence, not zeros.
     res.json({
       ok: true,
       resume: !checkpoint.completed,
@@ -963,9 +1077,14 @@ router.get("/build/resume/:projectId", requireAuth, async (req, res) => {
         id: checkpoint.id,
         iteration: checkpoint.iteration,
         completed: checkpoint.completed,
+        phase: checkpoint.phase,
         plan: checkpoint.plan,
         completedSteps: checkpoint.completedSteps,
-        workingContext: checkpoint.workingContext,
+        workingContext,
+        tokenUsage: checkpoint.tokenUsage ?? { prompt: 0, completion: 0, total: 0 },
+        lastDecision: (workingContext.lastDecision as string | undefined) ?? "",
+        gates: (workingContext.gates as AgentGateResult[] | undefined) ?? [],
+        editedFiles: Array.isArray(planObj.files) ? (planObj.files as string[]) : [],
         createdAt: checkpoint.createdAt,
       },
     });
@@ -1185,14 +1304,16 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
 
       // Phase C (3.4): Replace jsonMode one-shot with tool-based incremental coder
       // Run the autonomous agent with the full plan as the goal
+      const resumeContext = await buildResumeContext(projectId);
       const fullPlanGoal = [
+        resumeContext,
         `Plan: ${plan.title}`,
         `Summary: ${plan.summary}`,
         `Steps: ${plan.steps.map(s => `- ${s.id}: ${s.description}`).join("\n")}`,
         `User Prompt: ${prompt}`,
         `Answers: ${JSON.stringify(answers)}`,
         `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
-      ].join("\n\n");
+      ].filter(Boolean).join("\n\n");
 
       const agentConfig: AgentConfig = {
         maxIterations,
@@ -1209,15 +1330,66 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       if (hasIsolated(projectId)) {
         await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "plan execution complete");
       }
+
+      // Phase E 5.1/5.4: the route-level done CONTRACT validates the agent's
+      // green at the exit moment. Runs only when the agent claimed success; a
+      // critical-gate failure at the contract DOWNGRADES ok to false (a green
+      // that fails its own contract is not green). Engine gates are npm +
+      // script-existence aware, so skips are honest and never false-fail. Runs
+      // BEFORE the checkpoint so the persisted verdict matches the returned one.
+      let doneContract: DoneContractResult | null = null;
+      if (agentResult.success) {
+        const contractStart = Date.now();
+        try {
+          doneContract = await runDoneContract(
+            projectId,
+            `${projectId}:${Date.now()}`,
+            "general",
+            getWorkspaceRoot(workspaceId),
+            {
+              id: `${projectId}:${Date.now()}`,
+              goal: prompt,
+              acceptanceCriteria: [],
+              steps: plan.steps.map((s) => ({ id: s.id, description: s.description, status: "completed" })),
+            },
+            workspaceId,
+          );
+          const criticalFailed = doneContract.gateResults
+            .filter((g) => g.severity === "critical" && !g.passed);
+          await logBuildEvent(projectId, "done_contract", `Done contract ${criticalFailed.length === 0 ? "passed" : `failed ${criticalFailed.length} critical gates`}`, {
+            data: { totalGates: doneContract.summary.totalGates, passed: doneContract.summary.passed, criticalFailed: criticalFailed.map((g) => g.gate) },
+            durationMs: Date.now() - contractStart,
+            step: doneContract.doneSignal.status,
+          });
+          if (criticalFailed.length > 0) {
+            agentResult.success = false;
+          }
+        } catch (contractErr) {
+          req.log.warn({ err: contractErr }, "Done contract evaluation errored — inner done gate remains the verdict");
+          await logBuildEvent(projectId, "done_contract", "Done contract evaluation errored", {
+            data: { error: contractErr instanceof Error ? contractErr.message : String(contractErr) },
+            step: "done-contract-error",
+          });
+        }
+      }
+      // Phase E 5.3: persist a LIVING plan — each step carries status/files/verifyResult
+      const livingSteps = buildLivingPlan(plan.steps, {
+        success: agentResult.success,
+        editedFiles: agentResult.editedFiles,
+        gates: agentResult.gates,
+      });
+      // Phase E 5.5: persist the MIND — real tokenUsage + gates + lastDecision,
+      // so a resume can inject actual reasoning state, not zeros. Persisted AFTER
+      // the contract so `completed` matches the final (possibly downgraded) verdict.
       await saveCheckpoint({
         projectId,
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
         phase: agentResult.finalPhase, // REAL phase, not hardcoded "planning"
-        plan: { title: plan.title, summary: plan.summary, steps: plan.steps, files: plan.files, risks: plan.risks },
-        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
-        workingContext: { prompt, workspaceId },
-        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+        plan: { title: plan.title, summary: plan.summary, steps: livingSteps, files: plan.files, risks: plan.risks, status: agentResult.success ? "done" : "failed" },
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: agentResult.editedFiles, feedback: agentResult.toolResults[i]?.error })),
+        workingContext: { prompt, workspaceId, lastDecision: agentResult.lastDecision, gates: agentResult.gates },
+        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
       });
       // Phase 3.2: Log build activity
       await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${agentResult.iterations} iterations, ${agentResult.success ? "success" : "partial"}`);
@@ -1230,6 +1402,16 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         finalPhase: agentResult.finalPhase,
         lastDecision: agentResult.lastDecision,
         editedFiles: agentResult.editedFiles,
+        tokenUsage: agentResult.tokenUsage,
+        gates: agentResult.gates,
+        doneContract: doneContract
+          ? {
+              success: doneContract.success,
+              summary: doneContract.summary,
+              gateResults: doneContract.gateResults,
+              doneSignal: { status: doneContract.doneSignal.status, message: doneContract.doneSignal.message },
+            }
+          : null,
       };
     }, { priority: "normal" });
 
@@ -1307,6 +1489,10 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
         previewUrl: previewPort ? `http://127.0.0.1:${previewPort}` : undefined,
       };
 
+      // Phase E 5.5: inject the previous run's mind when resuming
+      const resumeContext = await buildResumeContext(projectId);
+      const agentGoal = resumeContext ? `${resumeContext}\n\n${prompt}` : prompt;
+
       // Run the autonomous agent
       const agentConfig: AgentConfig = {
         maxIterations,
@@ -1316,7 +1502,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
         failFast,
       };
 
-      const agentResult = await runAutonomousAgent(prompt, executionContext, agentConfig);
+      const agentResult = await runAutonomousAgent(agentGoal, executionContext, agentConfig);
 
       // Final checkpoint - use REAL final phase, not hardcoded "planning"
       if (hasIsolated(projectId)) {
@@ -1327,14 +1513,14 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
         phase: agentResult.finalPhase, // REAL phase from agent
-        plan: { title: "Autonomous agent run", summary: prompt, steps: [], files: [], risks: [] },
-        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
-        workingContext: { prompt, workspaceId },
-        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+        plan: { title: "Autonomous agent run", summary: prompt, steps: buildLivingPlan([], { success: agentResult.success, editedFiles: agentResult.editedFiles, gates: agentResult.gates }), files: agentResult.editedFiles, risks: [], status: agentResult.success ? "done" : "failed" },
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: agentResult.editedFiles, feedback: agentResult.toolResults[i]?.error })),
+        workingContext: { prompt, workspaceId, lastDecision: agentResult.lastDecision, gates: agentResult.gates },
+        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
       });
 
       await logActivity(projectId, "agent_ran", `Autonomous agent: ${agentResult.success ? "completed" : "stopped"} — ${agentResult.summary}`);
-      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults, finalPhase: agentResult.finalPhase, lastDecision: agentResult.lastDecision, editedFiles: agentResult.editedFiles, conversation: agentResult.conversation };
+      return { ok: agentResult.success, summary: agentResult.summary, iterations: agentResult.iterations, toolCalls: agentResult.toolCalls.length, toolResults: agentResult.toolResults, finalPhase: agentResult.finalPhase, lastDecision: agentResult.lastDecision, editedFiles: agentResult.editedFiles, tokenUsage: agentResult.tokenUsage, gates: agentResult.gates, conversation: agentResult.conversation };
     }, { priority: "normal" });
 
     res.json(result);
@@ -1437,11 +1623,11 @@ router.post("/build/agent/step", requireAuth, requireScope("build:write"), async
         projectId,
         iteration: 1,
         completed: agentResult.success ? 1 : 0,
-        phase: "planning",
-        plan: { title: "Agent step", summary: stepDescription, steps: [], files: agentResult.filesChanged, risks: [] },
+        phase: agentResult.finalPhase, // REAL phase from agent (5.5)
+        plan: { title: "Agent step", summary: stepDescription, steps: buildLivingPlan([], { success: agentResult.success, editedFiles: agentResult.filesChanged, gates: agentResult.gates }), files: agentResult.filesChanged, risks: [], status: agentResult.success ? "done" : "failed" },
         completedSteps: [{ step: stepId, done: agentResult.success, filesChanged: agentResult.filesChanged, feedback: agentResult.summary }],
-        workingContext: { prompt, workspaceId },
-        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+        workingContext: { prompt, workspaceId, lastDecision: agentResult.lastDecision, gates: agentResult.gates },
+        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
       });
 
       await logActivity(projectId, "agent_ran", `Agent step ${stepId}: ${agentResult.success ? "completed" : "failed"} — ${agentResult.summary}`);

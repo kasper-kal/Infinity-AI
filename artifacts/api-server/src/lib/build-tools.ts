@@ -192,7 +192,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "done",
-    description: "Signal that the goal is complete. Provide a summary of what was accomplished. This is the ONLY way to mark a task as finished — do not just stop calling tools.",
+    description: "REQUEST completion of the task. This does NOT self-report success — the harness runs a real gate (files written + a passing verification run) before accepting it. If the gate fails, you will be told why and must keep working. Only call this when you have actually modified project files and verified they build. This is the ONLY way to mark a task as finished — do not just stop calling tools.",
     parameters: {
       type: "object",
       properties: {

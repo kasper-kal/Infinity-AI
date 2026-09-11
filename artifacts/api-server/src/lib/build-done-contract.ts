@@ -13,7 +13,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getWorkspaceRoot, safeWorkspacePath } from "./workspace";
+import { getWorkspaceRoot, safeWorkspacePath, getWorkspaceCommandEnvironment } from "./workspace";
 
 /**
  * Build types with their specific completion criteria
@@ -506,6 +506,51 @@ export class DoneContractEngine {
  * ============================================================
  */
 
+/** True when the workspace's package.json declares the given script. */
+async function hasNpmScript(projectPath: string, script: string): Promise<boolean> {
+  try {
+    const pkgPath = path.join(projectPath, "package.json");
+    const pkg = JSON.parse(await fs.readFile(pkgPath, "utf-8"));
+    return typeof pkg.scripts?.[script] === "string";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Run an npm script gate with HONEST skip semantics (Phase E 5.4): a missing
+ * script is a skip, never a failure and never a forged pass. Uses npm (the
+ * package manager the scaffold generator actually provisions) with the same
+ * workspace command environment the rest of the build uses.
+ */
+async function runNpmScriptGate(
+  gate: string,
+  script: string,
+  context: VerificationContext,
+  passDetail: string,
+  failDetail: (out: string) => string,
+  severity: VerificationGate["severity"] = "critical",
+): Promise<VerificationGateResult> {
+  if (!(await hasNpmScript(context.projectPath, script))) {
+    return { gate, passed: true, details: `No '${script}' script defined — skipped`, severity };
+  }
+  const { execa } = await import("execa");
+  try {
+    const result = await execa("npm", ["run", script], {
+      cwd: context.projectPath,
+      reject: false,
+      timeout: 180_000,
+      env: getWorkspaceCommandEnvironment(),
+    });
+    if (result.exitCode === 0) {
+      return { gate, passed: true, details: passDetail, severity, evidence: { exitCode: 0, output: result.stdout } };
+    }
+    return { gate, passed: false, details: failDetail(result.stdout + "\n" + result.stderr), severity, evidence: { exitCode: result.exitCode, output: result.stdout } };
+  } catch (error) {
+    return { gate, passed: false, details: `${gate} execution failed: ${error instanceof Error ? error.message : String(error)}`, severity };
+  }
+}
+
 function createTypecheckGate(): VerificationGate {
   return {
     id: "typecheck",
@@ -513,29 +558,14 @@ function createTypecheckGate(): VerificationGate {
     description: "Project compiles without TypeScript errors",
     severity: "critical",
     async verify(context) {
-      const { execa } = await import("execa");
-      try {
-        const result = await execa("pnpm", ["run", "typecheck"], {
-          cwd: context.projectPath,
-          reject: false,
-        });
-        return {
-          gate: "typecheck",
-          passed: result.exitCode === 0,
-          details: result.exitCode === 0
-            ? "TypeScript compilation successful"
-            : `TypeScript errors found:\n${result.stdout}\n${result.stderr}`,
-          severity: "critical",
-          evidence: { exitCode: result.exitCode, output: result.stdout },
-        };
-      } catch (error) {
-        return {
-          gate: "typecheck",
-          passed: false,
-          details: `Typecheck execution failed: ${error instanceof Error ? error.message : String(error)}`,
-          severity: "critical",
-        };
-      }
+      return runNpmScriptGate(
+        "typecheck",
+        "typecheck",
+        context,
+        "TypeScript compilation successful",
+        (out) => `TypeScript errors found:\n${out}`,
+        "critical",
+      );
     },
   };
 }
@@ -547,29 +577,14 @@ function createBuildGate(): VerificationGate {
     description: "Project builds successfully for production",
     severity: "critical",
     async verify(context) {
-      const { execa } = await import("execa");
-      try {
-        const result = await execa("pnpm", ["run", "build"], {
-          cwd: context.projectPath,
-          reject: false,
-        });
-        return {
-          gate: "build",
-          passed: result.exitCode === 0,
-          details: result.exitCode === 0
-            ? "Production build successful"
-            : `Build failed:\n${result.stdout}\n${result.stderr}`,
-          severity: "critical",
-          evidence: { exitCode: result.exitCode, output: result.stdout },
-        };
-      } catch (error) {
-        return {
-          gate: "build",
-          passed: false,
-          details: `Build execution failed: ${error instanceof Error ? error.message : String(error)}`,
-          severity: "critical",
-        };
-      }
+      return runNpmScriptGate(
+        "build",
+        "build",
+        context,
+        "Production build successful",
+        (out) => `Build failed:\n${out}`,
+        "critical",
+      );
     },
   };
 }
@@ -662,44 +677,14 @@ function createTestsGate(): VerificationGate {
     description: "Test suite passes (if tests exist)",
     severity: "major",
     async verify(context) {
-      const { execa } = await import("execa");
-      try {
-        // Check if test script exists
-        const pkgPath = path.join(context.projectPath, "package.json");
-        const pkg = JSON.parse(await fs.readFile(pkgPath, "utf-8"));
-
-        if (!pkg.scripts?.test) {
-          return {
-            gate: "tests",
-            passed: true,
-            details: "No test script defined, skipping",
-            severity: "major",
-          };
-        }
-
-        const result = await execa("pnpm", ["run", "test"], {
-          cwd: context.projectPath,
-          reject: false,
-          timeout: 120000,
-        });
-
-        return {
-          gate: "tests",
-          passed: result.exitCode === 0,
-          details: result.exitCode === 0
-            ? "All tests passed"
-            : `Tests failed:\n${result.stdout}\n${result.stderr}`,
-          severity: "major",
-          evidence: { exitCode: result.exitCode, output: result.stdout },
-        };
-      } catch (error) {
-        return {
-          gate: "tests",
-          passed: false,
-          details: `Test execution failed: ${error instanceof Error ? error.message : String(error)}`,
-          severity: "major",
-        };
-      }
+      return runNpmScriptGate(
+        "tests",
+        "test",
+        context,
+        "All tests passed",
+        (out) => `Tests failed:\n${out}`,
+        "major",
+      );
     },
   };
 }
@@ -712,12 +697,22 @@ function createBrokenLinksGate(): VerificationGate {
     severity: "major",
     async verify(context) {
       // Check for broken imports in TypeScript/JavaScript files
+      if (!(await hasNpmScript(context.projectPath, "typecheck"))) {
+        return {
+          gate: "broken-links",
+          passed: true,
+          details: "Skipped (no 'typecheck' script)",
+          severity: "major",
+        };
+      }
       const { execa } = await import("execa");
       try {
         // Use a simple check - tsc --noEmit catches missing imports
-        const result = await execa("pnpm", ["run", "typecheck"], {
+        const result = await execa("npm", ["run", "typecheck"], {
           cwd: context.projectPath,
           reject: false,
+          timeout: 180_000,
+          env: getWorkspaceCommandEnvironment(),
         });
 
         const hasImportErrors = result.stderr.includes("Cannot find module") ||
@@ -752,11 +747,23 @@ function createSecurityScanGate(): VerificationGate {
     description: "No critical/high vulnerabilities in dependencies",
     severity: "major",
     async verify(context) {
+      // Honest skip: no package.json means nothing to audit; npm audit is
+      // network-bound and just reports skipped if it can't reach a registry.
+      const lockfileChecks = await Promise.all(
+        ["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock"]
+          .map((f) => fs.access(path.join(context.projectPath, f)).then(() => true).catch(() => false)),
+      );
+      const hasLockfile = lockfileChecks.some(Boolean);
+      if (!(await hasNpmScript(context.projectPath, "build")) && !hasLockfile) {
+        return { gate: "security-scan", passed: true, details: "Skipped (no dependency manifest)", severity: "major" };
+      }
       const { execa } = await import("execa");
       try {
-        const result = await execa("pnpm", ["audit", "--json"], {
+        const result = await execa("npm", ["audit", "--json"], {
           cwd: context.projectPath,
           reject: false,
+          timeout: 60_000,
+          env: getWorkspaceCommandEnvironment(),
         });
 
         let highCount = 0;
