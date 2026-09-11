@@ -304,6 +304,53 @@ async function inspectPreviewPage(page: Page): Promise<PreviewAgentElement[]> {
   });
 }
 
+/**
+ * Phase D 4.3/4.4 — capture the RUNNING preview page's live DOM into structured
+ * findings (interactive elements + visible text + console errors) so the agent
+ * can reason over the actual rendered app, not just Vite's stdout.
+ * Passive: no clicks, no state changes. Returns null when no preview/browser.
+ */
+async function capturePreviewDomForIterate(previewPort: number): Promise<{
+  ok: boolean;
+  interactiveElements: PreviewAgentElement[];
+  visibleText: string;
+  consoleErrors: string[];
+  error?: string;
+}> {
+  let page: Page | null = null;
+  const consoleErrors: string[] = [];
+  try {
+    const browser = await getScreenshotBrowser();
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    const consoleCapture = (message: { type: () => string; text: () => string }) => {
+      if (message.type() === "error") consoleErrors.push(message.text().slice(0, 500));
+    };
+    page.on("console", consoleCapture as never);
+    page.on("pageerror", (error: Error) => consoleErrors.push(String(error?.message ?? error).slice(0, 500)));
+    const url = `http://127.0.0.1:${previewPort}`;
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+    const interactiveElements = await inspectPreviewPage(page);
+    const visibleText = await page.evaluate(() => (document.body?.innerText ?? "").replace(/\\s+/g, " ").trim().slice(0, 4000));
+    return {
+      ok: true,
+      interactiveElements,
+      visibleText,
+      consoleErrors: [...new Set(consoleErrors)].slice(-12),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      interactiveElements: [],
+      visibleText: "",
+      consoleErrors: [...new Set(consoleErrors)].slice(-12),
+      error: error instanceof Error ? error.message : "Preview inspection failed",
+    };
+  } finally {
+    await page?.close().catch(() => undefined);
+  }
+}
+
 async function runPreviewAgentAction(page: Page, action: PreviewAgentAction): Promise<string> {
   if (action.action === "wait") {
     await new Promise((resolve) => setTimeout(resolve, action.milliseconds ?? 300));
@@ -809,6 +856,30 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         req.log.warn({ err: verifyErr }, "Pre-iterate verification errored — continuing without feedback");
       }
 
+      // Phase D 4.3: when a real preview is running, feed the model the app's
+      // actual rendered DOM (interactive elements, visible text, console errors)
+      // as the preview section — not just The Vite server's stdout. The stdout
+      // is only a fallback when the preview/browser is unavailable.
+      let previewFindings = previewOutput;
+      if (Number.isInteger(previewPort) && previewPort >= 1024 && previewPort <= 65535) {
+        await logBuildEvent(projectId, "info", "Capturing running preview DOM for iterate goal", { data: { workspaceId, previewPort } });
+        const dom = await capturePreviewDomForIterate(previewPort);
+        if (dom.ok) {
+          const elementLines = dom.interactiveElements.map((el) =>
+            `  [${el.id}] <${el.tag}> text="${el.text}" label="${el.ariaLabel}" placeholder="${el.placeholder}" type="${el.inputType}" disabled=${el.disabled}`
+          ).join("\n");
+          previewFindings = [
+            "## PREVIEW APP (REAL DOM — the running app's actual state)",
+            `Interactive elements (${dom.interactiveElements.length}):`,
+            elementLines || "  (no interactive elements found)",
+            `Visible text: ${dom.visibleText || "(empty)"}`,
+            `Console errors (${dom.consoleErrors.length}): ${dom.consoleErrors.join("; ") || "none"}`,
+          ].join("\n");
+        } else {
+          await logBuildEvent(projectId, "warning", `Preview DOM capture failed — falling back to Vite stdout: ${dom.error ?? "unknown"}`, { data: { workspaceId } });
+        }
+      }
+
       // Run the autonomous agent with the iterate goal (verification feedback + preview feedback)
       const iterateGoal = [
         `${prompt}`,
@@ -817,8 +888,8 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
       if (verifyFeedback) {
         iterateGoal.push("## REAL VERIFICATION FAILURES TO FIX (fix these first)\n" + verifyFeedback);
       }
-      if (previewOutput) {
-        iterateGoal.push(`## Preview output\n${previewOutput}`);
+      if (previewFindings) {
+        iterateGoal.push(previewFindings);
       }
 
       const agentConfig: AgentConfig = {
@@ -1695,7 +1766,10 @@ router.post("/build/preview/agent", requireAuth, requireScope("build:write"), as
       if (completed) break;
     }
     events.push({ type: "complete", message: completed ? "The browser goal was completed." : summary });
-    res.json({ ok: true, completed, summary, events, consoleErrors: [...new Set(consoleErrors)].slice(-12), elements: page ? await inspectPreviewPage(page) : [] });
+    const interactiveElements = page ? await inspectPreviewPage(page) : [];
+    const visibleText = page ? await page.evaluate(() => (document.body?.innerText ?? "").replace(/\\s+/g, " ").trim().slice(0, 4000)) : "";
+    const screenshotBase64 = page ? (await page.screenshot({ type: "png", fullPage: true })).toString("base64") : "";
+    res.json({ ok: true, completed, summary, events, consoleErrors: [...new Set(consoleErrors)].slice(-12), interactiveElements, visibleText, screenshotBase64 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Preview agent failed";
     events.push({ type: "error", message });

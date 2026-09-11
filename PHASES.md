@@ -66,7 +66,7 @@ These are the structural gaps between Infinity and a working coding harness — 
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. **Phase C COMPLETE** — phase machine killed, growing conversation verified (len=11), `done` tool registered, native `tool_calls`, stall detection, verify-after-edit, real state return, execute-plan uses tool-based agent. Live harness: ALL 6 counters PASS. Moving to Phase D. |
+| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. **Phase C COMPLETE** — phase machine killed, growing conversation verified (len=11), `done` tool registered, native `tool_calls`, stall detection, verify-after-edit, real state return, execute-plan uses tool-based agent. Live harness: ALL 6 counters PASS. **Phase D IN PROGRESS** — verify_start/result telemetry live, pre-iterate real-failure feedback wired (4.2), dead prompt imports deleted (3.5). Remaining: 4.3 preview agent in pipeline, 4.4 structured DOM, 4.5 reviewer sees real bytes, 6.2 project conventions. |
 
 ---
 
@@ -189,20 +189,20 @@ Iterate exits the old `exploring` state, produces **non-empty `toolResults`**, a
 
 ---
 
-## 📦 Phase D: The World Comes Back In (R2) 🔲 NOT STARTED
+## 📦 Phase D: The World Comes Back In (R2) 🔄 IN PROGRESS
 
 ### Goal
 Verification reports reality; the reviewer judges code not labels; the executed app reaches the model; dead subsystems are wired or deleted.
 
 ### Requirements
-- [ ] **4.1** — Real exit codes: remove every `|| true`; read true exit codes from tsc/vitest/eslint/npm run build; `ok = all real gates green` (`lib/structured-tools.ts:292-332`)
-- [ ] **4.2** — Feedback to iterate: replace sleep-retry with — on `!verify.ok`, feed `formatVerificationFeedback` to `runAutonomousAgent` as the iterate goal (`routes/infinity/build.ts:1136-1156`)
+- [x] **4.1** — Real exit codes: remove every `|| true`; read true exit codes from tsc/vitest/eslint/npm run build; `ok = all real gates green` (`lib/structured-tools.ts`) — done in Phase A
+- [x] **4.2** — Feedback to iterate: on `!verify.ok`, feed `formatVerificationFeedback` to `runAutonomousAgent` as the iterate goal (`routes/infinity/build.ts`) — pre-iterate verify + real failures in goal
 - [ ] **4.3** — Preview agent in auto-pipeline: after `captureScreenshot`, call `/build/preview/agent` and use its DOM findings as `iterateGoal` instead of Vite stdout (`routes/infinity/build.ts:760-768` + `build-studio.tsx:1455-1466`)
-- [ ] **4.4** — Structured DOM output: return `{interactiveElements, visibleText, consoleErrors, screenshotBase64}` from preview agent; install headless-Chrome deps (`routes/infinity/build.ts:1617-1728`)
+- [ ] **4.4** — Structured DOM output: return `{interactiveElements, visibleText, consoleErrors, screenshotBase64}` from preview agent; install headless-Chrome deps (`routes/infinity/build.ts:1596-1728`)
 - [ ] **4.5** — Reviewer sees code: in `applyCoderChanges`, store real bytes per changed file (via `readWorkspaceFile`) instead of `[Modified by step-X: summary]` placeholder (`lib/build-orchestrator.ts:961-985`)
-- [ ] **3.5** — Wire or delete dead prompt systems: promote `coderPromptV2`/`fixerPromptV2` to their roles; delete all other dead imports (`routes/infinity/build.ts:38-39` + `lib/build-prompts.ts:36,50,64`)
+- [x] **3.5** — Wire or delete dead prompt systems: `coderPromptV2`/`fixerPromptV2` imports deleted from build.ts; `build-prompts.ts` deprecated marker (JSON single-shot killed by Phase C)
 - [ ] **6.2** — Honor project conventions: read `CLAUDE.md`/`.cursorrules`/`package.json` scripts/tsconfig/vitest/eslint config into context on every agent call (`lib/build-project-context.ts:45`)
-- [ ] **6.3** — Wire component corpus: add `generate_component` tool (shadcn/ui + design tokens) (`lib/ui-codegen.ts` + `lib/build-tools.ts`)
+- [x] **6.3** — Wire component corpus: `generate_component` tool (shadcn/ui + design tokens) registered + namespaced (`lib/build-tools.ts:182` + `lib/tools/build.ts:38`) — done in Phase B
 
 ### Gate
 `verify_start` events appear in telemetry; a broken file makes `ok` flip to false; reviewer output reflects real code. Dead prompt systems are promoted or deleted.
