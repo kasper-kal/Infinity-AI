@@ -22,6 +22,7 @@ import { buildCoderPrompt } from "./agent-prompts/coder";
 import { buildReviewerPrompt } from "./agent-prompts/reviewer";
 import { buildFixerPrompt } from "./agent-prompts/fixer";
 import { getWorkingContext, serializeContext, setProjectGoal, refreshFileMap, recordStep } from "./build-context";
+import { readWorkspaceFileText } from "./workspace";
 import { buildProjectContextForBuild } from "./build-project-context";
 import {
   buildProjectMap,
@@ -960,8 +961,17 @@ export class BuildOrchestrator {
 
   private async applyCoderChanges(handoff: z.infer<typeof CoderHandoffSchema>): Promise<void> {
     for (const change of handoff.changes) {
-      // Track that the file was modified. Real content is read from workspace.
-      this.context.modifiedFiles.set(change.file, `[Modified by ${handoff.stepId}: ${change.summary}]`);
+      // Phase D 4.5: the reviewer must judge REAL code, not a label. Read the
+      // actual file bytes from the workspace; fall back to the placeholder only
+      // when the file is gone (deleted) or unreadable (e.g. binary).
+      let contentForReview = `[Modified by ${handoff.stepId}: ${change.summary}]`;
+      try {
+        const real = await readWorkspaceFileText(change.file, this.workspaceId);
+        if (real) contentForReview = real;
+      } catch {
+        // unreadable — keep the placeholder
+      }
+      this.context.modifiedFiles.set(change.file, contentForReview);
 
       // Update project map for changed file (incremental update)
       try {

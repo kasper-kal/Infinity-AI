@@ -139,7 +139,80 @@ export async function buildProjectContextForBuild(
 }
 
 /**
- * Build a combined memory block for the build loop: the Phase 3.1 working
+ * Phase 6.2: Honor project conventions — read CLAUDE.md / .cursorrules /
+ * AGENTS.md and package.json scripts / tsconfig / vitest / eslint config from
+ * the WORKSPACE into the agent context, so generated code follows the
+ * project's own rules instead of generic defaults.
+ */
+import { readWorkspaceFileText } from "./workspace";
+
+async function readNonEmpty(relPath: string, workspaceId: string): Promise<string | null> {
+  try {
+    const content = (await readWorkspaceFileText(relPath, workspaceId)).trim();
+    return content ? content : null;
+  } catch {
+    return null;
+  }
+}
+
+const CONVENTION_FILES: Array<[relPath: string, label: string]> = [
+  ["CLAUDE.md", "CLAUDE.md (agent instructions — follow these)"],
+  ["AGENTS.md", "AGENTS.md (agent instructions — follow these)"],
+  [".cursorrules", ".cursorrules (project rules — follow these)"],
+  ["README.md", "README.md (project README — follow its setup/commands)"],
+];
+
+/**
+ * Build a CONVENTIONS block from the workspace's own config files. Returns null
+ * when nothing meaningful exists. Reads are best-effort — any failure skips
+ * that file silently.
+ */
+export async function buildProjectConventionsContext(workspaceId: string): Promise<string | null> {
+  const parts: string[] = [];
+
+  // 1. Agent rule files the human may have dropped in the workspace.
+  for (const [relPath, label] of CONVENTION_FILES) {
+    const content = await readNonEmpty(relPath, workspaceId);
+    if (content) {
+      parts.push(`### ${label}\n${content.slice(0, 4000)}`);
+    }
+  }
+
+  // 2. package.json scripts — the project's own command surface. Read raw to
+  //    avoid our reader's JSON decode assumptions; fall back silently.
+  try {
+    const pkg = await readNonEmpty("package.json", workspaceId);
+    const raw = pkg ? JSON.parse(pkg.slice(0, 20_000)) as { scripts?: Record<string, string>; name?: string } : null;
+    const scripts = raw?.scripts && Object.keys(raw.scripts).length > 0
+      ? Object.entries(raw.scripts).map(([name, cmd]) => `- ${name}: ${cmd}`).join("\n")
+      : "";
+    const name = raw?.name ? `Project name: ${raw.name}` : "";
+    if (scripts || name) {
+      parts.push(`### package.json\n${[name, "Available npm scripts (prefer these over guessing):", scripts].filter(Boolean).join("\n")}`);
+    }
+  } catch {
+    // unparseable package.json — skip
+  }
+
+  // 3. tsconfig / vitest / eslint presence — tell the agent which toolchain the
+  //    project commits to so verification and config edits use the right files.
+  const toolchain: string[] = [];
+  if (await readNonEmpty("tsconfig.json", workspaceId)) toolchain.push("tsconfig.json");
+  for (const name of ["vitest.config.ts", "vitest.config.mts", "vitest.config.js"]) {
+    if (await readNonEmpty(name, workspaceId)) toolchain.push(name);
+  }
+  for (const name of ["eslint.config.js", "eslint.config.mjs", "eslint.config.ts", ".eslintrc.json"]) {
+    if (await readNonEmpty(name, workspaceId)) toolchain.push(name);
+  }
+  if (toolchain.length > 0) {
+    parts.push(`### Toolchain config files present\n${toolchain.map((t) => `- ${t}`).join("\n")} (align new code with these; do not duplicate or contradict them)`);
+  }
+
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/**
+ * Build the combined memory block for the build loop: the Phase 3.1 working
  * context (fileMap, keyDecisions, errorPatterns) AND the Phase 3.2 project
  * context (instructions, memory, activity, files). Returns null when both are
  * empty. Used as a single additive section in build prompts.

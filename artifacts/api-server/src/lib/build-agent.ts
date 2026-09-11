@@ -95,7 +95,7 @@ function getToolSchemas(): LLMTool[] {
 /**
  * Build the system prompt for the autonomous agent
  */
-async function buildAgentSystemPrompt(): Promise<string> {
+async function buildAgentSystemPrompt(workspaceId?: string): Promise<string> {
   const toolDescriptions = TOOL_DEFINITIONS.map(
     (t) => `- ${t.name}: ${t.description}`
   ).join("\n");
@@ -109,6 +109,16 @@ async function buildAgentSystemPrompt(): Promise<string> {
         corpusNames.length
       } components — use generate_component to write one, do not author from scratch):\n${corpusNames.map(n => `- ${n}`).join("\n")}`
     : "";
+
+  // Phase 6.2 — honor project conventions: read CLAUDE.md/.cursorrules/
+  // package.json scripts/tsconfig/vitest/eslint from the workspace so generated
+  // code follows the project's own rules. Best-effort; null when nothing found.
+  let conventionsBlock = "";
+  if (workspaceId) {
+    const { buildProjectConventionsContext } = await import("./build-project-context");
+    const conventions = await buildProjectConventionsContext(workspaceId).catch(() => null);
+    if (conventions) conventionsBlock = `\n## PROJECT CONVENTIONS (from this workspace — honor them)\n${conventions}\n`;
+  }
 
   return `You are Infinity, an autonomous software engineering agent. You work inside a local workspace and have access to tools to explore, modify, and verify code.
 
@@ -133,6 +143,7 @@ RULES:
 - Return tool calls using the native tool_calls mechanism
 - When done with a goal, call the "done" tool with summary
 
+${conventionsBlock}
 ${corpusBlock}
 
 ${await scaffoldRulePrompt()}`;
@@ -346,8 +357,9 @@ export async function runAutonomousAgent(
   );
   const adapter = routingResult.decision.selectedAdapter;
 
-  // Build system prompt ONCE
-  const systemPrompt = sanitizePrompt(await buildAgentSystemPrompt());
+  // Build system prompt ONCE — Phase 6.2 conventions are injected here so every
+  // iteration of this run inherits the project's own rules.
+  const systemPrompt = sanitizePrompt(await buildAgentSystemPrompt(context.workspaceId));
 
   // Initialize growing conversation with system prompt
   const conversation: LLMMessage[] = [

@@ -425,7 +425,16 @@ export function formatVerificationFeedback(result: StructuredToolResult): string
     }
   }
 
-  if (!result.ok && result.parsed.buildArtifacts.length === 0 && result.exitCode !== 0) {
+  // Fix 0.10 puts the real failure INTO buildArtifacts as a `failed:true` marker,
+  // so a failed build never has an empty array here. Render every failed artifact's
+  // message (the tail of the actual build output) instead of relying on shape.
+  const failedBuilds = result.parsed.buildArtifacts.filter((b) => b.failed);
+  if (!result.ok && failedBuilds.length > 0) {
+    parts.push("\n## Build Failed\n");
+    for (const artifact of failedBuilds.slice(0, 3)) {
+      parts.push(artifact.message || `build exited ${result.exitCode}`);
+    }
+  } else if (!result.ok && result.parsed.buildArtifacts.length === 0 && result.exitCode !== 0) {
     parts.push("\n## Build Failed\n");
     parts.push(result.stderr.slice(-3000));
   }
