@@ -1,9 +1,10 @@
 /**
- * Phase 2.4: Modular Versioned Prompts
+ * Phase 2.4: Modular Versioned Prompts — DEPRECATED (Phase C, 2026-09-11)
  *
- * Prompts are kept in separate versioned functions so they can be iterated
- * independently without touching the route logic. Each function returns a
- * complete system prompt string.
+ * These v2 prompts are JSON single-shot (file-map JSON output). Phase C
+ * replaced this with the tool-based growing-conversation loop in
+ * build-agent.ts. Nothing imports this module anymore. Kept for historical
+ * reference; do NOT revive the JSON-map pattern.
  */
 
 export interface PromptContext {

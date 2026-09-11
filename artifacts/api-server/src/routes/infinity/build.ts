@@ -36,8 +36,6 @@ import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/lo
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
 import { writeScaffoldWorkspace, scaffoldRulePrompt, listCorpusComponents } from "../../lib/scaffold-engine";
-import { fixerPromptV2 } from "../../lib/build-prompts";
-import { coderPromptV2 } from "../../lib/build-prompts";
 import {
   getWorkingContext,
   setProjectGoal,
@@ -793,8 +791,35 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         previewUrl: previewPort ? `http://127.0.0.1:${previewPort}` : undefined,
       };
 
-      // Run the autonomous agent with the iterate goal (including preview feedback)
-      const iterateGoal = `${prompt}\n\nITERATE TASK: Continue developing this project based on the preview feedback and user requests. Use the available tools to explore the current state, understand the preview output, and make improvements. Do NOT return a JSON file map - use tools to modify files progressively.\n\nPreview output:\n${previewOutput}`;
+      // Phase D 4.2: Feed REAL verification feedback to the agent, not blank stdout.
+      // Verify the current workspace state before this iteration; on failure the
+      // structured failures (typeErrors/tests/lint/build) become the iterate goal so
+      // the next loop repairs actual breakage instead of guessing.
+      let verifyFeedback = "";
+      try {
+        await logBuildEvent(projectId, "verify_start", "Verification before iterate", { data: { workspaceId } });
+        const preVerify = await verifyWorkspace(projectId, workspaceId);
+        await logBuildEvent(projectId, "verify_result", `Pre-iterate verification ${preVerify.ok ? "passed" : "failed"}: ${preVerify.durationMs}ms`, {
+          data: { ok: preVerify.ok, durationMs: preVerify.durationMs, skipped: preVerify.skipped ?? null },
+        });
+        if (!preVerify.ok) {
+          verifyFeedback = formatVerificationFeedback(preVerify);
+        }
+      } catch (verifyErr) {
+        req.log.warn({ err: verifyErr }, "Pre-iterate verification errored — continuing without feedback");
+      }
+
+      // Run the autonomous agent with the iterate goal (verification feedback + preview feedback)
+      const iterateGoal = [
+        `${prompt}`,
+        "ITERATE TASK: Continue developing this project based on the verification + preview feedback and user requests. Use the available tools to explore the current state, make improvements, and repair anything broken. Do NOT return a JSON file map - use tools to modify files progressively.",
+      ];
+      if (verifyFeedback) {
+        iterateGoal.push("## REAL VERIFICATION FAILURES TO FIX (fix these first)\n" + verifyFeedback);
+      }
+      if (previewOutput) {
+        iterateGoal.push(`## Preview output\n${previewOutput}`);
+      }
 
       const agentConfig: AgentConfig = {
         maxIterations,
@@ -804,9 +829,9 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         failFast: false,
       };
 
-      const agentResult = await runAutonomousAgent(iterateGoal, executionContext, agentConfig);
+      const agentResult = await runAutonomousAgent(iterateGoal.join("\n\n"), executionContext, agentConfig);
 
-      // Final checkpoint
+      // Final checkpoint — REAL phase from agent, not hardcoded "planning"
       if (hasIsolated(projectId)) {
         await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "agent iterate complete");
       }
@@ -814,7 +839,7 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         projectId,
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
-        phase: "planning",
+        phase: agentResult.finalPhase,
         plan: { title: "Autonomous agent iterate", summary: prompt, steps: [], files: [], risks: [] },
         completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
         workingContext: { prompt, workspaceId, previewOutput: previewOutput.slice(0, 200) },

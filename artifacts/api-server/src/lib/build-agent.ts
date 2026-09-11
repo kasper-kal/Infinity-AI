@@ -219,11 +219,16 @@ async function runVerification(
   context: ToolExecutionContext,
   projectId: string,
 ): Promise<{ ok: boolean; feedback: string }> {
+  await logBuildEvent(projectId, "verify_start", "Verification after edit", { data: { workspaceId: context.workspaceId } });
   try {
     const result = await verifyWorkspace(projectId, context.workspaceId);
     const feedback = formatVerificationFeedback(result);
+    await logBuildEvent(projectId, "verify_result", `Verification ${result.ok ? "passed" : "failed"}: ${result.durationMs}ms`, {
+      data: { ok: result.ok, durationMs: result.durationMs, skipped: result.skipped ?? null },
+    });
     return { ok: result.ok, feedback };
   } catch (error) {
+    await logBuildEvent(projectId, "error", `Verification errored: ${error instanceof Error ? error.message : String(error)}`, { data: { workspaceId: context.workspaceId } });
     return { ok: false, feedback: `Verification failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
