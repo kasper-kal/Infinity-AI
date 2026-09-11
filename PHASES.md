@@ -11,15 +11,21 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 
 ## 📋 Phase Overview
 
-| Phase | Title | Status |
-|-------|-------|--------|
-| **A** | **Real Workspace (R2)** | 🔲 **NOT STARTED** |
-| **B** | **The Loop Is One Mind (R1)** | 🔲 **NOT STARTED** |
-| **C** | **The World Comes Back In (R2)** | 🔲 **NOT STARTED** |
-| **D** | **Green Must Mean Something (R3)** | 🔲 **NOT STARTED** |
-| **E** | **The Model Sees Bytes (R2/R3)** | 🔲 **NOT STARTED** |
+| Phase | Title | Root Cause | Status |
+|-------|-------|------------|--------|
+| **A** | **Fix the Environment** | prerequisite | 🔲 **NOT STARTED** |
+| **B** | **Real Workspace (R2)** | R2 | 🔲 **NOT STARTED** |
+| **C** | **The Loop Is One Mind (R1)** | R1 | 🔲 **NOT STARTED** |
+| **D** | **World Comes Back In (R2)** | R2 | 🔲 **NOT STARTED** |
+| **E** | **Green Must Mean Something (R3)** | R3 | 🔲 **NOT STARTED** |
+| **F** | **The Model Sees Bytes (R2/R3)** | R2+R3 | 🔲 **NOT STARTED** |
+| **G** | **Error Feedback Loop (R1+R2)** | R1+R2 | 🔲 **NOT STARTED** |
+| **H** | **Preview + Workspace Context (R2)** | R2 | 🔲 **NOT STARTED** |
+| **I** | **Adaptive Stop + Real Tests (R3)** | R3 | 🔲 **NOT STARTED** |
 
 **Root causes (from the audit):** **R1** the loop has no self · **R2** the world never re-enters · **R3** green is a label, not a check.
+
+**Harness capabilities missing (not covered by A-F):** Error feedback loop · Preview TO the model · Workspace context · Adaptive stop · Real test execution · Incremental verification.
 
 ---
 
@@ -38,6 +44,21 @@ The 42-phase build didn't fail because the phases were wrong — it failed becau
 
 ---
 
+## The 6 Harness Capabilities Infinity Is Missing
+
+These are the structural gaps between Infinity and a working coding harness — identified by the audit as harness-inherent (no model change fixes them). Phases G–I close them. Phases A–F lay the foundation.
+
+| # | Capability | What it means | Audit reference | Phase |
+|---|-----------|---------------|-----------------|-------|
+| 1 | **Error feedback loop** | Verification errors fed back to the model for repair, not swallowed by `\|\| true` or sleep-retry | Lines 96–111, 528–548, 2147–2166 | **G** |
+| 2 | **Preview TO the model** | Screenshot + DOM sent to the model, not just displayed to the user | Lines 2024–2026, 2067–2081, 2368–2377 | **H** |
+| 3 | **Workspace context** | Full project tree, key files, config, conventions — read into every agent call | Lines 135–145, 165–176, 1523–1543 | **H** |
+| 4 | **Adaptive stop** | Quality-based stopping (stall detection, all gates green), not count-based | Lines 419–443, 1860–1866 | **I** |
+| 5 | **Real test execution** | `tsc`, `vitest`, `eslint`, `npm run build` with real exit codes — no `\|\| true` | Lines 657–688, 807–815 | **I** |
+| 6 | **Incremental verification** | Per-step verify (each step verified before next), not per-iteration | Lines 218–223, 2559 | **I** |
+
+---
+
 ## Current Status
 
 | Item | State |
@@ -45,93 +66,148 @@ The 42-phase build didn't fail because the phases were wrong — it failed becau
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **NOT STARTED** — we are at Phase 0, step 0. |
+| Fix implementation | **NOT STARTED** — we are at Phase A, step 0. |
 
 ---
 
-## 📦 Phase A: Real Workspace (R2) 🔲 NOT STARTED
+## 📦 Phase A: Fix the Environment 🔲 NOT STARTED
 
 ### Goal
-Workspaces become real git repos with installed deps; the build button stops hitting the preflight wall. Workspace = a real git repo with deps, not an empty `mkdir`.
+The server boots, the DB is whole, dependencies install, and the phantom-workspace root points inside the repo. Everything downstream assumes this works.
 
 ### Requirements
-- [ ] **0.1–0.5** — Boot/DB/key fixes (infrastructure prerequisites)
-- [ ] **1.1** — `WORKSPACE_ROOT` points to in-repo root, not a temp directory
-- [ ] **1.2** — `ensureWorkspace` runs `git init` + creates `.infinity/` directory
-- [ ] **1.3** — Preflight advisory: checks for missing workspace and surfaces actionable error
-- [ ] **1.4** — `package.json` present and `npm install` runs successfully on workspace creation
+- [ ] **0.1** — Fix `WORKSPACE_ROOT`: drop one `..` so the bundle resolves inside the repo, not a phantom sibling (`lib/workspace.ts:15`)
+- [ ] **0.2** — Lazy adapter boot: move adapter acquisition out of class-field initializer; stub adapter throws only when invoked, not at startup (`lib/adapter-factory.ts:50`)
+- [ ] **0.3** — Ordered DDL: reorder `CREATE_TABLES` so `accounts` → `projects` → `sessions` (`lib/auto-migrate.ts:196,372,398`)
+- [ ] **0.4** — Column sync: add missing `source/scopes/project_id/account_id/priority` columns to `llm_keys` in `ALTER_TABLES` (`lib/auto-migrate.ts`)
+- [ ] **0.5** — DDL/DML sync: add `compacted_context`, `file_snapshots`, `token_usage` columns to `build_checkpoints` CREATE (`lib/auto-migrate.ts`)
+- [ ] **0.6** — JSONB fix: `scopes: JSON.stringify(req.body.scopes ?? [])` not a raw array insert (`routes/infinity/api-keys.ts` POST)
+- [ ] **0.7** — `ensureWorkspaceDeps`: add `npm install` step to workspace creation so verification has dependencies to run (`lib/workspace.ts`, `lib/structured-tools.ts`, `lib/build-tools.ts`)
+- [ ] **0.8** — Fix inverted success flag: `toolRunCommand` at `build-tools.ts:372` — change `success: !err || (err as any).killed === false` to `success: !err`
+- [ ] **0.9** — Implement `inspect_console` for real using BrowserPool, replacing the stub at `build-tools.ts:418-436` (`success:true, logs:[]` → real console output)
+- [ ] **0.10** — Remove `|| true` from `verifyWorkspace` build/vitest/eslint commands; read real exit codes (`lib/structured-tools.ts:292-332`)
 
 ### Gate
-Fresh `execute-plan` on a new project returns 200 (preflight passes) and the project dir is a git repo with `node_modules`.
+Fresh `node ./dist/index.mjs` boots without throwing. `POST /build/plan` returns a real plan (not a canned fallback). `POST /build/execute-plan` with a real project UUID succeeds without a checkpoint 500.
 
 ### Implementation Plan
-1. Fix boot/DB/key infrastructure (fixes 0.1–0.5)
-2. Rewrite `WORKSPACE_ROOT` to point to in-repo root
-3. Extend `ensureWorkspace` with `git init` + `.infinity/` directory creation
-4. Add preflight advisory that checks workspace state and reports clearly
-5. Ensure `package.json` is created and `npm install` runs on workspace setup
+1. Fix `WORKSPACE_ROOT` — drop one `..` in the bundle path computation
+2. Move adapter boot to lazy initialization; stub adapter throws on invoke, not at class-field init
+3. Reorder migration DDL: create tables in FK-dependency order
+4. Add missing columns to `llm_keys` and `build_checkpoints` CREATE statements
+5. Fix JSONB array insert for `scopes` in API-key creation
+6. Add `ensureWorkspaceDeps` — run `npm install` on first workspace access
+7. Fix `toolRunCommand` success flag — true `!err` check
+8. Implement `inspect_console` with real Puppeteer/BrowserPool
+9. Remove `|| true` from verification commands; honor real exit codes
+10. Run harness — server boots, plan returns real output, execute-plan doesn't 500
+
+### Files to Create/Modify
+- `artifacts/api-server/src/lib/workspace.ts` — WORKSPACE_ROOT, ensureWorkspace, ensureWorkspaceDeps
+- `artifacts/api-server/src/lib/adapter-factory.ts` — lazy boot
+- `artifacts/api-server/src/lib/auto-migrate.ts` — ordered DDL, column sync
+- `artifacts/api-server/src/routes/infinity/api-keys.ts` — JSONB fix
+- `artifacts/api-server/src/lib/build-tools.ts` — success flag, inspect_console
+- `artifacts/api-server/src/lib/structured-tools.ts` — remove `|| true`, real exit codes
+
+---
+
+## 📦 Phase B: Real Workspace (R2) 🔲 NOT STARTED
+
+### Goal
+Workspaces become real git repos with installed deps; the build button stops hitting the preflight wall; files land inside the repo.
+
+### Requirements
+- [ ] **1.1** — `WORKSPACE_ROOT` points to in-repo root (verified in compiled bundle, not just source)
+- [ ] **1.2** — `ensureWorkspace` runs `git init` + creates `.infinity/workspace.json` marker (`lib/workspace.ts:218`)
+- [ ] **1.3** — Preflight advisory: 409 becomes 200+warning; default `skipPreflight:true` for execute-plan (`routes/infinity/build.ts:930,3007`)
+- [ ] **1.4** — Write `package.json` + fire `npm install` in background on first `writeWorkspaceFile` when no `package.json` exists (`lib/build-tools.ts:80`)
+- [ ] **6.1** — Scaffold = real project: after generating files, run `npm install` + `git init` + commit "Initial scaffold" (`routes/infinity/build.ts:628`)
+- [ ] **6.4** — Wire framework adapters into `/build/scaffold`: call `createAppScaffold` for chosen stack; template engine produces real `package.json`, `tsconfig`, entry files (`routes/infinity/build.ts:628` + `lib/framework-generators/` + `ui-codegen.ts:82` + `template-engine.ts`)
+
+### Gate
+Fresh `execute-plan` on a new project returns 200 (preflight passes) and the project dir is a git repo with `node_modules`. Scaffold produces a runnable project skeleton.
+
+### Implementation Plan
+1. Fix `WORKSPACE_ROOT` in the compiled bundle (verified with `npm start`)
+2. Extend `ensureWorkspace` with `git init` + `.infinity/workspace.json` marker
+3. Make preflight advisory — not a barricade; default `skipPreflight:true`
+4. Auto-install deps on first workspace file write when no `package.json`
+5. Wire framework adapters + component corpus + templates into `/build/scaffold`
 6. Run harness — counter 1 (files on disk) must pass
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/workspace.ts` — WORKSPACE_ROOT, ensureWorkspace rewrite
-- `artifacts/api-server/src/routes/infinity/build.ts` — preflight checks, workspace validation
+- `artifacts/api-server/src/lib/workspace.ts` — WORKSPACE_ROOT, ensureWorkspace
+- `artifacts/api-server/src/routes/infinity/build.ts` — preflight, scaffold wiring
+- `artifacts/api-server/src/lib/framework-generators/` — wire into scaffold
+- `artifacts/api-server/src/lib/ui-codegen.ts` — component corpus wiring
+- `artifacts/api-server/src/lib/template-engine.ts` — wire into scaffold
 
 ---
 
-## 📦 Phase B: The Loop Is One Mind (R1) 🔲 NOT STARTED
+## 📦 Phase C: The Loop Is One Mind (R1) 🔲 NOT STARTED
 
 ### Goal
-Kill the phase machine. One growing conversation (not a fresh 2-message call each iteration), real `done` tool, **native `completion.tool_calls`** instead of regex parsing, a deterministic "verify-after-edit" floor, agent returns its true final state.
+Kill the phase machine. One growing conversation (not a fresh 2-message call each iteration), real `done` tool, **native `completion.tool_calls`** instead of regex parsing, a deterministic "verify-after-edit" floor, agent returns its true final state. The loop has a self.
 
 ### Requirements
-- [ ] **2.1** — Agent uses one growing conversation across iterations (not fresh 2-message calls)
-- [ ] **2.2** — Real `done` tool: agent signals completion via tool call, not self-report
-- [ ] **2.3** — Native `completion.tool_calls` used instead of regex `parseToolCalls`
-- [ ] **2.4** — Deterministic "verify after every edit" floor (hard gate, not optional)
-- [ ] **2.6** — Agent returns its true final state (phase, reasoning, files changed)
-- [ ] **2.7** — Identity context preserved across iterations (no boilerplate re-injection every turn)
-- [ ] **3.4** — When execute-plan gains tools (deferred from Phase E if needed)
+- [ ] **2.1** — Kill the phase machine: replace with state `{history, toolCalls, iteration}` — no `exploring`/`planning`/`implementing`/`verifying`/`fixing`/`done` graph (`lib/build-agent.ts:262-277`)
+- [ ] **2.2** — Growing conversation: append assistant content + tool results instead of rebuilding `[system, user]` each turn; cap by token budget, not turns; keep last 5 tool results AND the file reads they returned (`lib/build-agent.ts:201-226`)
+- [ ] **2.3** — Register `done` as a real schema'd tool in `TOOL_DEFINITIONS` (`lib/build-tools.ts` TOOL_DEFINITIONS)
+- [ ] **2.4** — Use `completion.tool_calls` natively; drop `parseToolCalls` regex; keep regex as last-resort fallback only (`lib/build-agent.ts:229-242` + `llm-adapter.ts:288-294`)
+- [ ] **2.5** — Quality-gate stop: `while (!done && iteration < maxBudget && !stallDetected)` — `stallDetected = no file change in 3 turns` (`routes/infinity/build.ts:730,1218,628,1318`)
+- [ ] **2.6** — Deterministic verify-after-edit: whenever an iteration executed any `edit_file`/`apply_fix`, run `verifyWorkspace` immediately and push result into next iteration's context (`lib/build-agent.ts:413`)
+- [ ] **2.7** — Return real state from agent: `{finalPhase, lastDecision, editedFiles}` so callers persist truth (`lib/build-agent.ts:495-501`)
+- [ ] **3.4** — Replace jsonMode one-shot with tool-based incremental coder: give execute-plan real `write_file`/`edit_file`/`read_file` tools from `TOOL_DEFINITIONS`; loop until `done` or budget (`routes/infinity/build.ts:1082-1110`)
 
 ### Gate
-Iterate exits `exploring`, produces **non-empty `toolResults`**, and its returned phase/state is real (not self-report).
+Iterate exits the old `exploring` state, produces **non-empty `toolResults`**, and its returned phase/state is real (not self-report). The agent quotes its own earlier tool results mid-build (conversation continuity).
 
 ### Implementation Plan
-1. Rewrite build-agent iteration loop to grow conversation instead of resetting
+1. Rewrite build-agent iteration loop: grow conversation instead of resetting
 2. Add `done` tool to tool registry — agent calls it when work is complete
 3. Switch from regex `parseToolCalls` to native `completion.toolCalls`
 4. Add deterministic verify-after-edit gate (runs verification after every file write)
-5. Remove hardcoded state returns — agent outputs real phase + reasoning
-6. Run harness — counters 2 (toolResults non-empty) and 3 (leaves exploring) must pass
+5. Add stall detection (no file change in 3 turns → stop)
+6. Remove hardcoded state returns — agent outputs real phase + reasoning
+7. Rewrite execute-plan to use tool-use agent instead of blind JSON single-shot
+8. Run harness — counters 2 (toolResults non-empty) and 3 (leaves exploring) must pass
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/lib/build-agent.ts` — iteration loop, conversation growth, tool calls
+- `artifacts/api-server/src/lib/build-agent.ts` — iteration loop, conversation growth, tool calls, phase machine removal
 - `artifacts/api-server/src/lib/tool-registry.ts` — add `done` tool
 - `artifacts/api-server/src/lib/llm-adapter.ts` — use native toolCalls
+- `artifacts/api-server/src/routes/infinity/build.ts` — execute-plan rewrite (tools, not jsonMode)
 
 ---
 
-## 📦 Phase C: The World Comes Back In (R2) 🔲 NOT STARTED
+## 📦 Phase D: The World Comes Back In (R2) 🔲 NOT STARTED
 
 ### Goal
-Verification reports reality; the reviewer judges code not labels; the executed app reaches the model.
+Verification reports reality; the reviewer judges code not labels; the executed app reaches the model; dead subsystems are wired or deleted.
 
 ### Requirements
-- [ ] **1.4 + 4.1** — Deps installed → real `tsc`/`vitest`/eslint gates; remove `|| true` tautologies
-- [ ] **4.2 + 5.2** — Feedback channel alive: preview output → iterate (not blank)
-- [ ] **4.3–4.4** — Preview agent runs → DOM reaches the model (needs Chrome deps on host)
-- [ ] **4.5** — Reviewer reads file bytes, not `[Modified by step-X]` placeholder labels
-- [ ] **6.4** — Wire dead generators/templates (`framework-generators/`, `template-engine.ts`) into scaffold
+- [ ] **4.1** — Real exit codes: remove every `|| true`; read true exit codes from tsc/vitest/eslint/npm run build; `ok = all real gates green` (`lib/structured-tools.ts:292-332`)
+- [ ] **4.2** — Feedback to iterate: replace sleep-retry with — on `!verify.ok`, feed `formatVerificationFeedback` to `runAutonomousAgent` as the iterate goal (`routes/infinity/build.ts:1136-1156`)
+- [ ] **4.3** — Preview agent in auto-pipeline: after `captureScreenshot`, call `/build/preview/agent` and use its DOM findings as `iterateGoal` instead of Vite stdout (`routes/infinity/build.ts:760-768` + `build-studio.tsx:1455-1466`)
+- [ ] **4.4** — Structured DOM output: return `{interactiveElements, visibleText, consoleErrors, screenshotBase64}` from preview agent; install headless-Chrome deps (`routes/infinity/build.ts:1617-1728`)
+- [ ] **4.5** — Reviewer sees code: in `applyCoderChanges`, store real bytes per changed file (via `readWorkspaceFile`) instead of `[Modified by step-X: summary]` placeholder (`lib/build-orchestrator.ts:961-985`)
+- [ ] **3.5** — Wire or delete dead prompt systems: promote `coderPromptV2`/`fixerPromptV2` to their roles; delete all other dead imports (`routes/infinity/build.ts:38-39` + `lib/build-prompts.ts:36,50,64`)
+- [ ] **6.2** — Honor project conventions: read `CLAUDE.md`/`.cursorrules`/`package.json` scripts/tsconfig/vitest/eslint config into context on every agent call (`lib/build-project-context.ts:45`)
+- [ ] **6.3** — Wire component corpus: add `generate_component` tool (shadcn/ui + design tokens) (`lib/ui-codegen.ts` + `lib/build-tools.ts`)
 
 ### Gate
-`verify_start` events appear in telemetry; a broken file makes `ok` flip to false; reviewer output reflects real code.
+`verify_start` events appear in telemetry; a broken file makes `ok` flip to false; reviewer output reflects real code. Dead prompt systems are promoted or deleted.
 
 ### Implementation Plan
 1. Ensure deps are installed before verification; remove `|| true` from verify commands
-2. Fix preview channel so iterate receives real feedback (Vite output or DOM)
-3. Wire preview agent to produce DOM model accessible to the coder agent
+2. Fix preview channel: feed DOM/screenshot to the model, not just Vite stdout
+3. Wire preview agent to produce structured DOM model accessible to the coder agent
 4. Rewrite reviewer to read actual file contents from workspace
 5. Wire framework generators and templates into the build scaffold step
-6. Run harness — counter 4 (`verify_start` events, bad file → `ok:false`) must pass
+6. Promote or delete dead prompt systems (coderPromptV2, fixerPromptV2, etc.)
+7. Wire project conventions into agent context
+8. Run harness — counter 4 (`verify_start` events, bad file → `ok:false`) must pass
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/structured-tools.ts` — verifyWorkspace, remove `|| true`
@@ -139,50 +215,55 @@ Verification reports reality; the reviewer judges code not labels; the executed 
 - `artifacts/api-server/src/routes/infinity/build.ts` — preview agent, feedback channel
 - `artifacts/api-server/src/lib/framework-generators/` — wire into scaffold
 - `artifacts/api-server/src/lib/template-engine.ts` — wire into scaffold
+- `artifacts/api-server/src/lib/infinity-prompt.ts` — concise role tag (cut 500-token identity boilerplate)
+- `artifacts/api-server/src/lib/build-prompts.ts` — promote or delete dead prompts
+- `artifacts/api-server/src/lib/build-project-context.ts` — read conventions into context
+- `artifacts/api-server/src/lib/ui-codegen.ts` — component corpus tool
 
 ---
 
-## 📦 Phase D: Green Must Mean Something (R3) 🔲 NOT STARTED
+## 📦 Phase E: Green Must Mean Something (R3) 🔲 NOT STARTED
 
 ### Goal
-Success is earned, not labeled.
+Success is earned, not labeled. A green verdict is backed by a real gate + real artifact.
 
 ### Requirements
-- [ ] **5.4** — `ok` requires files-written AND a real gate passed (0-file false-green becomes impossible)
-- [ ] **5.1** — Done-contract wired as the actual stop rule (not advisory)
-- [ ] **5.3 + 5.5** — Checkpoint persists real phase/reasoning, not hardcoded `"planning"` / zero tokens
-- [ ] **5.6** — No degraded path may report success
-- [ ] **5.2** — Per-step quality gate (each step verified before marking complete)
+- [ ] **5.1** — Wire `runDoneContract` as the real stop rule: `checkDone` calls `runDoneContract(workspace)`; done only when it passes; errors returned as feedback otherwise (`lib/build-done-contract.ts` + `lib/build-agent.ts:167-175`)
+- [ ] **5.2** — Per-step quality gate: after each step's `writeWorkspaceFile`, run `verifyWorkspace`; on fail, re-iterate the same step before advancing (`routes/infinity/build.ts:1136`)
+- [ ] **5.3** — Living plan object: plan steps carry `{status, files[], verifyResult}`; agent updates status as it works (`routes/infinity/build.ts:574` + checkpoints)
+- [ ] **5.4** — Green requires artifact + real gate: `ok = filesWereActuallyWritten && !feedback`; make verification run even when `hasIsolated` is false (`routes/infinity/build.ts:1156` + `:1133`)
+- [ ] **5.5** — Persist the mind: save real `finalPhase`, `editedFiles`, last decision rationale, diff/summary of `workingContext`; on resume, inject into agent's first message (`routes/infinity/build.ts:695,798` + `lib/build-checkpoints.ts:213` + `build-agent.ts:495-501`)
+- [ ] **5.6** — Failure honesty: any fallback (canned plan, quota 429, adapter error) must set `plan.fallback:true` and never reach `ok:true`; on quota: retry-with-backoff then fail loudly (`routes/infinity/build.ts:179-181` + `:1156` + model-router/quota path)
 
 ### Gate
-The 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned plan is never returned as success.
+The 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned plan is never returned as success. A red build can never render the green completion card.
 
 ### Implementation Plan
 1. Rewrite `ok` logic: requires `filesWritten > 0` AND a verification gate passed
 2. Wire `DoneContractEngine` as the actual stop rule in iterate/execute-plan
-3. Fix checkpoint to persist actual phase, reasoning, and token usage (not hardcoded values)
-4. Remove all degraded success paths — failure is failure
-5. Add per-step quality gate: each step must pass verification before marking complete
+3. Add per-step quality gate: each step must pass verification before marking complete
+4. Fix checkpoint to persist actual phase, reasoning, and token usage (not hardcoded values)
+5. Remove all degraded success paths — failure is failure
 6. Run harness — counter 5 (0-file step never `ok:true`) must pass
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/routes/infinity/build.ts` — `ok` logic, checkpoint fields
 - `artifacts/api-server/src/lib/build-done-contract.ts` — wire as stop rule
-- `artifacts/api-server/src/lib/build-agent.ts` — per-step quality gate
+- `artifacts/api-server/src/lib/build-agent.ts` — per-step quality gate, real state return
+- `artifacts/api-server/src/lib/db/src/schema/build-checkpoints.ts` — persist real state
 
 ---
 
-## 📦 Phase E: The Model Sees Bytes (R2/R3) 🔲 NOT STARTED
+## 📦 Phase F: The Model Sees Bytes (R2/R3) 🔲 NOT STARTED
 
 ### Goal
-Planner and coder read real file contents, not a 900-token map; one prompt system, not four.
+Planner and coder read real file contents, not a 900-token map; one prompt system, not four; the model reasons over the same files the user sees.
 
 ### Requirements
-- [ ] **3.1** — Planner/coder fed real file contents at decision time (not 900-token summaries)
-- [ ] **3.2** — Planner gets repo context (file tree, key files, config)
-- [ ] **3.4** — Execute-plan uses tools instead of blind `jsonMode` single-shot
-- [ ] **3.5** — Single prompt source: delete imports-only `coderPromptV2` / `fixerPromptV2`
-- [ ] **7.1–7.20** — Design fixes tail (remaining audit findings)
+- [ ] **3.1** — File bytes at decision points: `read_file` the step's declared files before the coder call and inline contents (token-capped) (`routes/infinity/build.ts:1082-1110` + `lib/build-agent.ts:215-220`)
+- [ ] **3.2** — Repo context + token budget: add `git ls-files` paths, `package.json` scripts/deps, first 200 lines of README; raise `maxTokens` from 900 to ≥4000; drop 4 fixed dropdowns (`routes/infinity/build.ts:152-183`)
+- [ ] **3.3** — Concise role tag: replace ~500-token identity block with ~60 tokens ("You are Infinity, an autonomous software engineer. Prefer reading over assuming.") (`lib/infinity-prompt.ts:20-50`)
+- [ ] **7.1–7.20** — Design fixes tail: all remaining audit design-level fix mappings (see table below)
 
 ### Gate
 Captured coder request contains real file bytes; truncated file-map JSON can no longer produce a silent zero-write `ok`.
@@ -190,20 +271,138 @@ Captured coder request contains real file bytes; truncated file-map JSON can no 
 ### Implementation Plan
 1. Feed planner real file contents (not just path + purpose + 8 symbols)
 2. Extend planner input with repo context: file tree, config files, key modules
-3. Rewrite execute-plan to use tool-use agent instead of blind JSON single-shot
-4. Consolidate prompt system: one source (`agent-prompts/*`), delete `build-prompts.ts` duplicates
-5. Work through remaining design fixes (7.1–7.20)
-6. Run full harness — all 5 counters green, campaign complete
+3. Replace ~500-token identity boilerplate with concise role tag
+4. Work through design fixes 7.1–7.20 (see audit fix mapping table below)
+5. Run full harness — all 5 counters green, campaign complete
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/agent-prompts/planner.ts` — real file contents at input
-- `artifacts/api-server/src/routes/infinity/build.ts` — execute-plan rewrite (tools, not jsonMode)
-- `artifacts/api-server/src/lib/build-prompts.ts` — delete (replaced by agent-prompts)
+- `artifacts/api-server/src/routes/infinity/build.ts` — execute-plan rewrite
+- `artifacts/api-server/src/lib/infinity-prompt.ts` — concise role tag
 - `artifacts/api-server/src/lib/build-agent.ts` — extended for tool-use execute-plan
+
+### Design Fix Mapping (7.1–7.20)
+
+| Fix | Design decision fixed | Carried by |
+|-----|----------------------|------------|
+| 7.1 | N1 stateless loop → shared file map so steps receive prior steps' actual files | 2.2 + 3.1 |
+| 7.2 | N10 wrong signal → direct hold: screenshot + DOM in, Vite log out | 4.3 + 4.4 |
+| 7.3 | old N3 dropdown spec → `/build/ask` becomes multi-turn conversational clarifier | standalone |
+| 7.4 | N13 phase trap → no phases; remove the graph | 2.1 |
+| 7.5 | old N5 identity budget → concise role tag | 3.3 |
+| 7.6 | N12 jsonMode one-shot → tool-based incremental coder | 3.4 |
+| 7.7 | old-N7 verify polls → feedback to iterate | 4.2 |
+| 7.8 | N14/N8 done dead → wire DoneContractEngine as real stop rule | 5.1 |
+| 7.9 | P1/P2/P3 env → Stage 0 fixes (0.1–0.6) | 0.1–0.6 |
+| 7.10 | P4/F1 preflight wall → advisory preflight | 1.3 |
+| 7.11 | P6 phantom root → fixed WORKSPACE_ROOT | 1.1 |
+| 7.12 | P7/N1 fresh calls + stuck phase → growing conversation + no phases | 2.1 + 2.2 |
+| 7.13 | P8/N10 Vite stdout → screenshot + DOM to model | 4.3 + 4.4 |
+| 7.14 | P9 preflight evidence unused → evidence threaded into agent context | 1.3 → 1082 |
+| 7.15 | P10/N9 contradictory checkpoint → single truth: agent result + checkpoint share one `done` | 2.7 + 5.5 |
+| 7.16 | N5 verify on whim → deterministic after-edit verify | 2.6 |
+| 7.17 | N7 reviewer blind → reviewer reads code | 4.5 |
+| 7.18 | N8 dead subsystems → wire-or-delete prompts + scaffolds | 3.5 + 6.4 |
+| 7.19 | N6 empty ok → green requires artifact + real gate | 5.4 + 4.1 |
+| 7.20 | F6 silent quota → failure honesty | 5.6 |
 
 ---
 
-> **Definition of done for the campaign:** after Phase D, a green verdict is backed by a real gate + real artifact (false-green class gone). After Phase E, the model reasons over the same files and UI the user sees — **the loop is Claude Code's loop, within free-model limits.** Direct-hold (Chrome) is the one infra exception (free, `sudo apt`).
+## 📦 Phase G: Error Feedback Loop (R1+R2) 🔲 NOT STARTED
+
+### Goal
+Verification failures are fed back to the model for repair. The loop learns from its mistakes. No error is swallowed by `\|\| true`, sleep-retry, or blind polling.
+
+### Requirements
+- [ ] **G.1** — Verification errors fed to model: on `!verify.ok`, feed `formatVerificationFeedback(verify)` output to the model as the next iteration's goal — not a sleep, not a blind retry (`routes/infinity/build.ts:1131-1156`)
+- [ ] **G.2** — Fixing phase connected: after `tryLocalModelFix` applies patches, re-run `verifyWorkspace` and push the result into `state.toolResults` so the model sees whether the fix worked (`build-agent.ts:434-457`)
+- [ ] **G.3** — Oscillation detection: maintain rolling fingerprint of workspace state across last 6 iterations; if ≥2 identical fingerprints, inject "No progress detected — stop repeating and pick a different approach" as an error (`build-agent.ts`)
+- [ ] **G.4** — Errors are first-class: the `## ERRORS SO FAR` block in the agent prompt includes verification failures, oscillation warnings, and tool errors — the model sees what went wrong and can change strategy
+- [ ] **G.5** — No `|| true` anywhere in the verification pipeline: every command's exit code is honored; every failure surfaces to the model
+
+### Gate
+A failing verify → fix → re-verify cycle completes in the live loop. The model sees verification output after applying a fix. Oscillation triggers a strategy change, not an infinite repeat.
+
+### Implementation Plan
+1. Replace sleep-retry in `build.ts` with fixer pass + re-verify
+2. Add `fixing` → `verifying` transition to the agent loop
+3. Implement oscillation detection with rolling fingerprint
+4. Wire all verification output into the agent's `## ERRORS SO FAR` block
+5. Remove every `|| true` from verification commands
+6. Run harness — verify cycle works end-to-end
+
+### Files to Create/Modify
+- `artifacts/api-server/src/routes/infinity/build.ts` — replace sleep-retry with fixer + re-verify
+- `artifacts/api-server/src/lib/build-agent.ts` — fixing transition, oscillation detection, error block
+
+---
+
+## 📦 Phase H: Preview + Workspace Context (R2) 🔲 NOT STARTED
+
+### Goal
+The model sees what the user sees. Screenshot + DOM reach the model (not just the user). The full workspace context — file tree, config, conventions — feeds every agent call.
+
+### Requirements
+- [ ] **H.1** — Screenshot to model: after `captureScreenshot`, send the image to the model as a tool result (not just POST to UI) (`routes/infinity/build.ts:760-768`)
+- [ ] **H.2** — DOM to model: call `/build/preview/agent` in the auto-pipeline; return structured `{interactiveElements, visibleText, consoleErrors, screenshotBase64}` to the model (`routes/infinity/build.ts:1617-1728`)
+- [ ] **H.3** — Install headless Chrome deps: `sudo apt-get install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64` (the infra exception — free, `sudo apt`)
+- [ ] **H.4** — Workspace context in every call: read `git ls-files`, `package.json` scripts/deps, `tsconfig.json`, `vitest.config.*`, `eslint.config.*`, `.eslintrc.*`, and first 200 lines of `README.md` into the agent's system prompt on every call (`lib/build-project-context.ts:45`)
+- [ ] **H.5** — Project conventions honored: `CLAUDE.md`/`.cursorrules` read and injected as behavioral instructions for the agent
+- [ ] **H.6** — File tree available: `list_files` tool result from the first iteration persists in context for subsequent iterations (the agent doesn't need to re-discover the project structure)
+
+### Gate
+Mid-build, the model can quote a screenshot observation ("the header is misaligned") or a DOM finding ("button text says 'Submit' but should say 'Send'"). The agent prompt contains real project config.
+
+### Implementation Plan
+1. Install headless Chrome dependencies on the host
+2. Wire preview agent into the auto-pipeline (after screenshot capture)
+3. Send screenshot + DOM findings as tool results to the model
+4. Read project config files into agent context on every call
+5. Read `CLAUDE.md`/`.cursorrules` as behavioral instructions
+6. Persist file tree across iterations
+7. Run harness — model references real visual/DOM output in its reasoning
+
+### Files to Create/Modify
+- `artifacts/api-server/src/routes/infinity/build.ts` — preview agent in auto-pipeline, screenshot to model
+- `artifacts/api-server/src/lib/build-project-context.ts` — workspace context injection
+- `artifacts/api-server/src/lib/build-agent.ts` — persist file tree across iterations
+
+---
+
+## 📦 Phase I: Adaptive Stop + Real Tests (R3) 🔲 NOT STARTED
+
+### Goal
+The loop stops based on quality, not a counter. Real tests run and report failures. Every step is verified before the next begins. "Done" is an external verdict, not a self-report.
+
+### Requirements
+- [ ] **I.1** — Adaptive stop: `while (!done && iteration < maxBudget && !stallDetected && !allGatesGreen)` — stall detection = no file change in 3 turns; `allGatesGreen` = build + typecheck + tests + lint all pass (`routes/infinity/build.ts`)
+- [ ] **I.2** — Real test execution: `npx vitest run` (no `|| true`), `npx eslint -f json .` (no `|| true`), `npm run build` (no `|| true`); failures fed back to the model via `formatVerificationFeedback` (`lib/structured-tools.ts:292-332`)
+- [ ] **I.3** — Per-step verification: each step runs `verifyWorkspace` before marking complete; on failure, the same step re-iterates (not the next step) (`routes/infinity/build.ts:1136`)
+- [ ] **I.4** — Done contract wired: `runDoneContract(workspace)` is called when the model invokes `done`; the contract's real gates (build, typecheck, tests, lint) must pass; the model cannot declare done if the contract fails (`lib/build-done-contract.ts` + `lib/build-agent.ts:167-175`)
+- [ ] **I.5** — Fake gates marked honestly: `build-done-contract.ts`'s a11y/perf/SEO/visual/bundle checks return `status: "not-enforced"` (not `passed:true`), so "done" is an honest statement
+- [ ] **I.6** — Iteration budget is a backstop, not the stop rule: the primary stop conditions are (a) model calls `done` + contract passes, (b) all gates green + no changes in 2 turns, or (c) stall detected; maxIterations is only a safety cap
+
+### Gate
+The 0-file `ok:true` case cannot occur. A failing test prevents "done". A broken build prevents "done". The loop stops on quality, not on a counter reaching 20.
+
+### Implementation Plan
+1. Implement stall detection (no file change in 3 turns → stop)
+2. Wire real test execution: vitest, eslint, build — no `|| true`
+3. Add per-step verification gate
+4. Wire `runDoneContract` as the actual stop rule
+5. Mark fake gates as `status: "not-enforced"`
+6. Add quality-based stop conditions alongside the iteration cap
+7. Run harness — counter 5 (0-file step never `ok:true`) must pass; all 5 counters green
+
+### Files to Create/Modify
+- `artifacts/api-server/src/routes/infinity/build.ts` — adaptive stop, quality-based stopping
+- `artifacts/api-server/src/lib/structured-tools.ts` — real test execution
+- `artifacts/api-server/src/lib/build-agent.ts` — done contract integration, stall detection
+- `artifacts/api-server/src/lib/build-done-contract.ts` — wire as stop rule, mark fake gates
+
+---
+
+> **Definition of done for the campaign:** after Phase I, a green verdict is backed by a real gate + real artifact (false-green class gone). The model reasons over the same files and UI the user sees. Verification errors are fed back for repair. The loop stops on quality. **The loop is Claude Code's loop, within free-model limits.** Direct-hold (Chrome) is the one infra exception (free, `sudo apt`).
 
 ---
 
@@ -218,6 +417,20 @@ Re-run the Pass 7 harness after every phase and check:
 5. **A 0-file step is never `ok:true`.**
 
 When 2–5 flip, the loop works; that is the definition of progress, not vibes.
+
+---
+
+## Validation Sequence (7 checks — post-campaign)
+
+Run these after all phases complete. Each maps to a specific fix:
+
+1. Fresh build of the SaaS-landing-page → scaffold written, `npm install` runs, `npm run build` succeeds with pinned versions.
+2. `verifyWorkspace` fails when a type is broken and fails *truthfully* (no `|| true`).
+3. A broken step produces a fixer pass (not a sleep), and the second verify reflects the repair.
+4. `inspect_console` catches a thrown runtime error.
+5. `done` is refused while unverified.
+6. The model quotes its own earlier tool results mid-build (conversation continuity).
+7. A red build can never render the green completion card.
 
 ---
 
