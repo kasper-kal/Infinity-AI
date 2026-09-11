@@ -123,10 +123,18 @@ Workspaces become real git repos with installed deps; the build button stops hit
 - [ ] **1.3** — Preflight advisory: 409 becomes 200+warning; default `skipPreflight:true` for execute-plan (`routes/infinity/build.ts:930,3007`)
 - [ ] **1.4** — Write `package.json` + fire `npm install` in background on first `writeWorkspaceFile` when no `package.json` exists (`lib/build-tools.ts:80`)
 - [ ] **6.1** — Scaffold = real project: after generating files, run `npm install` + `git init` + commit "Initial scaffold" (`routes/infinity/build.ts:628`)
-- [ ] **6.4** — Wire framework adapters into `/build/scaffold`: call `createAppScaffold` for chosen stack; template engine produces real `package.json`, `tsconfig`, entry files (`routes/infinity/build.ts:628` + `lib/framework-generators/` + `ui-codegen.ts:82` + `template-engine.ts`)
+
+### The Scaffold Engine (this is the quality floor, not a checkbox)
+
+**The single biggest quality lever in the whole campaign.** A free model that starts from a complete, pinned, runnable project skeleton assembles known-good parts. A free model that starts from an empty directory invents a project from first principles — and invents APIs, versions, and files that don't exist. The scaffold is why the loop is "good" at all. `6.4` below is specified as an engine, not a wiring task.
+
+- [ ] **6.4** — **Build the scaffold engine:** on `/build/scaffold` (`routes/infinity/build.ts:628`), when the workspace is empty, write the framework adapter's **complete** scaffold — pinned `package.json`, `tsconfig`, `vite.config`, entry, Tailwind, `components.json`, `ui/*` — exactly what `vite-react.ts:46-140` produces, then `npm install` (Fix 1.4), `git init`, commit "Initial scaffold". No other step may run first.
+- [ ] **6.4a** — **Inject the component corpus:** the coder prompt gets a hard block naming the available `SHADCN_COMPONENTS` (50+ keys, `ui-codegen.ts:82`); a `generate_component` tool (`ui-codegen.ts` + `build-tools.ts`) exposes them to the loop so generation is assembly, not from-scratch authoring.
+- [ ] **6.4b** — **Pinned-version rule (hard):** "DO NOT rewrite `package.json`, `tsconfig*`, `vite.config.*`. A runnable skeleton already exists. Reuse the existing Tailwind design system and UI library. NEVER invent a dependency version — if it's not in `package.json`, add it via `run_command("npm install <pkg>@<version>")`." This is what kills the "model invents APIs/patterns" class of failure at the source.
+- [ ] **6.4c** — Scaffold corpus is **tested, not assumed**: every adapter's skeleton must itself pass `npm run build` before it ships. A broken scaffold ships broken apps; the corpus is the ceiling of output quality.
 
 ### Gate
-Fresh `execute-plan` on a new project returns 200 (preflight passes) and the project dir is a git repo with `node_modules`. Scaffold produces a runnable project skeleton.
+Fresh `execute-plan` on a new project returns 200 (preflight passes), the project dir is a git repo with `node_modules`, and the scaffold's own `npm run build` succeeds with pinned versions. A fresh build writes the scaffold first — nothing is generated into an empty dir.
 
 ### Implementation Plan
 1. Fix `WORKSPACE_ROOT` in the compiled bundle (verified with `npm start`)
@@ -381,6 +389,7 @@ The loop stops based on quality, not a counter. Real tests run and report failur
 - [ ] **I.4** — Done contract wired: `runDoneContract(workspace)` is called when the model invokes `done`; the contract's real gates (build, typecheck, tests, lint) must pass; the model cannot declare done if the contract fails (`lib/build-done-contract.ts` + `lib/build-agent.ts:167-175`)
 - [ ] **I.5** — Fake gates marked honestly: `build-done-contract.ts`'s a11y/perf/SEO/visual/bundle checks return `status: "not-enforced"` (not `passed:true`), so "done" is an honest statement
 - [ ] **I.6** — Iteration budget is a backstop, not the stop rule: the primary stop conditions are (a) model calls `done` + contract passes, (b) all gates green + no changes in 2 turns, or (c) stall detected; maxIterations is only a safety cap
+- [ ] **I.7** — **Coder writes tests as part of "done":** the coder contract includes a hard line — "write tests when the framework supports it (Vitest); define what shipped means for this app (data model, error/empty/loading states, auth boundaries, responsive + a11y). No TODOs, no hardcoded demo data, no invented dependencies." Green without tests is a weak "good."
 
 ### Gate
 The 0-file `ok:true` case cannot occur. A failing test prevents "done". A broken build prevents "done". The loop stops on quality, not on a counter reaching 20.
@@ -392,7 +401,9 @@ The 0-file `ok:true` case cannot occur. A failing test prevents "done". A broken
 4. Wire `runDoneContract` as the actual stop rule
 5. Mark fake gates as `status: "not-enforced"`
 6. Add quality-based stop conditions alongside the iteration cap
-7. Run harness — counter 5 (0-file step never `ok:true`) must pass; all 5 counters green
+7. Add test-writing to the coder contract (I.7)
+8. Run harness — counter 5 (0-file step never `ok:true`) must pass; all 5 counters green
+9. Run the **5-app output benchmark** (§ The "Good" Gate) — the campaign is done when apps pass, not when counters flip
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/routes/infinity/build.ts` — adaptive stop, quality-based stopping
@@ -402,7 +413,23 @@ The 0-file `ok:true` case cannot occur. A failing test prevents "done". A broken
 
 ---
 
-> **Definition of done for the campaign:** after Phase I, a green verdict is backed by a real gate + real artifact (false-green class gone). The model reasons over the same files and UI the user sees. Verification errors are fed back for repair. The loop stops on quality. **The loop is Claude Code's loop, within free-model limits.** Direct-hold (Chrome) is the one infra exception (free, `sudo apt`).
+> **Definition of done for the campaign:** after Phase I, **a real user describes a real product in natural language and, without touching code, gets a working app** — looks right, behaves right, builds green, has tests where the framework supports it, and was produced by the loop alone (scaffold → assemble → see → fix → done). A green verdict is backed by a real gate + real artifact (false-green class gone). The model reasons over the same files and UI the user sees. Verification errors are fed back for repair. The loop stops on quality. **The loop is Claude Code's loop, within free-model limits.** Direct-hold (Chrome) is the one infra exception (free, `sudo apt`).
+
+---
+
+## The "Good" Gate — 5-app Output Benchmark (the real bar, not the counters)
+
+The 5 live counters prove the *mechanism* works. They say nothing about whether users get a decent app. This benchmark is the actual "good" gate — run after Phase I, judged against acceptance criteria, no hand-holding, no manual fixes:
+
+| App | Acceptance criteria (all must hold) |
+|-----|--------------------------------------|
+| **SaaS landing page** | Marketing sections render, responsive, links work, `npm run build` green, no dead links or `[object Object]` anywhere |
+| **Todo app with persistence** | Add/complete/delete/filter all work, state survives reload, empty-state renders, no console errors |
+| **Dashboard** | Data table + chart render real data, loading + empty states, filters work, responsive |
+| **Chat widget** | Messages append both ways, scroll behavior sane, send button disabled on empty input, error state on failure |
+| **Markdown editor** | Live preview matches source, toggle works, unsaved-changes hint, build green |
+
+**Pass =** all 5 apps meet all criteria **without** a human touching the generated code. Partial pass (e.g. 3/5, or 5/5 with one hand-fix each) means the loop built the machine but the machine's output isn't good yet — re-specify the weakest engine (likely scaffold corpus or feedback loop) and re-run, **not** another phase.
 
 ---
 
