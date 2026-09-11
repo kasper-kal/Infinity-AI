@@ -2713,25 +2713,27 @@ Single-source prompts (3.5) ──▶ all role fixes  (one prompt system before 
 |---|-----------|--------|----------|
 | 1 | **Exhaustiveness map (Pass 0) complete**: every mapped file verdict'ed or explicitly excluded | **PASS** | Pass 0 §B maps 86 files across 6 categories; each file has **ATTACK** / **EXCLUDED** / **DEAD** verdict. Scope conclusion §C5 quantifies live path = 3 routes + 2 agent files + 5 libs + 12 FE components; everything else explicitly named excluded or dead. |
 | 2 | **Every existing claim re-certified against live runtime** (two checks: true in reading + points at live apparatus) | **PASS** | Pass 1 table re-certifies all 26 prior claims (5 failures, 7 architectural, 4 deep discoveries, 9 behavioral, 2 layer claims). Each has ✅/⚠️ for (a) and (b). Four claims had wrong apparatus (Failure 4, Behavioral 1/3/5) — corrected to P1/P2 prompts, verdict **REFINED**. |
-| 3 | **Every seed- and run-surfaced claim verdict'ed**; verdicts tagged vs thesis | **PASS** | Pass 1: 26 prior claims verdict'ed (VERIFIED/REFINED/SUPERSEDED). Pass 2: 8 new design findings (N1–N8) with file:line, lens, thesis tag, "bites strong model" call. Pass 3: 10 live findings (P1–P10) with method, observation, verdict, thesis claim instantiated. All tagged in summary tables. |
-| 4 | **Thesis tested, not asserted**: contradicted claims replaced; survivors cite which of 4 claims they instantiate | **PASS** | Pass 2 §D attempts to break the thesis (counter-claim stated honestly). Thesis refined: "two reasons (harness env + harness arch), both fixable by Infinity without changing model." Pass 2 §C verdict table: all 7 lenses **SUPPORT** the thesis. Pass 3 summary table: each P-finding maps to one of 4 thesis claims. |
-| 5 | **Each NEW finding has file:line, a lens, and its Claude-Code difference step with honest "bites even a strong model" / "a stronger model damps this" call** | **PASS** | Pass 2 findings N1–N8: each has file:line, lens column, "Bites a strong model?" section with yes/partially + reasoning. Pass 3 findings P1–P10: each has method/observed/verdict, thesis claim instantiated, severity. |
-| 6 | **The live end-to-end trace ran and its run-surfaced candidates are folded in** | **PASS** | Pass 3 executed the full Build Studio path (ask→plan→execute-plan→iterate) against production bundle + stub model. 10 findings (P1–P10) captured with stub logs, request bodies, file system observations. All folded into claim surface (Pass 3 summary + Pass 4 fix mapping 7.9–7.15). |
+| 3 | **Every seed- and run-surfaced claim verdict'ed**; verdicts tagged vs thesis | **PASS** | Pass 1: 26 prior claims verdict'ed (VERIFIED/REFINED/SUPERSEDED). Pass 2 (rebuilt): **14 new design findings (canonical N1–N14)** with file:line, lens, thesis tag, "bites strong model" call. Pass 3: 10 live findings (P1–P10). Pass 6: 7 matrix findings (F1–F7). Pass 7: **9 live-proof findings (Live-A–I)** from a working-model run. All tagged in summary tables. |
+| 4 | **Thesis tested, not asserted**: contradicted claims replaced; survivors cite which of 4 claims they instantiate | **PASS** | Pass 2 §D attempts to break the thesis (counter-claim stated honestly). Thesis refined: "two reasons (harness env + harness arch), both fixable by Infinity without changing model." Pass 2 §C verdict table: all 7 lenses **SUPPORT** the thesis. Pass 7 confirms live: with a working free-tier model + clean env, the loop still fabricates `overallOk`, stalls in `exploring`, and records zero tokens — the thesis survives its best-case opponent. |
+| 5 | **Each NEW finding has file:line, a lens, and its Claude-Code difference step with honest "bites even a strong model" / "a stronger model damps this" call** | **PASS** | Pass 2 findings N1–N14: each has file:line, lens column, "Bites a strong model?" section with yes/partially + reasoning. Pass 3 findings P1–P10: each has method/observed/verdict, thesis claim instantiated, severity. Pass 7 gives the live basis for those calls (the failures recur under a healthy model). |
+| 6 | **The live end-to-end trace ran and its run-surfaced candidates are folded in** | **PASS** | Pass 3 executed the full Build Studio path (ask→plan→execute-plan→iterate) against production bundle + stub model → 10 findings (P1–P10). **Pass 7 re-executed the same path against the SHIPPED bundle with a REAL free-tier model** → Live-A–I incl. files-on-disk, telemetry seq 148–157, and the stored checkpoint. All folded into claim surface + Pass 4 fix mapping. |
 | 7 | **Every fix has a verify step and is €0; no fix adds a new system** | **PASS** | Pass 4 (rebuilt after the Design-Attack N1–N14): **56 fixes across 8 stages.** Every fix has `file:line`, `Exact Change`, `Verify Step`, `Removes Divergence`, and a model-sensitivity call. All changes are edits to existing files — no new systems, no paid services. €0 constraint honored throughout. |
-| 8 | **Known unknowns enumerated; live-settlable claims either ran or listed as open — never silently assumed** | **PASS** | Pass 3 §Open Unknowns lists 5 items the run couldn't cover (multi-step stress, real deps/tooling, preview/agent manual path, Claude Code lived experience, token economics). Pass 2 §D counter-claim explicitly stated. Reading-settled vs run-settled labeled in Pass 1/2/3 tables. |
+| 8 | **Known unknowns enumerated; live-settlable claims either ran or listed as open — never silently assumed** | **PASS** | Pass 3 §Open Unknowns lists 5 items the run couldn't cover (multi-step stress, real deps/tooling, preview/agent manual path, Claude Code lived experience, token economics). **Pass 7 materially settled four of them live** (multi-step loop: stalled-exploring witnessed; real tooling: verification's *absence* witnessed; preview channel: empty feedback witnessed; token economics: hardcoded-zero accounting witnessed) and re-listed what stays open (Claude Code internals, 8–30 turn stress, tooling-present behavior, concurrency, long-term memory). Pass 2 §D counter-claim explicitly stated. Reading-settled vs run-settled labeled throughout. |
 | 9 | **No Claude-Code mechanism fabricated; unverified comparison points flagged as lived experience, reasoned over, not asserted** | **PASS** | All Claude Code references are: (a) auditor's lived experience explicitly labeled as such (Pass 2 §D, Pass 3 unknowns #4), (b) structural contrasts (e.g., "Claude Code reads files" = observable behavior), (c) never claimed as measured by instrument. No fabricated Claude Code internals. |
 
 ---
 
 ## Detailed Audit Traceability Matrix
 
-| Source | Claims Originated | Claims Verified | Claims Fixed | Status |
-|--------|------------------|-----------------|--------------|--------|
-| Original audit (1650 lines) | 26 | 26 (Pass 1) | Mapped to Pass 4 fixes | ✅ Done |
-| Pass 0 scope correction | 6 structural findings (C1–C5) | 6 (Pass 1) | Stages 0,1,2,3,4,7 | ✅ Done |
-| Pass 2 lens attack | 8 design findings (N1–N8) | 8 (Pass 2) | Stage 7 fixes 7.1–7.8 | ✅ Done |
-| Pass 3 live run | 10 empirical findings (P1–P10) | 10 (Pass 3) | Stage 0,1,2,3,4,7 fixes 7.9–7.15 | ✅ Done |
-| **Total** | **50 distinct claims** | **50** | **56 fixes** (some claims share fixes) | **Complete** |
+| Source | Claims Originated | Claims Verified | Fixed | Notes |
+|--------|------------------|-----------------|-------|-------|
+| Original audit (1650 lines) | 26 | 26 (Pass 1) | Mapped | 5 user failures, 7 architectural, 4 deep, 9 behavioral, 2 layer |
+| Pass 0 scope correction | 6 structural (C1–C5) | 6 (Pass 1) | Mapped | live-path scope map |
+| Pass 2 lens attack (rebuilt) | 14 design (canonical N1–N14) | 14 (Pass 2) | Stage 7 (7.1–7.20) | rebuilt; old N1–N8 superseded, not double-counted |
+| Pass 3 live run (stub model) | 10 empirical (P1–P10) | 10 (Pass 3) | Stages 0–7 | first live run |
+| Pass 6 matrix (8 runs) | 7 live (F1–F7) | 7 (Pass 6) | Stages 0–7 | matrix on broken-ish infra |
+| **Primary findings total** | **63 distinct** | **63** | **56 fixes** (some claims share fixes) | **Complete** |
+| Pass 7 live proof (real model) | **9 live confirmations (Live-A–I)** | 9 (Pass 7) | map onto N2/N3/N6/N9/N10/N14 | confirmations, not new claims: the 63 above were re-witnessed under a working model · 72 total observations on record |
 
 ---
 
@@ -2940,6 +2942,7 @@ This is finding F6: **works** and **quota-starved** produce the same response sh
 | User API key | `deep-audit-cli-key-987654321` still valid in `llm_keys` | the `x-api-key` gate authenticates the driver |
 | Project row | created via `POST /api/infinity/projects` → `87e9f562-1444-4da5-be41-6fcfc2aada35` | **required** — see Live-I: execute-plan hard-500s on any UUID that isn't already a `projects` row |
 | Workspace root | `/workspaces/artifacts/workspace` (outside the repo — see Live-H) | files land outside git; the repo is never polluted by builds |
+| NVIDIA alternate | `.env.local` `OPENAI_LLM_API_KEY` (nvapi…) → `integrate.api.nvidia.com/v1`, `meta/llama-3.2-11b-vision-instruct` | configured but **unusable today**: direct chat-completions probe returned `403 Forbidden: Authorization failed`. Logged so a future session does not assume it is a live path |
 
 The server was **not rebuilt and not restarted** for this run (it has been up since Sep 10). Everything below is the production behavior of the shipped build with a working model.
 
