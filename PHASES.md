@@ -32,6 +32,18 @@ The 42-phase feature build is done — and it produced the exact gap this roadma
 
 Map: 3 roots (Pass 4) — **R1** the loop has no self · **R2** the world never re-enters · **R3** green is a label, not a check.
 
+**The five repair fronts (Pass 4, mapped to the roots):**
+
+| # | Front | Root it kills | What changes | Key fixes |
+|---|-------|---------------|--------------|-----------|
+| 1 | **Real workspace** | R2 | Workspace = a real git repo with deps, not an empty `mkdir`. Preflight stops being a wall | 1.1–1.4, 0.x |
+| 2 | **The loop becomes one conversation** | R1 | Kill the phase machine. One growing conversation, real `done` tool, native tool calls (not regex), a deterministic "verify after every edit" floor | 2.1–2.4, 2.6, 2.7 |
+| 3 | **The world comes back in** | R2 | Deps run → `tsc`/`vitest`/eslint actually report reality; the rendered app + DOM reaches the model; the reviewer reads file bytes, not `[Modified by step-X]` labels | 4.1–4.5, 6.4 |
+| 4 | **Green must mean something** | R3 | `ok` requires a real artifact (files written *and* a gate passed), `done` is a real tool, checkpoint persists reasoning not hardcoded strings/zero tokens, no silent degraded success | 5.1–5.6 |
+| 5 | **The model sees bytes** | R2 | Planner/coder fed real file contents (not a 900-token map), execute-plan uses tools instead of blind `jsonMode`; one prompt system, not four | 3.1–3.5, 7.x |
+
+*Phases A–E below expand the five fronts in order (A = front 1, B = front 2, … E = front 5).*
+
 ### Phase A — Real workspace (R2)
 *What:* workspaces become real git repos with installed deps; the build button stops hitting the preflight wall.
 *Fixes:* 0.1–0.5 (boot/DB/key fixes), 1.1–1.4 (WORKSPACE_ROOT → in-repo root, `ensureWorkspace` git-init + `.infinity`, preflight advisory, package.json + `npm install`).
