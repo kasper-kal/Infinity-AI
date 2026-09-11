@@ -533,6 +533,31 @@ export async function ensureWorkspace(workspaceId = "default"): Promise<string> 
   const root = getWorkspaceRoot(workspaceId);
   await fs.mkdir(root, { recursive: true });
   await fs.mkdir(path.join(root, ".tmp"), { recursive: true });
+
+  // Fix 1.2 — a real workspace is a git repo with a marker file. Without the
+  // `.git` dir, `hasIsolated(projectId)` is false and verification silently
+  // never runs (Pass 7 Live-C). git init is best-effort: if git is unavailable
+  // we still return the root, but the marker is written unconditionally so
+  // downstream code can tell a workspace was really created here.
+  const markerDir = path.join(root, ".infinity");
+  await fs.mkdir(markerDir, { recursive: true });
+  const markerPath = path.join(markerDir, "workspace.json");
+  const marker = JSON.stringify({
+    workspaceId,
+    createdAt: new Date().toISOString(),
+    version: 1,
+  }, null, 2);
+  try {
+    const existing = await fs.readFile(markerPath, "utf8").catch(() => "");
+    if (existing.trim() !== marker.trim()) await fs.writeFile(markerPath, marker, "utf8");
+  } catch { /* marker write is best-effort */ }
+
+  if (!fsSync.existsSync(path.join(root, ".git"))) {
+    await new Promise<void>((resolve) => {
+      execFile("git", ["init", "-q", "."], { cwd: root, timeout: 15_000 }, () => resolve());
+    });
+  }
+
   return root;
 }
 
@@ -870,6 +895,53 @@ export async function readWorkspaceFileBase64(relPath: string, workspaceId = "de
   }
 }
 
+/** Beginner-safe default package.json used only as a fallback (Fix 1.4). */
+const STARTER_PACKAGE_JSON = {
+  name: "infinity-workspace-app",
+  version: "1.0.0",
+  private: true,
+  type: "module",
+  scripts: {
+    dev: "vite",
+    build: "tsc && vite build",
+    preview: "vite preview",
+    test: "vitest run",
+  },
+  dependencies: {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+  },
+  devDependencies: {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5",
+    "eslint": "^9.8.0",
+  },
+};
+
+/** Fire `npm install` in a detached child so the request never waits on it (Fix 1.4). */
+function fireBackgroundInstall(workspaceId: string, root: string): void {
+  const cachedAt = DEP_INSTALLED_CACHE.get(workspaceId);
+  if (cachedAt && Date.now() - cachedAt < DEP_CACHE_TTL_MS) return;
+  if (fsSync.existsSync(path.join(root, "node_modules"))) {
+    DEP_INSTALLED_CACHE.set(workspaceId, Date.now());
+    return;
+  }
+  const child = spawn("npm", ["install", "--no-audit", "--no-fund", "--loglevel", "error"], {
+    cwd: root,
+    detached: true,
+    stdio: "ignore",
+    env: getWorkspaceCommandEnvironment(),
+  });
+  child.on("exit", (code) => {
+    if (code === 0) DEP_INSTALLED_CACHE.set(workspaceId, Date.now());
+  });
+  child.unref();
+}
+
 export async function writeWorkspaceFile(relPath: string, content: string, workspaceId = "default"):
   Promise<{ ok: true; path: string } | { ok: false; error: string }> {
   const target = resolveWorkspacePath(workspaceId, relPath);
@@ -879,6 +951,23 @@ export async function writeWorkspaceFile(relPath: string, content: string, works
     await ensureWorkspace(workspaceId);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, content, "utf8");
+
+    // Fix 1.4 — first file write where there is no package.json seeds a starter
+    // project and installs deps in the background, so the next verification
+    // gate (tsc/vitest/build) has a real project — not registry-shim air —
+    // to run against.
+    const root = getWorkspaceRoot(workspaceId);
+    const isPackageJson = path.basename(relPath) === "package.json";
+    const hasPackageJson = fsSync.existsSync(path.join(root, "package.json"));
+    if (!hasPackageJson && !isPackageJson) {
+      await fs.writeFile(
+        path.join(root, "package.json"),
+        `${JSON.stringify(STARTER_PACKAGE_JSON, null, 2)}\n`,
+        "utf8",
+      );
+    }
+    if (isPackageJson || !hasPackageJson) fireBackgroundInstall(workspaceId, root);
+
     return { ok: true, path: relPath };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Write failed." };

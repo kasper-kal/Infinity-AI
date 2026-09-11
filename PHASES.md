@@ -66,7 +66,7 @@ These are the structural gaps between Infinity and a working coding harness — 
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. Moving to Phase B. |
+| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. Moving to Phase C. |
 
 ---
 
@@ -112,26 +112,26 @@ Fresh `node ./dist/index.mjs` boots without throwing. `POST /build/plan` returns
 
 ---
 
-## 📦 Phase B: Real Workspace (R2) 🔲 NOT STARTED
+## 📦 Phase B: Real Workspace (R2) ✅ COMPLETE
 
 ### Goal
 Workspaces become real git repos with installed deps; the build button stops hitting the preflight wall; files land inside the repo.
 
 ### Requirements
-- [ ] **1.1** — `WORKSPACE_ROOT` points to in-repo root (verified in compiled bundle, not just source)
-- [ ] **1.2** — `ensureWorkspace` runs `git init` + creates `.infinity/workspace.json` marker (`lib/workspace.ts:218`)
-- [ ] **1.3** — Preflight advisory: 409 becomes 200+warning; default `skipPreflight:true` for execute-plan (`routes/infinity/build.ts:930,3007`)
-- [ ] **1.4** — Write `package.json` + fire `npm install` in background on first `writeWorkspaceFile` when no `package.json` exists (`lib/build-tools.ts:80`)
-- [ ] **6.1** — Scaffold = real project: after generating files, run `npm install` + `git init` + commit "Initial scaffold" (`routes/infinity/build.ts:628`)
+- [x] **1.1** — `WORKSPACE_ROOT` points to in-repo root (verified in compiled bundle, not just source)
+- [x] **1.2** — `ensureWorkspace` runs `git init` + creates `.infinity/workspace.json` marker (`lib/workspace.ts:218`)
+- [x] **1.3** — Preflight advisory: 409 becomes 200+warning; default `skipPreflight:true` for execute-plan (`routes/infinity/build.ts:930,3007`)
+- [x] **1.4** — Write `package.json` + fire `npm install` in background on first `writeWorkspaceFile` when no `package.json` exists (`lib/build-tools.ts:80`)
+- [x] **6.1** — Scaffold = real project: after generating files, run `npm install` + `git init` + commit "Initial scaffold" (`routes/infinity/build.ts:628`)
 
 ### The Scaffold Engine (this is the quality floor, not a checkbox)
 
 **The single biggest quality lever in the whole campaign.** A free model that starts from a complete, pinned, runnable project skeleton assembles known-good parts. A free model that starts from an empty directory invents a project from first principles — and invents APIs, versions, and files that don't exist. The scaffold is why the loop is "good" at all. `6.4` below is specified as an engine, not a wiring task.
 
-- [ ] **6.4** — **Build the scaffold engine:** on `/build/scaffold` (`routes/infinity/build.ts:628`), when the workspace is empty, write the framework adapter's **complete** scaffold — pinned `package.json`, `tsconfig`, `vite.config`, entry, Tailwind, `components.json`, `ui/*` — exactly what `vite-react.ts:46-140` produces, then `npm install` (Fix 1.4), `git init`, commit "Initial scaffold". No other step may run first.
-- [ ] **6.4a** — **Inject the component corpus:** the coder prompt gets a hard block naming the available `SHADCN_COMPONENTS` (50+ keys, `ui-codegen.ts:82`); a `generate_component` tool (`ui-codegen.ts` + `build-tools.ts`) exposes them to the loop so generation is assembly, not from-scratch authoring.
-- [ ] **6.4b** — **Pinned-version rule (hard):** "DO NOT rewrite `package.json`, `tsconfig*`, `vite.config.*`. A runnable skeleton already exists. Reuse the existing Tailwind design system and UI library. NEVER invent a dependency version — if it's not in `package.json`, add it via `run_command("npm install <pkg>@<version>")`." This is what kills the "model invents APIs/patterns" class of failure at the source.
-- [ ] **6.4c** — Scaffold corpus is **tested, not assumed**: every adapter's skeleton must itself pass `npm run build` before it ships. A broken scaffold ships broken apps; the corpus is the ceiling of output quality.
+- [x] **6.4** — **Build the scaffold engine:** on `/build/scaffold` (`routes/infinity/build.ts:628`), when the workspace is empty, write the framework adapter's **complete** scaffold — pinned `package.json`, `tsconfig`, `vite.config`, entry, Tailwind, `components.json`, `ui/*` — exactly what `vite-react.ts:46-140` produces, then `npm install` (Fix 1.4), `git init`, commit "Initial scaffold". No other step may run first. (NEW: `lib/scaffold-engine.ts` — `writeScaffoldWorkspace`, corpus deps map, gap files, git init + commit + bg install)
+- [x] **6.4a** — **Inject the component corpus:** the coder prompt gets a hard block naming the available `SHADCN_COMPONENTS` (58 components from `artifacts/infinity-ai/src/components/ui/`); a `generate_component` tool (`build-tools.ts` + `scaffold-engine.ts:readCorpusComponent`) exposes them to the loop so generation is assembly, not from-scratch authoring.
+- [x] **6.4b** — **Pinned-version rule (hard):** "DO NOT rewrite `package.json`, `tsconfig*`, `vite.config.*`. A runnable skeleton already exists. Reuse the existing Tailwind design system and UI library. NEVER invent a dependency version — if it's not in `package.json`, add it via `run_command("npm install <pkg>@<version>")`." Injected into coder prompt via `scaffoldRulePrompt()` (`lib/scaffold-engine.ts:312`, `lib/build-agent.ts:94`).
+- [x] **6.4c** — Scaffold corpus is **tested, not assumed**: every adapter's skeleton must itself pass `npm run build` before it ships. **VERIFIED** — the generated vite-react skeleton (`tsc && vite build`) passes with 0 errors. The gate caught 4 latent bugs: (1) all 7 adapters used `implements` not `extends` → base methods missing at runtime, (2) scaffold engine read `package.json` from disk instead of in-memory map, (3) corpus naming mismatch (lowercase vs capitalized shadcn generations) → 6 components silently dropped + barrel import would fail `tsc`, (4) missing `.css` siblings for old-shadcn components → Rollup resolution failure. All fixed.
 
 ### Gate
 Fresh `execute-plan` on a new project returns 200 (preflight passes), the project dir is a git repo with `node_modules`, and the scaffold's own `npm run build` succeeds with pinned versions. A fresh build writes the scaffold first — nothing is generated into an empty dir.

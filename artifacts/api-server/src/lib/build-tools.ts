@@ -178,6 +178,18 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["file", "oldCode", "newCode"],
     },
   },
+  {
+    name: "generate_component",
+    description: "Write a known-good shadcn/ui component into the workspace from the corpus — use this instead of authoring UI from scratch. The component's dependencies are already in package.json.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Corpus component name, e.g. 'button', 'card', 'dialog', 'tabs'" },
+        targetPath: { type: "string", description: "Destination path relative to the workspace (default: src/components/ui/<name>.tsx)" },
+      },
+      required: ["name"],
+    },
+  },
 ];
 
 /**
@@ -242,6 +254,10 @@ export async function executeTool(
 
       case "apply_fix":
         result = await toolApplyFix(args, context);
+        break;
+
+      case "generate_component":
+        result = await toolGenerateComponent(args, context);
         break;
 
       default:
@@ -604,6 +620,48 @@ async function toolApplyFix(args: Record<string, unknown>, context: ToolExecutio
       operation: "apply_fix",
       explanation,
       changedLines: newCode.split("\n").length,
+    },
+  };
+}
+
+/**
+ * Fix 6.4a — `generate_component`: write a known-good shadcn/ui component from
+ * the corpus instead of letting the model author UI from scratch. Assembly,
+ * not invention. Corpus deps are already in the scaffold's package.json.
+ */
+async function toolGenerateComponent(args: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
+  const name = (args.name as string) || "";
+  const targetPath = (args.targetPath as string) || `src/components/ui/${name}.tsx`;
+
+  if (!name) {
+    return { success: false, error: "name is required (e.g. 'button', 'card', 'dialog')" };
+  }
+
+  const { readCorpusComponent } = await import("./scaffold-engine");
+  const content = await readCorpusComponent(name);
+  if (content === null) {
+    return { success: false, error: `Unknown corpus component "${name}". Use generate_component --list equivalent via list of available names in the prompt.` };
+  }
+
+  const safePath = safeWorkspacePath(targetPath, context.workspaceId);
+  if (!safePath) {
+    return { success: false, error: "Path escapes the workspace" };
+  }
+
+  const written = await writeWorkspaceFile(targetPath, content, context.workspaceId);
+  if (!written.ok) {
+    return { success: false, error: written.error };
+  }
+
+  // If the user placed it somewhere other than the ui dir, still fine; no
+  // rewrites of package.json — corpus deps are already present.
+  return {
+    success: true,
+    result: {
+      path: targetPath,
+      component: name,
+      operation: "generate_component",
+      note: "Known-good corpus component. Dependencies already in package.json.",
     },
   };
 }

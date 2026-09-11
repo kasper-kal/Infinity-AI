@@ -84,10 +84,20 @@ function getToolSchemas(): LLMTool[] {
 /**
  * Build the system prompt for the autonomous agent
  */
-function buildAgentSystemPrompt(extraInstructions?: string): string {
+async function buildAgentSystemPrompt(extraInstructions?: string): Promise<string> {
   const toolDescriptions = TOOL_DEFINITIONS.map(
     (t) => `- ${t.name}: ${t.description}`
   ).join("\n");
+
+  // Fix 6.4a/6.4b — the scaffold rule + corpus are part of the system prompt so
+  // the model knows it assembles known-good parts and never invents versions.
+  const { scaffoldRulePrompt, listCorpusComponents } = await import("./scaffold-engine");
+  const corpusNames = await listCorpusComponents().catch(() => []);
+  const corpusBlock = corpusNames.length > 0
+    ? `AVAILABLE SHADCN/UI CORPUS (${
+        corpusNames.length
+      } components — use generate_component to write one, do not author from scratch):\n${corpusNames.map(n => `- ${n}`).join("\n")}`
+    : "";
 
   return `You are Infinity, an autonomous software engineering agent. You work inside a local workspace and have access to tools to explore, modify, and verify code.
 
@@ -111,6 +121,10 @@ RULES:
 - Never assume - always verify with tools
 - Return tool calls as JSON with the exact function signatures
 - When done with a goal, call the "done" tool with summary
+
+${corpusBlock}
+
+${await scaffoldRulePrompt()}
 
 ${extraInstructions || ""}`;
 }
@@ -199,7 +213,7 @@ async function runAgentIteration(
 
   // Build messages
   const messages: LLMMessageType[] = [
-    { role: "system", content: sanitizePrompt(buildAgentSystemPrompt()) },
+    { role: "system", content: sanitizePrompt(await buildAgentSystemPrompt()) },
     {
       role: "user",
       content: [

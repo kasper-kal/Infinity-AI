@@ -9,6 +9,7 @@ import type {
   ComponentIR,
   GeneratedFile,
 } from '../framework-adapters';
+import { BaseFrameworkAdapter } from '../framework-adapters';
 import { capitalize, getRelativePath } from './utils';
 
 export const nextjsConfig: FrameworkConfig = {
@@ -40,8 +41,14 @@ export const nextjsConfig: FrameworkConfig = {
   },
 };
 
-export class NextJSAdapter implements FrameworkAdapter {
+export class NextJSAdapter extends BaseFrameworkAdapter {
   readonly config = nextjsConfig;
+
+  protected augmentPackageJson(base: Record<string, any>, _options: ScaffoldOptions): Record<string, any> {
+    // This adapter builds its whole package.json in generatePackageJson(); the
+    // hook exists only to satisfy the abstract contract on BaseFrameworkAdapter.
+    return base;
+  }
 
   async generateScaffold(options: ScaffoldOptions): Promise<GeneratedFile[]> {
     const files: GeneratedFile[] = [];

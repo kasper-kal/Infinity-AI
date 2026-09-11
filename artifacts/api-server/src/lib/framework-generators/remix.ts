@@ -9,6 +9,7 @@ import type {
   ComponentIR,
   GeneratedFile,
 } from '../framework-adapters';
+import { BaseFrameworkAdapter } from '../framework-adapters';
 import { capitalize, getRelativePath } from './utils';
 
 export const remixConfig: FrameworkConfig = {
@@ -40,8 +41,14 @@ export const remixConfig: FrameworkConfig = {
   },
 };
 
-export class RemixAdapter implements FrameworkAdapter {
+export class RemixAdapter extends BaseFrameworkAdapter {
   readonly config = remixConfig;
+
+  protected augmentPackageJson(base: Record<string, any>, _options: ScaffoldOptions): Record<string, any> {
+    // This adapter builds its whole package.json in generatePackageJson(); the
+    // hook exists only to satisfy the abstract contract on BaseFrameworkAdapter.
+    return base;
+  }
 
   async generateScaffold(options: ScaffoldOptions): Promise<GeneratedFile[]> {
     const files: GeneratedFile[] = [];

@@ -35,6 +35,7 @@ import { LLMAdapter, LLMAdapterError } from "../../lib/llm-adapter";
 import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/local-adapter";
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
+import { writeScaffoldWorkspace, scaffoldRulePrompt, listCorpusComponents } from "../../lib/scaffold-engine";
 import { fixerPromptV2 } from "../../lib/build-prompts";
 import { coderPromptV2 } from "../../lib/build-prompts";
 import {
@@ -627,7 +628,7 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
   const previewPort = Number(req.body?.previewPort);
   const maxIterations = Math.min(30, Math.max(1, Number(req.body?.maxIterations) || 20));
   const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
   const dryRun = Boolean(req.body?.dryRun);
 
   if (!prompt) {
@@ -645,8 +646,21 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
+      }
+
+      // Fix 6.4 — Scaffold Engine: seed an EMPTY workspace with the pinned,
+      // tested skeleton before any agent step runs. No other step may run
+      // first. A non-empty workspace is a real repo the agent continues in.
+      const scaffold = await writeScaffoldWorkspace(workspaceId, "vite-react");
+      if (scaffold.ok) {
+        await logBuildEvent(projectId, "scaffold_written", `Scaffold Engine wrote ${scaffold.filesWritten} files (${scaffold.framework})`, { data: scaffold });
       }
 
       await logBuildEvent(projectId, "agent_start", `Autonomous agent scaffold: ${prompt.slice(0, 80)}`, { data: { workspaceId, maxIterations, temperature } });
@@ -729,7 +743,7 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
     .filter(([, value]) => value));
   const maxIterations = Math.min(30, Math.max(1, Number(req.body?.maxIterations) || 20));
   const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
   const dryRun = Boolean(req.body?.dryRun);
   const previewPort = Number(req.body?.previewPort);
 
@@ -748,7 +762,12 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
 
@@ -1018,7 +1037,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
     : null;
   const extraSystemPrompt = cleanText(req.body?.extraSystemPrompt, 4000);
   const maxRetries = Math.min(3, Math.max(0, Number(req.body?.maxRetries) || 1));
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
 
   if (!plan || !plan.steps || !Array.isArray(plan.steps)) {
     res.status(400).json({ error: "Valid plan with steps is required" });
@@ -1035,7 +1054,12 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
 
@@ -1219,7 +1243,7 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
   const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
   const verifyAfterSteps = Boolean(req.body?.verifyAfterSteps !== false);
   const failFast = Boolean(req.body?.failFast);
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
 
   if (!prompt) {
     res.status(400).json({ error: "A build prompt/goal is required" });
@@ -1236,7 +1260,12 @@ router.post("/build/agent/run", requireAuth, requireScope("build:write"), async 
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
 
@@ -1317,7 +1346,7 @@ router.post("/build/agent/step", requireAuth, requireScope("build:write"), async
   const previewPort = Number(req.body?.previewPort);
   const maxIterations = Math.min(15, Math.max(1, Number(req.body?.maxIterations) || 10));
   const temperature = Math.max(0, Math.min(1, Number(req.body?.temperature) || 0.2));
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
 
   if (!prompt || !stepId || !stepDescription) {
     res.status(400).json({ error: "prompt, stepId, and stepDescription are required" });
@@ -1334,7 +1363,12 @@ router.post("/build/agent/step", requireAuth, requireScope("build:write"), async
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
 
@@ -2995,7 +3029,7 @@ router.post("/build/orchestrate", requireAuth, requireScope("build:write"), asyn
   const goal = cleanText(req.body?.goal, 500) || "a simple Infinity starter app";
   const previewPort = Number(req.body?.previewPort);
   const model = cleanText(req.body?.model, 64);
-  const skipPreflight = Boolean(req.body?.skipPreflight);
+  const skipPreflight = req.body?.skipPreflight !== false;
 
   if (!goal) {
     res.status(400).json({ error: "A build goal is required" });
@@ -3012,7 +3046,12 @@ router.post("/build/orchestrate", requireAuth, requireScope("build:write"), asyn
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
         if (!preflight.ok) {
-          throw new Error(`Pre-flight check failed: ${preflight.issues.join("; ")}`);
+          // Fix 1.3 — advisory, not a barricade: the build proceeds and the
+          // issues are surfaced as a warning instead of a 409 hard-stop. The
+          // wall existed because ensureWorkspace never made the workspace a
+          // real repo (fix 1.2); with git init it is, so failures like a dirty
+          // tree or low disk should warn, not block.
+          await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
 
