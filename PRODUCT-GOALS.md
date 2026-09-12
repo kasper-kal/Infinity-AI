@@ -143,13 +143,19 @@ what's net-new, the $0 path, and honest notes.
   into user-language cards on build completion (same failure, human words).
 - **Cost:** $0 (pure frontend + presentational mapping of existing errors).
 
-#### G09 · Character cap: max 22, then "big"
-- **The ask (verbatim):** "Character limit = max 22 if more than 22 turn into big."
-- **Today:** No such rule exists anywhere.
-- **Build:** A shared text-display rule — anything that hits a 22-char limit renders its overflow
-  in a "big" display style. **AMBIGUOUS:** the user did not say where this rule lives (titles?
-  the font designer glyph limits? status text?). Needs one clarifying question before building.
-- **Cost:** $0.
+#### G09 · Mobile chat composer: 22 chars, then the buttons wrap
+- **The ask (clarified 2026-09-12):** On mobile, in the chat box: when the user types **22
+  characters**, the send + microphone + "+" buttons still sit on the **same row** as the text. On
+  the **23rd** character, those buttons drop to a **new row under the text** instead.
+- **User's words:** "ON MOBILE when the user types 22 characters in the chat box when he puts in
+  the 23rd the send button, microphone button and the + button go to the next row under the text
+  instead of the same line."
+- **Today:** The chat composer lives in `src/components/views/ChatView.tsx` (in the shipped shell
+  it's wired to a dead composer, but this rule is about its *layout*). No such wrap rule exists.
+- **Build:** in the mobile composer, track input length; ≤ 22 chars → single row (input + buttons);
+  > 22 chars → the input takes the full first row and send / mic / "+" wrap to a second row.
+  Simple responsive state on the input value.
+- **Cost:** $0 (pure frontend layout).
 
 #### G13 · `ask_user` pop-up in Chat AND Build
 - **The ask:** The agent gains an `ask_user` tool in both Chat and Build that shows a pop-up with
