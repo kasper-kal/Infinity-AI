@@ -417,6 +417,37 @@ the human-facing UX (B) = the harness speaking to its user in human language; wr
 the default path good without setup?, and (2) does the operator have an unlocked control for it?
 If something is walled, hidden, or only works one fixed way, it fails the harness test.
 
+## PART 4 — PRODUCT IDENTITY & RELEASE FACTS (the frame)
+
+**Identity (verbatim):** **Infinity AI — "Truly Infinite" — by kAI (Kasper Kal AI).** kAI is the
+maker — a company, not yet officially registered. The product is **a single website meant to
+replace ALL other AI tools** — image creation, website building, book writing, researching, and
+more.
+
+**Release & hosting:** Infinity AI releases in **months, not soon**; when it goes public it will be
+hosted on **Render or similar**.
+
+**Budget (absolute):** a **strict $0** — no free trials, no credit card. This governs the product
+AND how everything in this repo is built and maintained.
+
+**Keys: each user brings their own API keys — nothing is hardcoded.** A user supplies their own
+keys. This is already the intended architecture: `llm_keys` carries per-account rows
+(`account_id`/`project_id`, priority, enable/disable, editable by the user via Settings → LLM keys).
+
+**What this frame means for the build:**
+- **"Replace all AI tools" explains the sprawl.** The past 60+ endpoints and the orphaned
+  earlier-product vision aren't scope creep — they're the mission: one surface for imagery, sites,
+  books, research, and every new thing (G08 @3D, G15 Video, G18 fonts) pushes toward it.
+- **Public multi-user is the destination.** Accounts/Auth/MFA are already real. The single-user
+  garage bits (in-memory state that dies on restart, fabricated deploys, path-mismatched panels,
+  green-lies) are exactly what must graduate to *honest + persistent* before anything is public —
+  a public product can't have "users" whose data evaporates or deploys that never happened.
+- **Render matches the $0 rule.** A Node + Postgres process is comfortably Render's free tier; the
+  deployment target should stay that cheap.
+- **User-supplied keys settles the money question.** kAI costs ~$0 to run; each user funds their
+  own usage. This is also *why* the product hides models/providers internally (G07) and why keys
+  are never hardcoded: the harness runs on the user's own accounts, transparently.
+
 ---
 _End of capture. Raw note preserved verbatim in Part 1; goals structured in Part 2; philosophy in
-Part 3. When a goal is picked up it graduates into `PHASES.md`._
+Part 3; identity & release facts in Part 4. When a goal is picked up it graduates into `PHASES.md`._
