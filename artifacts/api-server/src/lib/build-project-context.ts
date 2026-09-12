@@ -144,7 +144,7 @@ export async function buildProjectContextForBuild(
  * the WORKSPACE into the agent context, so generated code follows the
  * project's own rules instead of generic defaults.
  */
-import { readWorkspaceFileText } from "./workspace";
+import { readWorkspaceFileText, getWorkspaceRoot, listWorkspaceFiles, runGit } from "./workspace";
 
 async function readNonEmpty(relPath: string, workspaceId: string): Promise<string | null> {
   try {
@@ -226,4 +226,144 @@ export function combineBuildMemory(
   if (projectContextPrompt) sections.push(projectContextPrompt);
   if (sections.length === 0) return null;
   return sections.join("\n\n");
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Phase F (R2: "The Model Sees Bytes") — real file bytes at decision points.
+ *
+ * 3.1 — the planner reasons over REAL file contents + repo context, not a
+ *       path-only map. A path list told the model nothing about the code it
+ *       was planning changes to.
+ * 3.2 — the repo's command surface (package.json scripts + deps), the git
+ *       file tree, and the README/CLAUDE head are inlined so the plan aligns
+ *       with the project's own conventions from the first decision.
+ *
+ * Everything is best-effort and token-capped: reads never throw, a missing or
+ * empty workspace yields "" (never a fabricated listing), and the largest
+ * blocks are head-truncated. This is the thing that kills the "silent
+ * zero-write ok" failure mode the gate calls out — the model sees what it is
+ * about to change.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const SKIP_CONTENT = /(^|\/)(node_modules|dist|build|coverage|\.git|\.tmp)(\/|$)|\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|map|zip|tar|gz|pdf|lock)$|^\\.env/i;
+
+/**
+ * Real workspace bytes + repo context for a build's planning/decision step.
+ * Returns "" when the workspace is empty.
+ */
+export async function buildWorkspaceContentContext(
+  workspaceId: string,
+  options: { treeCap?: number; readmeChars?: number; fileHeadChars?: number; fileCap?: number; contentBudgetChars?: number } = {},
+): Promise<string> {
+  const { treeCap = 80, readmeChars = 1_200, fileHeadChars = 1_500, fileCap = 24, contentBudgetChars = 8_000 } = options;
+  const sections: string[] = [];
+  let contentBudget = contentBudgetChars;
+
+  const read = async (rel: string): Promise<string | null> => {
+    try {
+      const text = (await readWorkspaceFileText(rel, workspaceId)).trim();
+      return text || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const push = (text: string | null | undefined) => {
+    if (text?.trim()) sections.push(text.trim());
+  };
+
+  // 1. Git-tracked file tree (git ls-files; falls back to a workspace walk).
+  let tracked: string[] = [];
+  try {
+    const { ok, stdout } = await runGit(getWorkspaceRoot(workspaceId), ["ls-files"]);
+    if (ok) tracked = stdout.split("\n").map((p) => p.trim()).filter(Boolean);
+  } catch {
+    const entries = await listWorkspaceFiles(workspaceId).catch(() => []);
+    tracked = entries.filter((e) => e.type === "file" && !SKIP_CONTENT.test(e.path)).map((e) => e.path);
+  }
+  const relevant = tracked.filter((p) => p && !SKIP_CONTENT.test(p));
+  if (relevant.length > 0) {
+    push(`### Git-tracked files (${relevant.length})\n${relevant.slice(0, treeCap).join("\n")}${relevant.length > treeCap ? `\n… ${relevant.length - treeCap} more` : ""}`);
+  }
+
+  // 2. package.json — the repo's command surface + pinned deps (3.2).
+  try {
+    const raw = await read("package.json");
+    const parsed = raw
+      ? JSON.parse(raw) as { name?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> }
+      : null;
+    if (parsed) {
+      const scripts = Object.entries(parsed.scripts ?? {}).map(([n, cmd]) => `- ${n}: ${cmd}`);
+      const deps = { ...(parsed.dependencies ?? {}), ...(parsed.devDependencies ?? {}) } as Record<string, string>;
+      const depNames = Object.keys(deps);
+      const depList = depNames.slice(0, 60).map((d) => `- ${d}${deps[d] ? `@${deps[d]}` : ""}`);
+      push([
+        "### package.json",
+        parsed.name ? `name/version: ${parsed.name}` : undefined,
+        scripts.length > 0 ? `scripts:\n${scripts.join("\n")}` : undefined,
+        depNames.length > 0 ? `dependencies (${depNames.length}):\n${depList.join("\n")}${depNames.length > 60 ? `\n… ${depNames.length - 60} more` : ""}` : undefined,
+      ].filter((x): x is string => Boolean(x)).join("\n"));
+    }
+  } catch {
+    // unparseable package.json — its bytes get inlined below if it survives the skip list
+  }
+
+  // 3. README / CLAUDE head — the project's own rules and entry docs.
+  for (const [rel, label] of [["README.md", "README (head)"], ["CLAUDE.md", "CLAUDE.md (agent rules — follow these)"]] as const) {
+    const head = await read(rel);
+    if (head) push(`### ${label}\n${head.slice(0, readmeChars)}${head.length > readmeChars ? "\n… (truncated)" : ""}`);
+  }
+
+  // 4. REAL FILE BYTES for the most decision-relevant small files (3.1),
+  //    priority-ordered, head-capped each, whole block budget-capped.
+  const priority = (p: string) =>
+    /(^|\/)(index\.html|src\/main|src\/App|src\/index|vite\.config|tsconfig|tailwind\.config|next\.config|astro\.config|nuxt\.config)(\.|$)/.test(p) ? 0
+      : /\.(json|config\.(ts|js|mjs))$/.test(p) ? 1
+      : /\.(ts|tsx|js|jsx|mjs|mts)$/.test(p) ? 2
+      : /\.(css|html|md)$/.test(p) ? 3
+      : 4;
+  const contentCandidates = [...new Set(relevant)].sort((a, b) => priority(a) - priority(b) || a.localeCompare(b));
+  const forbidden = new Set(["package.json", "README.md", "CLAUDE.md"]);
+  const inlined: string[] = [];
+  for (const p of contentCandidates) {
+    if (forbidden.has(p)) continue;
+    if (inlined.length >= fileCap || contentBudget <= 0) break;
+    const text = await read(p);
+    if (!text) continue;
+    const head = text.length > fileHeadChars ? `${text.slice(0, fileHeadChars)}\n… (truncated)` : text;
+    contentBudget -= head.length + p.length + 24;
+    inlined.push(`### ${p}\n${head}`);
+  }
+  if (inlined.length > 0) push(`### Real file contents (decision points)\n${inlined.join("\n\n")}`);
+
+  return sections.join("\n\n");
+}
+
+/**
+ * Phase F 3.1 — inline the REAL bytes of a specific set of files (e.g. the
+ * files a plan declares it will touch) so a per-step coder call starts with
+ * the actual file it is about to change. Files that don't exist yet (new
+ * files) or fail to read are silently skipped. Returns "" when nothing reads.
+ */
+export async function buildFilesContentContext(
+  workspaceId: string,
+  paths: string[],
+  options: { headChars?: number; cap?: number; budgetChars?: number } = {},
+): Promise<string> {
+  const { headChars = 1_200, cap = 12, budgetChars = 6_000 } = options;
+  const sections: string[] = [];
+  let budget = budgetChars;
+  for (const p of [...new Set(paths)].filter((x) => x && !SKIP_CONTENT.test(x)).slice(0, cap)) {
+    if (budget <= 0) break;
+    try {
+      const text = (await readWorkspaceFileText(p, workspaceId)).trim();
+      if (!text) continue;
+      const head = text.length > headChars ? `${text.slice(0, headChars)}\n… (truncated)` : text;
+      budget -= head.length + p.length + 12;
+      sections.push(`### ${p}\n${head}`);
+    } catch {
+      // file doesn't exist yet (commonly a NEW file this plan will create)
+    }
+  }
+  return sections.length > 0 ? `## FILES DECLARED FOR THIS WORK (REAL BYTES)\n${sections.join("\n\n")}` : "";
 }

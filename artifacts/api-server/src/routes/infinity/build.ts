@@ -51,6 +51,8 @@ import { buildFullProjectContext } from "../../lib/project-context";
 import {
   buildProjectContextForBuild,
   combineBuildMemory,
+  buildWorkspaceContentContext,
+  buildFilesContentContext,
 } from "../../lib/build-project-context";
 import {
   getOrCreateBudget,
@@ -154,14 +156,19 @@ async function createBuildPlan(
   answers: Record<string, string>,
   existingFiles: string[],
   extraSystemPrompt = "",
-  projectId = "default",
+  workspaceId = "default",
 ): Promise<{ plan: BuildPlan; usedFallback: boolean; error?: string }> {
   const fallback = fallbackBuildPlan(prompt, existingFiles);
+  // Phase F 3.1 + 3.2: the planner reads REAL file bytes + repo context (git
+  // tree, package.json scripts/deps, README/CLAUDE head), not a path-only
+  // inventory. Token-capped, best-effort; "" for an empty workspace.
+  const workspaceContent = await buildWorkspaceContentContext(workspaceId);
   const systemPrompt = buildInfinityPrompt({
     role: "planner",
     extraInstructions: withExtraBuildInstructions(
       "You are the planning layer inside Infinity Build. Plan substantial implementation requests before any files are changed. " +
-      "Understand the user's requirements, inspect the listed workspace context, and produce a practical ordered plan for a local runnable app. " +
+      "Understand the user's requirements, inspect the REAL workspace file contents provided (not just file names), and produce a practical ordered plan for a local runnable app. " +
+      "Align with existing code and the project's own package.json scripts and pinned dependencies — reuse what exists. " +
       "Do not write code and do not claim that anything has been implemented. Return ONLY valid JSON with this shape: " +
       "{title:string,summary:string,steps:string[],files:string[],risks:string[]}. " +
       "Keep the plan concrete, honest, and concise. Reuse existing files when appropriate. Never use the em dash character.",
@@ -179,10 +186,12 @@ async function createBuildPlan(
       const adapter = await createBestAdapter();
       const result = await adapter.complete([
         { role: "system", content: sanitizePrompt(systemPrompt) },
-        { role: "user", content: `Request:\n${prompt}\n\nClarifying answers:\n${JSON.stringify(answers)}\n\nExisting workspace files:\n${existingFiles.join("\\n") || "(empty workspace)"}` },
+        { role: "user", content: `Request:\n${prompt}\n\nClarifying answers:\n${JSON.stringify(answers)}\n\n${workspaceContent || "Workspace: (empty workspace)"}` },
       ], {
         temperature: 0.2,
-        maxTokens: 900,
+        // Phase F 3.2: 900 -> 4000 so the plan can reason over real bytes and
+        // still emit a full ordered plan instead of being truncated to silence.
+        maxTokens: 4000,
       });
       const plan = parseBuildPlan(result.content.trim() ?? "", prompt, existingFiles);
       if (!plan) {
@@ -196,7 +205,7 @@ async function createBuildPlan(
         ? err.code === "RATE_LIMITED" || err.code === "QUOTA_EXCEEDED" || err.code === "SERVICE_UNAVAILABLE" || err.code === "TIMEOUT"
         : false;
       lastError = err instanceof Error ? err.message : String(err);
-      await logBuildEvent(projectId, "info", `Plan attempt ${attempt + 1}/${maxAttempts} failed (${code || "unknown"})`, {
+      await logBuildEvent(workspaceId, "info", `Plan attempt ${attempt + 1}/${maxAttempts} failed (${code || "unknown"})`, {
         data: { code, retryable, error: lastError.slice(0, 200) },
         step: "plan-retry",
       });
@@ -206,7 +215,7 @@ async function createBuildPlan(
       attempt++;
     }
   }
-  await logBuildEvent(projectId, "plan_fallback", "Plan degraded to canned fallback plan", {
+  await logBuildEvent(workspaceId, "plan_fallback", "Plan degraded to canned fallback plan", {
     data: { error: lastError.slice(0, 300) },
     step: "plan-fallback",
   });
@@ -712,15 +721,25 @@ router.post("/build/ask", requireAuth, async (req, res) => {
     { key: "ai", label: "AI interaction surface", selected: /\bai\b|assistant|chat|llm|model|generate/.test(prompt) },
     { key: "mobile", label: "Mobile responsive layout", selected: /mobile|responsive|phone|tablet/.test(prompt) },
   ];
-  res.json({
-    inventory,
-    questions: [
-      { key: "appType", label: "What kind of app is this?", options: ["Landing page", "Dashboard", "Portfolio", "Game", "Tool or utility"] },
-      { key: "uiStyle", label: "What UI style do you prefer?", options: ["Dark and futuristic", "Clean and minimal", "Colorful and playful", "Glassmorphism", "Retro or vintage"] },
-      { key: "aiProvider", label: "Will it talk to an AI provider?", options: ["No AI needed", "OpenAI-compatible API", "Simple local demo"] },
-      { key: "scope", label: "How big should the first version be?", options: ["Single page", "Two or three sections", "Multi-page feel"] },
-    ],
-  });
+  // Phase F 7.3 (+ 3.2 "drop 4 fixed dropdowns"): the old hardcoded 4-question
+  // dropdown (appType/uiStyle/aiProvider/scope) assumed a generic request on
+  // every call. Now the clarifier is ADAPTIVE: it only asks what the prompt
+  // does not already state, so users don't click past irrelevant chips and the
+  // planner doesn't swallow canned defaults. A specific prompt yields [].
+  const styleHint = /dark|futuristic|minimal|clean|colorful|playful|glassmorphism|retro|vintage|corporate|elegant|light|bold|neon/.test(prompt);
+  const sizeHint = /single .?page|multi.?page|pages?|router|navigation|dashboard|sections?|portal|site/.test(prompt);
+  const appTypeHint = /landing|landing.?page|dashboard|portfolio|game|tool|utility|forum|shop|store|ecommerce|blog|wiki|chat|notes?|todo|tracker/.test(prompt);
+  const questions: Array<{ key: string; label: string; options: string[] }> = [];
+  if (!appTypeHint) {
+    questions.push({ key: "appType", label: "What kind of app is this?", options: ["Landing page", "Dashboard", "Portfolio", "Tool or utility"] });
+  }
+  if (!styleHint) {
+    questions.push({ key: "uiStyle", label: "What UI style do you prefer?", options: ["Dark and futuristic", "Clean and minimal", "Colorful and playful", "Glassmorphism", "Retro or vintage"] });
+  }
+  if (!sizeHint) {
+    questions.push({ key: "scope", label: "How big should the first version be?", options: ["Single page", "Two or three sections", "Multi-page feel"] });
+  }
+  res.json({ inventory, questions });
 });
 
 router.post("/build/plan", requireAuth, async (req, res) => {
@@ -804,6 +823,9 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
       await ensureWorkspace(workspaceId);
 
       // Phase 5.3 Integration: Pre-flight check before starting build
+      // Phase F 7.14: the preflight EVIDENCE is threaded into the agent goal,
+      // not just logged — the model sees the actual issues and works around them.
+      let preflightIssues: string[] = [];
       if (!skipPreflight) {
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
@@ -813,9 +835,13 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
           // wall existed because ensureWorkspace never made the workspace a
           // real repo (fix 1.2); with git init it is, so failures like a dirty
           // tree or low disk should warn, not block.
+          preflightIssues = preflight.issues;
           await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
+      const preflightBlock = preflightIssues.length > 0
+        ? "## PREFLIGHT WARNINGS (advisory — resolve these if you can before making changes)\n" + preflightIssues.join("\n")
+        : "";
 
       // Fix 6.4 — Scaffold Engine: seed an EMPTY workspace with the pinned,
       // tested skeleton before any agent step runs. No other step may run
@@ -848,7 +874,11 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
       };
 
       // Run the autonomous agent with the scaffold goal
-      const scaffoldGoal = `${prompt}\n\nSCAFFOLD TASK: Create a complete, runnable project structure from scratch. Use the available tools to explore, plan, and implement. Do NOT return a JSON file map - use tools to create files progressively.`;
+      const scaffoldGoal = [
+        prompt,
+        "SCAFFOLD TASK: Create a complete, runnable project structure from scratch. Use the available tools to explore, plan, and implement. Do NOT return a JSON file map - use tools to create files progressively.",
+        preflightBlock, // Phase F 7.14 — preflight evidence (advisory)
+      ].filter(Boolean).join("\n\n");
 
       const agentConfig: AgentConfig = {
         maxIterations,
@@ -920,6 +950,8 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
       await ensureWorkspace(workspaceId);
 
       // Phase 5.3 Integration: Pre-flight check before iteration
+      // Phase F 7.14: the preflight EVIDENCE is threaded into the iterate goal.
+      let preflightIssues: string[] = [];
       if (!skipPreflight) {
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
@@ -929,9 +961,13 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
           // wall existed because ensureWorkspace never made the workspace a
           // real repo (fix 1.2); with git init it is, so failures like a dirty
           // tree or low disk should warn, not block.
+          preflightIssues = preflight.issues;
           await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
+      const preflightBlock = preflightIssues.length > 0
+        ? "## PREFLIGHT WARNINGS (advisory — resolve these if you can before making changes)\n" + preflightIssues.join("\n")
+        : "";
 
       await logBuildEvent(projectId, "agent_start", `Autonomous agent iterate: ${prompt.slice(0, 80)}`, { data: { workspaceId, maxIterations, temperature } });
 
@@ -1003,6 +1039,7 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         resumeContext,
         `${prompt}`,
         "ITERATE TASK: Continue developing this project based on the verification + preview feedback and user requests. Use the available tools to explore the current state, make improvements, and repair anything broken. Do NOT return a JSON file map - use tools to modify files progressively.",
+        preflightBlock, // Phase F 7.14 — preflight evidence (advisory)
       ].filter(Boolean);
       if (verifyFeedback) {
         iterateGoal.push("## REAL VERIFICATION FAILURES TO FIX (fix these first)\n" + verifyFeedback);
@@ -1278,6 +1315,8 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       await ensureWorkspace(workspaceId);
 
       // Phase 5.3 Integration: Pre-flight check before starting build
+      // Phase F 7.14: the preflight EVIDENCE is threaded into the step goals.
+      let preflightIssues: string[] = [];
       if (!skipPreflight) {
         const preflight = await preflightCheck(projectId);
         await logBuildEvent(projectId, "info", "Pre-flight check completed", { data: { ok: preflight.ok, checks: preflight.checks, issues: preflight.issues } });
@@ -1287,9 +1326,13 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           // wall existed because ensureWorkspace never made the workspace a
           // real repo (fix 1.2); with git init it is, so failures like a dirty
           // tree or low disk should warn, not block.
+          preflightIssues = preflight.issues;
           await logBuildEvent(projectId, "warning", "Pre-flight issues (advisory — continuing)", { data: { issues: preflight.issues } });
         }
       }
+      const preflightBlock = preflightIssues.length > 0
+        ? "## PREFLIGHT WARNINGS (advisory — resolve these if you can before making changes)\n" + preflightIssues.join("\n")
+        : "";
 
       await logBuildEvent(projectId, "plan_start", `Execute plan: ${plan.title?.slice(0, 80)}`, { data: { steps: plan.steps.map(s => s.id), workspaceId } });
 
@@ -1316,6 +1359,11 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       // Run the agent for EACH step, verify after each step before advancing.
       // A step is only "done" when its own verification passes.
       const resumeContext = await buildResumeContext(projectId);
+
+      // Phase F 3.1: inline the REAL bytes of the files the plan declares it
+      // will touch, so every step's coder call starts with the actual code it
+      // is about to change (not a path list). New files are skipped silently.
+      const stepFilesReal = await buildFilesContentContext(workspaceId, Array.isArray(plan.files) ? plan.files : []);
 
       // Track overall state across steps
       let allEditedFiles: string[] = [];
@@ -1371,6 +1419,8 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           `User Prompt: ${prompt}`,
           `Answers: ${JSON.stringify(answers)}`,
           `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
+          stepFilesReal, // Phase F 3.1 — real bytes of the files this plan will touch
+          preflightBlock, // Phase F 7.14 — preflight evidence (advisory)
         ].filter(Boolean).join("\n\n");
 
         const agentConfig: AgentConfig = {

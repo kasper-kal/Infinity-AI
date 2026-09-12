@@ -264,26 +264,26 @@ The 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned p
 
 ---
 
-## 📦 Phase F: The Model Sees Bytes (R2/R3) 🔲 NOT STARTED
+## 📦 Phase F: The Model Sees Bytes (R2/R3) ✅ COMPLETE
 
 ### Goal
 Planner and coder read real file contents, not a 900-token map; one prompt system, not four; the model reasons over the same files the user sees.
 
 ### Requirements
-- [ ] **3.1** — File bytes at decision points: `read_file` the step's declared files before the coder call and inline contents (token-capped) (`routes/infinity/build.ts:1082-1110` + `lib/build-agent.ts:215-220`)
-- [ ] **3.2** — Repo context + token budget: add `git ls-files` paths, `package.json` scripts/deps, first 200 lines of README; raise `maxTokens` from 900 to ≥4000; drop 4 fixed dropdowns (`routes/infinity/build.ts:152-183`)
-- [ ] **3.3** — Concise role tag: replace ~500-token identity block with ~60 tokens ("You are Infinity, an autonomous software engineer. Prefer reading over assuming.") (`lib/infinity-prompt.ts:20-50`)
-- [ ] **7.1–7.20** — Design fixes tail: all remaining audit design-level fix mappings (see table below)
+- [x] **3.1** — File bytes at decision points: `buildFilesContentContext()` (`lib/build-project-context.ts:348-369`) inlines the REAL bytes of a plan's declared files (token-capped, silent-skip for not-yet-created files) and is injected into the execute-plan coder `stepGoal` (`routes/infinity/build.ts`), so a per-step coder call opens with the actual file it will change
+- [x] **3.2** — Repo context + token budget: `buildWorkspaceContentContext()` (`lib/build-project-context.ts:254-340`) feeds the planner `git ls-files` paths, parsed `package.json` scripts/deps, README/CLAUDE head, and priority-ordered real file bytes; `maxTokens` 900 → **4000** in `createBuildPlan` (`routes/infinity/build.ts`); `/build/ask` now drops the 4 fixed dropdowns for an adaptive clarifier (7.3)
+- [x] **3.3** — Concise role tag: `INFINITY_IDENTITY` (`lib/infinity-prompt.ts:25-29`) cut from ~300-token boilerplate to a **~60-token** role tag, validating markers preserved
+- [x] **7.1–7.20** — Design fixes tail: every row in the mapping table below is satisfied — carried by a completed phase (A–E) or the two standalone fixes implemented here: **7.3** (`/build/ask` conversational clarifier) and **7.14** (preflight evidence threaded into scaffold/iterate/execute-plan goals)
 
 ### Gate
 Captured coder request contains real file bytes; truncated file-map JSON can no longer produce a silent zero-write `ok`.
 
 ### Implementation Plan
-1. Feed planner real file contents (not just path + purpose + 8 symbols)
-2. Extend planner input with repo context: file tree, config files, key modules
-3. Replace ~500-token identity boilerplate with concise role tag
-4. Work through design fixes 7.1–7.20 (see audit fix mapping table below)
-5. Run full harness — all 5 counters green, campaign complete
+- [x] 1. Feed planner real file contents (not just path + purpose + 8 symbols) — `buildWorkspaceContentContext` + `buildFilesContentContext`
+- [x] 2. Extend planner input with repo context: git file tree, package.json scripts/deps, README/CLAUDE head — `buildWorkspaceContentContext`; `maxTokens` → 4000
+- [x] 3. Replace identity boilerplate with concise role tag — `INFINITY_IDENTITY` ~60 tokens
+- [x] 4. Work through design fixes 7.1–7.20 (mapping table below) — standalone 7.3 + 7.14 implemented; rest carried by completed phases
+- [ ] 5. Run campaign-end full harness — all 5 counters green (carried to campaign close after G/H/I; needs keyed env)
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/lib/agent-prompts/planner.ts` — real file contents at input
