@@ -107,7 +107,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "screenshot",
-    description: "Capture a screenshot of the running preview",
+    description: "Capture a screenshot of the running preview. When the active model supports vision (image input), the image is attached to your next turn — use it to judge layout, spacing, and visual state. When it does not, the capture is still recorded.",
     parameters: {
       type: "object",
       properties: {
@@ -442,7 +442,19 @@ async function toolScreenshot(args: Record<string, unknown>, context: ToolExecut
       return { success: false, error: result.error || "Screenshot failed" };
     }
 
-    return { success: true, result: { viewport, url: targetUrl, image: result.data } };
+    // Phase H 1 — the image is returned as a data URL that the agent loop
+    // attaches to the next completion as a real vision content part (when the
+    // active model supports vision). The loop strips `imageDataUrl` before the
+    // raw payload ever reaches the conversation text, so a ~300KB base64 string
+    // cannot pollute the prompt 20 times over a run.
+    return {
+      success: true,
+      result: {
+        viewport,
+        url: targetUrl,
+        imageDataUrl: `data:image/png;base64,${result.data}`,
+      },
+    };
   } finally {
     pool.release(slot.id);
   }

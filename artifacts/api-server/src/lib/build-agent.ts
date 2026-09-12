@@ -16,7 +16,7 @@
 
 import { createBestAdapter } from "./adapter-factory";
 import { buildInfinityPrompt, sanitizePrompt } from "./infinity-prompt";
-import { LLMAdapter, LLMCompletionOptions, LLMMessage, LLMTool, LLMToolCall } from "./llm-adapter";
+import { LLMAdapter, LLMCompletionOptions, LLMContentPart, LLMMessage, LLMTool, LLMToolCall } from "./llm-adapter";
 import {
   executeTool,
   executeToolSequence,
@@ -84,6 +84,19 @@ export interface AgentState {
   fingerprints: string[];
   // Fingerprint that already triggered an oscillation warning (dedupe)
   lastWarnedFingerprint: string;
+  // Phase H 1: latest screenshot data URL to attach to the next turn as a vision
+  // content part. Held OUTSIDE the conversation so the raw base64 never becomes
+  // prompt text; attached once, then cleared.
+  latestScreenshot: { dataUrl: string } | null;
+  // Phase H 1: set after the provider rejects an image input (a text-only model)
+  // — the rest of the run proceeds text-only instead of erroring.
+  visionDisabled: boolean;
+  // Phase H 6: file tree persisted from the first list_files call so the model
+  // never has to re-discover the project structure across a long run.
+  fileTree: string[];
+  // Phase H 2: screenshots the CALLER captured (e.g. iterate's preview readout)
+  // to hand the model on the first turn.
+  pendingVision: Array<{ dataUrl: string; note?: string }>;
 }
 
 /**
@@ -142,14 +155,18 @@ async function buildAgentSystemPrompt(workspaceId?: string): Promise<string> {
       } components — use generate_component to write one, do not author from scratch):\n${corpusNames.map(n => `- ${n}`).join("\n")}`
     : "";
 
-  // Phase 6.2 — honor project conventions: read CLAUDE.md/.cursorrules/
-  // package.json scripts/tsconfig/vitest/eslint from the workspace so generated
-  // code follows the project's own rules. Best-effort; null when nothing found.
+  // Phase 6.2 + H.4 — honor project conventions AND feed the real workspace
+  // content (git file tree, package.json scripts/deps, README/CLAUDE head, real
+  // file bytes) into the SYSTEM prompt so every call of this run reasons over
+  // the same files the user sees. Both best-effort; empty when nothing exists.
   let conventionsBlock = "";
+  let workspaceBlock = "";
   if (workspaceId) {
-    const { buildProjectConventionsContext } = await import("./build-project-context");
+    const { buildProjectConventionsContext, buildWorkspaceContentContext } = await import("./build-project-context");
     const conventions = await buildProjectConventionsContext(workspaceId).catch(() => null);
     if (conventions) conventionsBlock = `\n## PROJECT CONVENTIONS (from this workspace — honor them)\n${conventions}\n`;
+    const workspaceContent = await buildWorkspaceContentContext(workspaceId).catch(() => "");
+    if (workspaceContent) workspaceBlock = `\n## WORKSPACE CONTENT (the real files in this workspace — read before deciding)\n${workspaceContent}\n`;
   }
 
   return `You are Infinity, an autonomous software engineering agent. You work inside a local workspace and have access to tools to explore, modify, and verify code.
@@ -175,6 +192,7 @@ RULES:
 - Return tool calls using the native tool_calls mechanism
 - When done with a goal, call the "done" tool with summary
 
+${workspaceBlock}
 ${conventionsBlock}
 ${corpusBlock}
 
@@ -283,6 +301,19 @@ function convertNativeToolCalls(nativeCalls: LLMToolCall[] | undefined): ToolCal
 }
 
 /**
+ * Phase H 1 — detect a provider rejecting an image content part. Free models
+ * sometimes advertise vision in capabilities but still 400 on image_url inputs
+ * (not a real multimodal endpoint, or "detail" not honored). We only trigger the
+ * text-only failover on a 400 or an explicit image/vision/URL rejection — any
+ * other error keeps the existing propagate path.
+ */
+function isVisionRejection(error: unknown): boolean {
+  const status = (error as { status?: number })?.status;
+  const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return status === 400 || status === 415 || /image|vision|multimodal|content type|invalid .*url|unsupported.*(media|input)/.test(message);
+}
+
+/**
  * Run verification after implementation steps
  */
 async function runVerification(
@@ -385,6 +416,7 @@ export async function runAutonomousAgent(
   goal: string,
   context: ToolExecutionContext,
   config: Partial<AgentConfig> = {},
+  opts: { initialScreenshots?: Array<{ dataUrl: string; note?: string }> } = {},
 ): Promise<{
   success: boolean;
   summary: string;
@@ -445,6 +477,10 @@ export async function runAutonomousAgent(
     gates: [],
     fingerprints: [],
     lastWarnedFingerprint: "",
+    latestScreenshot: null,
+    visionDisabled: false,
+    fileTree: [],
+    pendingVision: opts.initialScreenshots ?? [],
   };
 
   // Build initial user message
@@ -463,6 +499,24 @@ export async function runAutonomousAgent(
       // Build messages for this turn (growing conversation)
       const messages: LLMMessage[] = [...state.conversation];
 
+      // Phase H 1/2 — attach screenshots as real vision content parts. The images
+      // live outside the conversation (state.latestScreenshot / state.pendingVision)
+      // so raw base64 never becomes prompt text; they are attached once, then
+      // cleared. Only vision-capable adapters get them.
+      const visionParts: LLMContentPart[] = [];
+      if (!state.visionDisabled && adapter.getCapabilities().vision) {
+        const items = [...state.pendingVision, ...(state.latestScreenshot ? [{ dataUrl: state.latestScreenshot.dataUrl, note: "Screenshot captured by the screenshot tool last turn." }] : [])];
+        for (const item of items) {
+          visionParts.push({ type: "text", text: item.note ?? "Screenshot of the preview." });
+          visionParts.push({ type: "image_url", image_url: { url: item.dataUrl, detail: "low" } });
+        }
+        state.pendingVision = [];
+        state.latestScreenshot = null;
+      }
+      if (visionParts.length > 0) {
+        messages.push({ role: "user", content: visionParts });
+      }
+
       const options: LLMCompletionOptions = {
         temperature: mergedConfig.temperature,
         maxTokens: 4000,
@@ -470,11 +524,25 @@ export async function runAutonomousAgent(
         toolChoice: "auto",
       };
 
-      const completion = await withRetry(
-        async () => adapter.complete(messages, options),
-        { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
-        { projectId: context.projectId, operation: `agent-iteration-${state.iterations}` }
-      );
+      const retryOpts = { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 };
+      const logCtx = { projectId: context.projectId, operation: `agent-iteration-${state.iterations}` };
+      let completion: Awaited<ReturnType<typeof adapter.complete>>;
+      try {
+        completion = await withRetry(() => adapter.complete(messages, options), retryOpts, logCtx);
+      } catch (error) {
+        // A 400 with an image part usually means the free model is text-only
+        // despite advertising vision. Fail over to text-only ONCE for this run
+        // instead of letting the whole agent loop die on an image.
+        if (visionParts.length > 0 && isVisionRejection(error)) {
+          state.visionDisabled = true;
+          await logBuildEvent(projectId, "vision_disabled", "Provider rejected image input — continuing text-only", {
+            data: { iteration: state.iterations },
+          });
+          completion = await withRetry(() => adapter.complete([...state.conversation], options), retryOpts, logCtx);
+        } else {
+          throw error;
+        }
+      }
 
       // Phase E 5.5: accumulate real token usage into the checkpoint source-of-truth
       if (completion.usage) {
@@ -509,9 +577,34 @@ export async function runAutonomousAgent(
       state.conversation.push(assistantMessage);
 
       // Execute tool calls
-      const results = await executeToolSequence(toolCalls, context);
+      const rawResults = await executeToolSequence(toolCalls, context);
       state.toolCalls.push(...toolCalls);
+
+      // Phase H 1/6 — sanitize tool results for the conversation: strip the raw
+      // screenshot base64 out of anything the model reads as text (it is stashed
+      // separately and attached as a vision part next turn), and persist the
+      // file tree from the first list_files so the structure needs no revisit.
+      const results = rawResults.map((r) => {
+        const res = r.result as Record<string, unknown> | null | undefined;
+        if (r.success && res && typeof res === "object" && typeof res.imageDataUrl === "string") {
+          const { imageDataUrl: _image, ...rest } = res;
+          return { ...r, result: { ...rest, visual: true, note: "screenshot captured; image attached to the model next turn when vision is supported" } };
+        }
+        return r;
+      });
       state.toolResults.push(...results);
+      for (let i = 0; i < toolCalls.length; i++) {
+        const raw = rawResults[i];
+        if (toolCalls[i].name === "screenshot" && raw?.success && typeof (raw.result as Record<string, unknown> | null)?.imageDataUrl === "string") {
+          state.latestScreenshot = { dataUrl: (raw.result as { imageDataUrl: string }).imageDataUrl };
+        }
+        if (toolCalls[i].name === "list_files" && raw?.success) {
+          const files = (raw.result as { files?: Array<{ path: string }> } | undefined)?.files;
+          if (Array.isArray(files)) {
+            state.fileTree = [...new Set(files.map((f) => f.path).filter(Boolean))].slice(0, 300);
+          }
+        }
+      }
 
       // Add tool results to conversation
       for (let i = 0; i < toolCalls.length; i++) {
@@ -745,7 +838,7 @@ export async function runAutonomousAgent(
  * Build user message for the current iteration
  */
 function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: string): string {
-  const { goal, iterations, toolResults, errors, context } = state;
+  const { goal, iterations, toolResults, errors, context, fileTree } = state;
 
   // Get working context for this project
   const workingContext = getWorkingContext(context.projectId);
@@ -762,6 +855,14 @@ function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: 
     ``,
     `## WORKSPACE CONTEXT:`,
     contextPrompt || "(no context yet)",
+    ``,
+    // Phase H 6 — the file tree is persisted from the first list_files call, so
+    // the model never needs to re-discover the project structure even after a
+    // long context. Cheap (paths only, capped) and always present once known.
+    `## WORKSPACE FILE TREE (persisted — from the first list_files call):`,
+    fileTree && fileTree.length > 0
+      ? fileTree.map((p) => `- ${p}`).join("\n")
+      : "(not yet listed — run list_files once to map the workspace)",
     ``,
     `## PREVIOUS TOOL RESULTS (last 5):`,
     toolResults.length > 0

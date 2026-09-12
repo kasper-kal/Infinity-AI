@@ -430,6 +430,7 @@ async function capturePreviewDomForIterate(previewPort: number): Promise<{
   interactiveElements: PreviewAgentElement[];
   visibleText: string;
   consoleErrors: string[];
+  screenshotDataUrl?: string;
   error?: string;
 }> {
   let page: Page | null = null;
@@ -447,11 +448,21 @@ async function capturePreviewDomForIterate(previewPort: number): Promise<{
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
     const interactiveElements = await inspectPreviewPage(page);
     const visibleText = await page.evaluate(() => (document.body?.innerText ?? "").replace(/\\s+/g, " ").trim().slice(0, 4000));
+    // Phase H 2 — the same browser pass also captures what the USER sees, so the
+    // iterate model gets a real screenshot of the running app, not just text.
+    let screenshotDataUrl: string | undefined;
+    try {
+      const shot = await page.screenshot({ type: "png", fullPage: false });
+      screenshotDataUrl = `data:image/png;base64,${shot.toString("base64")}`;
+    } catch {
+      screenshotDataUrl = undefined;
+    }
     return {
       ok: true,
       interactiveElements,
       visibleText,
       consoleErrors: [...new Set(consoleErrors)].slice(-12),
+      screenshotDataUrl,
     };
   } catch (error) {
     return {
@@ -1009,11 +1020,12 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         req.log.warn({ err: verifyErr }, "Pre-iterate verification errored — continuing without feedback");
       }
 
-      // Phase D 4.3: when a real preview is running, feed the model the app's
+      // Phase D 4.3 + H.2: when a real preview is running, feed the model the app's
       // actual rendered DOM (interactive elements, visible text, console errors)
-      // as the preview section — not just The Vite server's stdout. The stdout
-      // is only a fallback when the preview/browser is unavailable.
+      // AND a real screenshot as the preview section — not just the Vite server's
+      // stdout. The stdout is only a fallback when the preview/browser is down.
       let previewFindings = previewOutput;
+      let previewScreenshotDataUrl: string | undefined;
       if (Number.isInteger(previewPort) && previewPort >= 1024 && previewPort <= 65535) {
         await logBuildEvent(projectId, "info", "Capturing running preview DOM for iterate goal", { data: { workspaceId, previewPort } });
         const dom = await capturePreviewDomForIterate(previewPort);
@@ -1027,7 +1039,9 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
             elementLines || "  (no interactive elements found)",
             `Visible text: ${dom.visibleText || "(empty)"}`,
             `Console errors (${dom.consoleErrors.length}): ${dom.consoleErrors.join("; ") || "none"}`,
+            `Screenshot: ${dom.screenshotDataUrl ? "captured and attached to the next model turn (vision-supported adapters)" : "not available"}`,
           ].join("\n");
+          previewScreenshotDataUrl = dom.screenshotDataUrl;
         } else {
           await logBuildEvent(projectId, "warning", `Preview DOM capture failed — falling back to Vite stdout: ${dom.error ?? "unknown"}`, { data: { workspaceId } });
         }
@@ -1056,7 +1070,13 @@ router.post("/build/iterate", requireAuth, requireScope("build:write"), async (r
         failFast: false,
       };
 
-      const agentResult = await runAutonomousAgent(iterateGoal.join("\n\n"), executionContext, agentConfig);
+      const agentResult = await runAutonomousAgent(iterateGoal.join("\n\n"), executionContext, agentConfig, {
+        // Phase H 2 — hand the iterate model the screenshot the user sees, so it
+        // judges the running app visually (when a vision-capable adapter is active)
+        initialScreenshots: previewScreenshotDataUrl
+          ? [{ dataUrl: previewScreenshotDataUrl, note: "Screenshot of the running preview at iterate start — judge layout and visual state from this." }]
+          : [],
+      });
 
       // Final checkpoint — REAL phase from agent, not hardcoded "planning"
       if (hasIsolated(projectId)) {

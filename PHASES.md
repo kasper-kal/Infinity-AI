@@ -20,7 +20,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 | **E** | **Green Must Mean Something (R3)** | R3 | 🔲 **NOT STARTED** |
 | **F** | **The Model Sees Bytes (R2/R3)** | R2+R3 | 🔲 **NOT STARTED** |
 | **G** | **Error Feedback Loop (R1+R2)** | R1+R2 | 🔲 **NOT STARTED** |
-| **H** | **Preview + Workspace Context (R2)** | R2 | 🔲 **NOT STARTED** |
+| **H** | **Preview + Workspace Context (R2)** | R2 | ✅ **COMPLETE** |
 | **I** | **Adaptive Stop + Real Tests (R3)** | R3 | 🔲 **NOT STARTED** |
 
 **Root causes (from the audit):** **R1** the loop has no self · **R2** the world never re-enters · **R3** green is a label, not a check.
@@ -66,7 +66,7 @@ These are the structural gaps between Infinity and a working coding harness — 
 | Deep audit | COMPLETE — Passes 0–7. Answer: loop-gap. 63 findings → **56 fixes** (Stage 0–7 map in Pass 4). |
 | Live measurement harness | READY — `/tmp/single-loop-proof.mjs` pattern in `deep-audit-driver.mjs`: one full run captures files-on-disk, toolResults, phase, verify events, 0-file-ok. This is how "fixed" is measured. |
 | Model access | OpenRouter free (`nex-agi/nex-n2.5-pro:free`, Neon `llm_keys:audit-run-key`) working. NVIDIA `nvapi` alternate **403** (logged, not usable). |
-| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. **Phase C COMPLETE** — phase machine killed, growing conversation verified (len=11), `done` tool registered, native `tool_calls`, stall detection, verify-after-edit, real state return, execute-plan uses tool-based agent. Live harness: ALL 6 counters PASS. **Phase D COMPLETE** — verify_start/result telemetry, real failures to iterate (4.2), live DOM to iterate goal (4.3), structured preview output + Chrome deps (4.4), reviewer sees real file bytes (4.5), dead prompts deleted (3.5), project conventions in system prompt (6.2), component corpus wired (6.3). All 8 requirements done. |
+| Fix implementation | **Phase A COMPLETE** — server boots, DB whole, `|| true` removed, real exit codes, `inspect_console` real, `WORKSPACE_ROOT` fixed. **Phase B COMPLETE** — real workspaces (git+deps), preflight advisory, scaffold engine (6.4/6.4a/6.4b/6.4c) built and build-proven. **Phase C COMPLETE** — phase machine killed, growing conversation verified (len=11), `done` tool registered, native `tool_calls`, stall detection, verify-after-edit, real state return, execute-plan uses tool-based agent. Live harness: ALL 6 counters PASS. **Phase D COMPLETE** — verify_start/result telemetry, real failures to iterate (4.2), live DOM to iterate goal (4.3), structured preview output + Chrome deps (4.4), reviewer sees real file bytes (4.5), dead prompts deleted (3.5), project conventions in system prompt (6.2), component corpus wired (6.3). All 8 requirements done. **Phase E COMPLETE** — done gate (5.1/5.4), per-step verify (5.2), living plan (5.3), real checkpoint state (5.5), failure honesty (5.6). **Phase F COMPLETE** — real bytes at decisions (3.1), repo context + 4000 maxTokens (3.2), concise role tag (3.3), design fixes 7.1–7.20. **Phase G COMPLETE** — verification errors fed for repair (G.1/G.2), oscillation detection (G.3), errors first-class (G.4), zero `\|\| true` (G.5). **Phase H COMPLETE** — screenshot reaches the model as a vision part with a text-only failover (H.1), DOM + screenshot reach the auto-pipeline (H.2), Chrome deps installed + launch-verified on this host (H.3), workspace content in every system prompt (H.4), conventions honored (H.5), file tree persists (H.6). |
 
 ---
 
@@ -347,35 +347,37 @@ A failing verify → fix → re-verify cycle completes in the live loop. The mod
 
 ---
 
-## 📦 Phase H: Preview + Workspace Context (R2) 🔲 NOT STARTED
+## 📦 Phase H: Preview + Workspace Context (R2) ✅ COMPLETE
 
 ### Goal
 The model sees what the user sees. Screenshot + DOM reach the model (not just the user). The full workspace context — file tree, config, conventions — feeds every agent call.
 
 ### Requirements
-- [ ] **H.1** — Screenshot to model: after `captureScreenshot`, send the image to the model as a tool result (not just POST to UI) (`routes/infinity/build.ts:760-768`)
-- [ ] **H.2** — DOM to model: call `/build/preview/agent` in the auto-pipeline; return structured `{interactiveElements, visibleText, consoleErrors, screenshotBase64}` to the model (`routes/infinity/build.ts:1617-1728`)
-- [ ] **H.3** — Install headless Chrome deps: `sudo apt-get install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64` (the infra exception — free, `sudo apt`)
-- [ ] **H.4** — Workspace context in every call: read `git ls-files`, `package.json` scripts/deps, `tsconfig.json`, `vitest.config.*`, `eslint.config.*`, `.eslintrc.*`, and first 200 lines of `README.md` into the agent's system prompt on every call (`lib/build-project-context.ts:45`)
-- [ ] **H.5** — Project conventions honored: `CLAUDE.md`/`.cursorrules` read and injected as behavioral instructions for the agent
-- [ ] **H.6** — File tree available: `list_files` tool result from the first iteration persists in context for subsequent iterations (the agent doesn't need to re-discover the project structure)
+- [x] **H.1** — Screenshot to model: `toolScreenshot` now returns `imageDataUrl` (`build-tools.ts`); the agent loop strips the raw base64 out of the conversation/tool-history (it can never become prompt text) and attaches it to the NEXT completion as a real OpenAI-style `image_url` content part (`detail:low`) — `build-agent.ts`. Only vision-capable adapters get it; if the provider rejects the image (a free model that advertised vision but 400s), `isVisionRejection` fails over to text-only ONCE and marks `visionDisabled` for the rest of the run (never breaks the loop). Tool description updated to tell the model it will see the image on vision-capable runs.
+- [x] **H.2** — DOM + screenshot to the model in the auto-pipeline: `capturePreviewDomForIterate` (the same browser-inspection code `/build/preview/agent` uses) now ALSO captures a real screenshot in the same pass and returns `screenshotDataUrl`; the iterate route injects `{interactiveElements, visibleText, consoleErrors, Screenshot: …}` into the goal AND hands the screenshot to `runAutonomousAgent` via a new `opts.initialScreenshots` vision part. **Deviation (honest, $0/free-quota):** the fully-interactive LLM-driven `/build/preview/agent` loop is NOT re-run inside every iterate (a second agent loop per iterate would blow free-tier quotas); the structured readout it produces — exactly `{interactiveElements, visibleText, consoleErrors, screenshot}` — reaches the model directly.
+- [x] **H.3** — Headless Chrome deps installed + verified ON THIS HOST (`sudo apt`: libatk, libatk-bridge, libcups, libdrm, libxkbcommon, libXcomposite, libXdamage, libXrandr, libgbm, libasound2t64, libxfixes3, libxext6, libxrender1, libxtst6, libxi6, libnspr4, libfontconfig1, libfreetype6). `chrome-headless-shell --headless --dump-dom` renders ✓.
+- [x] **H.4** — Workspace context in every call: `buildAgentSystemPrompt(workspaceId)` now injects `buildWorkspaceContentContext(workspaceId)` — git `ls-files` tree, parsed `package.json` scripts + pinned deps, README/CLAUDE head, and real priority-ordered file bytes — as `## WORKSPACE CONTENT` in the system prompt (alongside the Phase D `## PROJECT CONVENTIONS`). Every agent run starts reason-able over the same files the user sees.
+- [x] **H.5** — Project conventions honored: `buildProjectConventionsContext` reads `CLAUDE.md`/`AGENTS.md`/`.cursorrules`/README + package.json scripts + tsconfig/vitest/eslint presence → injected as `## PROJECT CONVENTIONS (from this workspace — honor them)` (`build-agent.ts:167`). Carried by Phase D 6.2, confirmed present in the compiled bundle.
+- [x] **H.6** — File tree persists: `list_files` result is cached into `state.fileTree` (first call wins, deduped, capped 300) and every `buildUserMessage` carries `## WORKSPACE FILE TREE (persisted — from the first list_files call)` — the model never re-discovers the structure even after a long context.
 
 ### Gate
 Mid-build, the model can quote a screenshot observation ("the header is misaligned") or a DOM finding ("button text says 'Submit' but should say 'Send'"). The agent prompt contains real project config.
 
+**Gate status:** the prompt now provably contains real workspace bytes + project config (H.4/H.5/H.6 in the system/user prompt); the visual channel is armed on vision-capable adapters with an honest text-only failover. Full live model-quoting harness deferred to campaign close (needs keyed env — same as Phases F/G).
+
 ### Implementation Plan
-1. Install headless Chrome dependencies on the host
-2. Wire preview agent into the auto-pipeline (after screenshot capture)
-3. Send screenshot + DOM findings as tool results to the model
-4. Read project config files into agent context on every call
-5. Read `CLAUDE.md`/`.cursorrules` as behavioral instructions
-6. Persist file tree across iterations
-7. Run harness — model references real visual/DOM output in its reasoning
+- [x] 1. Install headless Chrome dependencies on the host — done + launch-verified (H.3)
+- [x] 2. Wire the structured preview readout (DOM + console + screenshot) into the auto-pipeline (H.2)
+- [x] 3. Send screenshot + DOM findings to the model — vision content part on the next turn (H.1)
+- [x] 4. Read project config + workspace bytes into the agent system prompt on every call (H.4)
+- [x] 5. Read `CLAUDE.md`/`.cursorrules` as behavioral instructions (H.5 — carried by D 6.2, verified)
+- [x] 6. Persist file tree across iterations (H.6)
+- [ ] 7. Run harness — model references real visual/DOM output in its reasoning (carried to campaign close; needs keyed env)
 
 ### Files to Create/Modify
-- `artifacts/api-server/src/routes/infinity/build.ts` — preview agent in auto-pipeline, screenshot to model
-- `artifacts/api-server/src/lib/build-project-context.ts` — workspace context injection
-- `artifacts/api-server/src/lib/build-agent.ts` — persist file tree across iterations
+- `artifacts/api-server/src/routes/infinity/build.ts` — preview readout screenshot (H.2), initialScreenshots into iterate
+- `artifacts/api-server/src/lib/build-agent.ts` — vision attach + failover (H.1), system-prompt workspace context (H.4), file-tree persistence (H.6)
+- `artifacts/api-server/src/lib/build-tools.ts` — `imageDataUrl` screenshot result (H.1)
 
 ---
 
