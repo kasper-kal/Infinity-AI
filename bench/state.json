@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "lastRun": null,
+  "apps": {
+    "saas-landing": { "slug": "saas-landing", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
+    "todo-persist": { "slug": "todo-persist", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
+    "dashboard": { "slug": "dashboard", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
+    "chat-widget": { "slug": "chat-widget", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
+    "markdown-editor": { "slug": "markdown-editor", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" }
+  }
+}
