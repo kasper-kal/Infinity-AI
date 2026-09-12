@@ -80,6 +80,10 @@ export interface AgentState {
   // Phase E: real gate results backing the success verdict (5.1/5.2/5.4)
   gates: AgentGateResult[];
   doneSummary?: string;
+  // Phase G 3: rolling fingerprints for oscillation detection (last 6)
+  fingerprints: string[];
+  // Fingerprint that already triggered an oscillation warning (dedupe)
+  lastWarnedFingerprint: string;
 }
 
 /**
@@ -92,6 +96,18 @@ export interface AgentGateResult {
   atIteration: number;
   filesWritten: number;
   feedback?: string;
+}
+
+/**
+ * Phase G 3 — Oscillation detection. A fingerprint = the set of files edited so
+ * far (sorted) + this turn's tool-call signatures. If the same fingerprint shows
+ * up ≥2 times in the rolling 6-iteration window, the agent is repeating the same
+ * failing actions without progress.
+ */
+function computeWorkspaceFingerprint(state: AgentState, turnCalls: ToolCall[]): string {
+  const files = [...new Set(state.editedFiles)].sort().join("\n");
+  const calls = turnCalls.map((c) => `${c.name}:${(c.arguments as { path?: string } | undefined)?.path ?? ""}`).join("\n");
+  return `${files}\n---\n${calls}`;
 }
 
 /**
@@ -427,6 +443,8 @@ export async function runAutonomousAgent(
     done: false,
     tokenUsage: { prompt: 0, completion: 0, total: 0 },
     gates: [],
+    fingerprints: [],
+    lastWarnedFingerprint: "",
   };
 
   // Build initial user message
@@ -561,6 +579,29 @@ export async function runAutonomousAgent(
         state.turnsSinceEdit++;
       }
 
+      // Phase G 3 — oscillation detection: rolling fingerprint across the last 6
+      // iterations; ≥2 identical ⇒ the agent is repeating itself. Inject a
+      // strategy change as a first-class error (also lands in ## ERRORS SO FAR).
+      state.fingerprints.push(computeWorkspaceFingerprint(state, toolCalls));
+      if (state.fingerprints.length > 6) state.fingerprints.shift();
+      const latest = state.fingerprints[state.fingerprints.length - 1];
+      let sameCount = 0;
+      for (const fp of state.fingerprints) if (fp === latest) sameCount++;
+      if (sameCount >= 2 && state.lastWarnedFingerprint !== latest) {
+        state.lastWarnedFingerprint = latest;
+        const oscillationMsg = "No progress detected — stop repeating and pick a different approach";
+        state.errors.push(`Oscillation detected: ${oscillationMsg}`);
+        state.conversation.push({
+          role: "tool",
+          content: JSON.stringify({ type: "oscillation_detected", feedback: oscillationMsg }),
+          name: "oscillation",
+          toolCallId: `oscillation-${Date.now()}-${state.iterations}`,
+        });
+        await logBuildEvent(projectId, "oscillation_detected", oscillationMsg, {
+          data: { iteration: state.iterations, sameCount, window: state.fingerprints.length },
+        });
+      }
+
       // Phase C + Phase E: Deterministic verify-after-edit (5.2 per-step gate).
       // Run verification immediately after ANY file-writing tool; the result is
       // recorded as a real gate (5.1) so the success verdict cites evidence.
@@ -604,6 +645,24 @@ export async function runAutonomousAgent(
                 }
               }
             }
+          }
+
+          // Phase G 2 — re-verify AFTER the fix: the model must see whether its
+          // repair actually worked. Push the post-fix verification result into
+          // toolResults + conversation so the next iteration reasons over it.
+          const postFix = await runVerification(context, projectId);
+          state.toolResults.push({ success: postFix.ok, result: { type: "verification_after_fix", ok: postFix.ok, feedback: postFix.feedback } });
+          state.conversation.push({
+            role: "tool",
+            content: JSON.stringify({ type: "verification_after_fix", ok: postFix.ok, feedback: postFix.feedback.slice(0, 2000) }),
+            name: "verification",
+            toolCallId: `verification-after-fix-${Date.now()}-${state.iterations}`,
+          });
+          await logBuildEvent(projectId, "verify_after_fix", `Post-fix verification ${postFix.ok ? "passed" : "still failing"}`, {
+            data: { ok: postFix.ok, iterations: state.iterations, appliedFixes: localFix.fixes.length },
+          });
+          if (!postFix.ok) {
+            state.errors.push(`Verification still failing after fix: ${postFix.feedback.slice(0, 400)}`);
           }
 
           // Add verification feedback as a tool result for the next iteration
@@ -709,7 +768,7 @@ function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: 
       ? formatToolResults(toolResults.slice(-5))
       : "(none)",
     ``,
-    `## ERRORS SO FAR:`,
+    `## ERRORS SO FAR (verification failures · oscillation warnings · tool errors):`,
     errors.length > 0 ? errors.join("\n") : "(none)",
     ``,
     `What should you do next? Return tool calls using the native tool calling mechanism.`,

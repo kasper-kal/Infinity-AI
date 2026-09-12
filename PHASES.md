@@ -318,28 +318,28 @@ Captured coder request contains real file bytes; truncated file-map JSON can no 
 
 ---
 
-## 📦 Phase G: Error Feedback Loop (R1+R2) 🔲 NOT STARTED
+## 📦 Phase G: Error Feedback Loop (R1+R2) ✅ COMPLETE
 
 ### Goal
 Verification failures are fed back to the model for repair. The loop learns from its mistakes. No error is swallowed by `\|\| true`, sleep-retry, or blind polling.
 
 ### Requirements
-- [ ] **G.1** — Verification errors fed to model: on `!verify.ok`, feed `formatVerificationFeedback(verify)` output to the model as the next iteration's goal — not a sleep, not a blind retry (`routes/infinity/build.ts:1131-1156`)
-- [ ] **G.2** — Fixing phase connected: after `tryLocalModelFix` applies patches, re-run `verifyWorkspace` and push the result into `state.toolResults` so the model sees whether the fix worked (`build-agent.ts:434-457`)
-- [ ] **G.3** — Oscillation detection: maintain rolling fingerprint of workspace state across last 6 iterations; if ≥2 identical fingerprints, inject "No progress detected — stop repeating and pick a different approach" as an error (`build-agent.ts`)
-- [ ] **G.4** — Errors are first-class: the `## ERRORS SO FAR` block in the agent prompt includes verification failures, oscillation warnings, and tool errors — the model sees what went wrong and can change strategy
-- [ ] **G.5** — No `|| true` anywhere in the verification pipeline: every command's exit code is honored; every failure surfaces to the model
+- [x] **G.1** — Verification errors fed to model: carried by Phases C/D — `verify-after-edit` pushes a `verification_failure` tool result into the agent conversation on `!verify.ok`; the iterate route pre-verifies and injects `## REAL VERIFICATION FAILURES TO FIX` as the goal (`routes/infinity/build.ts`); no sleep, no blind retry remains
+- [x] **G.2** — Fixing phase connected: after `tryLocalModelFix` applies `apply_fix` patches, `runVerification` now re-runs and the post-fix `verification_after_fix` result is pushed into `state.toolResults` + the agent conversation (and `## ERRORS SO FAR`); a still-failing verify is appended to `state.errors` (`lib/build-agent.ts`)
+- [x] **G.3** — Oscillation detection: `computeWorkspaceFingerprint` (sorted deduped edited-files + this turn's `name:path` tool-call signatures) feeds a rolling 6-iteration window on `state.fingerprints`; ≥2 identical fingerprints inject `"No progress detected — stop repeating and pick a different approach"` into `state.errors` + a dedicated `oscillation_detected` tool message + `logBuildEvent` telemetry (`lib/build-agent.ts`)
+- [x] **G.4** — Errors are first-class: the block is `## ERRORS SO FAR (verification failures · oscillation warnings · tool errors)` and is fed by verification failures, oscillation warnings, and every tool-run error — the model sees what went wrong and can change strategy
+- [x] **G.5** — No `|| true` in the verification pipeline: carried by Phase A 0.10 — verified clean (the single remaining `|| true` is an unrelated CORS env fallback in `lib/artifact-generators/api.ts`, not a verification command)
 
 ### Gate
 A failing verify → fix → re-verify cycle completes in the live loop. The model sees verification output after applying a fix. Oscillation triggers a strategy change, not an infinite repeat.
 
 ### Implementation Plan
-1. Replace sleep-retry in `build.ts` with fixer pass + re-verify
-2. Add `fixing` → `verifying` transition to the agent loop
-3. Implement oscillation detection with rolling fingerprint
-4. Wire all verification output into the agent's `## ERRORS SO FAR` block
-5. Remove every `|| true` from verification commands
-6. Run harness — verify cycle works end-to-end
+- [x] 1. Replace sleep-retry in `build.ts` with fixer pass + re-verify (fixer pass carried; re-verify added — G.2)
+- [x] 2. Add `fixing` → `verifying` transition to the agent loop (flat loop: verify-after-edit → fix → re-verify)
+- [x] 3. Implement oscillation detection with rolling fingerprint (G.3)
+- [x] 4. Wire all verification output into the agent's `## ERRORS SO FAR` block (G.4)
+- [x] 5. Remove every `|| true` from verification commands (carried by Phase A 0.10)
+- [ ] 6. Run harness — verify cycle works end-to-end (deferred to campaign close after H/I; needs keyed env)
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/routes/infinity/build.ts` — replace sleep-retry with fixer + re-verify
