@@ -37,6 +37,7 @@ import { createLocalAdapter, isLocalModelAvailable } from "../../lib/adapters/lo
 import type { Browser, Page } from "puppeteer";
 import { verifyWorkspace, formatVerificationFeedback, generateUnifiedDiff, getParallelizableSteps } from "../../lib/structured-tools";
 import { writeScaffoldWorkspace, scaffoldRulePrompt, listCorpusComponents } from "../../lib/scaffold-engine";
+import { writePlanFile, type PlanFileStep } from "../../lib/plan-file";
 import {
   getWorkingContext,
   setProjectGoal,
@@ -774,6 +775,21 @@ router.post("/build/plan", requireAuth, async (req, res) => {
       .map((entry) => entry.path)
       .slice(0, 120);
     const { plan, usedFallback, error } = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt, workspaceId);
+    // Plan-to-repo: the agreed plan is saved as a real file in the workspace git
+    // repo (PLAN.md) so the build agent can re-read it anytime, and execution
+    // never re-asks agreed questions. Best-effort — never breaks planning.
+    await writePlanFile(workspaceId, {
+      goal: prompt,
+      answers,
+      plan: {
+        title: plan.title,
+        summary: plan.summary,
+        files: Array.isArray(plan.files) ? plan.files : [],
+        risks: Array.isArray(plan.risks) ? plan.risks : [],
+      },
+      steps: plan.steps.map((s) => ({ id: s.id, description: s.description, status: "pending" as const })),
+      outcome: "running",
+    });
     if (usedFallback) {
       // A canned plan is a degraded service condition, never a success (5.6).
       // Mark it explicitly so consumers can distinguish a real plan from a
@@ -1410,6 +1426,33 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         verifyResult: undefined,
       }));
 
+      // Plan-to-repo: decisions + plan-file bookkeeping. The plan file is
+      // written at start, updated after every step, and finalized at the end —
+      // so the loop can re-read its own plan anytime, and a user wakes up to a
+      // durable record of what was agreed and what actually happened.
+      const stepDecisions: Array<{ stepId: string; decision: string; files: string[] }> = [];
+      const planFileStepsToState = (): PlanFileStep[] => livingSteps.map(s => ({
+        id: s.id,
+        description: s.description,
+        status: s.status,
+        files: s.files,
+        verifyOk: s.verifyResult?.ok,
+      }));
+      const updatePlanFile = async (outcome: "running" | "done" | "failed" | "stopped") => {
+        await writePlanFile(workspaceId, {
+          goal: prompt,
+          answers,
+          plan: { title: plan.title, summary: plan.summary, files: plan.files, risks: plan.risks },
+          steps: planFileStepsToState(),
+          decisions: stepDecisions,
+          gates: allGates,
+          outcome,
+          iterations: totalIterations,
+          tokenUsage: totalTokenUsage,
+        });
+      };
+      await updatePlanFile("running");
+
       // Helper to run verification after a step
       const runStepVerification = async (stepIndex: number): Promise<{ ok: boolean; feedback: string }> => {
         await logBuildEvent(projectId, "verify_start", `Verification after step ${plan.steps[stepIndex].id}`, { data: { workspaceId, stepIndex } });
@@ -1440,6 +1483,9 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           `Answers: ${JSON.stringify(answers)}`,
           `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
           stepFilesReal, // Phase F 3.1 — real bytes of the files this plan will touch
+          // Plan-to-repo: the agreed plan lives at PLAN.md in THIS repo. Read it
+          // whenever you need ground truth. It is updated live as steps complete.
+          `## THE PLAN FILE (ground truth — persisted in this repo as PLAN.md)\nThe plan for this build is saved to PLAN.md in the workspace and survives in git. Re-read it (read_file PLAN.md) whenever you need to re-check what was agreed. Do not re-plan or expand scope — execute the CURRENT STEP against the plan. All upfront questions were answered before the build; the answers are in that file too. No question you might have is blocking — act on the plan and verify your work.`,
           preflightBlock, // Phase F 7.14 — preflight evidence (advisory)
         ].filter(Boolean).join("\n\n");
 
@@ -1525,6 +1571,16 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           notes: agentResult.summary,
         });
 
+        // Plan-to-repo: capture the decision and keep PLAN.md in the repo
+        // current (best-effort) so the loop always has an up-to-date plan file
+        // to re-read and a wake-up audit trail to read.
+        stepDecisions.push({
+          stepId: step.id,
+          decision: agentResult.lastDecision || agentResult.summary || "",
+          files: agentResult.editedFiles || [],
+        });
+        await updatePlanFile("running");
+
         // Checkpoint after each step (Phase E 5.5)
         if (hasIsolated(projectId)) {
           await commitIteration(projectId, totalIterations, totalIterations, `plan step ${step.id} ${livingSteps[stepIndex].status}`);
@@ -1581,6 +1637,10 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       // Phase E 5.5: persist the MIND — real tokenUsage + gates + lastDecision,
       // so a resume can inject actual reasoning state, not zeros. Persisted AFTER
       // the contract so `completed` matches the final (possibly downgraded) verdict.
+
+      // Plan-to-repo finalize: PLAN.md in the repo now carries the verdict, the
+      // gates that actually ran, and every decision — the durable wake-up record.
+      await updatePlanFile(overallSuccess ? "done" : "failed");
       await saveCheckpoint({
         projectId,
         iteration: totalIterations,

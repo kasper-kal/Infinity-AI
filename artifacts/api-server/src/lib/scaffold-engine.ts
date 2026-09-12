@@ -193,9 +193,10 @@ export async function writeScaffoldWorkspace(
   await ensureWorkspace(workspaceId);
 
   // Only seed an empty workspace (ignore the .infinity + .git our own
-  // ensureWorkspace creates, and .tmp).
+  // ensureWorkspace creates, .tmp, and PLAN.md — the plan-to-repo artifact that
+  // /build/plan may have written before scaffold runs).
   const existing = await fs.readdir(root);
-  const nonMeta = existing.filter((n) => n !== ".infinity" && n !== ".git" && n !== ".tmp");
+  const nonMeta = existing.filter((n) => n !== ".infinity" && n !== ".git" && n !== ".tmp" && n !== "PLAN.md");
   if (nonMeta.length > 0) {
     return { ok: false, workspaceId, framework: frameworkType, filesWritten: 0, reason: "workspace-not-empty" };
   }
