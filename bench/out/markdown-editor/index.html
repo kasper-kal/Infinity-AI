@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markleaf — markdown editor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <header class="top">
+      <div>
+        <h1>Markleaf</h1>
+        <p class="tag">write in markdown · preview live</p>
+      </div>
+      <div class="actions">
+        <span id="dirty" class="dirty" hidden>Unsaved changes</span>
+        <span id="saved-note" class="saved" hidden>Saved</span>
+        <button id="save" type="button">Save (Ctrl+S)</button>
+      </div>
+    </header>
+
+    <div class="modes" role="group" aria-label="View mode">
+      <button data-mode="edit">✏️ Edit</button>
+      <button data-mode="split" class="active">⇄ Split</button>
+      <button data-mode="preview">👁 Preview</button>
+    </div>
+
+    <section class="panes" aria-label="Editor and preview">
+      <div class="pane edit-pane" data-pane="edit">
+        <label class="sr-only" for="editor">Markdown source</label>
+        <textarea id="editor" spellcheck="false" wrap="off" placeholder="Write markdown here…"></textarea>
+      </div>
+      <div class="pane preview-pane" data-pane="preview" aria-label="Live preview">
+        <div id="preview" class="rendered"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>Markdown: <code># h1</code> &nbsp;<b>**bold**</b> &nbsp;<i>*italic*</i> &nbsp;<code>`code`</code> &nbsp;— list &nbsp;[link](url)</span>
+    </footer>
+  </main>
+  <script src="dist/bundle.js"></script>
+</body>
+</html>

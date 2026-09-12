@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lantern — shipping analytics for teams</title>
+  <meta name="description" content="Lantern gives product teams one glance at every deploy, metric, and incident.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body id="top">
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top">Lantern<span>.</span></a>
+      <button class="menu-btn" aria-label="Toggle menu" aria-expanded="false">☰</button>
+      <nav class="links" id="links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="#faq">FAQ</a>
+        <a class="cta" href="#get-started">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <p class="kicker">Shipping analytics · live</p>
+      <h1>Know exactly what your team shipped.</h1>
+      <p class="sub">Lantern connects to your deploys, metrics, and incidents — so every release is a story you can read at a glance.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="#pricing">See pricing</a>
+        <a class="btn ghost" href="#get-started">Start free</a>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <h2>Everything a shipping team needs</h2>
+      <div class="grid">
+        <article><h3>Deploy timeline</h3><p>Every production deploy, annotated with who, what, and the diff behind it.</p></article>
+        <article><h3>Live metrics</h3><p>Latency, errors, and throughput in one pane — no dashboard sprawl.</p></article>
+        <article><h3>Incident trail</h3><p>Automatically tie incidents to the deploy that introduced them.</p></article>
+        <article><h3>Team pulse</h3><p>See review cycles, merge time, and shipped volume per engineer.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="pricing">
+      <h2>Simple pricing</h2>
+      <div class="cards">
+        <article class="plan"><h3>Starter</h3><p class="price">$0</p><ul><li>1 workspace</li><li>14-day history</li><li>Community support</li></ul><a class="btn ghost" href="#get-started">Start free</a></article>
+        <article class="plan featured"><h3>Growth</h3><p class="price">$29<span>/mo</span></p><ul><li>Unlimited workspaces</li><li>12-month history</li><li>Slack + email alerts</li></ul><a class="btn primary" href="#get-started">Start free</a></article>
+        <article class="plan"><h3>Enterprise</h3><p class="price">Custom</p><ul><li>SSO / SAML</li><li>Audit log</li><li>Dedicated support</li></ul><a class="btn ghost" href="#contact">Talk to sales</a></article>
+      </div>
+    </section>
+
+    <section class="section" id="testimonials">
+      <h2>Loved by shipping teams</h2>
+      <div class="grid t3">
+        <figure><blockquote>“We cut our release review from an hour to ten minutes.”</blockquote><figcaption>Maya Chen · Platform Lead, Northwind</figcaption></figure>
+        <figure><blockquote>“The incident trail paid for itself in a week.”</blockquote><figcaption>Dario Vidal · SRE, Acme Cloud</figcaption></figure>
+        <figure><blockquote>“Finally, one pane that doesn't lie.”</blockquote><figcaption>Priya Nair · Eng Manager, Corvex</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <h2>Frequently asked</h2>
+      <details open><summary>How long does setup take?</summary><p>Most teams are looking at real data within five minutes — connect your git host and CI and you're live.</p></details>
+      <details><summary>Which providers do you support?</summary><p>GitHub, GitLab, and Bitbucket for git; any CI that reports deploys via our webhook.</p></details>
+      <details><summary>Is there a free tier?</summary><p>Yes — the Starter plan is free forever for one workspace and 14 days of history.</p></details>
+      <details><summary>Can we self-host?</summary><p>Enterprise plans include a self-hosted option with SSO and audit logs.</p></details>
+    </section>
+
+    <section class="section" id="get-started">
+      <h2>Start shipping brighter</h2>
+      <p class="sub cta-sub">Join 4,000+ teams who see every release clearly.</p>
+      <form class="lead" id="lead-form">
+        <input type="email" required placeholder="you@company.com" aria-label="Work email">
+        <button type="submit" class="btn primary">Get started</button>
+      </form>
+      <p id="thanks" class="thanks" hidden>Thanks — check your inbox for the invite. 🎉</p>
+    </section>
+
+    <section class="section" id="contact">
+      <h2>Contact</h2>
+      <p class="sub">Sales questions? Write to <a href="mailto:sales@lantern.dev">sales@lantern.dev</a>.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="foot-inner">
+      <span>© 2026 Lantern Analytics.</span>
+      <nav><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#contact">Contact</a></nav>
+    </div>
+  </footer>
+  <script src="dist/bundle.js"></script>
+</body>
+</html>

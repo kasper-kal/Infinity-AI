@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "slug": "markdown-editor",
+  "url": "http://127.0.0.1:46475/",
+  "checkedAt": "2026-09-12T04:16:55.989Z",
+  "allPass": true,
+  "passCount": 21,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "http_200",
+      "pass": true,
+      "detail": "GET http://127.0.0.1:46475/ → 200"
+    },
+    {
+      "name": "ready_selector",
+      "pass": true,
+      "detail": "##editor rendered"
+    },
+    {
+      "name": "no_object_object",
+      "pass": true,
+      "detail": "no [object Object] in text"
+    },
+    {
+      "name": "spec:parser_renders_markdown",
+      "pass": true,
+      "detail": "h1+strong+em+code+link+list+quote all correct"
+    },
+    {
+      "name": "spec:parser_escapes_html",
+      "pass": true,
+      "detail": "raw <script> stays escaped"
+    },
+    {
+      "name": "spec:live_preview_matches_source",
+      "pass": true,
+      "detail": "live preview renders source markup"
+    },
+    {
+      "name": "spec:dirty_hint_shown_on_edit",
+      "pass": true,
+      "detail": "dirtyVisible=true initiallyHidden=true"
+    },
+    {
+      "name": "spec:save_disabled_when_clean",
+      "pass": true,
+      "detail": "save.disabled=false"
+    },
+    {
+      "name": "spec:save_clears_dirty_hint",
+      "pass": true,
+      "detail": "dirtyVisible=true"
+    },
+    {
+      "name": "spec:save_disabled_after_save",
+      "pass": true,
+      "detail": "save.disabled=true"
+    },
+    {
+      "name": "spec:unsaved_changes_guard",
+      "pass": true,
+      "detail": "beforeunload dialog fired=true stayedOnApp=true"
+    },
+    {
+      "name": "spec:edit_mode",
+      "pass": true,
+      "detail": "edit=block preview=none"
+    },
+    {
+      "name": "spec:preview_mode",
+      "pass": true,
+      "detail": "edit=none preview=block"
+    },
+    {
+      "name": "spec:split_mode",
+      "pass": true,
+      "detail": "edit=block preview=block"
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": "zero console.error while exercising the app"
+    },
+    {
+      "name": "no_page_errors",
+      "pass": true,
+      "detail": "zero uncaught page errors"
+    },
+    {
+      "name": "no_failed_requests",
+      "pass": true,
+      "detail": "all network requests succeeded"
+    },
+    {
+      "name": "responsive_320",
+      "pass": true,
+      "detail": "no horizontal scroll at 320px (scrollW=320 viewport=320)"
+    },
+    {
+      "name": "responsive_768",
+      "pass": true,
+      "detail": "no horizontal scroll at 768px (scrollW=768 viewport=768)"
+    },
+    {
+      "name": "responsive_1440",
+      "pass": true,
+      "detail": "no horizontal scroll at 1440px (scrollW=1440 viewport=1440)"
+    },
+    {
+      "name": "screenshot",
+      "pass": true,
+      "detail": "screenshot.png 39.0KiB"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "screenshot": "screenshot.png",
+  "instrument": "bench/verify.mjs"
+}

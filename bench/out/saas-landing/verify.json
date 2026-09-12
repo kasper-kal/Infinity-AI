@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "slug": "saas-landing",
+  "url": "http://127.0.0.1:39613/",
+  "checkedAt": "2026-09-12T04:10:34.247Z",
+  "allPass": true,
+  "passCount": 18,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "http_200",
+      "pass": true,
+      "detail": "GET http://127.0.0.1:39613/ → 200"
+    },
+    {
+      "name": "ready_selector",
+      "pass": true,
+      "detail": "#main rendered"
+    },
+    {
+      "name": "no_object_object",
+      "pass": true,
+      "detail": "no [object Object] in text"
+    },
+    {
+      "name": "spec:marketing_sections_render",
+      "pass": true,
+      "detail": "all 7 sections: home,features,pricing,testimonials,faq,get-started,contact"
+    },
+    {
+      "name": "spec:no_dead_anchor_links",
+      "pass": true,
+      "detail": "all in-page anchors have targets"
+    },
+    {
+      "name": "spec:no_broken_external",
+      "pass": true,
+      "detail": "external hrefs needing fetch: 0"
+    },
+    {
+      "name": "spec:nav_link_works",
+      "pass": true,
+      "detail": "#pricing top=100px after click"
+    },
+    {
+      "name": "spec:mobile_menu_present",
+      "pass": true,
+      "detail": "hamburger display=block"
+    },
+    {
+      "name": "spec:mobile_menu_toggles",
+      "pass": true,
+      "detail": "open=true"
+    },
+    {
+      "name": "spec:mobile_menu_closes_on_select",
+      "pass": true,
+      "detail": "closed=true"
+    },
+    {
+      "name": "spec:lead_form_submits",
+      "pass": true,
+      "detail": "thanks shown=true"
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": "zero console.error while exercising the app"
+    },
+    {
+      "name": "no_page_errors",
+      "pass": true,
+      "detail": "zero uncaught page errors"
+    },
+    {
+      "name": "no_failed_requests",
+      "pass": true,
+      "detail": "all network requests succeeded"
+    },
+    {
+      "name": "responsive_320",
+      "pass": true,
+      "detail": "no horizontal scroll at 320px (scrollW=320 viewport=320)"
+    },
+    {
+      "name": "responsive_768",
+      "pass": true,
+      "detail": "no horizontal scroll at 768px (scrollW=768 viewport=768)"
+    },
+    {
+      "name": "responsive_1440",
+      "pass": true,
+      "detail": "no horizontal scroll at 1440px (scrollW=1440 viewport=1440)"
+    },
+    {
+      "name": "screenshot",
+      "pass": true,
+      "detail": "screenshot.png 223.2KiB"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "screenshot": "screenshot.png",
+  "instrument": "bench/verify.mjs"
+}

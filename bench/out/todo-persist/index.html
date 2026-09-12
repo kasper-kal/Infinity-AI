@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DoIt — todos that survive reload</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <header class="top">
+      <h1>DoIt</h1>
+      <p class="tag">todos that survive reload</p>
+    </header>
+
+    <form id="add-form" autocomplete="off">
+      <input id="new-todo" type="text" maxlength="120" placeholder="What needs doing?" aria-label="New todo">
+      <button id="add-todo" type="submit" disabled>Add</button>
+    </form>
+
+    <div class="bar">
+      <p id="counter" aria-live="polite">0 items left</p>
+      <div class="filters" role="group" aria-label="Filter todos">
+        <button class="filter active" data-filter="all" aria-pressed="true">All</button>
+        <button class="filter" data-filter="active" aria-pressed="false">Active</button>
+        <button class="filter" data-filter="completed" aria-pressed="false">Completed</button>
+      </div>
+      <button id="clear-completed" class="ghost">Clear completed</button>
+    </div>
+
+    <p id="full-empty" class="empty" hidden>No todos yet — add one above. ☝️</p>
+    <p id="filter-empty" class="empty" hidden>Nothing here for this filter.</p>
+    <ul id="todos" aria-label="Todo list"></ul>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

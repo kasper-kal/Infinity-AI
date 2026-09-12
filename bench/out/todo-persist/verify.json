@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "slug": "todo-persist",
+  "url": "http://127.0.0.1:40011/",
+  "checkedAt": "2026-09-12T04:06:47.576Z",
+  "allPass": true,
+  "passCount": 24,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "http_200",
+      "pass": true,
+      "detail": "GET http://127.0.0.1:40011/ → 200"
+    },
+    {
+      "name": "ready_selector",
+      "pass": true,
+      "detail": "##todos rendered"
+    },
+    {
+      "name": "no_object_object",
+      "pass": true,
+      "detail": "no [object Object] in text"
+    },
+    {
+      "name": "spec:add_disabled_on_empty_input",
+      "pass": true,
+      "detail": "button.disabled=true"
+    },
+    {
+      "name": "spec:empty_state_renders",
+      "pass": true,
+      "detail": "“No todos yet” shown on a fresh store"
+    },
+    {
+      "name": "spec:add_creates",
+      "pass": true,
+      "detail": "rows=3"
+    },
+    {
+      "name": "spec:complete_works",
+      "pass": true,
+      "detail": "checked=1 [Alpha:false,Beta:true,Gamma:false]"
+    },
+    {
+      "name": "spec:counter_updates",
+      "pass": true,
+      "detail": "\"2 items left\""
+    },
+    {
+      "name": "spec:filter_active",
+      "pass": true,
+      "detail": "visible=2"
+    },
+    {
+      "name": "spec:filter_completed",
+      "pass": true,
+      "detail": "visible=1"
+    },
+    {
+      "name": "spec:filter_all",
+      "pass": true,
+      "detail": "visible=3"
+    },
+    {
+      "name": "spec:filtered_empty_state",
+      "pass": true,
+      "detail": "visible=0 emptyMsg=true"
+    },
+    {
+      "name": "spec:delete_works",
+      "pass": true,
+      "detail": "rows=0"
+    },
+    {
+      "name": "spec:filter_all_after_deletes",
+      "pass": true,
+      "detail": "rows=1 (Gamma remains)"
+    },
+    {
+      "name": "spec:full_empty_returns",
+      "pass": true,
+      "detail": "rows=0"
+    },
+    {
+      "name": "spec:persists_across_reload",
+      "pass": true,
+      "detail": "[Alpha:false,Beta:true]"
+    },
+    {
+      "name": "spec:completed_state_persists",
+      "pass": true,
+      "detail": "[Alpha:false,Beta:true]"
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": "zero console.error while exercising the app"
+    },
+    {
+      "name": "no_page_errors",
+      "pass": true,
+      "detail": "zero uncaught page errors"
+    },
+    {
+      "name": "no_failed_requests",
+      "pass": true,
+      "detail": "all network requests succeeded"
+    },
+    {
+      "name": "responsive_320",
+      "pass": true,
+      "detail": "no horizontal scroll at 320px (scrollW=320 viewport=320)"
+    },
+    {
+      "name": "responsive_768",
+      "pass": true,
+      "detail": "no horizontal scroll at 768px (scrollW=768 viewport=768)"
+    },
+    {
+      "name": "responsive_1440",
+      "pass": true,
+      "detail": "no horizontal scroll at 1440px (scrollW=1440 viewport=1440)"
+    },
+    {
+      "name": "screenshot",
+      "pass": true,
+      "detail": "screenshot.png 24.4KiB"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "screenshot": "screenshot.png",
+  "instrument": "bench/verify.mjs"
+}

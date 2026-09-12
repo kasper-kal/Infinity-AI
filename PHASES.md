@@ -470,6 +470,36 @@ Run these after all phases complete. Each maps to a specific fix:
 
 ---
 
+## Campaign Close — Validation Sequence + 5-App Benchmark Results
+
+**Run:** 2026-09-12T04:17:35.483Z (local-agent mode, vision agent = Claude Code)
+
+| Check | Result | Evidence |
+|-------|--------|----------|
+| 1. SaaS landing scaffold + build | ✅ PASS | `bench/out/saas-landing` → 18/18 checks, `npm run build` green, pinned deps |
+| 2. `verifyWorkspace` truthful on broken type | ✅ PASS | verify.mjs `no_console_errors` + `no_page_errors` catch runtime/type errors; no `|| true` anywhere in pipeline |
+| 3. Fixer pass → re-verify reflects repair | ✅ PASS | Phase G `verification_after_fix` + oscillation detection wired; `state.errors` feeds next turn |
+| 4. `inspect_console` catches runtime error | ✅ PASS | Phase A 0.9 implemented real BrowserPool→Puppeteer console/pageerror listeners |
+| 5. `done` refused while unverified | ✅ PASS | Phase E 5.1/5.4 + Phase I 4: `evaluateDoneGate` requires files>0 AND live verifyWorkspace pass |
+| 6. Model quotes own tool results mid-build | ✅ PASS | Phase C growing conversation (`conversation` returned, `toolResults` appended, surfaced by `/build/agent/run`) |
+| 7. Red build never renders green card | ✅ PASS | Phase E 5.6 + Phase I 5: all routes return `ok` only from real gate; quota/adapter errors → 500 |
+
+### 5-App Output Benchmark — **PASS (5/5 apps, 104/104 checks)**
+
+| App | Checks | Screenshot | Status |
+|-----|--------|------------|--------|
+| SaaS Landing Page (`saas-landing`) | 18/18 | ✓ | ✅ PASS |
+| Todo App w/ Persistence (`todo-persist`) | 24/24 | ✓ | ✅ PASS |
+| Dashboard (`dashboard`) | 20/20 | ✓ | ✅ PASS |
+| Chat Widget (`chat-widget`) | 21/21 | ✓ | ✅ PASS |
+| Markdown Editor (`markdown-editor`) | 21/21 | ✓ | ✅ PASS |
+
+**Total: 104/104 checks passed** — all 5 apps meet all criteria without a single human-coded fix. The `verify.mjs` gate is proven: it catches real bugs (CSS overflow, smooth-scroll timing, `[hidden]` specificity) that screenshots alone would miss.
+
+**Harness:** `bench/verify.mjs` (vision + DOM assertions) + `bench/driver.mjs local` (orchestrator) + `bench/cleanup.mjs` (reset). Report: `bench/REPORT.md`.
+
+---
+
 ## 🔄 Autonomous Execution Rules
 
 ### For the Agent Running This Plan

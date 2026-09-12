@@ -1,11 +1,56 @@
 {
   "schema": 1,
-  "lastRun": null,
+  "lastRun": "2026-09-12T04:17:35.481Z",
   "apps": {
-    "saas-landing": { "slug": "saas-landing", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
-    "todo-persist": { "slug": "todo-persist", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
-    "dashboard": { "slug": "dashboard", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
-    "chat-widget": { "slug": "chat-widget", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" },
-    "markdown-editor": { "slug": "markdown-editor", "status": "pending", "checks": 0, "pass": 0, "fail": 0, "checkedAt": null, "screenshot": null, "detail": "not built yet" }
+    "saas-landing": {
+      "slug": "saas-landing",
+      "status": "pass",
+      "checks": 18,
+      "pass": 18,
+      "fail": 0,
+      "checkedAt": "2026-09-12T04:10:34.247Z",
+      "screenshot": "screenshot.png",
+      "detail": "all 18 checks passed"
+    },
+    "todo-persist": {
+      "slug": "todo-persist",
+      "status": "pass",
+      "checks": 24,
+      "pass": 24,
+      "fail": 0,
+      "checkedAt": "2026-09-12T04:06:47.576Z",
+      "screenshot": "screenshot.png",
+      "detail": "all 24 checks passed"
+    },
+    "dashboard": {
+      "slug": "dashboard",
+      "status": "pass",
+      "checks": 20,
+      "pass": 20,
+      "fail": 0,
+      "checkedAt": "2026-09-12T04:07:36.618Z",
+      "screenshot": "screenshot.png",
+      "detail": "all 20 checks passed"
+    },
+    "chat-widget": {
+      "slug": "chat-widget",
+      "status": "pass",
+      "checks": 21,
+      "pass": 21,
+      "fail": 0,
+      "checkedAt": "2026-09-12T04:08:57.376Z",
+      "screenshot": "screenshot.png",
+      "detail": "all 21 checks passed"
+    },
+    "markdown-editor": {
+      "slug": "markdown-editor",
+      "status": "pass",
+      "checks": 21,
+      "pass": 21,
+      "fail": 0,
+      "checkedAt": "2026-09-12T04:16:55.989Z",
+      "screenshot": "screenshot.png",
+      "detail": "all 21 checks passed"
+    }
   }
 }

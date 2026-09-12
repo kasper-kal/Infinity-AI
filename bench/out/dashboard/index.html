@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pulse — revenue dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <header class="top">
+      <div>
+        <h1>Pulse</h1>
+        <p class="tag">revenue overview · real data, rendered live</p>
+      </div>
+      <span id="loading" class="pill">Loading…</span>
+    </header>
+
+    <section class="card" aria-label="Chart">
+      <h2>Revenue by product</h2>
+      <div id="chart" class="chart" aria-label="Bar chart of revenue by product"></div>
+      <p id="chart-empty" class="empty" hidden>No data for the current filters.</p>
+    </section>
+
+    <section class="card" aria-label="Data table">
+      <div class="toolbar">
+        <h2>Orders</h2>
+        <div class="filters">
+          <label>Category
+            <select id="filter-category">
+              <option value="all">All</option>
+              <option>Analytics</option>
+              <option>Payments</option>
+              <option>Support</option>
+            </select>
+          </label>
+          <label>Status
+            <select id="filter-status">
+              <option value="all">All</option>
+              <option>Active</option>
+              <option>Paused</option>
+              <option>Failed</option>
+            </select>
+          </label>
+          <label>Search
+            <input id="filter-search" type="search" placeholder="product, region…" aria-label="Search">
+          </label>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Product</th><th>Category</th><th>Region</th><th>Status</th><th class="num">Revenue</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="rows-empty" class="empty" hidden>No orders match your filters.</p>
+    </section>
+
+    <footer class="foot">
+      <span id="count" aria-live="polite">0 orders</span>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

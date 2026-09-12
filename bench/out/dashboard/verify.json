@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "slug": "dashboard",
+  "url": "http://127.0.0.1:41933/",
+  "checkedAt": "2026-09-12T04:07:36.618Z",
+  "allPass": true,
+  "passCount": 20,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "http_200",
+      "pass": true,
+      "detail": "GET http://127.0.0.1:41933/ → 200"
+    },
+    {
+      "name": "ready_selector",
+      "pass": true,
+      "detail": "##rows tr rendered"
+    },
+    {
+      "name": "no_object_object",
+      "pass": true,
+      "detail": "no [object Object] in text"
+    },
+    {
+      "name": "spec:loading_state_exists",
+      "pass": true,
+      "detail": "#loading present"
+    },
+    {
+      "name": "spec:table_renders_real_data",
+      "pass": true,
+      "detail": "rows=24 sample=\"Guidebase $3,160.11\""
+    },
+    {
+      "name": "spec:chart_renders_real_data",
+      "pass": true,
+      "detail": "bars=24 rows=24"
+    },
+    {
+      "name": "spec:count_shown",
+      "pass": true,
+      "detail": "count=24"
+    },
+    {
+      "name": "spec:category_filter_works",
+      "pass": true,
+      "detail": "rows 24→6 allPayments=true"
+    },
+    {
+      "name": "spec:chart_follows_filter",
+      "pass": true,
+      "detail": "bars=6 rows=6"
+    },
+    {
+      "name": "spec:status_filter_works",
+      "pass": true,
+      "detail": "rows 6→1 allActive=true"
+    },
+    {
+      "name": "spec:search_filter_empty_state",
+      "pass": true,
+      "detail": "rows=0 emptyShown=true"
+    },
+    {
+      "name": "spec:chart_empty_state",
+      "pass": true,
+      "detail": "chartEmptyShown=true"
+    },
+    {
+      "name": "spec:data_restores_after_clear",
+      "pass": true,
+      "detail": "rows=1"
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": "zero console.error while exercising the app"
+    },
+    {
+      "name": "no_page_errors",
+      "pass": true,
+      "detail": "zero uncaught page errors"
+    },
+    {
+      "name": "no_failed_requests",
+      "pass": true,
+      "detail": "all network requests succeeded"
+    },
+    {
+      "name": "responsive_320",
+      "pass": true,
+      "detail": "no horizontal scroll at 320px (scrollW=320 viewport=320)"
+    },
+    {
+      "name": "responsive_768",
+      "pass": true,
+      "detail": "no horizontal scroll at 768px (scrollW=768 viewport=768)"
+    },
+    {
+      "name": "responsive_1440",
+      "pass": true,
+      "detail": "no horizontal scroll at 1440px (scrollW=1440 viewport=1440)"
+    },
+    {
+      "name": "screenshot",
+      "pass": true,
+      "detail": "screenshot.png 38.7KiB"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "screenshot": "screenshot.png",
+  "instrument": "bench/verify.mjs"
+}

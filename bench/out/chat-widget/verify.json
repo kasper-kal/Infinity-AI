@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "slug": "chat-widget",
+  "url": "http://127.0.0.1:46763/",
+  "checkedAt": "2026-09-12T04:08:57.376Z",
+  "allPass": true,
+  "passCount": 21,
+  "failCount": 0,
+  "checks": [
+    {
+      "name": "http_200",
+      "pass": true,
+      "detail": "GET http://127.0.0.1:46763/ → 200"
+    },
+    {
+      "name": "ready_selector",
+      "pass": true,
+      "detail": "##composer rendered"
+    },
+    {
+      "name": "no_object_object",
+      "pass": true,
+      "detail": "no [object Object] in text"
+    },
+    {
+      "name": "spec:send_disabled_on_empty",
+      "pass": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "spec:send_enables_with_input",
+      "pass": true,
+      "detail": "disabled=false"
+    },
+    {
+      "name": "spec:user_append",
+      "pass": true,
+      "detail": "\"Hello from the verifier\""
+    },
+    {
+      "name": "spec:input_cleared_after_send",
+      "pass": true,
+      "detail": "input="
+    },
+    {
+      "name": "spec:send_disabled_after_send",
+      "pass": true,
+      "detail": "disabled=true"
+    },
+    {
+      "name": "spec:reply_appends_both_ways",
+      "pass": true,
+      "detail": "\"Echo: Hello from the verifier… Understood! Would you like th\""
+    },
+    {
+      "name": "spec:scrolled_to_newest",
+      "pass": true,
+      "detail": "pinned=true"
+    },
+    {
+      "name": "spec:many_messages_append",
+      "pass": true,
+      "detail": "msgs=8"
+    },
+    {
+      "name": "spec:scroll_pinned_after_stream",
+      "pass": true,
+      "detail": "pinned=true"
+    },
+    {
+      "name": "spec:error_state_on_failure",
+      "pass": true,
+      "detail": "\"Sending failed. Check your connection and try again.\n       \""
+    },
+    {
+      "name": "spec:retry_recovers",
+      "pass": true,
+      "detail": "\"Echo: Will this fail?… Got it. I've escalated this\""
+    },
+    {
+      "name": "no_console_errors",
+      "pass": true,
+      "detail": "zero console.error while exercising the app"
+    },
+    {
+      "name": "no_page_errors",
+      "pass": true,
+      "detail": "zero uncaught page errors"
+    },
+    {
+      "name": "no_failed_requests",
+      "pass": true,
+      "detail": "all network requests succeeded"
+    },
+    {
+      "name": "responsive_320",
+      "pass": true,
+      "detail": "no horizontal scroll at 320px (scrollW=320 viewport=320)"
+    },
+    {
+      "name": "responsive_768",
+      "pass": true,
+      "detail": "no horizontal scroll at 768px (scrollW=768 viewport=768)"
+    },
+    {
+      "name": "responsive_1440",
+      "pass": true,
+      "detail": "no horizontal scroll at 1440px (scrollW=1440 viewport=1440)"
+    },
+    {
+      "name": "screenshot",
+      "pass": true,
+      "detail": "screenshot.png 49.6KiB"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "screenshot": "screenshot.png",
+  "instrument": "bench/verify.mjs"
+}
