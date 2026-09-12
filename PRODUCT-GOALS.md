@@ -368,6 +368,49 @@ what's net-new, the $0 path, and honest notes.
   (the current deploy story is run-it-yourself — that's the limiting factor, not the MCP code).
 - **Cost:** $0 (open-source MCP SDK; auth reuses existing API keys).
 
+## PART 3 — PRODUCT PHILOSOPHY: a harness, not a locked-down product
+
+Captured 2026-09-12, from Kasper, in one casual line:
+
+> "my goal for infinity build is that it is actually…. good and that it acts like a harness
+> instead of a locked down thing like Claude Code."
+
+**The north star:** Infinity is a *harness* — an open workbench the operator drives — not a fixed
+product that hands you its features from a locked menu. And it must actually be **good**: quality
+is the whole point, and the harness's *default* settings should already produce good output.
+
+What "harness" means concretely (from the user's own goals):
+- **The user is ROOT, not a customer.** `/admin` to see all data (G03), a "Train models" button
+  (G10), effort levels including Omni (G14), the list of models running on it kept internally (G07).
+- **Everything is pluggable and unlocked.** API keys are first-class and assignable per agent (G04);
+  Infinity itself becomes an MCP you connect *to* from anywhere (G11); modes can be attached
+  (@3D, G08; Infinity Video, G15); you can even make your own font and have builds use it (G18).
+- **The loop is a workbench, not a black box.** The user watches it run, gets handed a piece of
+  the task mid-flow when only a human can do it (captcha → push to phone, G05), and can answer
+  `ask_user` when the agent opens the floor (G13) — but is never *required* to babysit.
+- **"Good" is the standard, by default.** That's exactly what the RESULTS-QUALITY-AUDIT campaign
+  exists for. The harness's default dials = good output without the user touching anything.
+
+**The reconciliation that future work must never fight:** earlier the user decided NO mid-build
+questions — the sleep test ("start a build, fall asleep, wake up to it done", all questions asked
+up-front in PLAN.md). This philosophy says the user is an operator with every control available.
+These are the same product at different dials: **autonomy by default, control always available.**
+The default is fully-autonomous-and-good; the controls (ask_user, effort, per-agent keys, admin,
+modes) are always on but never required. The only fixed constraints are the $0 budget and
+user-set safety guardrails (the G06 watchdog respects the user's own rules).
+
+**Why the contrast matters:** a locked-down product is a passenger seat — you consume its decisions
+and its walled feature list. A harness lets the user *compose the product out of its own parts*,
+so it grows with the user instead of bounding them. The 18 goals are facets of this: the crewed
+multi-agent system (D) = the harness's work force; autonomy + the one-shot flow (C) = the harness
+running itself your way; platform & services (G) = you as operator; new modes (F) = attaching tools;
+the human-facing UX (B) = the harness speaking to its user in human language; writing & content
+(A) = meh output isn't tolerated.
+
+**What this means for how we build:** every new feature should be judged by two questions — (1) is
+the default path good without setup?, and (2) does the operator have an unlocked control for it?
+If something is walled, hidden, or only works one fixed way, it fails the harness test.
+
 ---
-_End of capture. Raw note preserved verbatim in Part 1; structured goals in Part 2. When you start
-building these, they graduate one by one into `PHASES.md`._
+_End of capture. Raw note preserved verbatim in Part 1; goals structured in Part 2; philosophy in
+Part 3. When a goal is picked up it graduates into `PHASES.md`._
