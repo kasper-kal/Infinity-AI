@@ -3,10 +3,14 @@
 > Curated project memory. **Replaces** claude_changes_log.txt + .session_state.md + whats_next.md (archived in `archive/`).
 > Read alongside **session-brief.md** (the living working state). **UPDATE on change — never append.**
 > If a fact here is stale, edit it. If something durable happened, add it here (and note it in session-brief.md's recent conversation).
+> If a fact here is stale, edit it. If something durable happened, add it here (and note it in session-brief.md's recent conversation).
 
 ## Who & ground rules
 - Owner: **Kasper Kal** (kasperkal1970@gmail.com). GitHub: kasper-kal/Infinity-AI. Personal hobby project.
-- Budget: **every thing, service, API, hosting, library = 0 euro, permanently free, no free trials.**
+- **Product identity:** **Infinity AI — "Truly Infinite" — by kAI (Kasper Kal AI).** kAI is the maker — a company, not yet officially registered. The product is a **single website meant to replace ALL other AI tools** — image creation, website building, book writing, researching, and more.
+- **Release:** Infinity AI releases in **months, not soon**; when it goes public it will be hosted on **Render or similar**.
+- **Budget:** **every thing, service, API, hosting, library = 0 euro, permanently free, no free trials.**
+- **Keys:** **Each user brings their own API keys — nothing is hardcoded.** Keys live per-account in `llm_keys` (server `.env` + DB); a user funds their own usage; kAI runs ~$0 on Render's free tier.
 - Continuity: user wants every session to feel like one chat → **session-brief.md is the live state (updated every change)**; this file is the stable how-it-works reference.
 - **Memory rule: never store personal trivia** (titles, how to address the user, small talk). Only project state, change record, and how-it-works. Trivia like "sir" dies with the session by design.
 - User works in short, structured messages; dislikes stale/repetitive tracking noise.
