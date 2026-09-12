@@ -210,6 +210,10 @@ async function createBuildPlan(
     data: { error: lastError.slice(0, 300) },
     step: "plan-fallback",
   });
+  // Phase E 5.6 — failure honesty: a canned fallback plan is NOT a success.
+  // The caller must treat usedFallback: true as a degraded path and never
+  // return ok:true to the client. Return the fallback so the pipeline can
+  // continue, but the caller is responsible for setting ok:false.
   return { plan: fallback, usedFallback: true, error: lastError };
 }
 
@@ -742,7 +746,13 @@ router.post("/build/plan", requireAuth, async (req, res) => {
     const { plan, usedFallback, error } = await createBuildPlan(prompt, answers, existingFiles, extraSystemPrompt, workspaceId);
     if (usedFallback) {
       // A canned plan is a degraded service condition, never a success (5.6).
-      res.status(503).json({ ok: false, error: error || "Planner unavailable; generated a best-effort fallback plan", plan });
+      // Mark it explicitly so consumers can distinguish a real plan from a
+      // best-effort fallback, and never set ok:true on this path.
+      res.status(503).json({
+        ok: false,
+        error: error || "Planner unavailable; generated a best-effort fallback plan",
+        plan: { ...plan, fallback: true },
+      });
       return;
     }
     res.json({ ok: true, plan });
@@ -850,7 +860,7 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
 
       const agentResult = await runAutonomousAgent(scaffoldGoal, executionContext, agentConfig);
 
-      // Final checkpoint
+      // Final checkpoint - use REAL final phase, not hardcoded "planning"
       if (hasIsolated(projectId)) {
         await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "agent scaffold complete");
       }
@@ -858,11 +868,11 @@ router.post("/build/scaffold", requireAuth, requireScope("build:write"), async (
         projectId,
         iteration: agentResult.iterations,
         completed: agentResult.success ? 1 : 0,
-        phase: "planning",
-        plan: { title: "Autonomous agent scaffold", summary: prompt, steps: [], files: [], risks: [] },
-        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: [], feedback: agentResult.toolResults[i]?.error })),
-        workingContext: { prompt, workspaceId },
-        tokenUsage: { prompt: 0, completion: 0, total: 0 },
+        phase: agentResult.finalPhase, // REAL phase from agent
+        plan: { title: "Autonomous agent scaffold", summary: prompt, steps: buildLivingPlan([], { success: agentResult.success, editedFiles: agentResult.editedFiles, gates: agentResult.gates }), files: agentResult.editedFiles, risks: [], status: agentResult.success ? "done" : "failed" },
+        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: agentResult.editedFiles, feedback: agentResult.toolResults[i]?.error })),
+        workingContext: { prompt, workspaceId, lastDecision: agentResult.lastDecision, gates: agentResult.gates },
+        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
       });
 
       await logActivity(projectId, "agent_ran", `Autonomous agent scaffold: ${agentResult.success ? "completed" : "stopped"} — ${agentResult.summary}`);
@@ -1302,33 +1312,153 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         workspaceId,
       };
 
-      // Phase C (3.4): Replace jsonMode one-shot with tool-based incremental coder
-      // Run the autonomous agent with the full plan as the goal
+      // Phase E 5.2 + 5.3: Per-step quality gate with living plan
+      // Run the agent for EACH step, verify after each step before advancing.
+      // A step is only "done" when its own verification passes.
       const resumeContext = await buildResumeContext(projectId);
-      const fullPlanGoal = [
-        resumeContext,
-        `Plan: ${plan.title}`,
-        `Summary: ${plan.summary}`,
-        `Steps: ${plan.steps.map(s => `- ${s.id}: ${s.description}`).join("\n")}`,
-        `User Prompt: ${prompt}`,
-        `Answers: ${JSON.stringify(answers)}`,
-        `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
-      ].filter(Boolean).join("\n\n");
 
-      const agentConfig: AgentConfig = {
-        maxIterations,
-        maxToolCallsPerIteration: 10,
-        temperature,
-        verifyAfterSteps,
-        failFast,
-        stallDetectionTurns: 3,
+      // Track overall state across steps
+      let allEditedFiles: string[] = [];
+      let allToolCalls: ToolCall[] = [];
+      let allToolResults: ToolResult[] = [];
+      let allGates: AgentGateResult[] = [];
+      let totalIterations = 0;
+      let overallSuccess = true;
+      let lastDecision = "";
+      let totalTokenUsage = { prompt: 0, completion: 0, total: 0 };
+
+      // Living plan: each step gets status, files, verifyResult
+      const livingSteps: Array<{
+        id: string;
+        description: string;
+        status: "pending" | "in_progress" | "completed" | "failed" | "skipped";
+        files: string[];
+        verifyResult?: { ok: boolean; atIteration: number; feedback?: string };
+      }> = plan.steps.map(s => ({
+        id: s.id,
+        description: s.description,
+        status: "pending" as const,
+        files: [],
+        verifyResult: undefined,
+      }));
+
+      // Helper to run verification after a step
+      const runStepVerification = async (stepIndex: number): Promise<{ ok: boolean; feedback: string }> => {
+        await logBuildEvent(projectId, "verify_start", `Verification after step ${plan.steps[stepIndex].id}`, { data: { workspaceId, stepIndex } });
+        const result = await verifyWorkspace(projectId, workspaceId);
+        const feedback = formatVerificationFeedback(result);
+        await logBuildEvent(projectId, "verify_result", `Step verification ${result.ok ? "passed" : "failed"}: ${result.durationMs}ms`, {
+          data: { ok: result.ok, durationMs: result.durationMs, skipped: result.skipped ?? null, step: plan.steps[stepIndex].id },
+        });
+        return { ok: result.ok, feedback };
       };
 
-      const agentResult = await runAutonomousAgent(fullPlanGoal, executionContext, agentConfig);
+      // Execute each step sequentially with per-step verification (Phase E 5.2)
+      for (let stepIndex = 0; stepIndex < plan.steps.length; stepIndex++) {
+        const step = plan.steps[stepIndex];
 
-      // Final checkpoint - use REAL final phase from agent
-      if (hasIsolated(projectId)) {
-        await commitIteration(projectId, agentResult.iterations, agentResult.iterations, "plan execution complete");
+        // Update living plan: mark step as in_progress
+        livingSteps[stepIndex].status = "in_progress";
+
+        await logBuildEvent(projectId, "step_start", `Executing step ${step.id}: ${step.description.slice(0, 80)}`, { data: { stepIndex, stepId: step.id } });
+
+        // Build goal for this specific step (includes resume context + step info)
+        const stepGoal = [
+          resumeContext,
+          `Plan: ${plan.title}`,
+          `Summary: ${plan.summary}`,
+          `CURRENT STEP: ${step.id} - ${step.description}`,
+          `User Prompt: ${prompt}`,
+          `Answers: ${JSON.stringify(answers)}`,
+          `Extra Instructions: ${extraSystemPrompt || "(none)"}`,
+        ].filter(Boolean).join("\n\n");
+
+        const agentConfig: AgentConfig = {
+          maxIterations: Math.min(maxIterations, 10), // cap per step
+          maxToolCallsPerIteration: 10,
+          temperature,
+          verifyAfterSteps,
+          failFast,
+          stallDetectionTurns: 3,
+        };
+
+        // Run agent for this step
+        const agentResult = await runAutonomousAgent(stepGoal, executionContext, agentConfig);
+
+        // Accumulate results
+        allEditedFiles.push(...agentResult.editedFiles);
+        allToolCalls.push(...agentResult.toolCalls);
+        allToolResults.push(...agentResult.toolResults);
+        allGates.push(...agentResult.gates);
+        totalIterations += agentResult.iterations;
+        totalTokenUsage.prompt += agentResult.tokenUsage.prompt;
+        totalTokenUsage.completion += agentResult.tokenUsage.completion;
+        totalTokenUsage.total += agentResult.tokenUsage.total;
+        lastDecision = agentResult.lastDecision;
+
+        // Phase E 5.2: Per-step quality gate — verify after this step's file writes
+        if (verifyAfterSteps && agentResult.editedFiles.length > 0) {
+          const verification = await runStepVerification(stepIndex);
+          allGates.push({
+            gate: `verify-after-step-${step.id}`,
+            ok: verification.ok,
+            atIteration: totalIterations,
+            filesWritten: agentResult.editedFiles.length,
+            feedback: verification.ok ? undefined : verification.feedback?.slice(0, 400)
+          });
+
+          if (!verification.ok) {
+            // Step failed verification - mark failed, don't advance
+            livingSteps[stepIndex].status = "failed";
+            livingSteps[stepIndex].files = agentResult.editedFiles;
+            livingSteps[stepIndex].verifyResult = { ok: false, atIteration: totalIterations, feedback: verification.feedback };
+            overallSuccess = false;
+
+            await logBuildEvent(projectId, "step_failed", `Step ${step.id} failed verification`, {
+              data: { stepIndex, stepId: step.id, feedback: verification.feedback?.slice(0, 200) }
+            });
+
+            if (failFast) {
+              break; // Stop on first failure if failFast
+            }
+            // Continue to next step but mark this as failed
+          } else {
+            // Step passed verification
+            livingSteps[stepIndex].status = "completed";
+            livingSteps[stepIndex].files = agentResult.editedFiles;
+            livingSteps[stepIndex].verifyResult = { ok: true, atIteration: totalIterations };
+
+            await logBuildEvent(projectId, "step_completed", `Step ${step.id} completed and verified`, {
+              data: { stepIndex, stepId: step.id, filesWritten: agentResult.editedFiles.length }
+            });
+          }
+        } else {
+          // No files written or verification disabled - mark based on agent success
+          if (agentResult.success) {
+            livingSteps[stepIndex].status = "completed";
+            livingSteps[stepIndex].files = agentResult.editedFiles;
+            livingSteps[stepIndex].verifyResult = { ok: true, atIteration: totalIterations, feedback: "No verification ran (no file changes or disabled)" };
+          } else {
+            livingSteps[stepIndex].status = "failed";
+            livingSteps[stepIndex].files = agentResult.editedFiles;
+            livingSteps[stepIndex].verifyResult = { ok: false, atIteration: totalIterations, feedback: agentResult.summary };
+            overallSuccess = false;
+          }
+        }
+
+        // Record step in working context
+        recordStep(projectId, {
+          stepId: step.id,
+          description: step.description,
+          ok: livingSteps[stepIndex].status === "completed",
+          filesChanged: agentResult.editedFiles,
+          notes: agentResult.summary,
+        });
+
+        // Checkpoint after each step (Phase E 5.5)
+        if (hasIsolated(projectId)) {
+          await commitIteration(projectId, totalIterations, totalIterations, `plan step ${step.id} ${livingSteps[stepIndex].status}`);
+        }
       }
 
       // Phase E 5.1/5.4: the route-level done CONTRACT validates the agent's
@@ -1338,7 +1468,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       // script-existence aware, so skips are honest and never false-fail. Runs
       // BEFORE the checkpoint so the persisted verdict matches the returned one.
       let doneContract: DoneContractResult | null = null;
-      if (agentResult.success) {
+      if (overallSuccess) {
         const contractStart = Date.now();
         try {
           doneContract = await runDoneContract(
@@ -1350,7 +1480,11 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
               id: `${projectId}:${Date.now()}`,
               goal: prompt,
               acceptanceCriteria: [],
-              steps: plan.steps.map((s) => ({ id: s.id, description: s.description, status: "completed" })),
+              steps: plan.steps.map((s, i) => ({
+                id: s.id,
+                description: s.description,
+                status: livingSteps[i].status
+              })),
             },
             workspaceId,
           );
@@ -1362,7 +1496,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
             step: doneContract.doneSignal.status,
           });
           if (criticalFailed.length > 0) {
-            agentResult.success = false;
+            overallSuccess = false;
           }
         } catch (contractErr) {
           req.log.warn({ err: contractErr }, "Done contract evaluation errored — inner done gate remains the verdict");
@@ -1372,38 +1506,44 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           });
         }
       }
+
       // Phase E 5.3: persist a LIVING plan — each step carries status/files/verifyResult
-      const livingSteps = buildLivingPlan(plan.steps, {
-        success: agentResult.success,
-        editedFiles: agentResult.editedFiles,
-        gates: agentResult.gates,
-      });
       // Phase E 5.5: persist the MIND — real tokenUsage + gates + lastDecision,
       // so a resume can inject actual reasoning state, not zeros. Persisted AFTER
       // the contract so `completed` matches the final (possibly downgraded) verdict.
       await saveCheckpoint({
         projectId,
-        iteration: agentResult.iterations,
-        completed: agentResult.success ? 1 : 0,
-        phase: agentResult.finalPhase, // REAL phase, not hardcoded "planning"
-        plan: { title: plan.title, summary: plan.summary, steps: livingSteps, files: plan.files, risks: plan.risks, status: agentResult.success ? "done" : "failed" },
-        completedSteps: agentResult.toolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: agentResult.toolResults[i]?.success ?? false, filesChanged: agentResult.editedFiles, feedback: agentResult.toolResults[i]?.error })),
-        workingContext: { prompt, workspaceId, lastDecision: agentResult.lastDecision, gates: agentResult.gates },
-        tokenUsage: { prompt: agentResult.tokenUsage.prompt, completion: agentResult.tokenUsage.completion, total: agentResult.tokenUsage.total },
+        iteration: totalIterations,
+        completed: overallSuccess ? 1 : 0,
+        phase: overallSuccess ? "done" : "failed", // REAL phase
+        plan: {
+          title: plan.title,
+          summary: plan.summary,
+          steps: livingSteps,
+          files: plan.files,
+          risks: plan.risks,
+          status: overallSuccess ? "done" : "failed"
+        },
+        completedSteps: allToolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: allToolResults[i]?.success ?? false, filesChanged: allEditedFiles, feedback: allToolResults[i]?.error })),
+        workingContext: { prompt, workspaceId, lastDecision, gates: allGates },
+        tokenUsage: totalTokenUsage,
       });
+
       // Phase 3.2: Log build activity
-      await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${agentResult.iterations} iterations, ${agentResult.success ? "success" : "partial"}`);
+      await logActivity(projectId, "agent_ran", `Build plan executed: ${plan.title} — ${totalIterations} iterations, ${overallSuccess ? "success" : "partial"}`);
       return {
-        ok: agentResult.success,
-        summary: agentResult.summary,
-        iterations: agentResult.iterations,
-        toolCalls: agentResult.toolCalls.length,
-        toolResults: agentResult.toolResults,
-        finalPhase: agentResult.finalPhase,
-        lastDecision: agentResult.lastDecision,
-        editedFiles: agentResult.editedFiles,
-        tokenUsage: agentResult.tokenUsage,
-        gates: agentResult.gates,
+        ok: overallSuccess,
+        summary: overallSuccess
+          ? `Plan executed successfully in ${totalIterations} iterations across ${plan.steps.length} steps`
+          : `Plan execution stopped: ${livingSteps.find(s => s.status === "failed")?.id || "unknown step"} failed`,
+        iterations: totalIterations,
+        toolCalls: allToolCalls.length,
+        toolResults: allToolResults.length,
+        finalPhase: overallSuccess ? "done" : "failed",
+        lastDecision,
+        editedFiles: [...new Set(allEditedFiles)],
+        tokenUsage: totalTokenUsage,
+        gates: allGates,
         doneContract: doneContract
           ? {
               success: doneContract.success,
@@ -1412,6 +1552,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
               doneSignal: { status: doneContract.doneSignal.status, message: doneContract.doneSignal.message },
             }
           : null,
+        steps: livingSteps, // Return living plan for transparency
       };
     }, { priority: "normal" });
 

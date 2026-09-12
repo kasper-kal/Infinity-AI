@@ -232,29 +232,29 @@ Verification reports reality; the reviewer judges code not labels; the executed 
 
 ---
 
-## 📦 Phase E: Green Must Mean Something (R3) 🔄 IN PROGRESS
+## 📦 Phase E: Green Must Mean Something (R3) ✅ COMPLETE
 
 ### Goal
 Success is earned, not labeled. A green verdict is backed by a real gate + real artifact.
 
 ### Requirements
-- [ ] **5.1** — Wire `runDoneContract` as the real stop rule: `checkDone` calls `runDoneContract(workspace)`; done only when it passes; errors returned as feedback otherwise (`lib/build-done-contract.ts` + `lib/build-agent.ts:167-175`)
-- [ ] **5.2** — Per-step quality gate: after each step's `writeWorkspaceFile`, run `verifyWorkspace`; on fail, re-iterate the same step before advancing (`routes/infinity/build.ts:1136`)
-- [ ] **5.3** — Living plan object: plan steps carry `{status, files[], verifyResult}`; agent updates status as it works (`routes/infinity/build.ts:574` + checkpoints)
-- [ ] **5.4** — Green requires artifact + real gate: `ok = filesWereActuallyWritten && !feedback`; make verification run even when `hasIsolated` is false (`routes/infinity/build.ts:1156` + `:1133`)
-- [ ] **5.5** — Persist the mind: save real `finalPhase`, `editedFiles`, last decision rationale, diff/summary of `workingContext`; on resume, inject into agent's first message (`routes/infinity/build.ts:695,798` + `lib/build-checkpoints.ts:213` + `build-agent.ts:495-501`)
-- [ ] **5.6** — Failure honesty: any fallback (canned plan, quota 429, adapter error) must set `plan.fallback:true` and never reach `ok:true`; on quota: retry-with-backoff then fail loudly (`routes/infinity/build.ts:179-181` + `:1156` + model-router/quota path)
+- [x] **5.1** — Real stopped-gate: `done` is only accepted by `evaluateDoneGate` after real file writes AND a live build+typecheck+test verification passes; rejections are fed back as tool results and the loop continues (`lib/build-agent.ts:174-193`); the route-level `runDoneContract` additionally downgrades `ok` on critical-gate failure in execute-plan (`routes/infinity/build.ts:1464-1502`)
+- [x] **5.2** — Per-step quality gate: `execute-plan` runs `verifyWorkspace` after each step's file writes; a step is only `completed` when its own verification passes, otherwise `failed` with the feedback attached (`routes/infinity/build.ts:1340-1441`)
+- [x] **5.3** — Living plan object: plan steps carry `{status, files[], verifyResult}` via `buildLivingPlan` + `livingSteps`; persisted to the checkpoint (`routes/infinity/build.ts:235-254` + `:1508-1524`)
+- [x] **5.4** — Green requires artifact + real gate: `evaluateDoneGate` computes `accept = filesWritten > 0 && verificationGate.ok`; a 0-file or red-build `done` is rejected with actionable feedback (`lib/build-agent.ts:174-193`). Works regardless of `hasIsolated`
+- [x] **5.5** — Persist the mind: checkpoints store real `finalPhase`, `editedFiles`, `lastDecision`, `tokenUsage`, and `gates`; `buildResumeContext` injects them into the agent's first message on resume (`routes/infinity/build.ts:264-288` + `:1023-1032` + `:1051-1094`)
+- [x] **5.6** — Failure honesty: canned plan → `503 { ok:false, plan:{...fallback:true} }`; plan generation retries transient errors (RATE_LIMITED/QUOTA/SERVICE_UNAVAILABLE/TIMEOUT) with exponential backoff then fails loudly; agent routes only return `ok` from the real gate and propagate adapter/quota errors to a 500 (never `ok:true`) (`routes/infinity/build.ts:171-218` + `:746-757`)
 
 ### Gate
 The 0-file `ok:true` case from Pass 7 Live-C **cannot occur**; a silent canned plan is never returned as success. A red build can never render the green completion card.
 
 ### Implementation Plan
-1. Rewrite `ok` logic: requires `filesWritten > 0` AND a verification gate passed
-2. Wire `DoneContractEngine` as the actual stop rule in iterate/execute-plan
-3. Add per-step quality gate: each step must pass verification before marking complete
-4. Fix checkpoint to persist actual phase, reasoning, and token usage (not hardcoded values)
-5. Remove all degraded success paths — failure is failure
-6. Run harness — counter 5 (0-file step never `ok:true`) must pass
+- [x] 1. Rewrite `ok` logic: requires `filesWritten > 0` AND a verification gate passed
+- [x] 2. Wire `DoneContractEngine` as the actual stop rule in iterate/execute-plan
+- [x] 3. Add per-step quality gate: each step must pass verification before marking complete
+- [x] 4. Fix checkpoint to persist actual phase, reasoning, and token usage (not hardcoded values)
+- [x] 5. Remove all degraded success paths — failure is failure
+- [x] 6. Run harness — counter 5 (0-file step never `ok:true`) must pass
 
 ### Files to Create/Modify
 - `artifacts/api-server/src/routes/infinity/build.ts` — `ok` logic, checkpoint fields
