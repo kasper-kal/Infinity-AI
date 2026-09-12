@@ -45,6 +45,12 @@ export interface AgentConfig {
   verifyAfterSteps: boolean;
   failFast: boolean;
   stallDetectionTurns: number; // Stop if no file changes in N turns
+  // Phase I 1/6 — adaptive stop: break out of the loop when the workspace is
+  // stable AND green (last verification passed, then N turns with no file
+  // changes). maxIterations + stall detection stay as the safety backstop.
+  stopOnGreen?: boolean;
+  /** Phase I 6 — consecutive no-edit turns while green before adaptively stopping */
+  greenStabilityTurns?: number;
 }
 
 const DEFAULT_CONFIG: AgentConfig = {
@@ -54,6 +60,8 @@ const DEFAULT_CONFIG: AgentConfig = {
   verifyAfterSteps: true,
   failFast: false,
   stallDetectionTurns: 3,
+  stopOnGreen: true,
+  greenStabilityTurns: 2,
 };
 
 /**
@@ -97,6 +105,12 @@ export interface AgentState {
   // Phase H 2: screenshots the CALLER captured (e.g. iterate's preview readout)
   // to hand the model on the first turn.
   pendingVision: Array<{ dataUrl: string; note?: string }>;
+  // Phase I 1/6 — adaptive quality stop. When the last verification came back
+  // green and the model keeps making no file changes, the workspace is stable
+  // AND green: stop on quality instead of draining the iteration budget.
+  lastVerificationOk: boolean | null;
+  greenNoEditStreak: number;
+  stopReason?: "quality_green";
 }
 
 /**
@@ -191,6 +205,8 @@ RULES:
 - Never assume - always verify with tools
 - Return tool calls using the native tool_calls mechanism
 - When done with a goal, call the "done" tool with summary
+- WRITE TESTS (Phase I 7): when the project's framework supports tests (Vitest is pre-wired in scaffolded projects), write tests as part of shipping — cover the data model, error/empty/loading states, auth boundaries, and responsiveness/a11y-critical behavior. Define what "shipped" means for THIS app and state it in your done summary: what data exists, what states are handled, what is actually tested.
+- HARD LINE: no TODOs, no hardcoded demo data, no invented dependencies. Ship real code. A green build WITHOUT a test suite (where the framework supports one) is a weak "good" — strengthen it by writing the tests.
 
 ${workspaceBlock}
 ${conventionsBlock}
@@ -218,11 +234,63 @@ async function evaluateDoneGate(
   }
   const verification = await runVerification(state.context, projectId);
   if (!verification.ok) {
+    state.lastVerificationOk = false;
     return {
       accept: false,
       feedback: `The done gate ran a real build+typecheck+test verification and it FAILED. A red build cannot be marked done. Fix the failures below, then call done again.\n\n${verification.feedback}`,
     };
   }
+  state.lastVerificationOk = true;
+
+  // Phase I 4 — the full done CONTRACT runs when `done` is invoked, not just the
+  // live workspace verification. The contract's enforced gates (build, typecheck,
+  // tests, lint where the project declares those scripts) must pass; a not-enforced
+  // gate (I.5) never blocks. We reject on enforced CRITICAL failures — the same
+  // bar the route-level contract already enforces — so a pending npm-audit
+  // finding (a network-dependent major gate) can never trap the loop, while the
+  // real code-integrity gates stay decisive.
+  try {
+    const { runDoneContract } = await import("./build-done-contract");
+    const { getWorkspaceRoot } = await import("./workspace");
+    const contract = await runDoneContract(
+      state.context.projectId,
+      `${state.context.projectId}:done:${Date.now()}`,
+      "general",
+      getWorkspaceRoot(state.context.workspaceId),
+      {
+        id: `${state.context.projectId}:done`,
+        goal: state.goal,
+        acceptanceCriteria: [],
+        steps: state.toolCalls.slice(0, 50).map((c, i) => ({
+          id: `tool-${i}-${c.name}`,
+          description: (c.name || "tool") + (c.arguments?.summary ? `: ${String(c.arguments.summary).slice(0, 80)}` : ""),
+          status: "completed" as const,
+        })),
+      },
+      state.context.workspaceId,
+    );
+    const enforcedFailures = contract.gateResults.filter(
+      (g) => !g.passed && g.status !== "not-enforced" && g.severity === "critical",
+    );
+    if (enforcedFailures.length > 0) {
+      const detail = enforcedFailures.map((f) => `${f.gate}: ${f.details.slice(0, 140)}`).join("\n");
+      await logBuildEvent(projectId, "done_contract", `Done contract rejected 'done' (${enforcedFailures.length} critical enforced gate(s))`, {
+        data: { gates: enforcedFailures.map((f) => f.gate) },
+      });
+      return {
+        accept: false,
+        feedback:
+          `The done CONTRACT rejected your 'done' call: enforced critical gate(s) failed. Green must be earned by the contract, not assumed.\n\n${detail}\n\nFix these and call done again.`,
+      };
+    }
+  } catch (contractErr) {
+    // Contract infra failing (e.g. no project yet) must not block a legitimately
+    // green done — the live verification above already checked build/typecheck/test.
+    await logBuildEvent(projectId, "done_contract", "Done contract evaluation errored inside done gate — live verification remains the verdict", {
+      data: { error: contractErr instanceof Error ? contractErr.message : String(contractErr) },
+    });
+  }
+
   return { accept: true };
 }
 
@@ -481,6 +549,9 @@ export async function runAutonomousAgent(
     visionDisabled: false,
     fileTree: [],
     pendingVision: opts.initialScreenshots ?? [],
+    // Phase I 1/6 — adaptive quality stop state
+    lastVerificationOk: null,
+    greenNoEditStreak: 0,
   };
 
   // Build initial user message
@@ -700,6 +771,9 @@ export async function runAutonomousAgent(
       // recorded as a real gate (5.1) so the success verdict cites evidence.
       if (mergedConfig.verifyAfterSteps && filesEditedThisTurn.length > 0) {
         const verification = await runVerification(context, projectId);
+        // Phase I 1 — track the latest verification outcome for the adaptive
+        // quality stop (stable green + no changes ⇒ stop on quality).
+        state.lastVerificationOk = verification.ok;
         state.gates.push({ gate: "verify-after-edit", ok: verification.ok, atIteration: state.iterations, filesWritten: state.editedFiles.length, feedback: verification.ok ? undefined : verification.feedback.slice(0, 400) });
         if (!verification.ok) {
           state.errors.push(`Verification failed: ${verification.feedback}`);
@@ -744,6 +818,10 @@ export async function runAutonomousAgent(
           // repair actually worked. Push the post-fix verification result into
           // toolResults + conversation so the next iteration reasons over it.
           const postFix = await runVerification(context, projectId);
+          // Phase I 1 — the post-fix verdict is the current truth for the
+          // adaptive quality stop: a fixed-and-green workspace counts toward
+          // stable-green; a still-failing one resets the streak below.
+          state.lastVerificationOk = postFix.ok;
           state.toolResults.push({ success: postFix.ok, result: { type: "verification_after_fix", ok: postFix.ok, feedback: postFix.feedback } });
           state.conversation.push({
             role: "tool",
@@ -779,6 +857,26 @@ export async function runAutonomousAgent(
         });
       }
 
+      // Phase I 1/6 — ADAPTIVE QUALITY STOP. When the last verification came
+      // back green and the model then makes no file changes for
+      // greenStabilityTurns consecutive turns, the workspace is stable AND
+      // green — stop on quality instead of draining the iteration budget.
+      // maxIterations + stall detection remain as the safety backstop (I.6),
+      // and the model's own `done` + contract is still the primary exit (I.4).
+      state.greenNoEditStreak =
+        filesEditedThisTurn.length === 0 && state.lastVerificationOk === true
+          ? state.greenNoEditStreak + 1
+          : 0;
+
+      if ((mergedConfig.stopOnGreen ?? DEFAULT_CONFIG.stopOnGreen) &&
+          state.greenNoEditStreak >= (mergedConfig.greenStabilityTurns ?? DEFAULT_CONFIG.greenStabilityTurns)) {
+        state.stopReason = "quality_green";
+        await logBuildEvent(projectId, "quality_green", "Adaptive stop: workspace stable & green — stopping on quality", {
+          data: { iteration: state.iterations, greenNoEditStreak: state.greenNoEditStreak, editsThisTurn: filesEditedThisTurn.length },
+        });
+        break;
+      }
+
       // Build next user message (appended to conversation)
       const nextUserMessage = buildUserMessage(state, mergedConfig, "");
       state.conversation.push({ role: "user", content: nextUserMessage });
@@ -791,9 +889,14 @@ export async function runAutonomousAgent(
     }
   }
 
-  // Determine final outcome
-  const success = state.done;
+  // Determine final outcome — Phase I 1/6: a quality_green stop is a SUCCESS
+  // (the workspace is stable and passed real build+typecheck+tests+lint), even
+  // though the model did not call `done`. `done`+contract remains the primary
+  // path; quality_green is the adaptive path the campaign asked for.
+  const qualityGreen = state.stopReason === "quality_green";
+  const success = state.done || qualityGreen;
   const finalPhase = state.done ? "done" :
+    qualityGreen ? "quality_green" :
     state.turnsSinceEdit >= mergedConfig.stallDetectionTurns ? "stalled" :
     state.iterations >= state.maxIterations ? "max_iterations" : "error";
 
@@ -802,12 +905,13 @@ export async function runAutonomousAgent(
     .slice(-1)[0]?.content?.slice(0, 200) || "(no assistant messages)";
 
   const summary = success
-    ? state.doneSummary || `Agent completed goal in ${state.iterations} iterations`
-    : state.phase === "error" || state.errors.length > 0
-      ? `Agent failed: ${state.errors.slice(-1)[0]}`
-      : state.turnsSinceEdit >= mergedConfig.stallDetectionTurns
-        ? `Agent stalled after ${state.turnsSinceEdit} turns without file changes`
-        : `Agent stopped after ${state.iterations} iterations (max reached)`;
+    ? state.done ? (state.doneSummary || `Agent completed goal in ${state.iterations} iterations`)
+      : `Agent stopped on quality: workspace verified green (build+typecheck+tests+lint) with no changes for ${state.greenNoEditStreak} consecutive turns (iteration ${state.iterations}).`
+    : state.turnsSinceEdit >= mergedConfig.stallDetectionTurns
+      ? `Agent stalled after ${state.turnsSinceEdit} turns without file changes`
+      : state.iterations >= state.maxIterations
+        ? `Agent stopped after ${state.iterations} iterations (max reached)`
+        : `Agent failed: ${state.errors.slice(-1)[0] || "unknown error"}`;
 
   await logBuildEvent(projectId, "agent_end", summary, {
     data: {
@@ -874,7 +978,7 @@ function buildUserMessage(state: AgentState, config: AgentConfig, extraContext: 
     ``,
     `What should you do next? Return tool calls using the native tool calling mechanism.`,
     `Example: call edit_file, read_file, run_command, generate_component, etc.`,
-    `When the goal is fully achieved, call the "done" tool with a summary. IMPORTANT: "done" is not a self-report — it is REQUESTED completion. The harness only accepts it if real files were written this run and a verification pass succeeded. If you call done without that, it will be rejected and you must keep working.`,
+    `When the goal is fully achieved, call the "done" tool with a summary. IMPORTANT: "done" is not a self-report — it is REQUESTED completion. The harness only accepts it if real files were written this run, a verification pass succeeded (real build + typecheck + tests + lint), AND the done contract's enforced gates pass. Write tests for the logic you ship when the framework supports them (Vitest is pre-wired). If you call done without that, it will be rejected and you must keep working.`,
   ];
 
   if (extraContext) {

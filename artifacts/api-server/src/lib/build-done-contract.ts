@@ -32,12 +32,22 @@ export type BuildType =
 /**
  * Verification gate result
  */
+export type VerificationGateStatus = "passed" | "failed" | "skipped" | "not-enforced";
+
 export interface VerificationGateResult {
   gate: string;
   passed: boolean;
   details: string;
   severity: "critical" | "major" | "minor";
   evidence?: Record<string, unknown>;
+  /**
+   * Phase I 5 — honest gate status (R3: green-is-a-label). A gate that actually
+   * ran reports passed/failed; a conditional check that could not run (no config,
+   * no manifest) reports skipped; a gate that is NOT implemented reports
+   * "not-enforced" — it never pretends to validate, and it never counts as a
+   * pass OR a fail in the done-contract tally. Omitted on legacy results.
+   */
+  status?: VerificationGateStatus;
 }
 
 /**
@@ -132,6 +142,8 @@ export interface DoneContractResult {
     criticalFailed: number;
     majorFailed: number;
     minorFailed: number;
+    /** Phase I 5: gates reported as not-implemented (honest, counted as neither pass nor fail) */
+    notEnforced: number;
   };
   postActionResults: Array<{ actionId: string; success: boolean; error?: string }>;
   doneSignal: DoneSignal;
@@ -218,7 +230,11 @@ export class DoneContractEngine {
       }
     }
 
-    // Evaluate results
+    // Evaluate results — Phase I 5: gates that are NOT implemented
+    // (status "not-enforced") are excluded from both the pass and the fail
+    // tallies. A forged-green gate is a lie we removed; a not-enforced gate is
+    // an honest "we have no implementation of this check", and it must never
+    // flip the verdict either way.
     const requiredResults = gateResults.filter(r =>
       contract.requiredGates.some(g => g.id === r.gate)
     );
@@ -226,9 +242,11 @@ export class DoneContractEngine {
       contract.optionalGates.some(g => g.id === r.gate)
     );
 
-    const criticalFailed = requiredResults.filter(r => !r.passed && r.severity === "critical").length;
-    const majorFailed = requiredResults.filter(r => !r.passed && r.severity === "major").length;
-    const minorFailed = [...requiredResults, ...optionalResults].filter(r => !r.passed && r.severity === "minor").length;
+    const isEnforced = (r: VerificationGateResult) => r.status !== "not-enforced";
+    const criticalFailed = requiredResults.filter(r => !r.passed && r.severity === "critical" && isEnforced(r)).length;
+    const majorFailed = requiredResults.filter(r => !r.passed && r.severity === "major" && isEnforced(r)).length;
+    const minorFailed = [...requiredResults, ...optionalResults].filter(r => !r.passed && r.severity === "minor" && isEnforced(r)).length;
+    const notEnforced = gateResults.filter(r => !isEnforced(r)).length;
 
     const success = criticalFailed === 0 && majorFailed === 0;
 
@@ -266,11 +284,12 @@ export class DoneContractEngine {
       gateResults,
       summary: {
         totalGates: allGates.length,
-        passed: gateResults.filter(r => r.passed).length,
-        failed: gateResults.filter(r => !r.passed).length,
+        passed: gateResults.filter(r => r.passed && isEnforced(r)).length,
+        failed: gateResults.filter(r => !r.passed && isEnforced(r)).length,
         criticalFailed,
         majorFailed,
         minorFailed,
+        notEnforced,
       },
       postActionResults,
       doneSignal,
@@ -283,11 +302,12 @@ export class DoneContractEngine {
       gateResults,
       summary: {
         totalGates: allGates.length,
-        passed: gateResults.filter(r => r.passed).length,
-        failed: gateResults.filter(r => !r.passed).length,
+        passed: gateResults.filter(r => r.passed && isEnforced(r)).length,
+        failed: gateResults.filter(r => !r.passed && isEnforced(r)).length,
         criticalFailed,
         majorFailed,
         minorFailed,
+        notEnforced,
       },
       postActionResults,
       doneSignal,
@@ -313,9 +333,15 @@ export class DoneContractEngine {
       status = criticalFailed > 0 ? "FAILED" : "INCOMPLETE";
     }
 
+    const notEnforced = gateResults.filter(r => r.status === "not-enforced").length;
+    const enforcedFailed = gateResults.filter(r => !r.passed && r.status !== "not-enforced").length;
     const message = success
-      ? `Build completed successfully. All ${passed}/${gateResults.length} verification gates passed.`
-      : `Build incomplete: ${gateResults.filter(r => !r.passed).length} gate(s) failed.`;
+      ? `Build completed successfully. All ${passed}/${gateResults.length} verification gates passed${
+          notEnforced > 0 ? ` (${notEnforced} gate(s) not enforced — reported honestly, not counted as pass or fail)` : ""
+        }.`
+      : `Build incomplete: ${enforcedFailed} enforced gate(s) failed${
+          notEnforced > 0 ? ` (${notEnforced} gate(s) not enforced)` : ""
+        }.`;
 
     return {
       status,
@@ -628,12 +654,14 @@ function createVisualVerificationGate(): VerificationGate {
     description: "Visual regression tests pass",
     severity: "major",
     async verify(context) {
-      // This would integrate with the visual verification system
-      // For now, return skipped
+      // Phase I 5 — honest not-enforced: this gate has no implementation, so it
+      // must never report passed:true ("green-is-a-label" root cause). It is
+      // reported as not-implemented and excluded from the pass/fail tally.
       return {
         gate: "visual-verification",
-        passed: true,
-        details: "Visual verification not configured for this build",
+        passed: false,
+        status: "not-enforced",
+        details: "Visual regression check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "major",
       };
     },
@@ -808,11 +836,12 @@ function createAccessibilityGate(): VerificationGate {
     description: "Basic accessibility compliance (WCAG AA)",
     severity: "minor",
     async verify(context) {
-      // Would integrate with axe-core or similar
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "accessibility",
-        passed: true,
-        details: "Accessibility check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Accessibility check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -826,10 +855,12 @@ function createPerformanceGate(): VerificationGate {
     description: "Meets performance budgets (LCP, CLS, TBT)",
     severity: "minor",
     async verify(context) {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "performance",
-        passed: true,
-        details: "Performance check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Performance check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -843,10 +874,12 @@ function createSeoGate(): VerificationGate {
     description: "Basic SEO requirements met",
     severity: "minor",
     async verify(context) {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "seo",
-        passed: true,
-        details: "SEO check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "SEO check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -936,10 +969,12 @@ function createCrossPlatformGate(): VerificationGate {
     description: "Works on Windows, macOS, Linux",
     severity: "minor",
     async verify() {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "cross-platform",
-        passed: true,
-        details: "Cross-platform check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Cross-platform check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -1084,10 +1119,12 @@ function createBundleSizeGate(): VerificationGate {
     description: "Bundle size within acceptable limits",
     severity: "minor",
     async verify() {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "bundle-size",
-        passed: true,
-        details: "Bundle size check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Bundle size check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -1196,10 +1233,12 @@ function createLoadTestGate(): VerificationGate {
     description: "Basic load test passes",
     severity: "minor",
     async verify() {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "load-test",
-        passed: true,
-        details: "Load test not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Load test check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -1213,10 +1252,12 @@ function createRateLimitGate(): VerificationGate {
     description: "API has rate limiting configured",
     severity: "minor",
     async verify() {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "rate-limit",
-        passed: true,
-        details: "Rate limit check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "Rate limit check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },
@@ -1230,10 +1271,12 @@ function createPwaGate(): VerificationGate {
     description: "Progressive Web App requirements met",
     severity: "minor",
     async verify() {
+      // Phase I 5 — not-enforced, never forged green.
       return {
         gate: "pwa",
-        passed: true,
-        details: "PWA check not implemented",
+        passed: false,
+        status: "not-enforced",
+        details: "PWA check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
         severity: "minor",
       };
     },

@@ -1559,7 +1559,7 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
             workspaceId,
           );
           const criticalFailed = doneContract.gateResults
-            .filter((g) => g.severity === "critical" && !g.passed);
+            .filter((g) => g.severity === "critical" && !g.passed && g.status !== "not-enforced");
           await logBuildEvent(projectId, "done_contract", `Done contract ${criticalFailed.length === 0 ? "passed" : `failed ${criticalFailed.length} critical gates`}`, {
             data: { totalGates: doneContract.summary.totalGates, passed: doneContract.summary.passed, criticalFailed: criticalFailed.map((g) => g.gate) },
             durationMs: Date.now() - contractStart,
