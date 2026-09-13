@@ -96,6 +96,21 @@ const TYPE_LABELS: Record<BuildEventType, string> = {
   info: 'info',
 };
 
+interface ContextDebugInfo {
+  compactionLevel: 1 | 2 | 3 | 4;
+  compactionLevelName: string;
+  totalStepsOriginal: number;
+  detailedStepsKept: number;
+  summarizedSteps: number;
+  estimatedTokens: number;
+  fileMapSize: number;
+  decisionsCount: number;
+  errorPatternsCount: number;
+  lastCompaction?: string;
+  tokenBudget: { used: number; limit: number; history: Array<{ timestamp: string; tokens: number }> };
+  triggers: Array<{ type: string; threshold: number; currentValue: number; triggered: boolean }>;
+}
+
 export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<'live' | 'replay'>('live');
@@ -143,6 +158,10 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
   const [explainResult, setExplainResult] = useState<{ explanation: string; rootCause: string; fixes: Array<{ title: string; description: string; code?: string }> } | null>(null);
   const [fixBusy, setFixBusy] = useState(false);
   const [fixResult, setFixResult] = useState<{ fixes: Array<{ file: string; oldCode: string; newCode: string; explanation: string; confidence: number }> } | null>(null);
+  // Phase 4: manual compaction controls + context debug readout
+  const [ctxDebug, setCtxDebug] = useState<ContextDebugInfo | null>(null);
+  const [ctxBusy, setCtxBusy] = useState<string | null>(null);
+  const [ctxFlash, setCtxFlash] = useState<string | null>(null);
 
   const fetchLive = useCallback(async () => {
     if (loadingRef.current) return;
@@ -205,6 +224,43 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
     else fetchReplay();
     fetchSummary();
     fetchCount();
+  };
+
+  // ---- Phase 4: manual compact / expand + context debug ----
+  const fetchContextDebug = useCallback(async () => {
+    try {
+      const { response, data } = await apiJson<{ ok: boolean } & ContextDebugInfo>(
+        `/api/infinity/build/${encodeURIComponent(workspaceId)}/context-debug`
+      );
+      if (response.ok) setCtxDebug(data);
+    } catch (err) {
+      console.error('[DebugPanel] context debug fetch failed', err);
+    }
+  }, [workspaceId]);
+
+  useEffect(() => { fetchContextDebug(); }, [fetchContextDebug]);
+
+  const handleContextAction = async (action: 'compact' | 'reset', level?: 1 | 2 | 3 | 4) => {
+    const busyKey = action === 'reset' ? 'reset' : `compact-l${level}`;
+    setCtxBusy(busyKey);
+    setCtxFlash(null);
+    try {
+      const body = action === 'compact' && level ? JSON.stringify({ level }) : undefined;
+      const { response, data } = await apiJson<{ ok: boolean } & { debug?: ContextDebugInfo }>(
+        `/api/infinity/build/${encodeURIComponent(workspaceId)}/context/${action}`,
+        body
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+          : { method: 'POST' }
+      );
+      if (response.ok) {
+        if (data.debug) setCtxDebug(data.debug);
+        setCtxFlash(action === 'reset' ? 'L1' : `L${level}`);
+      }
+    } catch (err) {
+      console.error(`[DebugPanel] ${action} failed`, err);
+    } finally {
+      setCtxBusy(null);
+    }
   };
 
   const handleExport = async () => {
@@ -958,6 +1014,100 @@ export function BuildDebugPanel({ workspaceId }: { workspaceId: string }) {
           projectId={workspaceId}
           className="w-full"
         />
+      </div>
+
+      {/* Phase 4: Context controls — manual compact/expand + live debug readout */}
+      <div className="shrink-0 border-b border-border bg-secondary/50 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <Brain className="h-3.5 w-3.5 text-primary" />
+            {t('studio.build.contextControls') || 'Context'}
+          </span>
+          <div className="flex items-center gap-1.5">
+            {ctxFlash && (
+              <span className="animate-in fade-in rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] font-semibold text-emerald-400">
+                {t('studio.build.contextFlash', { level: ctxFlash }) || `Compacted to ${ctxFlash}`}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setCtxBusy('fetch'); fetchContextDebug().finally(() => setCtxBusy(null)); }}
+              disabled={!!ctxBusy}
+              className="rounded-lg border border-border bg-background p-1.5 text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+              title={t('studio.build.debugRefresh') || 'Refresh'}
+            >
+              <RefreshCw className={`h-3 w-3 ${ctxBusy === 'fetch' ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Manual compact / expand buttons */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {([1, 2, 3, 4] as const).map((lv) => (
+            <button
+              key={lv}
+              type="button"
+              onClick={() => handleContextAction('compact', lv)}
+              disabled={!!ctxBusy}
+              className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium hover:bg-white/[0.06] disabled:opacity-50 ${
+                ctxDebug?.compactionLevel === lv
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-background text-foreground'
+              }`}
+              title={t('studio.build.contextCompact') || `Force-compact to level ${lv}`}
+            >
+              {lv === 1 ? <ListChecks className="h-3 w-3" /> : lv === 4 ? <Zap className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+              L{lv} {lv === 1 ? 'Keep All' : lv === 2 ? 'Summarize' : lv === 3 ? 'Decisions + Map' : 'Goal + State'}
+              {ctxBusy === `compact-l${lv}` && <Loader2 className="h-3 w-3 animate-spin" />}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => handleContextAction('reset')}
+            disabled={!!ctxBusy}
+            className="flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[10px] font-medium text-foreground hover:bg-white/[0.06] disabled:opacity-50"
+            title={t('studio.build.contextExpand') || 'Expand back to level 1 full detail'}
+          >
+            <History className="h-3 w-3" />
+            {t('studio.build.contextExpand') || 'Expand (L1)'}
+            {ctxBusy === 'reset' && <Loader2 className="h-3 w-3 animate-spin" />}
+          </button>
+        </div>
+
+        {/* Active triggers + readout */}
+        {ctxDebug && (
+          <div className="space-y-1.5 text-[10px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {ctxDebug.triggers?.filter((tr) => tr.triggered).map((tr) => (
+                <span key={tr.type} className="inline-flex items-center gap-1 rounded bg-amber-400/15 border border-amber-400/30 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  {tr.type} {Math.round(tr.currentValue)}/{Math.round(tr.threshold)}
+                </span>
+              ))}
+              {ctxDebug.triggers && ctxDebug.triggers.every((tr) => !tr.triggered) && (
+                <span className="text-[9px] text-muted-foreground/50">{t('studio.build.contextNoTriggers') || 'No compaction triggers active'}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+              <div>
+                <span className="text-muted-foreground/60">{t('studio.build.contextCompactionLevel') || 'Level'}: </span>
+                <span className="font-mono font-medium text-foreground">L{ctxDebug.compactionLevel} {ctxDebug.compactionLevelName}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground/60">{t('studio.build.contextTokens') || 'Tokens'}: </span>
+                <span className="font-mono font-medium text-foreground">{Math.round(ctxDebug.estimatedTokens).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground/60">{t('studio.build.contextFiles') || 'Files / Steps'}: </span>
+                <span className="font-mono font-medium text-foreground">{ctxDebug.fileMapSize} / {ctxDebug.totalStepsOriginal}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground/60">{t('studio.build.contextDecisions') || 'Decisions / Errors'}: </span>
+                <span className="font-mono font-medium text-foreground">{ctxDebug.decisionsCount} / {ctxDebug.errorPatternsCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary / Events */}

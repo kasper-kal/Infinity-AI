@@ -37,7 +37,8 @@ export type BuildEventType =
   | "security"
   | "skill"
   | "local_model_attempt"
-  | "local_model_proposed";
+  | "local_model_proposed"
+  | "compaction";
 
 export interface BuildEvent {
   ts: string;

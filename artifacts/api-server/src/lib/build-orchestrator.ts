@@ -23,7 +23,14 @@ import { buildPlannerPrompt } from "./agent-prompts/planner";
 import { buildCoderPrompt } from "./agent-prompts/coder";
 import { buildReviewerPrompt } from "./agent-prompts/reviewer";
 import { buildFixerPrompt } from "./agent-prompts/fixer";
-import { getWorkingContext, serializeContext, setProjectGoal, refreshFileMap, recordStep } from "./build-context";
+import {
+  getWorkingContext,
+  serializeContext,
+  setProjectGoal,
+  refreshFileMap,
+  recordStep,
+  loadOrCreateContextFromPersistentStore,
+} from "./build-context";
 import { readWorkspaceFileText } from "./workspace";
 import { buildProjectContextForBuild } from "./build-project-context";
 import {
@@ -434,6 +441,10 @@ export class BuildOrchestrator {
   // ---------------------------------------------------------------------------
 
   private async loadContext(goal: string): Promise<void> {
+    // Phase 4: restore the persisted working context (disk first, then DB) so a
+    // resumed build keeps its key decisions, file map and error patterns instead
+    // of starting from a blank context.
+    await loadOrCreateContextFromPersistentStore(this.projectId, this.workspaceId);
     setProjectGoal(this.projectId, goal);
     await refreshFileMap(this.projectId, this.workspaceId);
 

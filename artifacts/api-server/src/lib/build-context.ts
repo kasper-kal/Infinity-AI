@@ -237,13 +237,69 @@ export async function refreshFileMap(
   workspaceId = projectId,
 ): Promise<Map<string, FileSummary>> {
   const root = getWorkspaceRoot(workspaceId);
+  const ctx = contexts.get(projectId);
+  const goal = ctx?.projectGoal || "";
+
   const entries = await listWorkspaceFiles(workspaceId);
-  const files = entries
-    .filter((e) => e.type === "file" && !/^(\.|node_modules|dist|build)/.test(e.path) && /\.(ts|tsx|js|jsx|json|css|html|md)$/.test(e.path))
-    .slice(0, 200);
+  const files = entries.filter(
+    (e) =>
+      e.type === "file" &&
+      !/^(\.|node_modules|dist|build)/.test(e.path) &&
+      /\.(ts|tsx|js|jsx|json|css|html|md)$/.test(e.path),
+  );
+
+  // Phase 4 smart file inclusion: for a large workspace, rank candidates without
+  // reading their contents (path keywords + error-pattern references + recency +
+  // entry/config boost), read only the top slice, then apply a final cap so the
+  // agent sees ~20 relevant files instead of the whole repo. Small workspaces
+  // keep every eligible file.
+  const SMART_CAP = 20;
+  const LARGE_REPO_THRESHOLD = 120;
+  const smart = files.length > LARGE_REPO_THRESHOLD && goal.length > 0;
 
   const fileMap = new Map<string, FileSummary>();
-  for (const entry of files) {
+  let candidates = files;
+
+  if (smart) {
+    const goalKeywords = goal.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    const errorPaths = new Set<string>();
+    for (const ep of ctx?.errorPatterns ?? []) {
+      const m = ep.pattern.match(/([\w@/.-]+\.(ts|tsx|js|jsx|json|css|html|md))/);
+      if (m) errorPaths.add(m[1].replace(/^\.\//, ""));
+    }
+    const now = Date.now();
+
+    const stats = new Map<string, { mtime: number; size: number }>();
+    for (const e of files) {
+      try {
+        const st = await fs.stat(path.join(root, e.path));
+        stats.set(e.path, { mtime: st.mtime.getTime(), size: st.size });
+      } catch {
+        stats.set(e.path, { mtime: 0, size: 0 });
+      }
+    }
+
+    const scored = files
+      .map((e) => {
+        const p = e.path.toLowerCase();
+        let score = 0;
+        for (const kw of goalKeywords) if (p.includes(kw)) score += 3;
+        if (errorPaths.has(e.path)) score += 4;
+        if (
+          /index\.(ts|tsx|js|jsx)$/.test(e.path) ||
+          /^(package\.json|tsconfig\.json|vite\.config\.|next\.config\.|src\/main\.|src\/app\.)/.test(p)
+        ) score += 2;
+        const st = stats.get(e.path);
+        if (st && now - st.mtime < 24 * 60 * 60 * 1000) score += 5; // edited in the last 24h
+        return { entry: e, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    // Read ~3x the cap so purpose/export matches can still win the final cut.
+    candidates = scored.slice(0, SMART_CAP * 3).map((s) => s.entry);
+  }
+
+  for (const entry of candidates) {
     try {
       const content = await readWorkspaceFileText(entry.path, workspaceId);
       const stat = await fs.stat(path.join(root, entry.path));
@@ -260,8 +316,36 @@ export async function refreshFileMap(
     }
   }
 
-  const ctx = contexts.get(projectId);
-  if (ctx) ctx.fileMap = fileMap;
+  if (smart) {
+    // Final smart cut: re-rank the read slice by goal purpose/export matches +
+    // recency, always keep entry/config files, cap at SMART_CAP.
+    const goalKeywords = goal.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    const ranked = Array.from(fileMap.entries())
+      .map(([relPath, summary]) => {
+        let score = 0;
+        for (const kw of goalKeywords) {
+          if (
+            summary.purpose.toLowerCase().includes(kw) ||
+            summary.exports.some((x) => x.toLowerCase().includes(kw))
+          ) score += 4;
+          else if (`${relPath} ${summary.purpose}`.toLowerCase().includes(kw)) score += 1;
+        }
+        if (
+          /index\.(ts|tsx|js|jsx)$/.test(relPath) ||
+          /^(package\.json|tsconfig\.json|vite\.config\.|next\.config\.|src\/main\.|src\/app\.)/.test(relPath)
+        ) score += 8;
+        if (Date.now() - new Date(summary.lastChanged).getTime() < 24 * 60 * 60 * 1000) score += 3;
+        return { relPath, summary, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    fileMap.clear();
+    for (const entry of ranked.slice(0, SMART_CAP)) fileMap.set(entry.relPath, entry.summary);
+  }
+
+  const context = getWorkingContext(projectId);
+  context.fileMap = fileMap;
+  void saveWorkingContextToDisk(projectId, workspaceId);
   return fileMap;
 }
 
@@ -318,8 +402,10 @@ export function recordStep(
     ctx.completedSteps = keep;
   }
 
-  // Auto-check compaction triggers
-  checkCompactionTriggers(projectId);
+  // Phase 4: persist to .infinity/working-context.json so a kill/restart never
+  // loses the plot, and run the 4-level auto-compactor in the live agent loop.
+  void saveWorkingContextToDisk(projectId);
+  maybeAutoCompact(projectId);
 
   return result;
 }
@@ -370,6 +456,10 @@ export function trackTokens(projectId: string, tokens: number): TokenBudget {
   if (ctx.tokenBudget.history.length > 50) {
     ctx.tokenBudget.history = ctx.tokenBudget.history.slice(-50);
   }
+  // Token usage is the primary compaction trigger — fire-and-forget both the
+  // disk persistence and the 4-level auto-compaction check.
+  void saveWorkingContextToDisk(projectId);
+  maybeAutoCompact(projectId);
   return ctx.tokenBudget;
 }
 
@@ -589,11 +679,12 @@ function estimateContextTokens(ctx: WorkingContext): number {
  * Auto-compact context based on triggers - uses new context-compactor.ts pipeline
  */
 export async function autoCompactContext(projectId: string): Promise<CompactionLevel> {
+  const ctx = getWorkingContext(projectId);
   const triggers = checkCompactionTriggers(projectId);
   const triggered = triggers.filter(t => t.triggered);
 
   if (triggered.length === 0) {
-    return getWorkingContext(projectId).compactionLevel;
+    return ctx.compactionLevel;
   }
 
   // Determine target level based on severity
@@ -608,17 +699,48 @@ export async function autoCompactContext(projectId: string): Promise<CompactionL
     else if (trigger.type === "context-size" && trigger.currentValue > 50_000) targetLevel = Math.max(targetLevel, 2) as CompactionLevel;
   }
 
+  // Avoid re-compacting to the same or a weaker level on every turn.
+  if (targetLevel <= ctx.compactionLevel) return ctx.compactionLevel;
+
+  // Report the trigger that pushed the highest ratio (the honest cause).
+  const strongestTrigger = triggered.reduce((best, t) =>
+    t.currentValue / t.threshold > best.currentValue / best.threshold ? t : best,
+    triggered[0],
+  );
+
   // Use the new context-compactor for working context compaction
-  await compactContext(projectId, targetLevel);
+  await compactContext(projectId, targetLevel, strongestTrigger.type);
   return targetLevel;
+}
+
+/**
+ * Phase 4: fire-and-forget compaction check for the live agent loop. Called from
+ * recordStep and trackTokens on every turn/step. Failures are swallowed so a
+ * compaction hiccup never breaks the build.
+ */
+export function maybeAutoCompact(projectId: string): void {
+  autoCompactContext(projectId).catch((err) => {
+    console.error(`[build-context] auto-compaction failed for ${projectId}:`, err);
+  });
 }
 
 /**
  * Compact context to a specific level - delegates to context-compactor for working context
  */
-export async function compactContext(projectId: string, level: CompactionLevel): Promise<void> {
+export async function compactContext(
+  projectId: string,
+  level: CompactionLevel,
+  trigger: CompactionTrigger["type"] = "manual",
+): Promise<void> {
   const ctx = getWorkingContext(projectId);
   const config = COMPACTION_LEVELS.find(c => c.level === level)!;
+  const startedAt = Date.now();
+
+  // Phase 4: capture before-state so we can report an honest compaction event.
+  const beforeSteps = ctx.completedSteps.length;
+  const beforeTokens = estimateContextTokens(ctx);
+  const hadPlan = !!ctx.currentPlan;
+  const hadGoal = !!ctx.projectGoal;
 
   // Summarize old steps using LLM (or fallback)
   if (config.summarizeOldSteps && ctx.completedSteps.length > config.keepDetailedSteps) {
@@ -685,8 +807,42 @@ export async function compactContext(projectId: string, level: CompactionLevel):
   ctx.compactionLevel = level;
   ctx.lastCompaction = new Date().toISOString();
 
-  // Persist to checkpoint
+  // Persist to checkpoint + disk
   await persistContextToCheckpoint(projectId);
+  void saveWorkingContextToDisk(projectId);
+
+  // Phase 4: emit a real compaction telemetry event (drives CompactionHistory UI).
+  const afterTokens = estimateContextTokens(ctx);
+  const messagesCompacted = Math.max(0, beforeSteps - ctx.completedSteps.length);
+  const eventData = {
+    level,
+    levelName: config.name,
+    trigger,
+    tokensBefore: beforeTokens,
+    tokensAfter: afterTokens,
+    tokensSaved: Math.max(0, beforeTokens - afterTokens),
+    messagesCompacted,
+    preservedItems: {
+      userInstructions: 0,
+      projectInstructions: 0,
+      fileMapFiles: ctx.fileMap.size,
+      errorPatterns: ctx.errorPatterns.length,
+      decisions: ctx.keyDecisions.length,
+      currentPlan: hadPlan,
+      originalGoal: hadGoal,
+    },
+    description: `Compacted to level ${level} (${config.name}) triggered by ${trigger}`,
+    durationMs: Date.now() - startedAt,
+  };
+  try {
+    const { logBuildEvent } = await import("./build-telemetry");
+    await logBuildEvent(projectId, "compaction", eventData.description, {
+      durationMs: eventData.durationMs,
+      data: eventData,
+    });
+  } catch (err) {
+    console.error("[build-context] compaction telemetry failed:", err);
+  }
 }
 
 /**
@@ -713,8 +869,33 @@ async function summarizeSteps(steps: StepResult[], projectId: string): Promise<s
   }
 }
 
+/** Serializable plan payload for a checkpoint — goal, plan, decisions, errors. */
+function checkpointPlanPayload(ctx: WorkingContext) {
+  return {
+    goal: ctx.projectGoal,
+    currentPlan: ctx.currentPlan,
+    compactionLevel: ctx.compactionLevel,
+    compactedSummary: ctx.compactedSummary,
+    keyDecisions: ctx.keyDecisions,
+    errorPatterns: ctx.errorPatterns,
+  };
+}
+
+/** Serializable working-context payload for a checkpoint — includes the real fileMap. */
+function checkpointWorkingContextPayload(ctx: WorkingContext) {
+  return {
+    tokenBudget: ctx.tokenBudget,
+    fileMap: Object.fromEntries(ctx.fileMap),
+    currentPlan: ctx.currentPlan,
+    compactionLevel: ctx.compactionLevel,
+    lastCompaction: ctx.lastCompaction,
+    totalStepsOriginal: ctx.totalStepsOriginal,
+  };
+}
+
 /**
- * Persist context to checkpoint table
+ * Persist context to checkpoint table — stores the full fileMap (not just its
+ * size) and currentPlan so resume can reconstruct the working context exactly.
  */
 async function persistContextToCheckpoint(projectId: string): Promise<void> {
   const ctx = getWorkingContext(projectId);
@@ -726,40 +907,18 @@ async function persistContextToCheckpoint(projectId: string): Promise<void> {
         projectId,
         iteration: ctx.totalStepsOriginal,
         completed: 0,
-        plan: {
-          goal: ctx.projectGoal,
-          compactionLevel: ctx.compactionLevel,
-          compactedSummary: ctx.compactedSummary,
-          keyDecisions: ctx.keyDecisions,
-          errorPatterns: ctx.errorPatterns,
-        },
+        plan: checkpointPlanPayload(ctx),
         completedSteps: ctx.completedSteps,
-        workingContext: {
-          tokenBudget: ctx.tokenBudget,
-          fileMapSize: ctx.fileMap.size,
-          compactionLevel: ctx.compactionLevel,
-          lastCompaction: ctx.lastCompaction,
-        },
+        workingContext: checkpointWorkingContextPayload(ctx),
         fileSnapshots: null,
         tokenUsage: ctx.tokenBudget,
       })
       .onConflictDoUpdate({
         target: [buildCheckpoints.projectId, buildCheckpoints.iteration],
         set: {
-          plan: {
-            goal: ctx.projectGoal,
-            compactionLevel: ctx.compactionLevel,
-            compactedSummary: ctx.compactedSummary,
-            keyDecisions: ctx.keyDecisions,
-            errorPatterns: ctx.errorPatterns,
-          },
+          plan: checkpointPlanPayload(ctx),
           completedSteps: ctx.completedSteps,
-          workingContext: {
-            tokenBudget: ctx.tokenBudget,
-            fileMapSize: ctx.fileMap.size,
-            compactionLevel: ctx.compactionLevel,
-            lastCompaction: ctx.lastCompaction,
-          },
+          workingContext: checkpointWorkingContextPayload(ctx),
           tokenUsage: ctx.tokenBudget,
           updatedAt: new Date(),
         },
@@ -787,22 +946,140 @@ export async function loadContextFromCheckpoint(projectId: string): Promise<Work
   const workingContext = checkpoint.workingContext as any;
 
   const ctx: WorkingContext = {
-    projectGoal: plan?.goal || "",
-    currentPlan: null,
+    projectGoal: plan?.goal || workingContext?.goal || "",
+    currentPlan: plan?.currentPlan ?? workingContext?.currentPlan ?? null,
     completedSteps: (checkpoint.completedSteps as StepResult[]) || [],
     keyDecisions: plan?.keyDecisions || [],
-    fileMap: new Map(),
+    fileMap: fileMapFromObject(workingContext?.fileMap),
     errorPatterns: plan?.errorPatterns || [],
     tokenBudget: workingContext?.tokenBudget || { used: 0, limit: TOKEN_BUDGET_DEFAULT, history: [] },
     compactedSummary: plan?.compactedSummary || null,
     agentOutputs: [],
-    compactionLevel: plan?.compactionLevel || 1,
+    compactionLevel: plan?.compactionLevel || workingContext?.compactionLevel || 1,
     lastCompaction: workingContext?.lastCompaction,
-    totalStepsOriginal: checkpoint.iteration,
+    totalStepsOriginal: workingContext?.totalStepsOriginal || checkpoint.iteration || 0,
   };
 
   contexts.set(projectId, ctx);
   return ctx;
+}
+
+// ============================================================================
+// Phase 4: Persistent working context (.infinity/working-context.json)
+// ============================================================================
+
+const WORKING_CONTEXT_DIR = ".infinity";
+const WORKING_CONTEXT_FILE = "working-context.json";
+
+function workingContextDiskPath(workspaceId: string): string {
+  return path.join(getWorkspaceRoot(workspaceId), WORKING_CONTEXT_DIR, WORKING_CONTEXT_FILE);
+}
+
+/** Serialize a file Map into a plain object for JSON storage. */
+function fileMapToObject(map: Map<string, FileSummary>): Record<string, FileSummary> {
+  return Object.fromEntries(map);
+}
+
+/** Reconstruct a file Map from the serialized object, dropping malformed entries. */
+function fileMapFromObject(obj: unknown): Map<string, FileSummary> {
+  const map = new Map<string, FileSummary>();
+  if (!obj || typeof obj !== "object") return map;
+  for (const [p, v] of Object.entries(obj as Record<string, any>)) {
+    if (!v || typeof v !== "object" || typeof v.path !== "string") continue;
+    map.set(p, {
+      path: v.path,
+      purpose: typeof v.purpose === "string" ? v.purpose : "",
+      exports: Array.isArray(v.exports) ? v.exports.filter((x) => typeof x === "string") : [],
+      lastChanged: typeof v.lastChanged === "string" ? v.lastChanged : "",
+      hash: typeof v.hash === "string" ? v.hash : "",
+      size: Number(v.size) || 0,
+    });
+  }
+  return map;
+}
+
+/**
+ * Phase 4: persist the full working context — goal, plan, decisions, file map,
+ * error patterns, token budget, compaction state — to .infinity/working-context.json.
+ * This is what lets the build survive a process restart, not just the DB resume.
+ */
+export async function saveWorkingContextToDisk(
+  projectId: string,
+  workspaceId = projectId,
+): Promise<void> {
+  const ctx = contexts.get(projectId);
+  if (!ctx) return;
+  try {
+    const p = workingContextDiskPath(workspaceId);
+    await fs.mkdir(path.dirname(p), { recursive: true });
+    const payload = {
+      savedAt: new Date().toISOString(),
+      projectId,
+      projectGoal: ctx.projectGoal,
+      currentPlan: ctx.currentPlan,
+      completedSteps: ctx.completedSteps,
+      keyDecisions: ctx.keyDecisions,
+      fileMap: fileMapToObject(ctx.fileMap),
+      errorPatterns: ctx.errorPatterns,
+      tokenBudget: ctx.tokenBudget,
+      compactedSummary: ctx.compactedSummary,
+      agentOutputs: ctx.agentOutputs || [],
+      compactionLevel: ctx.compactionLevel,
+      lastCompaction: ctx.lastCompaction ?? null,
+      totalStepsOriginal: ctx.totalStepsOriginal,
+    };
+    await fs.writeFile(p, JSON.stringify(payload, null, 2), "utf8");
+  } catch (err) {
+    console.error(`[build-context] saveWorkingContextToDisk failed for ${projectId}:`, err);
+  }
+}
+
+/**
+ * Phase 4: restore a working context from .infinity/working-context.json if present.
+ * Returns null when nothing has been persisted yet (fresh build).
+ */
+export async function loadWorkingContextFromDisk(
+  projectId: string,
+  workspaceId = projectId,
+): Promise<WorkingContext | null> {
+  try {
+    const raw = await fs.readFile(workingContextDiskPath(workspaceId), "utf8");
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+    const ctx: WorkingContext = {
+      projectGoal: typeof data.projectGoal === "string" ? data.projectGoal : "",
+      currentPlan: data.currentPlan ?? null,
+      completedSteps: Array.isArray(data.completedSteps) ? data.completedSteps : [],
+      keyDecisions: Array.isArray(data.keyDecisions) ? data.keyDecisions : [],
+      fileMap: fileMapFromObject(data.fileMap),
+      errorPatterns: Array.isArray(data.errorPatterns) ? data.errorPatterns : [],
+      tokenBudget: data.tokenBudget || { used: 0, limit: TOKEN_BUDGET_DEFAULT, history: [] },
+      compactedSummary: data.compactedSummary || null,
+      agentOutputs: Array.isArray(data.agentOutputs) ? data.agentOutputs : [],
+      compactionLevel: (data.compactionLevel as CompactionLevel) || 1,
+      lastCompaction: data.lastCompaction || undefined,
+      totalStepsOriginal: Number(data.totalStepsOriginal) || 0,
+    };
+    contexts.set(projectId, ctx);
+    return ctx;
+  } catch {
+    return null; // no persisted context yet
+  }
+}
+
+/**
+ * Phase 4: resume order — the on-disk working-context is freshest and survives
+ * the longest, so restore it first, then the latest DB checkpoint, then blank.
+ */
+export async function loadOrCreateContextFromPersistentStore(
+  projectId: string,
+  workspaceId = projectId,
+): Promise<WorkingContext> {
+  const fromDisk = await loadWorkingContextFromDisk(projectId, workspaceId);
+  if (fromDisk) return fromDisk;
+  const fromCheckpoint = await loadContextFromCheckpoint(projectId);
+  if (fromCheckpoint) return fromCheckpoint;
+  return getWorkingContext(projectId);
 }
 
 /**
@@ -845,7 +1122,7 @@ export function getContextDebugInfo(projectId: string): {
  * Manually trigger compaction to a level
  */
 export async function manualCompact(projectId: string, level: CompactionLevel): Promise<void> {
-  await compactContext(projectId, level);
+  await compactContext(projectId, level, "manual");
 }
 
 /**
@@ -857,6 +1134,7 @@ export async function resetCompaction(projectId: string): Promise<void> {
   ctx.compactedSummary = null;
   ctx.completedSteps = []; // Would need full history from checkpoint
   await persistContextToCheckpoint(projectId);
+  void saveWorkingContextToDisk(projectId);
 }
 
 /**

@@ -47,6 +47,12 @@ import {
   trackTokens,
   serializeContext,
   refreshFileMap,
+  manualCompact,
+  resetCompaction,
+  getContextDebugInfo,
+  serializeContextForLevel,
+  loadWorkingContextFromDisk,
+  type CompactionLevel,
 } from "../../lib/build-context";
 import { buildFullProjectContext } from "../../lib/project-context";
 import {
@@ -2101,52 +2107,42 @@ router.get("/build/:projectId/token-usage", requireAuth, async (req, res) => {
 });
 
 /**
- * Phase 32: Get compaction history for a project (for CompactionHistory UI)
+ * Phase 32: Get compaction history for a project (for CompactionHistory UI).
+ * Reads REAL compaction events from the project telemetry log — the events are
+ * written by build-context.compactContext with honest trigger/tokensSaved/
+ * messagesCompacted/preservedItems data.
  */
 router.get("/build/:projectId/compaction-history", requireAuth, async (req, res) => {
   const projectId = cleanText(req.params.projectId as string, 64);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
   try {
-    // For now, we'll read from checkpoints which store compaction info
-    // In a full implementation, this would query a dedicated compaction_events table
-    const { buildCheckpoints } = await import("@workspace/db/schema");
-    const { eq, desc } = await import("drizzle-orm");
-    const { db } = await import("@workspace/db");
-
-    const checkpoints = await db
-      .select()
-      .from(buildCheckpoints)
-      .where(eq(buildCheckpoints.projectId, projectId))
-      .orderBy(desc(buildCheckpoints.iteration))
-      .limit(limit);
-
-    // Extract compaction events from checkpoints
-    const events = checkpoints
-      .filter(cp => cp.plan && typeof cp.plan === 'object' && (cp.plan as any).compactionLevel)
-      .map((cp, idx) => {
-        const plan = cp.plan as any;
-        const wctx = cp.workingContext as any;
+    const { readAllEvents } = await import("../../lib/build-telemetry");
+    const events = (await readAllEvents(projectId))
+      .filter((e) => e.type === "compaction")
+      .slice(-limit)
+      .map((e) => {
+        const d = (e.data || {}) as any;
         return {
-          id: cp.id,
-          timestamp: cp.createdAt.toISOString(),
-          level: plan.compactionLevel || 1,
-          levelName: ['Summarize History', 'Compress Working', 'Goal + State', 'Emergency Minimal'][plan.compactionLevel - 1] || 'Unknown',
-          trigger: 'context-size' as const,
-          tokensBefore: wctx?.tokenBudget?.used || 0,
-          tokensAfter: wctx?.tokenBudget?.used || 0,
-          tokensSaved: 0,
-          messagesCompacted: 0,
-          preservedItems: {
+          id: `${e.ts}-${e.seq}`,
+          timestamp: e.ts,
+          level: d.level || 1,
+          levelName: d.levelName || `Level ${d.level || 1}`,
+          trigger: (d.trigger as string) || "manual",
+          tokensBefore: Number(d.tokensBefore) || 0,
+          tokensAfter: Number(d.tokensAfter) || 0,
+          tokensSaved: Number(d.tokensSaved) || 0,
+          messagesCompacted: Number(d.messagesCompacted) || 0,
+          preservedItems: d.preservedItems || {
             userInstructions: 0,
             projectInstructions: 0,
-            fileMapFiles: wctx?.fileMapSize || 0,
-            errorPatterns: plan?.errorPatterns?.length || 0,
-            decisions: plan?.keyDecisions?.length || 0,
-            currentPlan: !!plan?.currentPlan,
-            originalGoal: !!plan?.goal,
+            fileMapFiles: 0,
+            errorPatterns: 0,
+            decisions: 0,
+            currentPlan: false,
+            originalGoal: false,
           },
-          description: `Compaction to level ${plan.compactionLevel} at iteration ${cp.iteration}`,
-          durationMs: 0,
+          description: d.description || e.label,
+          durationMs: Number(d.durationMs) || e.durationMs || 0,
         };
       });
 
@@ -2154,6 +2150,67 @@ router.get("/build/:projectId/compaction-history", requireAuth, async (req, res)
   } catch (err) {
     req.log.error({ err }, "Failed to get compaction history");
     res.status(500).json({ error: "Failed to get compaction history" });
+  }
+});
+
+/**
+ * Phase 4: Manual compact — force-compact the working context to a level (1-4).
+ */
+router.post("/build/:projectId/context/compact", requireAuth, requireScope("build:write"), async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  const level = Math.min(4, Math.max(1, Number(req.body?.level) || 1)) as CompactionLevel;
+  try {
+    await manualCompact(projectId, level);
+    res.json({ ok: true, level, debug: getContextDebugInfo(projectId) });
+  } catch (err) {
+    req.log.error({ err }, "Manual compaction failed");
+    res.status(500).json({ error: "Manual compaction failed" });
+  }
+});
+
+/**
+ * Phase 4: Expand / reset — restore compaction to level 1 (full detail).
+ */
+router.post("/build/:projectId/context/reset", requireAuth, requireScope("build:write"), async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  try {
+    await resetCompaction(projectId);
+    res.json({ ok: true, debug: getContextDebugInfo(projectId) });
+  } catch (err) {
+    req.log.error({ err }, "Reset compaction failed");
+    res.status(500).json({ error: "Reset compaction failed" });
+  }
+});
+
+/**
+ * Phase 4: Context debug info — token budget, compaction level, triggers, counts.
+ */
+router.get("/build/:projectId/context-debug", requireAuth, async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  try {
+    res.json({ ok: true, ...getContextDebugInfo(projectId) });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get context debug info");
+    res.status(500).json({ error: "Failed to get context debug info" });
+  }
+});
+
+/**
+ * Phase 4: Serialize context as it would appear at a compaction level (for preview).
+ */
+router.get("/build/:projectId/context/serialize", requireAuth, async (req, res) => {
+  const projectId = cleanText(req.params.projectId as string, 64);
+  const level = Math.min(4, Math.max(1, Number(req.query.level) || 1)) as CompactionLevel;
+  try {
+    // If the in-memory context is still blank (e.g. after a server restart),
+    // restore the persisted working context before serializing.
+    if (!getWorkingContext(projectId).projectGoal) {
+      await loadWorkingContextFromDisk(projectId);
+    }
+    res.json({ ok: true, level, context: serializeContextForLevel(projectId, level) });
+  } catch (err) {
+    req.log.error({ err }, "Failed to serialize context");
+    res.status(500).json({ error: "Failed to serialize context" });
   }
 });
 
