@@ -131,10 +131,19 @@ const HOSTING_ENUM = ["vercel", "netlify", "cloudflare-pages", "railway", "flyio
 
 class UnifiedDeployService {
   private deployments = new Map<string, UnifiedDeployment>();
-  private engine = new DeploymentEngine();
+  private _engine?: DeploymentEngine;
 
   constructor() {
     // no-op
+  }
+
+  // Lazy — DeploymentEngine calls getLLMAdapter at construction, and a deploy
+  // engine must NEVER block server boot on a model key. Constructed on first
+  // deploy; an absent key then surfaces as that artifact's honest failure (the
+  // per-artifact try/catch), never a process crash.
+  private get engine(): DeploymentEngine {
+    if (!this._engine) this._engine = new DeploymentEngine();
+    return this._engine;
   }
 
   private static generateId(): string {

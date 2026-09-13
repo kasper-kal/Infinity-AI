@@ -373,7 +373,13 @@ export class DoneContractEngine {
     context: VerificationContext,
     result: DoneContractResult
   ): Promise<void> {
-    const checkpointDir = safeWorkspacePath(this.workspaceId, ".infinity/build-checkpoints") || path.join(process.cwd(), ".infinity", "build-checkpoints");
+    // NOTE: safeWorkspacePath(relPath, workspaceId) — argument order mattered.
+    // This was previously swapped (this.workspaceId as relPath) which made
+    // workspaceKey(".infinity/build-checkpoints") throw "Invalid workspace id"
+    // on EVERY runDoneContract, silently swallowed by build.ts's catch — so the
+    // done-contract evidence file was never written. Fixed: relPath first.
+    const checkpointDir = safeWorkspacePath(".infinity/build-checkpoints", this.workspaceId)
+      || path.join(process.cwd(), ".infinity", "build-checkpoints");
     await fs.mkdir(checkpointDir, { recursive: true });
 
     const filename = `done-contract-${context.buildId}-${Date.now()}.json`;
