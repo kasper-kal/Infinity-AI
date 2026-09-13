@@ -15,6 +15,14 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getWorkspaceRoot, safeWorkspacePath, getWorkspaceCommandEnvironment } from "./workspace";
 import { inspectBuiltApp, type VisualInspection } from "./build-visual-verification";
+// Phase 1 — real gate implementations (these files hold the actual checks:
+//   build-bundle.ts      → bundle-size measurement + budgets
+//   build-performance.ts → LCP/CLS + JS-weight budgets (no not-enforced hole)
+//   build-security.ts    → high-confidence secret scan + tracked-.env check
+// Type-only imports from THIS module stay erased, so no runtime cycle.
+import { measureBundleSize, verdictBundle } from "./build-bundle";
+import { evaluatePerformance } from "./build-performance";
+import { scanProjectForSecrets } from "./build-security";
 
 /**
  * Build types with their specific completion criteria

@@ -777,6 +777,118 @@ export async function secureExecuteTool(
 }
 
 // ============================================
+// SECRET SCAN — done-contract gate (Phase 1)
+// ============================================
+
+export interface SecretFinding {
+  id: string;
+  file: string;
+  line: number;
+  /** Class label only — NEVER the secret value (stays out of logs/context). */
+  detail: string;
+}
+
+/**
+ * HIGH-CONFIDENCE secret patterns only. A gate that FAILS builds must not
+ * false-positive on harmless code (`password: "demo123"` in a test fixture, a
+ * `token` variable, base64 blobs). These shapes are unambiguous on their own —
+ * a real AWS access key, GitHub PAT, OpenAI/Anthropic/NVIDIA/xAI key, Stripe
+ * live key, Google API key, or a PEM private key block.
+ */
+const HIGH_CONFIDENCE_SECRETS: Array<{ id: string; re: RegExp; detail: string }> = [
+  { id: "aws-access-key-id", re: /\bAKIA[0-9A-Z]{16}\b/, detail: "AWS access key ID" },
+  { id: "github-classic-pat", re: /\bghp_[0-9A-Za-z]{36}\b/, detail: "GitHub personal access token" },
+  { id: "github-fine-grained-pat", re: /\bgithub_pat_[0-9A-Za-z_]{30,}\b/, detail: "GitHub fine-grained PAT" },
+  { id: "openai-api-key", re: /\bsk-(?:proj-)?[0-9A-Za-z]{32,}\b/, detail: "OpenAI API key" },
+  { id: "anthropic-api-key", re: /\bsk-ant-[0-9A-Za-z_-]{50,}\b/, detail: "Anthropic API key" },
+  { id: "nvidia-api-key", re: /\bnvapi-[0-9A-Za-z_-]{32,}\b/, detail: "NVIDIA NIM API key" },
+  { id: "xai-api-key", re: /\bxai-[0-9A-Za-z]{32,}\b/, detail: "xAI API key" },
+  { id: "stripe-live-key", re: /\bsk_live_[0-9A-Za-z]{20,}\b/, detail: "Stripe live secret key" },
+  { id: "stripe-restricted", re: /\brk_live_[0-9A-Za-z]{20,}\b/, detail: "Stripe live restricted key" },
+  { id: "google-api-key", re: /\bAIza[0-9A-Za-z_\-]{35}\b/, detail: "Google API key" },
+  { id: "private-key-block", re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/, detail: "private key block inlined in source" },
+  { id: "twilio-api-key", re: /\bSK[0-9a-f]{32}\b/, detail: "Twilio API key" },
+  { id: "slack-token", re: /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/, detail: "Slack token" },
+];
+
+/** Source roots to walk (skip build artifacts — the source is where it ships). */
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", "coverage", ".next", ".turbo", ".cache", "vendor"]);
+const MAX_SCAN_BYTES = 4 * 1024 * 1024;
+
+async function walkForScan(dir: string, onFile: (abs: string) => void): Promise<void> {
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const ent of entries) {
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (!SKIP_DIRS.has(ent.name)) await walkForScan(full, onFile);
+    } else if (ent.isFile()) {
+      onFile(full);
+    }
+  }
+}
+
+/**
+ * Scan a project for high-confidence secrets in source + a git-tracked .env.
+ * Runs fully locally (no network). Returns classified findings with line
+ * numbers — file paths + classes only, never the secret values.
+ */
+export async function scanProjectForSecrets(projectPath: string): Promise<SecretFinding[]> {
+  const findings: SecretFinding[] = [];
+  let scannedBytes = 0;
+
+  await walkForScan(projectPath, async (abs) => {
+    if (scannedBytes >= MAX_SCAN_BYTES) return;
+    let content: string;
+    try {
+      const stat = await fs.stat(abs);
+      if (stat.size > 100 * 1024) return; // skip huge binaries/source maps
+      content = await fs.readFile(abs, "utf-8");
+    } catch {
+      return;
+    }
+    scannedBytes += content.length;
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length && findings.length < 50; i++) {
+      const lineText = lines[i] ?? "";
+      for (const pat of HIGH_CONFIDENCE_SECRETS) {
+        if (pat.re.test(lineText)) {
+          findings.push({
+            id: pat.id,
+            file: path.relative(projectPath, abs),
+            line: i + 1,
+            detail: pat.detail,
+          });
+        }
+      }
+    }
+  });
+
+  // A .env committed to git is a real secret-management defect.
+  try {
+    const { execa } = await import("execa");
+    const tracked = await execa("git", ["ls-files"], { cwd: projectPath, reject: false, timeout: 15000 });
+    if (tracked.exitCode === 0) {
+      for (const file of tracked.stdout.split("\n")) {
+        const name = path.basename(file);
+        // Real env files, not their example/sample counterparts documenting shape.
+        if (/^\.env(?:\.[A-Za-z0-9_-]+)?$/.test(name) && !/(example|sample|local\.example|\.template)/i.test(name)) {
+          findings.push({ id: "tracked-env-file", file, line: 1, detail: ".env file is committed to git — secrets would ship with the repo" });
+        }
+      }
+    }
+  } catch {
+    /* not a git repo / git unavailable — skip the tracked-.env check */
+  }
+
+  return findings;
+}
+
+// ============================================
 // Exports
 // ============================================
 

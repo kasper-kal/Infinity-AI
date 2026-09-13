@@ -67,6 +67,8 @@ export interface VisualInspection {
   seo: SeoSnapshot;
   /** Largest Contentful Paint measured on the desktop pass (ms), or null if unavailable */
   lcpMs: number | null;
+  /** Cumulative Layout Shift measured on the desktop pass (0..1), or null if unavailable */
+  cls: number | null;
   pagesInspected: number;
   durationMs: number;
   reportDir?: string;
@@ -263,6 +265,7 @@ async function runInspection(
     a11yRan: false,
     seo: { title: "", metaDescription: "", h1Count: 0, inspected: false },
     lcpMs: null,
+    cls: null,
     pagesInspected: 0,
     durationMs: 0,
     timestamp: new Date().toISOString(),
@@ -340,6 +343,7 @@ async function runInspection(
     if (typeof initScript === "function") {
       await initScript.call(page, () => {
         (window as unknown as Record<string, unknown>).__infinityLcp = null;
+        (window as unknown as Record<string, unknown>).__infinityCls = null;
         try {
           new PerformanceObserver((list) => {
             const entries = list.getEntries();
@@ -349,7 +353,23 @@ async function runInspection(
             }
           }).observe({ type: "largest-contentful-paint", buffered: true });
         } catch {
-          // no LCP support — performance gate reports not-enforced honestly
+          // no LCP support — performance gate falls back to JS-weight budget
+        }
+        try {
+          // Cumulative Layout Shift: sum session shifts excluding those with
+          // recent user input (the CLS definition).
+          new PerformanceObserver((list) => {
+            let total = 0;
+            for (const e of list.getEntries()) {
+              const entry = e as unknown as { hadRecentInput?: boolean; value?: number };
+              if (entry.hadRecentInput) continue;
+              total += entry.value ?? 0;
+            }
+            const cur = (window as unknown as Record<string, unknown>).__infinityCls;
+            (window as unknown as Record<string, unknown>).__infinityCls = (typeof cur === "number" ? cur : 0) + total;
+          }).observe({ type: "layout-shift", buffered: true });
+        } catch {
+          // no CLS support — performance gate reports LCP only
         }
       });
     }
@@ -389,7 +409,19 @@ async function runInspection(
                 const entries = performance.getEntriesByType("largest-contentful-paint");
                 return entries.length ? Math.round(entries[entries.length - 1].startTime) : null;
               })();
-        return { text, overflow, title, metaDesc, h1Count, lcp };
+        const liveCls = (window as unknown as Record<string, unknown>).__infinityCls;
+        const cls =
+          typeof liveCls === "number"
+            ? (liveCls as number)
+            : (() => {
+                let total = 0;
+                for (const e of performance.getEntriesByType("layout-shift") as unknown as Array<{ hadRecentInput?: boolean; value?: number }>) {
+                  if (e.hadRecentInput) continue;
+                  total += e.value ?? 0;
+                }
+                return total;
+              })();
+        return { text, overflow, title, metaDesc, h1Count, lcp, cls };
       });
 
       if (metrics.text === 0) result.blankViewports.push({ width: vp.width, height: vp.height });
@@ -406,6 +438,7 @@ async function runInspection(
         seenMetaDescription = metrics.metaDesc;
         seenH1Count = metrics.h1Count;
         if (typeof metrics.lcp === "number") result.lcpMs = metrics.lcp;
+        if (typeof metrics.cls === "number") result.cls = metrics.cls;
       }
 
       // axe-core runs on the RENDERED desktop document: inject the source
@@ -537,6 +570,7 @@ async function runInspection(
               a11yError: result.a11yError,
               seo: result.seo,
               lcpMs: result.lcpMs,
+              cls: result.cls,
               viewports: VIEWPORTS,
               durationMs: result.durationMs,
               timestamp: result.timestamp,
