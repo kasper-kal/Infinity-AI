@@ -178,7 +178,7 @@ export class BuildWatchdog extends EventEmitter {
    * Immediately analyze a specific turn (for testing/integration)
    */
   async analyzeImmediate(turnNumber: number): Promise<void> {
-    if (!this.isRunning || this.agentStopped) return;
+    if (!this.isRunning) return;
 
     // Find the turn in the buffer
     const turn = this.turnBuffer.find(t => t.turn === turnNumber);
@@ -186,12 +186,12 @@ export class BuildWatchdog extends EventEmitter {
       await this.analyzeTurn(turn);
     }
 
-    // Check for stall (max turns exceeded)
-    if (this.currentTurn >= this.config.maxTurnsBeforeForceStop) {
+    // Check for stall (max turns exceeded) - only if not already stopped
+    if (!this.agentStopped && this.currentTurn >= this.config.maxTurnsBeforeForceStop) {
       await this.forceStop(`Agent exceeded maximum turns (${this.config.maxTurnsBeforeForceStop})`);
     }
 
-    // Check for repeated tool calls (infinite loop pattern)
+    // Check for repeated tool calls (infinite loop pattern) - even if stopped, to record finding
     await this.checkForRepeatedPatterns();
   }
 
@@ -339,7 +339,7 @@ export class BuildWatchdog extends EventEmitter {
       {
         id: "no_secrets_in_code",
         description: "No API keys, secrets, passwords in code",
-        pattern: "(api[_-]?key|secret|password|token)\\s*[=:]", // generic pattern
+        pattern: "(api[_-]?key|secret|password|token)\\s*[=:]",
         severity: "critical",
         action: "notify_and_stop",
         enabled: true,
@@ -746,7 +746,8 @@ Return ONLY a JSON object:
       "/build"
     );
 
-    if (rule.action === "stop" || rule.action === "notify_and_stop") {
+    // Only force stop if not already stopped (to allow multiple findings to be recorded)
+    if ((rule.action === "stop" || rule.action === "notify_and_stop") && !this.agentStopped) {
       await this.forceStop(`Policy violation: ${rule.description} (${source})`);
     }
   }

@@ -424,7 +424,7 @@ async function main() {
     tokenUsage: { prompt: 100, completion: 50, total: 150 },
   };
 
-  await recordWatchdogTurn(PROJECT_ID, "default", 1, sudoTurn.toolCalls, sudoTurn.toolResults, sudoTurn.agentResponse, sudoTurn.tokenUsage);
+  await recordWatchdogTurn(PROJECT_ID, "default", 1, sudoTurn.toolCalls, sudoTurn.toolResults, sudoTurn.agentResponse, sudoTurn.tokenUsage, true);
   await sleep(100);
 
   const findings6 = watchdog6.getFindings();
@@ -442,7 +442,7 @@ async function main() {
     tokenUsage: { prompt: 100, completion: 50, total: 150 },
   };
 
-  await recordWatchdogTurn(PROJECT_ID, "default", 2, dockerTurn.toolCalls, dockerTurn.toolResults, dockerTurn.agentResponse, dockerTurn.tokenUsage);
+  await recordWatchdogTurn(PROJECT_ID, "default", 2, dockerTurn.toolCalls, dockerTurn.toolResults, dockerTurn.agentResponse, dockerTurn.tokenUsage, true);
   await sleep(100);
 
   const findings6b = watchdog6.getFindings();
@@ -529,7 +529,8 @@ async function main() {
     failTurn.toolCalls,
     failTurn.toolResults,
     failTurn.agentResponse,
-    failTurn.tokenUsage
+    failTurn.tokenUsage,
+    true  // immediate analysis
   );
 
   await sleep(50);
@@ -568,7 +569,7 @@ async function main() {
       agentResponse: "Turn " + turn,
       tokenUsage: { prompt: 10, completion: 10, total: 20 },
     };
-    await recordWatchdogTurn(PROJECT_ID, "default", turn, [], [], "Turn " + turn);
+    await recordWatchdogTurn(PROJECT_ID, "default", turn, [], [], "Turn " + turn, undefined, true);
     await sleep(50);
   }
 

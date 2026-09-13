@@ -49862,12 +49862,12 @@ var BuildWatchdog = class extends EventEmitter2 {
    * Immediately analyze a specific turn (for testing/integration)
    */
   async analyzeImmediate(turnNumber) {
-    if (!this.isRunning || this.agentStopped) return;
+    if (!this.isRunning) return;
     const turn = this.turnBuffer.find((t) => t.turn === turnNumber);
     if (turn) {
       await this.analyzeTurn(turn);
     }
-    if (this.currentTurn >= this.config.maxTurnsBeforeForceStop) {
+    if (!this.agentStopped && this.currentTurn >= this.config.maxTurnsBeforeForceStop) {
       await this.forceStop(`Agent exceeded maximum turns (${this.config.maxTurnsBeforeForceStop})`);
     }
     await this.checkForRepeatedPatterns();
@@ -49993,7 +49993,6 @@ var BuildWatchdog = class extends EventEmitter2 {
         id: "no_secrets_in_code",
         description: "No API keys, secrets, passwords in code",
         pattern: "(api[_-]?key|secret|password|token)\\s*[=:]",
-        // generic pattern
         severity: "critical",
         action: "notify_and_stop",
         enabled: true
@@ -50321,7 +50320,7 @@ Return ONLY a JSON object:
       `${rule.description} at turn ${turn.turn}`,
       "/build"
     );
-    if (rule.action === "stop" || rule.action === "notify_and_stop") {
+    if ((rule.action === "stop" || rule.action === "notify_and_stop") && !this.agentStopped) {
       await this.forceStop(`Policy violation: ${rule.description} (${source})`);
     }
   }
@@ -50679,7 +50678,7 @@ async function main() {
     agentResponse: "Installing nginx with sudo",
     tokenUsage: { prompt: 100, completion: 50, total: 150 }
   };
-  await recordWatchdogTurn(PROJECT_ID, "default", 1, sudoTurn.toolCalls, sudoTurn.toolResults, sudoTurn.agentResponse, sudoTurn.tokenUsage);
+  await recordWatchdogTurn(PROJECT_ID, "default", 1, sudoTurn.toolCalls, sudoTurn.toolResults, sudoTurn.agentResponse, sudoTurn.tokenUsage, true);
   await sleep2(100);
   const findings6 = watchdog6.getFindings();
   const sudoFindings = findings6.filter((f) => f.ruleId === "no_sudo");
@@ -50693,7 +50692,7 @@ async function main() {
     agentResponse: "Running privileged container",
     tokenUsage: { prompt: 100, completion: 50, total: 150 }
   };
-  await recordWatchdogTurn(PROJECT_ID, "default", 2, dockerTurn.toolCalls, dockerTurn.toolResults, dockerTurn.agentResponse, dockerTurn.tokenUsage);
+  await recordWatchdogTurn(PROJECT_ID, "default", 2, dockerTurn.toolCalls, dockerTurn.toolResults, dockerTurn.agentResponse, dockerTurn.tokenUsage, true);
   await sleep2(100);
   const findings6b = watchdog6.getFindings();
   const dockerFindings = findings6b.filter((f) => f.ruleId === "no_docker_privileged");
@@ -50762,7 +50761,9 @@ async function main() {
     failTurn.toolCalls,
     failTurn.toolResults,
     failTurn.agentResponse,
-    failTurn.tokenUsage
+    failTurn.tokenUsage,
+    true
+    // immediate analysis
   );
   await sleep2(50);
   const findings7 = watchdog7.getFindings();
@@ -50791,7 +50792,7 @@ async function main() {
       agentResponse: "Turn " + turn,
       tokenUsage: { prompt: 10, completion: 10, total: 20 }
     };
-    await recordWatchdogTurn(PROJECT_ID, "default", turn, [], [], "Turn " + turn);
+    await recordWatchdogTurn(PROJECT_ID, "default", turn, [], [], "Turn " + turn, void 0, true);
     await sleep2(50);
   }
   await sleep2(300);
