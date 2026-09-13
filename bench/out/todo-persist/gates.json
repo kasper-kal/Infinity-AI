@@ -1,0 +1,130 @@
+[
+  {
+    "gate": "runtime-errors",
+    "passed": true,
+    "status": "passed",
+    "details": "No console errors on 2 inspected viewport(s)",
+    "severity": "critical",
+    "evidence": {
+      "consoleErrors": [],
+      "pagesInspected": 2
+    }
+  },
+  {
+    "gate": "visual-verification",
+    "passed": true,
+    "status": "passed",
+    "details": "Rendered cleanly at 2 viewport(s) — no overflow, no blank pages",
+    "severity": "major",
+    "evidence": {
+      "status": "passed",
+      "consoleErrors": [],
+      "overflowViewports": [],
+      "blankViewports": [],
+      "a11y": [],
+      "a11yRan": true,
+      "seo": {
+        "title": "DoIt — todos that survive reload",
+        "metaDescription": "",
+        "h1Count": 1,
+        "inspected": true
+      },
+      "lcpMs": 52,
+      "pagesInspected": 2,
+      "reportDir": "/workspaces/artifacts/workspace/projects/bench/.infinity/verification"
+    }
+  },
+  {
+    "gate": "accessibility",
+    "passed": true,
+    "status": "passed",
+    "details": "No critical/serious accessibility violations detected",
+    "severity": "minor",
+    "evidence": {
+      "violations": []
+    }
+  },
+  {
+    "gate": "performance",
+    "passed": true,
+    "status": "passed",
+    "details": "Performance within budget: LCP 52ms (budget 2500ms) · CLS 0.000 (budget 0.1) · JS 3471 bytes (2 asset(s))",
+    "severity": "minor",
+    "evidence": {
+      "lcpMs": 52,
+      "cls": 0,
+      "jsBytes": 3471
+    }
+  },
+  {
+    "gate": "seo",
+    "passed": false,
+    "status": "failed",
+    "details": "SEO issues: missing meta description",
+    "severity": "minor",
+    "evidence": {
+      "title": "DoIt — todos that survive reload",
+      "metaDescription": "",
+      "h1Count": 1
+    }
+  },
+  {
+    "gate": "security-scan",
+    "passed": true,
+    "status": "skipped",
+    "details": "Skipped (not applicable) — no dependency manifest to audit and no committed secrets found",
+    "severity": "major",
+    "evidence": {
+      "secretsScanned": true,
+      "findings": 0
+    }
+  },
+  {
+    "gate": "bundle-size",
+    "passed": true,
+    "status": "passed",
+    "details": "Bundle within budget: 2 asset(s), total JS 3.4 KiB, CSS 2.8 KiB. Largest: app.js (3.4 KiB).",
+    "severity": "minor",
+    "evidence": {
+      "totalJsBytes": 3471,
+      "totalCssBytes": 2864,
+      "fileCount": 2,
+      "largestJs": {
+        "path": "app.js",
+        "bytes": 3471
+      },
+      "budgets": {
+        "totalJsBytes": 4194304,
+        "largestJsBytes": 2097152
+      }
+    }
+  },
+  {
+    "gate": "cross-platform",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json to check for cross-platform compatibility",
+    "severity": "minor"
+  },
+  {
+    "gate": "load-test",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json to find a service entry, so no service to load-test",
+    "severity": "minor"
+  },
+  {
+    "gate": "rate-limit",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json — not a JS service, nothing to rate-limit",
+    "severity": "minor"
+  },
+  {
+    "gate": "pwa",
+    "passed": true,
+    "status": "skipped",
+    "details": "no PWA infrastructure shipped (no web app manifest and no service worker) — this is not a PWA build, so PWA readiness does not apply",
+    "severity": "minor"
+  }
+]

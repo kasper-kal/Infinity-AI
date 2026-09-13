@@ -23,6 +23,7 @@ import { inspectBuiltApp, type VisualInspection } from "./build-visual-verificat
 import { measureBundleSize, verdictBundle } from "./build-bundle";
 import { evaluatePerformance } from "./build-performance";
 import { scanProjectForSecrets } from "./build-security";
+import { findRunnableScript, probeServiceBoot, detectRateLimitUsage, detectPwaInfra } from "./build-runtime-checks";
 
 /**
  * Build types with their specific completion criteria
@@ -691,7 +692,16 @@ function inspectionSkipResult(
   };
 }
 
-function createRuntimeErrorGate(): VerificationGate {
+/**
+ * Proven-skip result: a gate that honestly established "not applicable"
+ * reports skipped (passed with an explanation) — the status records WHY, and
+ * the tally treats it exactly like a pass. Never a not-enforced.
+ */
+function skippedGate(gate: string, details: string): VerificationGateResult {
+  return { gate, passed: true, status: "skipped", details, severity: "minor" };
+}
+
+export function createRuntimeErrorGate(): VerificationGate {
   return {
     id: "runtime-errors",
     name: "Runtime Error Free",
@@ -718,7 +728,7 @@ function createRuntimeErrorGate(): VerificationGate {
   };
 }
 
-function createVisualVerificationGate(): VerificationGate {
+export function createVisualVerificationGate(): VerificationGate {
   return {
     id: "visual-verification",
     name: "Visual Verification",
@@ -857,13 +867,24 @@ function createBrokenLinksGate(): VerificationGate {
   };
 }
 
-function createSecurityScanGate(): VerificationGate {
+export function createSecurityScanGate(): VerificationGate {
   return {
     id: "security-scan",
     name: "Security Scan Clean",
-    description: "No critical/high vulnerabilities in dependencies",
+    description: "No critical/high vulnerabilities and no high-confidence secrets committed",
     severity: "major",
     async verify(context) {
+      // Phase 1 — secret scan runs regardless of dependency state: a committed
+      // secret is a defect even in a project with no manifest. Values are never
+      // emitted — findings carry only file/line/detail.
+      const findings = await scanProjectForSecrets(context.projectPath);
+      const secrets = findings.filter((f) => f.id !== "tracked-env");
+      const trackedEnv = findings.find((f) => f.id === "tracked-env");
+      const secretFails: string[] = [
+        ...secrets.map((f) => `${f.file}:${f.line} (${f.id})`),
+        ...(trackedEnv ? [`${trackedEnv.file} (${trackedEnv.detail})`] : []),
+      ];
+
       // Honest skip: no package.json means nothing to audit; npm audit is
       // network-bound and just reports skipped if it can't reach a registry.
       const lockfileChecks = await Promise.all(
@@ -872,8 +893,26 @@ function createSecurityScanGate(): VerificationGate {
       );
       const hasLockfile = lockfileChecks.some(Boolean);
       if (!(await hasNpmScript(context.projectPath, "build")) && !hasLockfile) {
-        return { gate: "security-scan", passed: true, details: "Skipped (no dependency manifest)", severity: "major" };
+        if (secretFails.length === 0) {
+          return {
+            gate: "security-scan",
+            passed: true,
+            status: "skipped",
+            details: "Skipped (not applicable) — no dependency manifest to audit and no committed secrets found",
+            severity: "major",
+            evidence: { secretsScanned: true, findings: 0 },
+          };
+        }
+        return {
+          gate: "security-scan",
+          passed: false,
+          status: "failed",
+          details: `Secret scan found committed secrets: ${secretFails.join(", ")}`,
+          severity: "major",
+          evidence: { secretsScanned: true, findings: secretFails.length },
+        };
       }
+
       const { execa } = await import("execa");
       try {
         const result = await execa("npm", ["audit", "--json"], {
@@ -885,40 +924,67 @@ function createSecurityScanGate(): VerificationGate {
 
         let highCount = 0;
         let criticalCount = 0;
-
+        let auditData = false;
         try {
           const audit = JSON.parse(result.stdout);
           if (audit.metadata?.vulnerabilities) {
+            auditData = true;
             highCount = audit.metadata.vulnerabilities.high || 0;
             criticalCount = audit.metadata.vulnerabilities.critical || 0;
           }
         } catch {
-          // JSON parse failed, try text output
+          // JSON parse failed — audit delivered no usable data.
         }
 
-        const total = highCount + criticalCount;
+        // If npm audit returns no vulnerability metadata (offline registry,
+        // malformed response) we may NOT claim "no vulnerabilities". The audit
+        // half is honestly skipped; secrets never are.
+        const failed = secretFails.length > 0 || (auditData && criticalCount + highCount > 0);
+        const status: VerificationGateResult["status"] = failed ? "failed" : auditData ? "passed" : "skipped";
+        const bits: string[] = [];
+        if (auditData && criticalCount + highCount > 0) bits.push(`${criticalCount} critical and ${highCount} high vulnerabilities`);
+        if (!auditData) bits.push("npm audit delivered no vulnerability data (registry unreachable?) — dependency audit skipped");
+        if (secretFails.length > 0) bits.push(`committed secrets: ${secretFails.join(", ")}`);
         return {
           gate: "security-scan",
-          passed: total === 0,
-          details: total === 0
-            ? "No high/critical vulnerabilities"
-            : `Found ${criticalCount} critical and ${highCount} high vulnerabilities`,
+          passed: !failed,
+          status,
+          details: failed
+            ? `Security findings — ${bits.join("; ")}`
+            : bits.length > 0
+              ? `No known vulnerabilities; ${bits.join("; ")}`
+              : "No high/critical vulnerabilities and no committed secrets",
           severity: "major",
-          evidence: { critical: criticalCount, high: highCount },
+          evidence: {
+            audit: auditData ? { critical: criticalCount, high: highCount } : "no-data",
+            secrets: secretFails.length,
+          },
         };
       } catch {
+        if (secretFails.length > 0) {
+          return {
+            gate: "security-scan",
+            passed: false,
+            status: "failed",
+            details: `Secret scan found committed secrets: ${secretFails.join(", ")} (dependency audit unavailable)`,
+            severity: "major",
+            evidence: { audit: "error", findings: secretFails.length },
+          };
+        }
         return {
           gate: "security-scan",
           passed: true,
-          details: "Security scan skipped (pnpm audit not available)",
+          status: "skipped",
+          details: "Security scan skipped — dependency audit unavailable and no committed secrets found",
           severity: "major",
+          evidence: { audit: "error", secrets: 0 },
         };
       }
     },
   };
 }
 
-function createAccessibilityGate(): VerificationGate {
+export function createAccessibilityGate(): VerificationGate {
   return {
     id: "accessibility",
     name: "Accessibility Check",
@@ -955,47 +1021,22 @@ function createAccessibilityGate(): VerificationGate {
   };
 }
 
-function createPerformanceGate(): VerificationGate {
+export function createPerformanceGate(): VerificationGate {
   return {
     id: "performance",
     name: "Performance Budget",
-    description: "Largest Contentful Paint within budget (2.5s)",
+    description: "LCP <= 2.5s, CLS <= 0.1, JS weight within budget",
     severity: "minor",
     async verify(context) {
-      const insp = await getVisualInspection(context);
-      if (insp.status === "skipped" || insp.status === "not-enforced") {
-        return inspectionSkipResult("performance", insp, "minor");
-      }
-      // We measure LCP directly from the rendered app. If the metric is
-      // unavailable (client-rendered shell with no LCP yet), we report
-      // not-enforced rather than inventing a number — Lighthouse budgets
-      // (Phase 1) will close the gap.
-      if (insp.lcpMs === null) {
-        return {
-          gate: "performance",
-          passed: false,
-          status: "not-enforced",
-          details: "No LCP measured for the built app — performance NOT enforced (reported honestly, never counts as pass or fail). Phase 1 adds Lighthouse budgets.",
-          severity: "minor",
-        };
-      }
-      const budgetMs = 2500;
-      const passed = insp.lcpMs <= budgetMs;
-      return {
-        gate: "performance",
-        passed,
-        status: passed ? "passed" : "failed",
-        details: passed
-          ? `LCP ${insp.lcpMs}ms within ${budgetMs}ms budget`
-          : `LCP ${insp.lcpMs}ms exceeds ${budgetMs}ms budget`,
-        severity: "minor",
-        evidence: { lcpMs: insp.lcpMs, budgetMs },
-      };
+      // Phase 1 — enforced with a real signal. LCP/CLS come from the shared
+      // Chrome pass; when LCP is null (client-rendered shell) the gate enforces
+      // the shipped JS-weight budget instead. Never not-enforced.
+      return evaluatePerformance(context, "minor");
     },
   };
 }
 
-function createSeoGate(): VerificationGate {
+export function createSeoGate(): VerificationGate {
   return {
     id: "seo",
     name: "SEO Basics",
@@ -1110,20 +1151,57 @@ function createBinaryGate(): VerificationGate {
   };
 }
 
-function createCrossPlatformGate(): VerificationGate {
+export function createCrossPlatformGate(): VerificationGate {
   return {
     id: "cross-platform",
     name: "Cross-Platform Compatible",
-    description: "Works on Windows, macOS, Linux",
+    description: "No unix-only shell commands in npm scripts; runs on Windows, macOS, Linux",
     severity: "minor",
-    async verify() {
-      // Phase I 5 — not-enforced, never forged green.
+    async verify(context) {
+      let pkg: any = {};
+      try {
+        pkg = JSON.parse(await fs.readFile(path.join(context.projectPath, "package.json"), "utf-8"));
+      } catch {
+        return skippedGate("cross-platform", "no package.json to check for cross-platform compatibility");
+      }
+      const scripts = pkg.scripts ?? {};
+      const names = Object.keys(scripts);
+      if (names.length === 0) {
+        return skippedGate("cross-platform", "no npm scripts to check for cross-platform compatibility");
+      }
+      // Unix-only shell commands break under cmd.exe (Windows). Projects that
+      // route through a platform abstraction (shx/shelljs/cross-env) may use
+      // them safely, so the check considers whether a guard package exists.
+      const UNIX_ONLY = /(^|[;&\s])(rm|cp|mv|mkdir|touch|grep|sed|awk|pwd|chmod|find|rmdir)\b/;
+      const hasGuardPkg = ["shx", "shelljs", "cross-env", "rimraf", "node-cmd"].some(
+        (name) => (pkg.dependencies ?? {})[name] || (pkg.devDependencies ?? {})[name],
+      );
+      const hazards: Array<{ script: string; cmd: string }> = [];
+      for (const name of names) {
+        const cmd = String(scripts[name]);
+        if (UNIX_ONLY.test(cmd) && !hasGuardPkg) {
+          hazards.push({ script: name, cmd });
+        }
+      }
+      if (hazards.length === 0) {
+        return {
+          gate: "cross-platform",
+          passed: true,
+          status: "passed",
+          details: hasGuardPkg
+            ? `Cross-platform safe — ${names.length} script(s) use a platform abstraction (shx/shelljs/cross-env)`
+            : `Cross-platform safe — ${names.length} script(s) contain no unix-only shell commands`,
+          severity: "minor",
+          evidence: { scriptsScanned: names.length, guardPackage: hasGuardPkg },
+        };
+      }
       return {
         gate: "cross-platform",
         passed: false,
-        status: "not-enforced",
-        details: "Cross-platform check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        status: "failed",
+        details: `Unix-only shell command(s) with no platform abstraction (shx/shelljs/cross-env): ${hazards.map((h) => `${h.script}: ${h.cmd}`).join(" | ")}`,
         severity: "minor",
+        evidence: { hazards: hazards.map((h) => h.script), guardPackage: false },
       };
     },
   };
@@ -1260,21 +1338,18 @@ function createPublishDryRunGate(): VerificationGate {
   };
 }
 
-function createBundleSizeGate(): VerificationGate {
+export function createBundleSizeGate(): VerificationGate {
   return {
     id: "bundle-size",
     name: "Bundle Size Budget",
-    description: "Bundle size within acceptable limits",
+    description: "Total JS <= 4 MiB, single chunk <= 2 MiB (measured from the real build output)",
     severity: "minor",
-    async verify() {
-      // Phase I 5 — not-enforced, never forged green.
-      return {
-        gate: "bundle-size",
-        passed: false,
-        status: "not-enforced",
-        details: "Bundle size check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
-        severity: "minor",
-      };
+    async verify(context) {
+      // Phase 1 — real measurement of the actual bundle in dist/build/out.
+      // Skipped ONLY when there is no web bundle to measure (a real
+      // not-a-web-build predicate), never "not implemented".
+      const report = await measureBundleSize(context.projectPath);
+      return verdictBundle(report);
     },
   };
 }
@@ -1374,58 +1449,121 @@ function createHealthCheckGate(): VerificationGate {
   };
 }
 
-function createLoadTestGate(): VerificationGate {
+export function createLoadTestGate(): VerificationGate {
   return {
     id: "load-test",
-    name: "Load Test",
-    description: "Basic load test passes",
+    name: "Basic Load Test",
+    description: "Runnable service boots and serves a burst of requests without errors",
     severity: "minor",
-    async verify() {
-      // Phase I 5 — not-enforced, never forged green.
+    async verify(context) {
+      let pkg: any = {};
+      try {
+        pkg = JSON.parse(await fs.readFile(path.join(context.projectPath, "package.json"), "utf-8"));
+      } catch {
+        return skippedGate("load-test", "no package.json to find a service entry, so no service to load-test");
+      }
+      const boot = findRunnableScript(pkg);
+      if (!boot) {
+        return skippedGate("load-test", "no runnable service (no start/serve/dev script) — not a server build, nothing to load-test");
+      }
+      const probe = await probeServiceBoot(context.projectPath, `npm run ${boot}`);
+      if (probe.ok) {
+        return {
+          gate: "load-test",
+          passed: true,
+          status: "passed",
+          details: `Service booted on port ${probe.port}; ${probe.requests} concurrent request(s) — ${probe.errors} error(s), p50 ${probe.p50Ms}ms`,
+          severity: "minor",
+          evidence: { port: probe.port, requests: probe.requests, errors: probe.errors, p50Ms: probe.p50Ms },
+        };
+      }
       return {
         gate: "load-test",
         passed: false,
-        status: "not-enforced",
-        details: "Load test check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        status: "failed",
+        details: `Service could not serve a load burst: ${probe.reason}`,
         severity: "minor",
+        evidence: { reason: probe.reason },
       };
     },
   };
 }
 
-function createRateLimitGate(): VerificationGate {
+export function createRateLimitGate(): VerificationGate {
   return {
     id: "rate-limit",
     name: "Rate Limiting",
-    description: "API has rate limiting configured",
+    description: "API service protects itself with a rate-limiting layer",
     severity: "minor",
-    async verify() {
-      // Phase I 5 — not-enforced, never forged green.
+    async verify(context) {
+      let pkg: any = {};
+      try {
+        pkg = JSON.parse(await fs.readFile(path.join(context.projectPath, "package.json"), "utf-8"));
+      } catch {
+        return skippedGate("rate-limit", "no package.json — not a JS service, nothing to rate-limit");
+      }
+      const entry = findRunnableScript(pkg);
+      if (!entry) {
+        return skippedGate("rate-limit", "no runnable service (no start/serve/dev script) — not an API service, nothing to rate-limit");
+      }
+      const scan = await detectRateLimitUsage(context.projectPath);
+      if (scan.matched.length > 0) {
+        return {
+          gate: "rate-limit",
+          passed: true,
+          status: "passed",
+          details: `Rate limiting layer found: ${scan.matched.map((m) => `${m.file} (${m.pattern})`).join(", ")}`,
+          severity: "minor",
+          evidence: { matched: scan.matched },
+        };
+      }
       return {
         gate: "rate-limit",
         passed: false,
-        status: "not-enforced",
-        details: "Rate limit check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        status: "failed",
+        details: `Service has a runnable entry (${entry}) but no rate-limiting middleware detected in its source — unthrottled endpoints are a production defect`,
         severity: "minor",
+        evidence: { entry },
       };
     },
   };
 }
 
-function createPwaGate(): VerificationGate {
+export function createPwaGate(): VerificationGate {
   return {
     id: "pwa",
     name: "PWA Ready",
-    description: "Progressive Web App requirements met",
+    description: "When PWA infrastructure is shipped it is complete and valid; otherwise honestly not applicable",
     severity: "minor",
-    async verify() {
-      // Phase I 5 — not-enforced, never forged green.
+    async verify(context) {
+      const infra = await detectPwaInfra(context.projectPath);
+      if (!infra.webOutput) {
+        return skippedGate("pwa", "no built web output (no index.html) — not a web app, PWA does not apply");
+      }
+      if (!infra.hasAny) {
+        return skippedGate("pwa", "no PWA infrastructure shipped (no web app manifest and no service worker) — this is not a PWA build, so PWA readiness does not apply");
+      }
+      const fails: string[] = [];
+      if (!infra.manifest.present) fails.push("missing web app manifest (manifest.json / link rel=manifest)");
+      else if (!infra.manifest.valid) fails.push(`web app manifest (${infra.manifest.file}) present but invalid (needs name, start_url, display)`);
+      if (!infra.serviceWorker.present) fails.push("missing service worker (no sw.js and no navigator.serviceWorker.register)");
+      if (fails.length === 0) {
+        return {
+          gate: "pwa",
+          passed: true,
+          status: "passed",
+          details: `PWA complete — valid manifest (${infra.manifest.file}) + service worker (${infra.serviceWorker.file})`,
+          severity: "minor",
+          evidence: { manifest: infra.manifest.file, serviceWorker: infra.serviceWorker.file },
+        };
+      }
       return {
         gate: "pwa",
         passed: false,
-        status: "not-enforced",
-        details: "PWA check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        status: "failed",
+        details: `PWA infrastructure present but incomplete: ${fails.join("; ")}`,
         severity: "minor",
+        evidence: { fails },
       };
     },
   };

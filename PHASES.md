@@ -17,8 +17,8 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 
 | Phase | Title | Status |
 |-------|-------|--------|
-| **0** | Hardening the Foundation (kill lies + broken primitives) | 🔄 **IN PROGRESS** |
-| **1** | Done Contract with Teeth (all 9 gates enforced) | 🔲 NOT STARTED |
+| **0** | Hardening the Foundation (kill lies + broken primitives) | ✅ **COMPLETE** |
+| **1** | Done Contract with Teeth (all 9 gates enforced) | ✅ **COMPLETE** |
 | **2** | Real Multi-Agent Crew (message bus, per-agent keys) | 🔲 NOT STARTED |
 | **3** | Local Watchdog (supervisor + push) | 🔲 NOT STARTED |
 | **4** | Context That Survives (4-level compaction, project map) | 🔲 NOT STARTED |
@@ -38,7 +38,39 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 | Durable checkpoints (Postgres via drizzle, `build_checkpoints`) | ✅ **DONE** (pre-existing) |
 | Project map persistence (`.infinity/project-map.json`) | ✅ **DONE** (pre-existing) |
 
-**PHASE 0 — COMPLETE (2026-09-13).** All four hardware tasks landed: real gates (step 1), fake deploys killed + real deploy paths (step 2), PTY shell (step 3). **Deploys now honest everywhere:** Vercel = real `/v13/deployments` upload + READY poll (`VERCEL_TOKEN`) or real CLI (`--token` + 180s headless-login guard; URL extracted, never invented); Netlify CLI + Wrangler CLI token-aware with the same guard; Cloudflare Direct-Upload API, Railway, Fly.io, Render return `success:false` manual handoffs with exact commands; rollback real for Vercel, documented for the rest. Zero fabricated `success:true` / invented URLs remain (grep-clean). **`run_command` is now a real terminal:** persistent PTY-backed bash per workspace via util-linux `script` (no node-pty / no node-gyp), streaming increments, `stdin` answers prompts, `ctrl_c` = real SIGINT to the foreground process, marker-based completion captures true exit codes, timeout returns partial output and the session survives. Proven by `test/shell-engine.smoke.mjs` 12/12 (bundled like production; the vitest worker here can't spawn children — documented). Next: **Phase 1 — Done Contract with Teeth** (all 9 gates enforced, no `not-enforced`).
+**PHASE 0 — COMPLETE (2026-09-13).** All four hardware tasks landed: real gates (step 1), fake deploys killed + real deploy paths (step 2), PTY shell (step 3). **Deploys now honest everywhere:** Vercel = real `/v13/deployments` upload + READY poll (`VERCEL_TOKEN`) or real CLI (`--token` + 180s headless-login guard; URL extracted, never invented); Netlify CLI + Wrangler CLI token-aware with the same guard; Cloudflare Direct-Upload API, Railway, Fly.io, Render return `success:false` manual handoffs with exact commands; rollback real for Vercel, documented for the rest. Zero fabricated `success:true` / invented URLs remain (grep-clean). **`run_command` is now a real terminal:** persistent PTY-backed bash per workspace via util-linux `script` (no node-pty / no node-gyp), streaming increments, `stdin` answers prompts, `ctrl_c` = real SIGINT to the foreground process, marker-based completion captures true exit codes, timeout returns partial output and the session survives. Proven by `test/shell-engine.smoke.mjs` 12/12 (bundled like production; the vitest worker here can't spawn children — documented).
+
+### Phase 1 — Done Contract with Teeth
+
+| Task | Status |
+|------|--------|
+| Enforce ALL 9 gates without `not-enforced`; each gate returns `passed`/`failed`/`skipped` (skip = real "not applicable" predicate) | ✅ **DONE** — `build-done-contract.ts` rewired; 5 new gate primitives: `build-bundle.ts` (bundle size), `build-performance.ts` (LCP/CLS budget), `build-security.ts` (secret scan + npm audit), `build-runtime-checks.ts` (load-test probe + rate-limit scan + PWA infra) |
+| Visual verification loop (perf gate = real LCP) | ✅ **DONE** (real 2-viewport Chrome pass, shared per buildId — carried from Phase 0) |
+| Accessibility gate: axe-core on every page; fail on critical/serious | ✅ **DONE** (real axe on rendered doc) |
+| Performance gate: LCP < 2.5s, CLS < 0.1, JS budget | ✅ **DONE** (`evaluatePerformance`) |
+| Security gate: secret scan + npm audit; never expose secret VALUES | ✅ **DONE** (`scanProjectForSecrets` — findings are `{file,line,id}`, values never surfaced) |
+| Bundle size gate with budget | ✅ **DONE** (`measureBundleSize` + `verdictBundle`) |
+| Contract persisted to checkpoints; resume shows gate history | ✅ **DONE** (`build.ts` completion checkpoint carries `doneContract`; `buildResumeContext` emits "Done contract at last checkpoint" + `Done-gate history:`; `/build/resume/:projectId` JSON gains `doneContract`) |
+| Done gate in agent loop rejects `done` on any critical failure | ✅ **DONE** (carried — `evaluateDoneGate` runs live verify + full contract) |
+
+**PHASE 1 — COMPLETE (2026-09-13).** Proven by `bench/gate-run.mjs` (esbuild-bundles the REAL gate factories, shared Chrome inspection per app) on all 5 benchmark apps — **exit 0, zero `not-enforced`, zero gate errors**:
+
+```
+=== PHASE 1 GATE MAP ===
+  runtime-errors   passed:5 failed:0 skipped:0 not-enforced:0 errors:0
+  visual-verificat passed:5 failed:0 skipped:0 not-enforced:0 errors:0
+  accessibility    passed:2 failed:3 skipped:0 not-enforced:0 errors:0
+  performance      passed:5 failed:0 skipped:0 not-enforced:0 errors:0
+  seo              passed:1 failed:4 skipped:0 not-enforced:0 errors:0
+  security-scan    passed:0 failed:0 skipped:5 not-enforced:0 errors:0
+  bundle-size      passed:5 failed:0 skipped:0 not-enforced:0 errors:0
+  cross-platform   passed:2 failed:0 skipped:3 not-enforced:0 errors:0
+  load-test        passed:0 failed:0 skipped:5 not-enforced:0 errors:0
+  rate-limit       passed:0 failed:0 skipped:5 not-enforced:0 errors:0
+  pwa              passed:0 failed:0 skipped:5 not-enforced:0 errors:0
+```
+
+The teeth are REAL: `accessibility` FAILS dashboard (26 color-contrast nodes) + markdown-editor (4) + saas-landing (`link-in-text-block`) and `seo` FAILS 4 apps (missing meta description) — genuine defects 104/104 "green" checks had missed. Honest skips carry a real predicate ("no package.json", "no runnable service", "not a PWA build") — never "we didn't implement it". A runnable service that won't boot would FAIL load-test. Production build clean; `gate-run` bundle git-ignored. Next: **Phase 2 — Real Multi-Agent Crew**.
 
 **Proven live (2026-09-13):** the inspection renders the built app in Chrome at 2 viewports (1440×900 + 375×812), measures LCP (real, e.g. 112ms), runs axe-core offline on the rendered document (caught a genuine `link-in-text-block` in the benchmark app that 104/104 checks had missed), and FAILS honestly on injected bugs — `image-alt` missing-alt violation and 825px horizontal overflow at 375px were both caught. `skipped` (no built output) is a pass-with-explanation; `not-enforced` (browser infra unavailable) never counts as pass or fail.
 

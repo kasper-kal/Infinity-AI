@@ -1,0 +1,150 @@
+[
+  {
+    "gate": "runtime-errors",
+    "passed": true,
+    "status": "passed",
+    "details": "No console errors on 2 inspected viewport(s)",
+    "severity": "critical",
+    "evidence": {
+      "consoleErrors": [],
+      "pagesInspected": 2
+    }
+  },
+  {
+    "gate": "visual-verification",
+    "passed": true,
+    "status": "passed",
+    "details": "Rendered cleanly at 2 viewport(s) — no overflow, no blank pages",
+    "severity": "major",
+    "evidence": {
+      "status": "failed",
+      "consoleErrors": [],
+      "overflowViewports": [],
+      "blankViewports": [],
+      "a11y": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 4,
+          "help": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "a11yRan": true,
+      "seo": {
+        "title": "Markleaf — markdown editor",
+        "metaDescription": "",
+        "h1Count": 2,
+        "inspected": true
+      },
+      "lcpMs": 92,
+      "pagesInspected": 2,
+      "reportDir": "/workspaces/artifacts/workspace/projects/bench/.infinity/verification"
+    }
+  },
+  {
+    "gate": "accessibility",
+    "passed": false,
+    "status": "failed",
+    "details": "1 critical/serious violation(s): color-contrast (4 nodes)",
+    "severity": "minor",
+    "evidence": {
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 4,
+          "help": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ]
+    }
+  },
+  {
+    "gate": "performance",
+    "passed": true,
+    "status": "passed",
+    "details": "Performance within budget: LCP 92ms (budget 2500ms) · CLS 0.000 (budget 0.1) · JS 7769 bytes (4 asset(s))",
+    "severity": "minor",
+    "evidence": {
+      "lcpMs": 92,
+      "cls": 0,
+      "jsBytes": 7769
+    }
+  },
+  {
+    "gate": "seo",
+    "passed": false,
+    "status": "failed",
+    "details": "SEO issues: missing meta description",
+    "severity": "minor",
+    "evidence": {
+      "title": "Markleaf — markdown editor",
+      "metaDescription": "",
+      "h1Count": 2
+    }
+  },
+  {
+    "gate": "security-scan",
+    "passed": true,
+    "status": "skipped",
+    "details": "No known vulnerabilities; npm audit delivered no vulnerability data (registry unreachable?) — dependency audit skipped",
+    "severity": "major",
+    "evidence": {
+      "audit": "no-data",
+      "secrets": 0
+    }
+  },
+  {
+    "gate": "bundle-size",
+    "passed": true,
+    "status": "passed",
+    "details": "Bundle within budget: 4 asset(s), total JS 7.6 KiB, CSS 3.6 KiB. Largest: dist/bundle.js (2.8 KiB).",
+    "severity": "minor",
+    "evidence": {
+      "totalJsBytes": 7769,
+      "totalCssBytes": 3710,
+      "fileCount": 4,
+      "largestJs": {
+        "path": "dist/bundle.js",
+        "bytes": 2823
+      },
+      "budgets": {
+        "totalJsBytes": 4194304,
+        "largestJsBytes": 2097152
+      }
+    }
+  },
+  {
+    "gate": "cross-platform",
+    "passed": true,
+    "status": "passed",
+    "details": "Cross-platform safe — 1 script(s) contain no unix-only shell commands",
+    "severity": "minor",
+    "evidence": {
+      "scriptsScanned": 1,
+      "guardPackage": false
+    }
+  },
+  {
+    "gate": "load-test",
+    "passed": true,
+    "status": "skipped",
+    "details": "no runnable service (no start/serve/dev script) — not a server build, nothing to load-test",
+    "severity": "minor"
+  },
+  {
+    "gate": "rate-limit",
+    "passed": true,
+    "status": "skipped",
+    "details": "no runnable service (no start/serve/dev script) — not an API service, nothing to rate-limit",
+    "severity": "minor"
+  },
+  {
+    "gate": "pwa",
+    "passed": true,
+    "status": "skipped",
+    "details": "no PWA infrastructure shipped (no web app manifest and no service worker) — this is not a PWA build, so PWA readiness does not apply",
+    "severity": "minor"
+  }
+]

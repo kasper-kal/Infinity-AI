@@ -281,6 +281,22 @@ async function buildResumeContext(projectId: string): Promise<string> {
     const tokenUsage = checkpoint.tokenUsage as Record<string, unknown> | undefined;
     const planObj = (checkpoint.plan ?? {}) as Record<string, unknown>;
     const files = Array.isArray(planObj.files) ? (planObj.files as string[]) : [];
+    // Phase 1 — the done CONTRACT was persisted with the checkpoint; surface
+    // which of the 9 done-gates passed/failed/skipped at the prior exit so the
+    // resumed mind starts from real gate history, not from nothing.
+    const doneContract = ctx.doneContract as
+      | { success?: boolean; summary?: { passed?: number; totalGates?: number; failed?: number; notEnforced?: number }; gateResults?: Array<{ gate: string; passed: boolean; status?: string; details?: string }> }
+      | null
+      | undefined;
+    const contractBlock = doneContract?.gateResults?.length
+      ? [
+          `Done contract at last checkpoint: ${doneContract.success ? "PASSED" : "FAILED"} — ${doneContract.summary?.passed ?? 0}/${doneContract.summary?.totalGates ?? 0} gates passed, ${doneContract.summary?.failed ?? 0} failed, ${doneContract.summary?.notEnforced ?? 0} not enforced`,
+          "Done-gate history:",
+          ...doneContract.gateResults.map(
+            (g) => `  - ${g.gate}: ${g.status ?? (g.passed ? "passed" : "failed")}${g.details ? ` — ${g.details}` : ""}`,
+          ),
+        ].join("\n")
+      : null;
     return [
       "## RESUMED BUILD — YOUR PREVIOUS MIND (from checkpoint)",
       `Previous phase: ${checkpoint.phase} | iterations completed: ${checkpoint.iteration}`,
@@ -290,6 +306,7 @@ async function buildResumeContext(projectId: string): Promise<string> {
       lastGate
         ? `Verification verdict at stop: ${lastGate.gate} ${lastGate.ok ? "PASSED" : "FAILED"}\n${lastGate.feedback ?? ""}`
         : "No verification had run when the build stopped",
+      contractBlock ?? "No done contract had been persisted when the build stopped",
       "Context: the previous run stopped before it verified green. Confirm what state you inherited, then finish the work and call done.",
     ].join("\n");
   } catch {
@@ -1167,6 +1184,7 @@ router.get("/build/resume/:projectId", requireAuth, async (req, res) => {
         tokenUsage: checkpoint.tokenUsage ?? { prompt: 0, completion: 0, total: 0 },
         lastDecision: (workingContext.lastDecision as string | undefined) ?? "",
         gates: (workingContext.gates as AgentGateResult[] | undefined) ?? [],
+        doneContract: (workingContext.doneContract as Record<string, unknown> | null | undefined) ?? null,
         editedFiles: Array.isArray(planObj.files) ? (planObj.files as string[]) : [],
         createdAt: checkpoint.createdAt,
       },
@@ -1655,7 +1673,24 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           status: overallSuccess ? "done" : "failed"
         },
         completedSteps: allToolCalls.map((c, i) => ({ step: `tool-${i}-${c.name}`, done: allToolResults[i]?.success ?? false, filesChanged: allEditedFiles, feedback: allToolResults[i]?.error })),
-        workingContext: { prompt, workspaceId, lastDecision, gates: allGates },
+        workingContext: {
+          prompt,
+          workspaceId,
+          lastDecision,
+          gates: allGates,
+          // Phase 1 — the done CONTRACT is persisted with the checkpoint so a
+          // resume surfaces which done-gates passed/failed/skipped at the prior
+          // exit, not just the inner agent gates. This is the durable contract
+          // history the plan requires ("Contract persisted to checkpoints").
+          doneContract: doneContract
+            ? {
+                success: doneContract.success,
+                summary: doneContract.summary,
+                gateResults: doneContract.gateResults,
+                doneSignal: { status: doneContract.doneSignal.status, message: doneContract.doneSignal.message },
+              }
+            : null,
+        },
         tokenUsage: totalTokenUsage,
       });
 

@@ -1,0 +1,146 @@
+[
+  {
+    "gate": "runtime-errors",
+    "passed": true,
+    "status": "passed",
+    "details": "No console errors on 2 inspected viewport(s)",
+    "severity": "critical",
+    "evidence": {
+      "consoleErrors": [],
+      "pagesInspected": 2
+    }
+  },
+  {
+    "gate": "visual-verification",
+    "passed": true,
+    "status": "passed",
+    "details": "Rendered cleanly at 2 viewport(s) — no overflow, no blank pages",
+    "severity": "major",
+    "evidence": {
+      "status": "failed",
+      "consoleErrors": [],
+      "overflowViewports": [],
+      "blankViewports": [],
+      "a11y": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 26,
+          "help": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "a11yRan": true,
+      "seo": {
+        "title": "Pulse — revenue dashboard",
+        "metaDescription": "",
+        "h1Count": 1,
+        "inspected": true
+      },
+      "lcpMs": 88,
+      "pagesInspected": 2,
+      "reportDir": "/workspaces/artifacts/workspace/projects/bench/.infinity/verification"
+    }
+  },
+  {
+    "gate": "accessibility",
+    "passed": false,
+    "status": "failed",
+    "details": "1 critical/serious violation(s): color-contrast (26 nodes)",
+    "severity": "minor",
+    "evidence": {
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 26,
+          "help": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ]
+    }
+  },
+  {
+    "gate": "performance",
+    "passed": true,
+    "status": "passed",
+    "details": "Performance within budget: LCP 88ms (budget 2500ms) · CLS 0.035 (budget 0.1) · JS 4358 bytes (2 asset(s))",
+    "severity": "minor",
+    "evidence": {
+      "lcpMs": 88,
+      "cls": 0.035150951646090535,
+      "jsBytes": 4358
+    }
+  },
+  {
+    "gate": "seo",
+    "passed": false,
+    "status": "failed",
+    "details": "SEO issues: missing meta description",
+    "severity": "minor",
+    "evidence": {
+      "title": "Pulse — revenue dashboard",
+      "metaDescription": "",
+      "h1Count": 1
+    }
+  },
+  {
+    "gate": "security-scan",
+    "passed": true,
+    "status": "skipped",
+    "details": "Skipped (not applicable) — no dependency manifest to audit and no committed secrets found",
+    "severity": "major",
+    "evidence": {
+      "secretsScanned": true,
+      "findings": 0
+    }
+  },
+  {
+    "gate": "bundle-size",
+    "passed": true,
+    "status": "passed",
+    "details": "Bundle within budget: 2 asset(s), total JS 4.3 KiB, CSS 3.1 KiB. Largest: app.js (4.3 KiB).",
+    "severity": "minor",
+    "evidence": {
+      "totalJsBytes": 4358,
+      "totalCssBytes": 3159,
+      "fileCount": 2,
+      "largestJs": {
+        "path": "app.js",
+        "bytes": 4358
+      },
+      "budgets": {
+        "totalJsBytes": 4194304,
+        "largestJsBytes": 2097152
+      }
+    }
+  },
+  {
+    "gate": "cross-platform",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json to check for cross-platform compatibility",
+    "severity": "minor"
+  },
+  {
+    "gate": "load-test",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json to find a service entry, so no service to load-test",
+    "severity": "minor"
+  },
+  {
+    "gate": "rate-limit",
+    "passed": true,
+    "status": "skipped",
+    "details": "no package.json — not a JS service, nothing to rate-limit",
+    "severity": "minor"
+  },
+  {
+    "gate": "pwa",
+    "passed": true,
+    "status": "skipped",
+    "details": "no PWA infrastructure shipped (no web app manifest and no service worker) — this is not a PWA build, so PWA readiness does not apply",
+    "severity": "minor"
+  }
+]
