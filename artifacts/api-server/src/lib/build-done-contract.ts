@@ -14,6 +14,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getWorkspaceRoot, safeWorkspacePath, getWorkspaceCommandEnvironment } from "./workspace";
+import { inspectBuiltApp, type VisualInspection } from "./build-visual-verification";
 
 /**
  * Build types with their specific completion criteria
@@ -615,6 +616,73 @@ function createBuildGate(): VerificationGate {
   };
 }
 
+// ============================================================================
+// Shared visual inspection for browser-backed gates (Phase 0)
+//
+// All browser-backed gates (runtime-errors, visual-verification, accessibility,
+// seo, performance) read ONE inspection of the built app, shared via a cache
+// keyed by buildId inside build-visual-verification.ts. The gate that runs
+// first launches the single Chrome pass; the rest reuse it. Honest states:
+//   passed/failed  — the check genuinely ran
+//   skipped        — not applicable (no built output to render); reported as a
+//                    pass-with-explanation the way broken-links/security-scan skip
+//   not-enforced   — browser pool unavailable; NEVER counted as pass or fail
+// ============================================================================
+
+async function getVisualInspection(context: VerificationContext): Promise<VisualInspection> {
+  return inspectBuiltApp(context.projectPath, {
+    buildId: context.buildId,
+    workspaceId: context.workspaceId,
+  });
+}
+
+/** Compact evidence object for a gate result's `evidence` field. */
+function inspectionEvidence(insp: VisualInspection): Record<string, unknown> {
+  return {
+    status: insp.status,
+    consoleErrors: insp.consoleErrors,
+    overflowViewports: insp.overflowViewports,
+    blankViewports: insp.blankViewports,
+    a11y: insp.a11y,
+    a11yRan: insp.a11yRan,
+    a11yError: insp.a11yError,
+    seo: insp.seo,
+    lcpMs: insp.lcpMs,
+    pagesInspected: insp.pagesInspected,
+    reportDir: insp.reportDir,
+  };
+}
+
+/**
+ * Map a skipped/not-enforced inspection onto a gate result following the
+ * codebase's established conventions (see createBrokenLinksGate /
+ * createSecurityScanGate): skip = passed with an honest explanation;
+ * not-enforced = never counted as pass or fail by the contract tally.
+ */
+function inspectionSkipResult(
+  gate: string,
+  insp: VisualInspection,
+  severity: VerificationGate["severity"]
+): VerificationGateResult {
+  if (insp.status === "not-enforced") {
+    return {
+      gate,
+      passed: false,
+      status: "not-enforced",
+      details: insp.detail,
+      severity,
+    };
+  }
+  // skipped (applies to all remaining cases, incl. unexpected)
+  return {
+    gate,
+    passed: true,
+    status: "skipped",
+    details: `Skipped (not applicable): ${insp.detail}`,
+    severity,
+  };
+}
+
 function createRuntimeErrorGate(): VerificationGate {
   return {
     id: "runtime-errors",
@@ -622,26 +690,21 @@ function createRuntimeErrorGate(): VerificationGate {
     description: "No console errors in browser runtime",
     severity: "critical",
     async verify(context) {
-      // This would integrate with visual verification system
-      // For now, check if visual verification passed
-      const visualResult = context.previousResults?.find(r => r.gate === "visual-verification");
-      if (visualResult) {
-        const consoleErrors = visualResult.evidence?.consoleErrors as string[] || [];
-        return {
-          gate: "runtime-errors",
-          passed: consoleErrors.length === 0,
-          details: consoleErrors.length === 0
-            ? "No console errors detected"
-            : `Console errors: ${consoleErrors.join(", ")}`,
-          severity: "critical",
-          evidence: { consoleErrors },
-        };
+      const insp = await getVisualInspection(context);
+      if (insp.status === "skipped" || insp.status === "not-enforced") {
+        return inspectionSkipResult("runtime-errors", insp, "critical");
       }
+      const errors = insp.consoleErrors;
+      const passed = errors.length === 0;
       return {
         gate: "runtime-errors",
-        passed: true,
-        details: "Skipped (visual verification not run)",
+        passed,
+        status: passed ? "passed" : "failed",
+        details: passed
+          ? `No console errors on ${insp.pagesInspected} inspected viewport(s)`
+          : `${errors.length} console error(s): ${errors.slice(0, 3).join(" | ")}`,
         severity: "critical",
+        evidence: { consoleErrors: errors.slice(0, 20), pagesInspected: insp.pagesInspected },
       };
     },
   };
@@ -651,18 +714,36 @@ function createVisualVerificationGate(): VerificationGate {
   return {
     id: "visual-verification",
     name: "Visual Verification",
-    description: "Visual regression tests pass",
+    description: "Rendered app has no overflow or blank pages at target viewports",
     severity: "major",
     async verify(context) {
-      // Phase I 5 — honest not-enforced: this gate has no implementation, so it
-      // must never report passed:true ("green-is-a-label" root cause). It is
-      // reported as not-implemented and excluded from the pass/fail tally.
+      const insp = await getVisualInspection(context);
+      if (insp.status === "skipped" || insp.status === "not-enforced") {
+        return inspectionSkipResult("visual-verification", insp, "major");
+      }
+      const visualFails: string[] = [];
+      if (insp.overflowViewports.length > 0) {
+        visualFails.push(
+          `horizontal overflow at ${insp.overflowViewports
+            .map((v) => `${v.width}×${v.height} (${v.overflow}px)`)
+            .join(", ")}`
+        );
+      }
+      if (insp.blankViewports.length > 0) {
+        visualFails.push(
+          `blank page at ${insp.blankViewports.map((v) => `${v.width}×${v.height}`).join(", ")}`
+        );
+      }
+      const passed = visualFails.length === 0;
       return {
         gate: "visual-verification",
-        passed: false,
-        status: "not-enforced",
-        details: "Visual regression check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        passed,
+        status: passed ? "passed" : "failed",
+        details: passed
+          ? `Rendered cleanly at ${insp.pagesInspected} viewport(s) — no overflow, no blank pages`
+          : `Visual defects: ${visualFails.join("; ")}`,
         severity: "major",
+        evidence: inspectionEvidence(insp),
       };
     },
   };
@@ -833,16 +914,34 @@ function createAccessibilityGate(): VerificationGate {
   return {
     id: "accessibility",
     name: "Accessibility Check",
-    description: "Basic accessibility compliance (WCAG AA)",
+    description: "No critical/serious WCAG violations (axe-core)",
     severity: "minor",
     async verify(context) {
-      // Phase I 5 — not-enforced, never forged green.
+      const insp = await getVisualInspection(context);
+      if (insp.status === "skipped" || insp.status === "not-enforced") {
+        return inspectionSkipResult("accessibility", insp, "minor");
+      }
+      // axe-core must have ACTUALLY executed — a page where it could not run
+      // (CSP block, page exception) is not a pass, ever.
+      if (!insp.a11yRan) {
+        return {
+          gate: "accessibility",
+          passed: false,
+          status: "not-enforced",
+          details: `axe-core could not run on the rendered app (${insp.a11yError ?? "unknown reason"}) — accessibility NOT enforced (reported honestly, never counts as pass or fail)`,
+          severity: "minor",
+        };
+      }
+      const passed = insp.a11y.length === 0;
       return {
         gate: "accessibility",
-        passed: false,
-        status: "not-enforced",
-        details: "Accessibility check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        passed,
+        status: passed ? "passed" : "failed",
+        details: passed
+          ? "No critical/serious accessibility violations detected"
+          : `${insp.a11y.length} critical/serious violation(s): ${insp.a11y.map((v) => `${v.id} (${v.nodes} node${v.nodes === 1 ? "" : "s"})`).join(", ")}`,
         severity: "minor",
+        evidence: { violations: insp.a11y },
       };
     },
   };
@@ -852,16 +951,37 @@ function createPerformanceGate(): VerificationGate {
   return {
     id: "performance",
     name: "Performance Budget",
-    description: "Meets performance budgets (LCP, CLS, TBT)",
+    description: "Largest Contentful Paint within budget (2.5s)",
     severity: "minor",
     async verify(context) {
-      // Phase I 5 — not-enforced, never forged green.
+      const insp = await getVisualInspection(context);
+      if (insp.status === "skipped" || insp.status === "not-enforced") {
+        return inspectionSkipResult("performance", insp, "minor");
+      }
+      // We measure LCP directly from the rendered app. If the metric is
+      // unavailable (client-rendered shell with no LCP yet), we report
+      // not-enforced rather than inventing a number — Lighthouse budgets
+      // (Phase 1) will close the gap.
+      if (insp.lcpMs === null) {
+        return {
+          gate: "performance",
+          passed: false,
+          status: "not-enforced",
+          details: "No LCP measured for the built app — performance NOT enforced (reported honestly, never counts as pass or fail). Phase 1 adds Lighthouse budgets.",
+          severity: "minor",
+        };
+      }
+      const budgetMs = 2500;
+      const passed = insp.lcpMs <= budgetMs;
       return {
         gate: "performance",
-        passed: false,
-        status: "not-enforced",
-        details: "Performance check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        passed,
+        status: passed ? "passed" : "failed",
+        details: passed
+          ? `LCP ${insp.lcpMs}ms within ${budgetMs}ms budget`
+          : `LCP ${insp.lcpMs}ms exceeds ${budgetMs}ms budget`,
         severity: "minor",
+        evidence: { lcpMs: insp.lcpMs, budgetMs },
       };
     },
   };
@@ -871,16 +991,36 @@ function createSeoGate(): VerificationGate {
   return {
     id: "seo",
     name: "SEO Basics",
-    description: "Basic SEO requirements met",
+    description: "Rendered <title>, meta description, and ≥1 <h1>",
     severity: "minor",
     async verify(context) {
-      // Phase I 5 — not-enforced, never forged green.
+      const insp = await getVisualInspection(context);
+      if (insp.status === "skipped" || insp.status === "not-enforced") {
+        return inspectionSkipResult("seo", insp, "minor");
+      }
+      if (!insp.seo.inspected) {
+        return {
+          gate: "seo",
+          passed: true,
+          status: "skipped",
+          details: "Skipped — no rendered page inspected",
+          severity: "minor",
+        };
+      }
+      const seoFails: string[] = [];
+      if (!insp.seo.title) seoFails.push("missing <title>");
+      if (!insp.seo.metaDescription) seoFails.push("missing meta description");
+      if (insp.seo.h1Count === 0) seoFails.push("no <h1>");
+      const passed = seoFails.length === 0;
       return {
         gate: "seo",
-        passed: false,
-        status: "not-enforced",
-        details: "SEO check not implemented — gate NOT enforced (reported honestly, never counts as a pass)",
+        passed,
+        status: passed ? "passed" : "failed",
+        details: passed
+          ? `SEO basics met (title, meta description, ${insp.seo.h1Count} h1)`
+          : `SEO issues: ${seoFails.join(", ")}`,
         severity: "minor",
+        evidence: { title: insp.seo.title, metaDescription: insp.seo.metaDescription, h1Count: insp.seo.h1Count },
       };
     },
   };

@@ -9,6 +9,39 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 
 ---
 
+## 🛠️ THE FIX PLAN — the current campaign (approved 2026-09-13)
+
+**Goal:** Infinity Build is *"actually good"* — a production-grade harness, not a convincing demo. **Depth, not language breadth** (this REPLACES the old 50-language expansion roadmap). A fresh user with their own keys says *"build me a SaaS landing page"* and wakes up to a **deployed, accessible, performant, secure, tested, visually-verified** app — with a walkthrough report as proof — never touching config.
+
+**North star:** *"start the build, fall asleep, wake up done"* — all questions asked upfront in PLAN.md, no mid-build questions.
+
+| Phase | Title | Status |
+|-------|-------|--------|
+| **0** | Hardening the Foundation (kill lies + broken primitives) | 🔄 **IN PROGRESS** |
+| **1** | Done Contract with Teeth (all 9 gates enforced) | 🔲 NOT STARTED |
+| **2** | Real Multi-Agent Crew (message bus, per-agent keys) | 🔲 NOT STARTED |
+| **3** | Local Watchdog (supervisor + push) | 🔲 NOT STARTED |
+| **4** | Context That Survives (4-level compaction, project map) | 🔲 NOT STARTED |
+| **5** | Catastrophic Failure Recovery | 🔲 NOT STARTED |
+| **6** | Git-First Builds (worktree isolation, auto-revert) | 🔲 NOT STARTED |
+| **7** | Visual Verification Loop (vision channel, diff, walkthrough) | 🔲 NOT STARTED |
+| **8** | Honest Deploy + Push-Driven Human Loop | 🔲 NOT STARTED |
+| **9** | Polish the Harness (default quality profile, ask_user, admin) | 🔲 NOT STARTED |
+
+### Phase 0 — Hardening the Foundation
+
+| Task | Status |
+|------|--------|
+| Kill fake deploys: Vercel/Netlify API branches in `deployment-engine.ts` must deploy for real OR return `{manual:true, instructions}` — never fabricate `success:true` | 🔄 NOT DONE |
+| Fix `run_command`: replace `execFile` with PTY-backed streaming shell (node-pty); handle Ctrl+C + interactive commands | 🔄 NOT DONE |
+| **Wire verifyWorkspace to ACTUALLY run visual/a11y/perf gates** — NEW `build-visual-verification.ts` (cached, single-Chrome-pass) + real `runtime-errors`, `visual-verification`, `accessibility`, `seo`, `performance` gates | ✅ **DONE** |
+| Durable checkpoints (Postgres via drizzle, `build_checkpoints`) | ✅ **DONE** (pre-existing) |
+| Project map persistence (`.infinity/project-map.json`) | ✅ **DONE** (pre-existing) |
+
+**Proven live (2026-09-13):** the inspection renders the built app in Chrome at 2 viewports (1440×900 + 375×812), measures LCP (real, e.g. 112ms), runs axe-core offline on the rendered document (caught a genuine `link-in-text-block` in the benchmark app that 104/104 checks had missed), and FAILS honestly on injected bugs — `image-alt` missing-alt violation and 825px horizontal overflow at 375px were both caught. `skipped` (no built output) is a pass-with-explanation; `not-enforced` (browser infra unavailable) never counts as pass or fail.
+
+---
+
 ## 📋 Phase Overview
 
 | Phase | Title | Root Cause | Status |
