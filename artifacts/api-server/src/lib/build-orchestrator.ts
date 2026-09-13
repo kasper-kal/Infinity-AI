@@ -41,6 +41,8 @@ import {
 import { logBuildEvent } from "./build-telemetry";
 import { emitBuildPhaseEvent } from "./safety-watcher";
 import { withRetry } from "./build-edge-cases";
+import { initializeBuildWatchdog, shutdownBuildWatchdog, recordWatchdogTurn, BuildWatchdog } from "./build-watchdog";
+import type { ToolCall, ToolResult } from "./build-tools";
 import {
   adversarialVerify,
   pipelineConcurrent,
@@ -227,6 +229,9 @@ export class BuildOrchestrator {
   // Build Map Agent for autonomous roadmap updates
   private buildMapAgent: BuildMapAgent | null = null;
 
+  // Phase 3 — Local Watchdog sidecar
+  private watchdog: BuildWatchdog | null = null;
+
   private constructor(params: {
     projectId: string;
     workspaceId?: string;
@@ -319,6 +324,19 @@ export class BuildOrchestrator {
     // 1. Load project context
     await this.loadContext(goal);
 
+    // Phase 3 — Initialize Local Watchdog sidecar
+    // The watchdog monitors the agent loop for errors, policy violations, and stalls
+    try {
+      this.watchdog = await initializeBuildWatchdog(this.projectId, this.bus.getThreadId(), {
+        sampleEveryNTurns: 1,  // Check every turn for tight monitoring
+        maxTurnsBeforeForceStop: 50,
+        enabled: true,
+      });
+      this.emitProgress("orchestrator", "watchdog", "Local watchdog started");
+    } catch (err) {
+      console.error("[BuildOrchestrator] Failed to initialize watchdog:", err);
+    }
+
     // 2. PLANNER — create execution plan
     const plan = await this.runPlanner(goal);
     this.emitProgress("planner", "done", `Plan created: ${plan.steps.length} steps`);
@@ -394,6 +412,17 @@ export class BuildOrchestrator {
       });
     } catch (e) {
       console.error("Failed to emit build phase safety event:", e);
+    }
+
+    // Phase 3 — Shutdown watchdog
+    try {
+      if (this.watchdog) {
+        await shutdownBuildWatchdog();
+        this.watchdog = null;
+        this.emitProgress("orchestrator", "watchdog", "Local watchdog stopped");
+      }
+    } catch (err) {
+      console.error("[BuildOrchestrator] Failed to shutdown watchdog:", err);
     }
 
     this.emitProgress("orchestrator", "done", success ? "All steps completed successfully" : "Some steps failed");
@@ -581,7 +610,22 @@ export class BuildOrchestrator {
     // Group by parallelizable sets (fall back to topo order)
     const parallelGroups = this.buildParallelGroups(plan, executionOrder);
 
+    // Phase 3 — Listen for watchdog force_stop event
+    let watchdogForceStopped = false;
+    if (this.watchdog) {
+      this.watchdog.on("force_stop", (data) => {
+        watchdogForceStopped = true;
+        this.emitProgress("orchestrator", "force_stop", `Watchdog forced stop: ${data.reason}`);
+      });
+    }
+
     for (const group of parallelGroups) {
+      // Check if watchdog forced a stop
+      if (watchdogForceStopped) {
+        this.emitProgress("orchestrator", "force_stop", "Stopping plan execution due to watchdog force stop");
+        break;
+      }
+
       // Execute all steps in this group in parallel
       const promises = group.map(step => this.executeStep(step, plan, results));
       const stepResults = await Promise.allSettled(promises);
@@ -606,6 +650,12 @@ export class BuildOrchestrator {
           this.emitProgress("coder", step.id, `Failed: ${result.reason}`);
         }
       });
+
+      // Record turn for watchdog after each group completes
+      if (this.watchdog) {
+        // Note: Individual agent turns are recorded via recordWatchdogTurn in runCoder/runReviewer/runFixer
+        // This is just a safety checkpoint
+      }
     }
 
     return results;
@@ -872,6 +922,17 @@ export class BuildOrchestrator {
 
     const result = await runAgentForStep(agentStep, context.goal || "", this.toolContext, config);
 
+    // Phase 3 — Record turn for watchdog
+    await recordWatchdogTurn(
+      this.projectId,
+      this.bus.getThreadId(),
+      this.context.completedSteps.size + 1, // Use completed steps count as turn number
+      [], // toolCalls - not directly accessible here
+      [], // toolResults - not directly accessible here
+      result.summary || `Coder completed step ${step.id}`,
+      result.tokenUsage
+    );
+
     // Construct a handoff from the agent result. The agent loop already verified.
     const handoff: z.infer<typeof CoderHandoffSchema> = {
       stepId: step.id,
@@ -918,6 +979,17 @@ export class BuildOrchestrator {
     );
 
     const review = ReviewSchema.parse(JSON.parse(this.extractJson(response.content)));
+
+    // Phase 3 — Record turn for watchdog
+    await recordWatchdogTurn(
+      this.projectId,
+      this.bus.getThreadId(),
+      this.context.completedSteps.size + 1,
+      [],
+      [],
+      `Reviewer: ${review.verdict} — ${review.findings.length} finding(s)`,
+      { prompt: response.usage?.promptTokens || 0, completion: response.usage?.completionTokens || 0, total: response.usage?.totalTokens || 0 }
+    );
 
     // Phase 2 — the reviewer posts STRUCTURED findings (file/line/severity/
     // suggestion) onto the bus, not a boolean verdict.
@@ -974,6 +1046,17 @@ export class BuildOrchestrator {
     };
 
     const result = await runAgentForStep(agentStep, (context as any).goal || "", this.toolContext, config);
+
+    // Phase 3 — Record turn for watchdog
+    await recordWatchdogTurn(
+      this.projectId,
+      this.bus.getThreadId(),
+      this.context.completedSteps.size + 1,
+      [],
+      [],
+      `Fixer iteration ${iteration}: ${result.summary}`,
+      result.tokenUsage
+    );
 
     const handoff: z.infer<typeof FixerHandoffSchema> = {
       stepId,

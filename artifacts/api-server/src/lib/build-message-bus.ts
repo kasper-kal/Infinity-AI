@@ -130,6 +130,11 @@ export class MessageBus {
     this.threadId = threadId;
   }
 
+  /** Get the thread ID for this bus instance */
+  getThreadId(): string {
+    return this.threadId;
+  }
+
   /** An agent says something. Persisted + delivered in-process. Never throws. */
   async post(input: PostMessageInput): Promise<CrewMessage> {
     const { fromRole, content } = input;
