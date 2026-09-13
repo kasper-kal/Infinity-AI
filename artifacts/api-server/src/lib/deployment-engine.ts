@@ -6,6 +6,8 @@
  */
 
 import { z } from "zod";
+import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import { LLMAdapter, getLLMAdapter } from "./llm-adapter.js";
 import { FrameworkRegistry } from "./framework-generators/index.js";
 import { emitDeploymentEvent } from "./safety-watcher";
@@ -225,6 +227,28 @@ Return JSON with config files as { "filename": "content" }.`;
   // Provider-Specific Deployments
   // ============================================
 
+  /**
+   * Honest manual handoff (Phase 0 FIX): any deploy path we do NOT automate
+   * returns success:false with exact human (or CLI) instructions — it NEVER
+   * fabricates success or an invented production URL. The caller surfaces the
+   * error text to the user as the handoff.
+   */
+  private manualHandoff(
+    provider: string,
+    needs: string,
+    instructions: string,
+    log: (msg: string) => string
+  ): DeployResult {
+    const detail = `Deploy to ${provider} requires a manual step: ${needs}. ${instructions}`;
+    log(detail);
+    return {
+      success: false,
+      error: detail,
+      deploymentId: `manual-${provider}-${Date.now()}`,
+      logs: [],
+    };
+  }
+
   private async deployToVercel(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
     log("Deploying to Vercel...");
 
@@ -239,20 +263,21 @@ Return JSON with config files as { "filename": "content" }.`;
       return this.runVercelCLI(config, log);
     }
 
-    // Use Vercel API
+    // Use Vercel API — REAL deploy (Phase 0 FIX: was a fabricated success).
     log("Using Vercel API...");
     return this.deployViaVercelAPI(config, log);
   }
 
-  private async runVercelCLI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
-    const { spawn } = await import("child_process");
-    const { promisify } = await import("util");
+  private runVercelCLI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
+    const { spawn } = require("child_process") as typeof import("child_process");
 
     return new Promise((resolve) => {
       const args = ["--prod", "--yes"];
       if (config.customDomain) {
         args.push("--domain", config.customDomain);
       }
+      const cliToken = process.env.VERCEL_TOKEN || config.envVars.VERCEL_TOKEN;
+      if (cliToken) args.push("--token", cliToken);
 
       const child = spawn("npx", ["vercel", ...args], {
         cwd: config.projectPath,
@@ -273,13 +298,21 @@ Return JSON with config files as { "filename": "content" }.`;
         log(`vercel error: ${data.toString().trim()}`);
       });
 
+      // Guard against a headless login prompt hanging the deploy forever.
+      const kill = setTimeout(() => {
+        child.kill("SIGKILL");
+        resolve({ success: false, error: "Vercel CLI timed out (likely a login prompt) — set VERCEL_TOKEN to deploy via CLI in automation, and run `npx vercel login` once locally", logs: [] });
+      }, 180_000);
+
       child.on("close", (code) => {
+        clearTimeout(kill);
         if (code === 0) {
-          // Extract URL from output
+          // Extract URL from output — if the CLI printed none, return "" (honest),
+          // never an invented .vercel.app URL (Phase 0 FIX).
           const urlMatch = stdout.match(/https:\/\/[^\s]+\.vercel\.app/);
           resolve({
             success: true,
-            url: urlMatch?.[0] || `https://${config.projectPath.split("/").pop()}.vercel.app`,
+            url: urlMatch?.[0] || "",
             deploymentId: `vercel-${Date.now()}`,
             logs: [],
           });
@@ -293,6 +326,7 @@ Return JSON with config files as { "filename": "content" }.`;
       });
 
       child.on("error", (err) => {
+        clearTimeout(kill);
         resolve({
           success: false,
           error: `Failed to run Vercel CLI: ${err.message}`,
@@ -302,15 +336,137 @@ Return JSON with config files as { "filename": "content" }.`;
     });
   }
 
-  private async deployViaVercelAPI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
-    // Vercel API deployment - simplified
-    log("Vercel API deployment would be implemented here");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.vercel.app`,
-      deploymentId: `vercel-api-${Date.now()}`,
-      logs: [],
+  /** Map our internal framework ids to Vercel's projectSettings.framework enum. */
+  private vercelFramework(config: DeployConfig): string | undefined {
+    const map: Record<string, string> = {
+      nextjs: "nextjs",
+      astro: "astro",
+      remix: "remix",
+      "vite-react": "vite",
+      sveltekit: "sveltekit",
+      nuxt: "nuxt",
+      solidstart: "solidstart",
     };
+    return map[config.framework];
+  }
+
+  private async vercelAPIDeploy(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
+    const token = process.env.VERCEL_TOKEN || config.envVars.VERCEL_TOKEN;
+    const base = "https://api.vercel.com";
+
+    // 1. Walk the project SOURCE tree (Vercel builds remotely; never upload
+    //    node_modules / generated output).
+    const files: Record<string, { file: string }> = {};
+    let payloadBytes = 0;
+    const MAX_PAYLOAD_BYTES = 4 * 1024 * 1024; // Vercel API JSON-deploy limit is ~5MB
+    const SKIP_DIRS = new Set(["node_modules", ".git", ".infinity", "dist", "build", "out", ".next", ".vercel", ".turbo", ".output", ".cache", "coverage"]);
+    const SKIP_FILES = new Set([".DS_Store"]);
+
+    async function walk(dir: string): Promise<void> {
+      let entries;
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const ent of entries) {
+        if (SKIP_DIRS.has(ent.name)) continue;
+        if (SKIP_FILES.has(ent.name)) continue;
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          await walk(full);
+        } else if (ent.isFile()) {
+          const rel = path.relative(config.projectPath, full).split(path.sep).join("/");
+          const data = await fs.readFile(full);
+          if (data.byteLength > 10 * 1024 * 1024) continue; // skip huge binaries
+          const encoded = data.toString("base64");
+          payloadBytes += encoded.length;
+          files[rel] = { file: encoded };
+        }
+      }
+    }
+    await walk(config.projectPath);
+
+    if (Object.keys(files).length === 0) {
+      return { success: false, error: "No source files found to deploy", logs: [] };
+    }
+    if (payloadBytes > MAX_PAYLOAD_BYTES) {
+      return this.manualHandoff(
+        "Vercel",
+        `project is too large for the API upload (~${Math.round(payloadBytes / 1024 / 1024)}MB base64 > 4MB)`,
+        "Run locally: `npx vercel --prod --yes` from the project, or push the repo to GitHub and import it into Vercel.",
+        log
+      );
+    }
+
+    // 2. Create the deployment.
+    log(`Uploading ${Object.keys(files).length} source files (${Math.round(payloadBytes / 1024)}KB) to Vercel...`);
+    const createResp = await fetch(`${base}/v13/deployments`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        files,
+        name: config.projectPath.split("/").pop() || "infinity-app",
+        projectSettings: this.vercelFramework(config) ? { framework: this.vercelFramework(config) } : undefined,
+        ...(config.envVars.PROJECT_ID && config.envVars.VERCEL_PROJECT_ID
+          ? { projectId: config.envVars.VERCEL_PROJECT_ID }
+          : {}),
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    const createBody: any = await createResp.json().catch(() => ({}));
+    if (!createResp.ok) {
+      return {
+        success: false,
+        error: `Vercel API rejected the deployment (HTTP ${createResp.status}): ${JSON.stringify(createBody.error || createBody).slice(0, 400)}`,
+        logs: [],
+      };
+    }
+    const deploymentId: string | undefined = createBody.id;
+    if (!deploymentId) {
+      return { success: false, error: "Vercel API returned no deployment id", logs: [] };
+    }
+    log(`Vercel deployment ${deploymentId} created, waiting for READY...`);
+
+    // 3. Poll until READY or ERROR.
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const statusResp = await fetch(`${base}/v13/deployments/${deploymentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      const status: any = await statusResp.json().catch(() => ({}));
+      if (!statusResp.ok) {
+        return { success: false, error: `Vercel API status check failed (HTTP ${statusResp.status})`, deploymentId, logs: [] };
+      }
+      const state: string = status.readyState || status.status || "";
+      log(`  vercel state: ${state}`);
+      if (state === "READY") {
+        const url = status.url ? `https://${status.url}` : "";
+        return { success: true, url, deploymentId, logs: [] };
+      }
+      if (state === "ERROR" || state === "CANCELED") {
+        return {
+          success: false,
+          error: `Vercel build failed: ${status.error?.message || JSON.stringify(status).slice(0, 400)}`,
+          deploymentId,
+          logs: [],
+        };
+      }
+    }
+    return { success: false, error: `Vercel deployment ${deploymentId} did not finish within ~2 minutes (still building)`, deploymentId, logs: [] };
+  }
+
+  private async deployViaVercelAPI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
+    try {
+      return await this.vercelAPIDeploy(config, log);
+    } catch (e) {
+      return { success: false, error: `Vercel API deploy failed: ${e instanceof Error ? e.message : String(e)}`, logs: [] };
+    }
   }
 
   private async deployToNetlify(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
@@ -324,12 +480,15 @@ Return JSON with config files as { "filename": "content" }.`;
     }
 
     log("Using Netlify API...");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.netlify.app`,
-      deploymentId: `netlify-${Date.now()}`,
-      logs: [],
-    };
+    // Phase 0 FIX: the Netlify API upload flow (create deploy → per-file digest
+    // PUTs → blob uploads) is not implemented — fabricating success was a lie.
+    // Honest handoff back to the real CLI path, which requires local auth.
+    return this.manualHandoff(
+      "Netlify",
+      "the API upload flow is not automated",
+      "Run locally from the project: `npx netlify deploy --prod --dir <output-directory>`, or push the repo to GitHub and connect it in netlify.com. An authenticated `NETLIFY_AUTH_TOKEN` alone is not sufficient — the CLI also needs a linked site.",
+      log
+    );
   }
 
   private async runNetlifyCLI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
@@ -360,7 +519,7 @@ Return JSON with config files as { "filename": "content" }.`;
           const urlMatch = stdout.match(/https:\/\/[^\s]+\.netlify\.app/);
           resolve({
             success: true,
-            url: urlMatch?.[0] || `https://${config.projectPath.split("/").pop()}.netlify.app`,
+            url: urlMatch?.[0] || "",
             deploymentId: `netlify-${Date.now()}`,
             logs: [],
           });
@@ -387,19 +546,27 @@ Return JSON with config files as { "filename": "content" }.`;
     }
 
     log("Using Cloudflare API...");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.pages.dev`,
-      deploymentId: `cf-pages-${Date.now()}`,
-      logs: [],
-    };
+    // Phase 0 FIX: Direct-Upload API (multipart + upload tokens) not automated;
+    // fabricating success was a lie. Honest handoff to the real Wrangler CLI.
+    return this.manualHandoff(
+      "Cloudflare Pages",
+      "the Direct Upload API flow is not automated",
+      "Run locally from the project: `npx wrangler pages deploy <output-directory> --project-name <name>`, then `npx wrangler pages project create --project-name <name> --production-branch main` if needed.",
+      log
+    );
   }
 
   private async runWranglerCLI(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
     const { spawn } = await import("child_process");
 
     return new Promise((resolve) => {
-      const child = spawn("npx", ["wrangler", "pages", "deploy", config.outputDirectory || "dist", "--project-name", config.projectPath.split("/").pop() || "app"], {
+      const args = ["pages", "deploy", config.outputDirectory || "dist", "--project-name", config.projectPath.split("/").pop() || "app"];
+      const cfToken = process.env.CLOUDFLARE_API_TOKEN || config.envVars.CLOUDFLARE_API_TOKEN;
+      if (cfToken) args.push("--api-token", cfToken);
+      const cfAccount = process.env.CLOUDFLARE_ACCOUNT_ID || config.envVars.CLOUDFLARE_ACCOUNT_ID;
+      if (cfAccount) args.push("--account-id", cfAccount);
+
+      const child = spawn("npx", ["wrangler", ...args], {
         cwd: config.projectPath,
         env: { ...process.env, ...config.envVars },
         stdio: ["ignore", "pipe", "pipe"],
@@ -418,12 +585,21 @@ Return JSON with config files as { "filename": "content" }.`;
         log(`wrangler error: ${data.toString().trim()}`);
       });
 
+      // Guard against a headless login prompt hanging the deploy forever.
+      const kill = setTimeout(() => {
+        child.kill("SIGKILL");
+        resolve({ success: false, error: "Wrangler CLI timed out (likely a login prompt) — set CLOUDFLARE_API_TOKEN to deploy via CLI in automation, and run `npx wrangler login` once locally", logs: [] });
+      }, 180_000);
+
       child.on("close", (code) => {
+        clearTimeout(kill);
         if (code === 0) {
+          // Extract URL from output — if the CLI printed none, return "" (honest),
+          // never an invented .pages.dev URL (Phase 0 FIX).
           const urlMatch = stdout.match(/https:\/\/[^\s]+\.pages\.dev/);
           resolve({
             success: true,
-            url: urlMatch?.[0] || `https://${config.projectPath.split("/").pop()}.pages.dev`,
+            url: urlMatch?.[0] || "",
             deploymentId: `cf-pages-${Date.now()}`,
             logs: [],
           });
@@ -435,40 +611,54 @@ Return JSON with config files as { "filename": "content" }.`;
           });
         }
       });
+
+      child.on("error", (err) => {
+        clearTimeout(kill);
+        resolve({
+          success: false,
+          error: `Failed to run Wrangler CLI: ${err.message}`,
+          logs: [],
+        });
+      });
     });
   }
 
   private async deployToRailway(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
     log("Deploying to Railway...");
-    log("Railway deployment would use Railway CLI or API");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.up.railway.app`,
-      deploymentId: `railway-${Date.now()}`,
-      logs: [],
-    };
+    // Phase 0 FIX: no automated Railway path — `railway up` requires an
+    // interactive `railway login` + `railway link` first. Fabricated success
+    // with an invented *.up.railway.app URL was a lie.
+    return this.manualHandoff(
+      "Railway",
+      "Railway requires interactive setup (login + link to a project)",
+      "Run locally from the project: `npx railway login` once, `npx railway link`, then `npx railway up`. Or push the repo to GitHub and create the service at railway.app — Railway builds from the repo.",
+      log
+    );
   }
 
   private async deployToFlyio(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
     log("Deploying to Fly.io...");
-    log("Fly.io deployment would use flyctl CLI");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.fly.dev`,
-      deploymentId: `flyio-${Date.now()}`,
-      logs: [],
-    };
+    // Phase 0 FIX: no automated Fly.io path — `flyctl launch` is interactive
+    // (app name, org, region prompts). Fabricated success was a lie.
+    return this.manualHandoff(
+      "Fly.io",
+      "Fly.io requires interactive `flyctl launch` setup",
+      "Run locally from the project: `flyctl auth login` once, then `flyctl launch` (answers the interactive prompts), then `flyctl deploy`. fly.toml will be generated.",
+      log
+    );
   }
 
   private async deployToRender(config: DeployConfig, log: (msg: string) => string): Promise<DeployResult> {
     log("Deploying to Render...");
-    log("Render deployment would use Render API or Blueprint");
-    return {
-      success: true,
-      url: `https://${config.projectPath.split("/").pop()}.onrender.com`,
-      deploymentId: `render-${Date.now()}`,
-      logs: [],
-    };
+    // Phase 0 FIX: Render deploys from a connected GitHub repo; the free tier
+    // has no equivalent of a one-shot push-CLI without a linked service.
+    // Fabricated *.onrender.com success was a lie.
+    return this.manualHandoff(
+      "Render",
+      "Render deploys from a connected GitHub repo (or uses render.yaml blueprint)",
+      "Push the repo to GitHub and create a new Web Service/Blueprint at dashboard.render.com pointing at it (choose the Free instance type). A render.yaml blueprint in the repo enables 'Blueprint' deploys.",
+      log
+    );
   }
 
   // ============================================
@@ -608,16 +798,37 @@ Return JSON with DNS records needed (type, name, value, ttl) and instructions.`;
   }
 
   private async rollbackVercel(config: DeployConfig, deploymentId: string): Promise<DeployResult> {
-    // Vercel rollback via CLI or API
-    return { success: true, url: "", deploymentId, logs: [] };
+    // Phase 0 FIX: honest — rollback requires either the Vercel token (API:
+    // POST /v13/deployments/{id}/rollback) or local CLI auth. Never fabricate.
+    const token = process.env.VERCEL_TOKEN || config.envVars.VERCEL_TOKEN;
+    if (!token) {
+      return { success: false, error: "Rollback on Vercel requires a token or local CLI auth. Run: `npx vercel rollback <deployment-url>` from the project.", deploymentId, logs: [] };
+    }
+    try {
+      const resp = await fetch(`https://api.vercel.com/v13/deployments/${deploymentId}/rollback`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!resp.ok) {
+        return { success: false, error: `Vercel rollback failed (HTTP ${resp.status})`, deploymentId, logs: [] };
+      }
+      return { success: true, deploymentId, logs: [] };
+    } catch (e) {
+      return { success: false, error: `Vercel rollback failed: ${e instanceof Error ? e.message : String(e)}`, deploymentId, logs: [] };
+    }
   }
 
   private async rollbackNetlify(config: DeployConfig, deploymentId: string): Promise<DeployResult> {
-    return { success: true, url: "", deploymentId, logs: [] };
+    // Phase 0 FIX: honest. Netlify rollback happens in the dashboard/CLI; the
+    // API flow is not automated, so report it truthfully.
+    return { success: false, error: "Netlify rollback is not automated. In the Netlify dashboard open Deploys → the deployment → 'Rollback'; or set NETLIFY_AUTH_TOKEN and run `npx netlify deploy --prod --filter <site>` with the previous build.", deploymentId, logs: [] };
   }
 
   private async rollbackCloudflarePages(config: DeployConfig, deploymentId: string): Promise<DeployResult> {
-    return { success: true, url: "", deploymentId, logs: [] };
+    // Phase 0 FIX: honest. Cloudflare Pages rollback is dashboard-only
+    // (Deployments → ⋯ → 'Rollback to this deployment').
+    return { success: false, error: "Cloudflare Pages rollback is not automated. In the Cloudflare dashboard open the Pages project → Deployments → the deployment → `Rollback to this deployment`.", deploymentId, logs: [] };
   }
 }
 

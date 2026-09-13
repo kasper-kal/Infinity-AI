@@ -14,11 +14,8 @@
  * - git_diff() - show git diff of changes
  */
 
-import { execFile, type ChildProcess } from "node:child_process";
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import {
-  getWorkspaceRoot,
   safeWorkspacePath,
   readWorkspaceFileText,
   writeWorkspaceFile,
@@ -26,7 +23,6 @@ import {
   runGit,
   hasIsolated,
   isolatedPath,
-  getWorkspaceCommandEnvironment,
 } from "./workspace";
 import { getBrowserPool } from "./browser-pool";
 import type { BrowserSlot, ScreenshotViewport } from "./browser-pool";
@@ -94,15 +90,26 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "run_command",
-    description: "Execute a shell command in the workspace",
+    description:
+      "Run a shell command. Output streams live from a persistent terminal. Use session flags to drive interactive CLIs (vercel, npm with prompts, git confirmations): start with the command, then `poll: true` to read more output, `stdin: '<answer>'` to reply to a prompt, `ctrl_c: true` to send Ctrl+C, `stop: true` to kill the shell. For a one-shot command the result returns when it exits and includes stdout, stderr, and exitCode.",
     parameters: {
       type: "object",
       properties: {
         command: { type: "string", description: "Shell command to execute" },
-        timeoutMs: { type: "number", description: "Timeout in milliseconds", default: 30000 },
+        timeoutMs: { type: "number", description: "Seconds to wait for completion before returning partial output", default: 30000, maximum: 600000 },
         cwd: { type: "string", description: "Working directory (relative to workspace root)" },
+        interactive: { type: "boolean", description: "Return session state immediately instead of waiting for exit" },
+        poll: { type: "boolean", description: "Read new output since the last call of this session" },
+        stdin: { type: "string", description: "Write input to the running session (answer a prompt)" },
+        ctrl_c: { type: "boolean", description: "Send Ctrl+C (SIGINT) to the foreground process" },
+        stop: { type: "boolean", description: "Kill the workspace terminal session" },
       },
       required: ["command"],
+      oneOf: [
+        { required: ["command"] },
+        { required: ["poll"] },
+        { required: ["stdin"] },
+      ],
     },
   },
   {
@@ -374,48 +381,110 @@ async function toolEditFile(args: Record<string, unknown>, context: ToolExecutio
 }
 
 /**
- * Run a shell command in the workspace
+ * Run a shell command in the workspace — Phase 0 FIX: real interactive shell.
+ *
+ * Default mode runs the command to completion inside a persistent PTY-backed
+ * bash and returns { stdout, stderr, exitCode, timedOut }, streaming output
+ * incrementally so long commands stay visible. Interactive modes let the
+ * agent drive a live terminal:
+ *   - interactive: true  → return session state now (don't wait for exit)
+ *   - poll: true          → return the output written since the last call
+ *   - stdin: <text>       → write input (answer a prompt)
+ *   - ctrl_c: true        → deliver SIGINT to the foreground process
+ *   - stop: true          → kill the workspace shell
  */
 async function toolRunCommand(args: Record<string, unknown>, context: ToolExecutionContext): Promise<ToolResult> {
-  const command = args.command as string;
-  const timeoutMs = (args.timeoutMs as number) || 30000;
-  const cwdRel = (args.cwd as string) || ".";
-  const workspaceRoot = getWorkspaceRoot(context.workspaceId);
-  const cwd = path.resolve(workspaceRoot, cwdRel);
+  const command = (args.command as string) || "";
+  const timeoutMs = Math.min((args.timeoutMs as number) || 30000, 600000);
+  const cwd = (args.cwd as string) || ".";
+  const workspaceId = context.workspaceId;
 
-  if (!cwd.startsWith(workspaceRoot)) {
-    return { success: false, error: "Working directory escapes the workspace" };
+  const {
+    ensureShellSession,
+    runCommandInShell,
+    readShellIncrement,
+    writeShellInput,
+    interruptShell,
+    destroyShellSession,
+    getShellSession,
+  } = await import("./build-shell-session");
+
+  // ---- Session control modes ------------------------------------------------
+  if (args.stop === true) {
+    destroyShellSession(workspaceId);
+    return { success: true, result: { type: "session_stopped", sessionId: getShellSession(workspaceId)?.id } };
   }
 
-  return new Promise((resolve) => {
-    const child = execFile(
-      "/bin/bash",
-      ["-lc", command],
-      {
-        cwd,
-        timeout: timeoutMs,
-        maxBuffer: 1024 * 1024 * 10,
-        killSignal: "SIGKILL",
-        env: getWorkspaceCommandEnvironment(),
+  const sessionId = (args.sessionId as string) || workspaceId;
+  const existing = getShellSession(workspaceId);
+
+  if (args.stdin !== undefined && typeof args.stdin === "string" && existing) {
+    await writeShellInput(existing, args.stdin);
+    const inc = readShellIncrement(existing);
+    return {
+      success: true,
+      result: {
+        type: "session",
+        sessionId,
+        running: inc.running,
+        exitCode: inc.exitCode,
+        output: inc.output,
       },
-      (err, stdout, stderr) => {
-        const code = err && typeof err === "object" && "code" in err ? (err as { code?: number | string }).code : 0;
-        resolve({
-          // Fix 0.8 — a failed command (non-zero exit) must report failure.
-          // The old `|| (err as any).killed === false` inverted this: execFile
-          // sets `.killed = false` on normal failure, so every failed build
-          // was reported to the model as a *successful* tool call.
-          success: !err,
-          result: {
-            stdout: stdout?.slice(-10000) || "",
-            stderr: stderr?.slice(-10000) || "",
-            exitCode: err ? (typeof code === "number" ? code : 1) : 0,
-            timedOut: (err as { killed?: boolean } | null)?.killed === true,
-          },
-        });
+    };
+  }
+
+  if (args.ctrl_c === true && existing) {
+    await interruptShell(existing);
+    await new Promise((r) => setTimeout(r, 400));
+    const inc = readShellIncrement(existing);
+    return {
+      success: true,
+      result: {
+        type: "session",
+        sessionId,
+        running: inc.running,
+        exitCode: inc.exitCode,
+        output: inc.output,
+        interrupted: true,
       },
-    );
-  });
+    };
+  }
+
+  if (args.poll === true && existing) {
+    const inc = readShellIncrement(existing);
+    return {
+      success: true,
+      result: {
+        type: "session",
+        sessionId,
+        running: inc.running,
+        exitCode: inc.exitCode,
+        output: inc.output,
+      },
+    };
+  }
+
+  // Default one-shot: run to completion (marker-based), preserving the legacy
+  // { stdout, stderr, exitCode, timedOut } contract for internal callers.
+  try {
+    const r = await runCommandInShell(workspaceId, command, { timeoutMs, cwd });
+    return {
+      success: r.success,
+      result: {
+        stdout: r.stdout,
+        stderr: r.stderr,
+        exitCode: r.exitCode,
+        timedOut: r.timedOut,
+        running: r.running,
+        sessionId: r.sessionId,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 /**

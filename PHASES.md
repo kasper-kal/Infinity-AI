@@ -32,11 +32,13 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 
 | Task | Status |
 |------|--------|
-| Kill fake deploys: Vercel/Netlify API branches in `deployment-engine.ts` must deploy for real OR return `{manual:true, instructions}` — never fabricate `success:true` | 🔄 NOT DONE |
-| Fix `run_command`: replace `execFile` with PTY-backed streaming shell (node-pty); handle Ctrl+C + interactive commands | 🔄 NOT DONE |
+| Kill fake deploys: Vercel/Netlify API branches in `deployment-engine.ts` must deploy for real OR return `{manual:true, instructions}` — never fabricate `success:true` | ✅ **DONE** (real Vercel API/CLI + honest handoffs incl. Railway/Fly/Render/rollback) |
+| Fix `run_command`: replace `execFile` with PTY-backed streaming shell; handle Ctrl+C + interactive commands + streaming output | ✅ **DONE** (`build-shell-session.ts`, util-linux `script` PTY, zero native deps — proven 12/12) |
 | **Wire verifyWorkspace to ACTUALLY run visual/a11y/perf gates** — NEW `build-visual-verification.ts` (cached, single-Chrome-pass) + real `runtime-errors`, `visual-verification`, `accessibility`, `seo`, `performance` gates | ✅ **DONE** |
 | Durable checkpoints (Postgres via drizzle, `build_checkpoints`) | ✅ **DONE** (pre-existing) |
 | Project map persistence (`.infinity/project-map.json`) | ✅ **DONE** (pre-existing) |
+
+**PHASE 0 — COMPLETE (2026-09-13).** All four hardware tasks landed: real gates (step 1), fake deploys killed + real deploy paths (step 2), PTY shell (step 3). **Deploys now honest everywhere:** Vercel = real `/v13/deployments` upload + READY poll (`VERCEL_TOKEN`) or real CLI (`--token` + 180s headless-login guard; URL extracted, never invented); Netlify CLI + Wrangler CLI token-aware with the same guard; Cloudflare Direct-Upload API, Railway, Fly.io, Render return `success:false` manual handoffs with exact commands; rollback real for Vercel, documented for the rest. Zero fabricated `success:true` / invented URLs remain (grep-clean). **`run_command` is now a real terminal:** persistent PTY-backed bash per workspace via util-linux `script` (no node-pty / no node-gyp), streaming increments, `stdin` answers prompts, `ctrl_c` = real SIGINT to the foreground process, marker-based completion captures true exit codes, timeout returns partial output and the session survives. Proven by `test/shell-engine.smoke.mjs` 12/12 (bundled like production; the vitest worker here can't spawn children — documented). Next: **Phase 1 — Done Contract with Teeth** (all 9 gates enforced, no `not-enforced`).
 
 **Proven live (2026-09-13):** the inspection renders the built app in Chrome at 2 viewports (1440×900 + 375×812), measures LCP (real, e.g. 112ms), runs axe-core offline on the rendered document (caught a genuine `link-in-text-block` in the benchmark app that 104/104 checks had missed), and FAILS honestly on injected bugs — `image-alt` missing-alt violation and 825px horizontal overflow at 375px were both caught. `skipped` (no built output) is a pass-with-explanation; `not-enforced` (browser infra unavailable) never counts as pass or fail.
 
