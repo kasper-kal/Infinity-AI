@@ -429,6 +429,21 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+  // ── Phase 2: Crew message bus (agent_messages) ─────────────────
+  `CREATE TABLE IF NOT EXISTS "agent_messages" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "project_id" text NOT NULL,
+    "thread_id" text NOT NULL DEFAULT 'default',
+    "seq" integer NOT NULL DEFAULT 1,
+    "from_role" text NOT NULL,
+    "to_role" text,
+    "kind" text NOT NULL DEFAULT 'message',
+    "content" text NOT NULL DEFAULT '',
+    "payload" jsonb,
+    "created_at" timestamp NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS "agent_messages_project_seq_idx" ON "agent_messages" ("project_id", "thread_id", "seq")`,
+  `CREATE INDEX IF NOT EXISTS "agent_messages_project_role_idx" ON "agent_messages" ("project_id", "from_role")`,
 
   // ── Phase 18: Preview Sharing & Collaboration ─────────────────
   `CREATE TABLE IF NOT EXISTS "preview_shares" (

@@ -8,6 +8,7 @@
 import { LLMAdapter, OpenAICompatibleAdapter, AdapterConfig, AdapterFactory, LLMAdapterError, LLMCapabilities } from "./llm-adapter";
 import { getHealthyKeys, listKeys, LlmKeyEntry, resolveManualKey, isHealthy } from "./llm-client";
 import { LocalModelAdapter, createLocalAdapter, LOCAL_MODEL_CAPABILITIES } from "./adapters/local-adapter";
+import { CrewEffort, CREW_ROLE_EFFORTS, pickKeyIndex } from "./crew-tiers";
 
 /**
  * Default capabilities for OpenRouter auto-router model
@@ -288,6 +289,41 @@ export async function createBestAdapter(): Promise<LLMAdapter> {
   // Keys are already sorted by priority (highest first) from getHealthyKeys
   const bestKey = keys[0];
   return createAdapterFromEntry(bestKey);
+}
+
+// ============================================================================
+// Crew role → effort/key tier assignment — Phase 2 "per-agent key assignment"
+// (tier mapping + index math live in ./crew-tiers; this file applies them to
+// the real key pool)
+// ============================================================================
+
+/**
+ * Create an adapter for an effort tier of the user's key pool.
+ * max = best healthy key, high = second-best, lite = cheapest (last), local = Ollama.
+ */
+export async function createRoleTierAdapter(effort: CrewEffort): Promise<LLMAdapter> {
+  const keys = await getHealthyKeys();
+
+  if (effort === "local") {
+    // Helper: prefer the $0 local model; fall back to a pool key only if Ollama is down.
+    if (await isLocalModelAvailable()) {
+      return createLocalAdapter();
+    }
+    if (keys.length > 0) {
+      return createAdapterFromEntry(keys[0]);
+    }
+    throw new LLMAdapterError("No local model and no healthy LLM keys available", "NO_KEYS_AVAILABLE", true);
+  }
+
+  if (keys.length === 0) {
+    throw new LLMAdapterError("No healthy LLM keys available for crew role", "NO_KEYS_AVAILABLE", true);
+  }
+  return createAdapterFromEntry(keys[pickKeyIndex(effort, keys.length)]);
+}
+
+/** Create the adapter assigned to a crew role (Phase 2 per-agent keys). */
+export async function createCrewRoleAdapter(role: string): Promise<LLMAdapter> {
+  return createRoleTierAdapter(CREW_ROLE_EFFORTS[role] ?? "high");
 }
 
 /**

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { getLLMAdapter, type LLMAdapter } from "./llm-adapter.js";
+import { type LLMAdapter } from "./llm-adapter.js";
+import { createCrewRoleAdapter } from "./adapter-factory.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1091,19 +1092,25 @@ export function resetModelRouter(): void {
   modelRouterInstance = null;
 }
 
-/** Agent roles that can be routed to a model. */
-export type AgentRole = "planner" | "coder" | "reviewer" | "fixer";
+/** Agent roles that can be routed to a model. "helper" is the history-index/cumulative-answer role (local model, $0). */
+export type AgentRole = "planner" | "coder" | "reviewer" | "fixer" | "helper" | "designer";
 
 const ROLE_TO_CATEGORY: Record<AgentRole, TaskCategory> = {
   planner: TaskCategory.PLANNING,
   coder: TaskCategory.CODING,
   reviewer: TaskCategory.REVIEW,
   fixer: TaskCategory.CODING,
+  helper: TaskCategory.CLASSIFICATION,
+  designer: TaskCategory.VISION,
 };
 
 /**
  * Route a task to an appropriate model adapter and run the executor against it.
  * Returns the routing decision (selected adapter/model) alongside the result.
+ *
+ * The selected adapter now comes from the CALLER'S ROLE, not a shared default —
+ * planner/reviewer get the max tier, coder/fixer the high tier, helper the local
+ * model (Phase 2 per-agent key assignment).
  */
 export async function routeAndExecute<TContext, TResult>(
   role: AgentRole,
@@ -1116,7 +1123,7 @@ export async function routeAndExecute<TContext, TResult>(
   const router = getModelRouter(projectId);
   const category = ROLE_TO_CATEGORY[role];
   const recommended = router.getRecommendedModels(category, BuildMode.BALANCED);
-  const selectedAdapter = await getLLMAdapter();
+  const selectedAdapter = await createCrewRoleAdapter(role);
   const result = await executor(selectedAdapter);
   return {
     decision: {

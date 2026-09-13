@@ -102,6 +102,7 @@ import {
 import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, TOOL_DEFINITIONS } from "../../lib/build-tools";
 import { runAutonomousAgent, runAgentForStep, type AgentConfig, type PlanStep as AgentPlanStep, type AgentGateResult } from "../../lib/build-agent";
 import { runMultiAgentBuild, type OrchestratorEvent } from "../../lib/build-orchestrator";
+import { MessageBus } from "../../lib/build-message-bus";
 
 const puppeteerPromise = import("puppeteer");
 
@@ -3627,7 +3628,60 @@ router.post("/build/orchestrate", requireAuth, requireScope("build:write"), asyn
 });
 
 /**
- * Phase 8: Get orchestration status / recent events
+ * Phase 2: Crew conversation log. GET the durable thread the build crew spoke on
+ * (planner → coder → reviewer → fixer → helper), ascending — the honest,
+ * inspectable proof of multi-agent dialogue.
+ */
+router.get("/build/crew/:projectId", requireAuth, async (req, res) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    const thread = cleanText((req.query.thread as string) || "default", 64);
+    const bus = new MessageBus(projectId, thread);
+    const threadMsgs = await bus.getThread({ includeLive: false });
+    res.json({
+      projectId,
+      thread,
+      count: threadMsgs.length,
+      messages: threadMsgs,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to read crew thread");
+    res.status(500).json({ error: "Failed to read crew thread" });
+  }
+});
+
+/**
+ * Phase 2: Interactive steering. A human injects an instruction addressed to the
+ * orchestrator ("Don't use Tailwind"); the orchestrator drains pending steering
+ * at the next step boundary and injects it into the step — the crew resumes with
+ * the instruction honored.
+ */
+router.post("/build/crew/steer/:projectId", requireAuth, async (req, res) => {
+  try {
+    const projectId = cleanText(req.params.projectId as string, 64);
+    const thread = cleanText((req.body?.thread as string) || "default", 64);
+    const instruction = cleanText(req.body?.instruction as string, 2000);
+    if (!instruction) {
+      res.status(400).json({ error: "instruction is required" });
+      return;
+    }
+    const bus = new MessageBus(projectId, thread);
+    const steering = await bus.postSteering(instruction);
+    res.json({
+      ok: true,
+      projectId,
+      thread,
+      steering: { kind: steering.kind, seq: steering.seq, content: steering.content, persisted: steering.persisted },
+      note: "Drained at the next step boundary by the build orchestrator.",
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to post steering");
+    res.status(500).json({ error: "Failed to post steering" });
+  }
+});
+
+/**
+ * Phase 3: Get orchestration status / recent events
  */
 router.get("/build/orchestrate/status/:projectId", requireAuth, async (req, res) => {
   try {

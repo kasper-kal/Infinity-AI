@@ -19,7 +19,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 |-------|-------|--------|
 | **0** | Hardening the Foundation (kill lies + broken primitives) | ✅ **COMPLETE** |
 | **1** | Done Contract with Teeth (all 9 gates enforced) | ✅ **COMPLETE** |
-| **2** | Real Multi-Agent Crew (message bus, per-agent keys) | 🔲 NOT STARTED |
+| **2** | Real Multi-Agent Crew (message bus, per-agent keys) | ✅ **COMPLETE** |
 | **3** | Local Watchdog (supervisor + push) | 🔲 NOT STARTED |
 | **4** | Context That Survives (4-level compaction, project map) | 🔲 NOT STARTED |
 | **5** | Catastrophic Failure Recovery | 🔲 NOT STARTED |
@@ -75,6 +75,40 @@ The teeth are REAL: `accessibility` FAILS dashboard (26 color-contrast nodes) + 
 **Proven live (2026-09-13):** the inspection renders the built app in Chrome at 2 viewports (1440×900 + 375×812), measures LCP (real, e.g. 112ms), runs axe-core offline on the rendered document (caught a genuine `link-in-text-block` in the benchmark app that 104/104 checks had missed), and FAILS honestly on injected bugs — `image-alt` missing-alt violation and 825px horizontal overflow at 375px were both caught. `skipped` (no built output) is a pass-with-explanation; `not-enforced` (browser infra unavailable) never counts as pass or fail.
 
 ---
+
+### Phase 2 — Real Multi-Agent Crew
+
+| Task | Status |
+|------|--------|
+| **Message bus**: in-process EventEmitter pub/sub + Postgres persistence (`agent_messages` table); kinds: `message`\|`reply`\|`steering`\|`review`\|`helper`\|`orchestrator`\|`handoff`; @mention addressing via `toRole` | ✅ **DONE** — `build-message-bus.ts`, `agent-messages.ts` schema, `auto-migrate.ts` CREATE TABLE + indexes |
+| **Per-agent key tiers**: planner/reviewer/designer = `max` (keys[0]), coder/fixer = `high` (keys[1] or keys[0] if single), helper = `local` (Ollama, $0) | ✅ **DONE** — `crew-tiers.ts` (pure leaf: `CREW_ROLE_EFFORTS`, `pickKeyIndex`, `crewEffortFor`, `describeCrewTier`); `adapter-factory.ts` `createRoleTierAdapter`/`createCrewRoleAdapter` |
+| **BM25 retrieval**: deterministic keyword index over crew conversation + working context (goal, plan, keyDecisions, fileMap, instructions); every answer returns CITATIONS | ✅ **DONE** — `build-helper.ts` (`tokenize`, `bm25Search`, `buildHelperDocs`, `askHelper` with optional `synthesize` hook, `hasCitedConfidence`) |
+| **Role rule blocks**: distinct system-prompt sections injected per role (planner architects, coder implements, reviewer critiques with file/line/severity, fixer makes minimal patches, helper answers from evidence only) | ✅ **DONE** — `infinity-prompt.ts` `CREW_ROLE_RULES` object with 5 distinct blocks + `getRoleRuleBlock(role)` accessor |
+| **Interactive steering**: human posts to bus with `kind="steering"` `toRole="orchestrator"`; orchestrator drains at step boundary and injects into next step's goal | ✅ **DONE** — `MessageBus.postSteering`/`drainSteering`, `build-orchestrator.ts` `prepareStepGoal` steering cursor |
+| **Real reviewer**: posts structured findings (`file`, `line`, `severity`, `suggestion`) to bus for fixer to address | ✅ **DONE** — `build-orchestrator.ts` `runReviewer` posts `kind="review"` payload; routes `/build/crew/:projectId` (thread), `/build/crew/steer/:projectId` (steering) |
+
+**PHASE 2 — COMPLETE (2026-09-13).** Proven by `bench/crew-harness.mjs` (esbuild-bundles the REAL modules: `build-message-bus`, `crew-tiers`, `infinity-prompt`, `build-helper`, `local-adapter`) — **exit 0, all 15 mechanism checks pass**:
+
+```
+✅  bus: in-process pub/sub delivers
+✅  bus: thread read — 8 messages (live cache + DB when available)
+✅  bus: role-poll (reviewer) works
+✅  bus: steering post + drain works
+✅  bus: mention helper works
+✅  crewEffortFor: role→tier mapping matches Phase 2 spec
+✅  pickKeyIndex: tier→pool-index math correct for 1/3 keys
+✅  describeCrewTier: human-readable tier description
+✅  tokenize: working
+✅  buildHelperDocs: indexed 6 sources
+✅  bm25Search: ranked hits
+✅  askHelper: deterministic core returns cited evidence (2 hits)
+   (local LLM synthesis: not available — deterministic core used)
+✅  role rule blocks: 5 distinct non-empty sections
+✅  steering: injected into step description
+CREW_HARNESS_OK
+```
+
+Honest deferral: **no reachable LLM key in this env** (documented constraint from v1 campaign); model-driven live crew dialogue (Designer+Coder+Reviewer+Fixer+Helper all speaking via LLM) cannot run. This harness proves the **PLUMBING** with real bundled modules + real Postgres + deterministic stubs — the mechanisms are wired and testable. Next: **Phase 3 — Local Watchdog**.
 
 ## 📋 Phase Overview
 

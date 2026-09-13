@@ -12,8 +12,10 @@
  */
 
 import { z } from "zod";
-import { adapterFactory, createBestAdapter } from "./adapter-factory";
-import { buildInfinityPrompt, sanitizePrompt } from "./infinity-prompt";
+import { adapterFactory, createBestAdapter, createCrewRoleAdapter } from "./adapter-factory";
+import { buildInfinityPrompt, sanitizePrompt, getRoleRuleBlock } from "./infinity-prompt";
+import { MessageBus } from "./build-message-bus";
+import { askHelper } from "./build-helper";
 import type { LLMAdapter, LLMCapabilities } from "./llm-adapter";
 import { executeTool, formatToolResults, type ToolCall, type ToolExecutionContext, type ToolResult, TOOL_DEFINITIONS } from "./build-tools";
 import { runAgentForStep, type PlanStep as AgentPlanStep, type AgentConfig } from "./build-agent";
@@ -199,6 +201,13 @@ type ProgressCallback = (event: OrchestratorEvent) => void;
 
 export class BuildOrchestrator {
   private llm!: LLMAdapter;
+
+  /** Phase 2 — per-project crew message bus (durable conversation log + steering). */
+  private bus!: MessageBus;
+  /** Phase 2 — per-role adapter cache (planner/reviewer=max tier, coder/fixer=high). */
+  private adapters = new Map<string, LLMAdapter>();
+  /** Phase 2 — steering cursor: only instructions newer than this are injected. */
+  private lastSteeringSeq = 0;
   private context: BuildContext;
   private projectId: string;
   private workspaceId: string;
@@ -233,6 +242,8 @@ export class BuildOrchestrator {
   }) {
     this.projectId = params.projectId;
     this.workspaceId = params.workspaceId || params.projectId;
+    // Phase 2 — each build gets its own crew conversation channel.
+    this.bus = new MessageBus(params.projectId);
     this.apiBaseUrl = params.apiBaseUrl || "";
     this.apiKey = params.apiKey || "";
     this.onProgress = params.onProgress;
@@ -311,6 +322,15 @@ export class BuildOrchestrator {
     // 2. PLANNER — create execution plan
     const plan = await this.runPlanner(goal);
     this.emitProgress("planner", "done", `Plan created: ${plan.steps.length} steps`);
+
+    // Phase 2 — the planner broadcasts the plan onto the crew bus so every role
+    // shares the same intent (the "what are we building" anchoring message).
+    await this.safePost({
+      fromRole: "planner",
+      kind: "handoff",
+      content: `Plan created: ${plan.steps.length} steps — ${plan.summary}`,
+      payload: { stepIds: plan.steps.map((s) => s.id), titles: plan.steps.map((s) => s.title) },
+    });
 
     // Emit build phase event - planning completed
     try {
@@ -535,8 +555,8 @@ export class BuildOrchestrator {
     });
 
     const response = await withRetry(
-      () => this.llm.complete([
-        { role: "system", content: sanitizePrompt(prompt) },
+      async () => (await this.adapterFor("planner")).complete([
+        { role: "system", content: sanitizePrompt(`${getRoleRuleBlock("planner")}\n\n${prompt}`) },
         { role: "user", content: "Generate the plan JSON." },
       ], { temperature: 0.2, maxTokens: 2000, jsonMode: true } as any),
       { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
@@ -833,9 +853,12 @@ export class BuildOrchestrator {
     // Use the proven tool-use loop. The coder agent runs autonomously and
     // returns a structured handoff. We parse the final handoff JSON from its
     // last message / a dedicated summary tool result.
+    // Phase 2 — the step description carries human steering + Helper notes
+    // (injected at this step boundary by prepareStepGoal).
+    const baseDescription = `${getRoleRuleBlock("coder")}\n\n${step.title}\n\n${step.description}\n\nTarget files: ${step.targetFiles.join(", ")}\n\nAcceptance criteria:\n${step.acceptanceCriteria.map(c => `- ${c}`).join("\n")}`;
     const agentStep: AgentPlanStep = {
       id: step.id,
-      description: `${step.title}\n\n${step.description}\n\nTarget files: ${step.targetFiles.join(", ")}\n\nAcceptance criteria:\n${step.acceptanceCriteria.map(c => `- ${c}`).join("\n")}`,
+      description: await this.prepareStepGoal(baseDescription, context),
       dependsOn: step.dependencies,
       parallel: false,
       status: "pending",
@@ -858,6 +881,21 @@ export class BuildOrchestrator {
       blockers: result.success ? [] : [result.summary],
       notesForReviewer: result.summary,
     };
+
+    // Phase 2 — the coder @mentions the reviewer on the bus with its handoff.
+    await this.safePost({
+      fromRole: "coder",
+      toRole: "reviewer",
+      kind: "handoff",
+      content: `Step ${step.id} ${result.success ? "completed" : "failed"}: ${result.summary.slice(0, 400)}`,
+      payload: {
+        stepId: step.id,
+        status: handoff.status,
+        filesChanged: handoff.changes.map((c) => c.file),
+        verification: handoff.verification,
+      },
+    });
+
     return CoderHandoffSchema.parse(handoff);
   }
 
@@ -870,15 +908,38 @@ export class BuildOrchestrator {
     });
 
     const response = await withRetry(
-      () => this.llm.complete([
-        { role: "system", content: sanitizePrompt(prompt) },
-        { role: "user", content: "Review this work. Output ONLY the review JSON." },
-      ], { temperature: 0.1, maxTokens: 2000, jsonMode: true } as any),
+      async () =>
+        (await this.adapterFor("reviewer")).complete([
+          { role: "system", content: sanitizePrompt(`${getRoleRuleBlock("reviewer")}\n\n${prompt}`) },
+          { role: "user", content: "Review this work. Output ONLY the review JSON." },
+        ], { temperature: 0.1, maxTokens: 2000, jsonMode: true } as any),
       { maxAttempts: 3, baseDelayMs: 1000, backoffMultiplier: 2 },
       { projectId: this.projectId, operation: `orchestrate-reviewer-${step.id}` }
     );
 
     const review = ReviewSchema.parse(JSON.parse(this.extractJson(response.content)));
+
+    // Phase 2 — the reviewer posts STRUCTURED findings (file/line/severity/
+    // suggestion) onto the bus, not a boolean verdict.
+    await this.safePost({
+      fromRole: "reviewer",
+      toRole: "fixer",
+      kind: "review",
+      content: `Review of step ${step.id}: verdict ${review.verdict} — ${review.findings.length} finding(s)`,
+      payload: {
+        stepId: step.id,
+        verdict: review.verdict,
+        findings: review.findings.map((f) => ({
+          file: f.file,
+          line: f.line,
+          severity: f.severity,
+          message: f.message,
+          suggestion: f.suggestion,
+        })),
+        verification: review.verification,
+      },
+    });
+
     return review;
   }
 
@@ -900,7 +961,7 @@ export class BuildOrchestrator {
     // its final handoff JSON from the last tool result / message.
     const agentStep: AgentPlanStep = {
       id: `${stepId}-fix-${iteration}`,
-      description: `Fix the following review findings for step ${stepId}:\n\n${review.findings.map((f, i) => `${i}. [${f.severity}] ${f.file}:${f.line} — ${f.message}\n   Suggestion: ${f.suggestion}`).join("\n\n")}`,
+      description: `${getRoleRuleBlock("fixer")}\n\nFix the following review findings for step ${stepId}:\n\n${review.findings.map((f, i) => `${i}. [${f.severity}] ${f.file}:${f.line} — ${f.message}\n   Suggestion: ${f.suggestion}`).join("\n\n")}`,
       dependsOn: [stepId],
       parallel: false,
       status: "pending",
@@ -922,12 +983,108 @@ export class BuildOrchestrator {
       verification: { typecheck: result.success, lint: result.success, tests: result.success, notes: result.summary },
       status: result.success ? "all-fixed" : (result.filesChanged.length > 0 ? "partial" : "blocked"),
     };
+
+    // Phase 2 — the fixer reports back to the reviewer with the applied patches.
+    await this.safePost({
+      fromRole: "fixer",
+      toRole: "reviewer",
+      kind: "handoff",
+      content: `Fix pass ${iteration} on step ${stepId}: ${handoff.status} — ${result.summary.slice(0, 300)}`,
+      payload: { stepId, iteration, status: handoff.status, fixesApplied: handoff.fixesApplied, remainingFindings: handoff.remainingFindings },
+    });
+
     return FixerHandoffSchema.parse(handoff);
   }
 
   // ---------------------------------------------------------------------------
   // HELPERS
   // ---------------------------------------------------------------------------
+
+  /**
+   * Phase 2 — per-role adapter (per-agent key assignment): planner/reviewer get
+   * the max healthy key, coder/fixer the high tier. Falls back to this.llm (the
+   * default adapter) when role routing finds no keys, so an already-running build
+   * never dies because the tier lookup came up empty.
+   */
+  private async adapterFor(role: "planner" | "reviewer" | "coder" | "fixer"): Promise<LLMAdapter> {
+    const cached = this.adapters.get(role);
+    if (cached) return cached;
+    try {
+      const adapter = await createCrewRoleAdapter(role);
+      this.adapters.set(role, adapter);
+      return adapter;
+    } catch {
+      return this.llm;
+    }
+  }
+
+  /** Post to the crew bus — never fatal. The build proceeds even if the log is down. */
+  private async safePost(input: Omit<Parameters<MessageBus["post"]>[0], "projectId">): Promise<void> {
+    try {
+      await this.bus.post({ ...input, projectId: this.projectId });
+    } catch {
+      // bus is optional glue; a post failure must never break a build
+    }
+  }
+
+  /**
+   * Phase 2 — step-boundary injection (interactive steering + Helper consult).
+   * Drains human steering (@orchestrator) posted since the last step and injects
+   * it into this step's description, then asks the Helper (build history + working
+   * context) for style/constraint answers and injects the cited reply. This is the
+   * mechanism that lets a human steer the crew at a step boundary and lets agent
+   * ask "what style did the user ask for?".
+   */
+  private async prepareStepGoal(baseDescription: string, context: any): Promise<string> {
+    let desc = baseDescription;
+
+    // 1) Interactive steering — honour the most recent human instructions.
+    try {
+      const steers = await this.bus.drainSteering(this.lastSteeringSeq);
+      if (steers.length > 0) {
+        for (const s of steers) this.lastSteeringSeq = Math.max(this.lastSteeringSeq, s.seq);
+        desc += `\n\n## OPERATOR STEERING (inject at step boundary — honor it)\n${steers
+          .map((s) => `- ${s.content}`)
+          .join("\n")}`;
+      }
+    } catch {
+      /* steering never breaks a build */
+    }
+
+    // 2) Helper consult — the crew's memory answers from cited evidence.
+    try {
+      const question = "What style and constraints did the user ask for, and has an established pattern already been set in this workspace?";
+      const answer = await askHelper(this.projectId, question, {
+        context: {
+          conversation: await this.bus.getThread({ includeLive: false }),
+          workingContext: {
+            goal: context?.goal ?? "",
+            recentActivity: [...this.context.completedSteps.entries()]
+              .slice(-5)
+              .map(([id, r]) => `${id}: ${(r as any)?.description ?? ""}`)
+              .join(" | "),
+            fileMap: [...this.context.modifiedFiles.entries()]
+              .slice(-12)
+              .map(([path, f]) => ({ path, purpose: (f as any)?.purpose ?? (f as any)?.type ?? "" })),
+          },
+        },
+      });
+      if (answer.hits.length > 0) {
+        await this.safePost({
+          fromRole: "helper",
+          toRole: "coder",
+          kind: "helper",
+          content: answer.answer,
+          payload: { question, citations: answer.hits.map((h) => h.doc.id) },
+        });
+        desc += `\n\n## HELPER NOTES (from build history — honor cited sources)\n${answer.answer}`;
+      }
+    } catch {
+      /* helper never breaks a build */
+    }
+
+    return desc;
+  }
 
   private gatherStepContext(step: z.infer<typeof PlanStepSchema>, plan: z.infer<typeof PlanSchema>) {
     // Get file contents for target files and dependencies
