@@ -21,7 +21,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 | **1** | Done Contract with Teeth (all 9 gates enforced) | ✅ **COMPLETE** |
 | **2** | Real Multi-Agent Crew (message bus, per-agent keys) | ✅ **COMPLETE** |
 | **3** | Local Watchdog (supervisor + push) | ✅ **COMPLETE** |
-| **4** | Context That Survives (4-level compaction, project map) | 🔲 NOT STARTED |
+| **4** | Context That Survives (4-level compaction, project map) | ✅ **COMPLETE** |
 | **5** | Catastrophic Failure Recovery | 🔲 NOT STARTED |
 | **6** | Git-First Builds (worktree isolation, auto-revert) | 🔲 NOT STARTED |
 | **7** | Visual Verification Loop (vision channel, diff, walkthrough) | 🔲 NOT STARTED |
@@ -154,6 +154,60 @@ WATCHDOG_HARNESS_OK
 ```
 
 Honest deferral: **push notification VAPID keys not configured in this test env** (requires real VAPID key pair from user); the push plumbing is proven — `WebPushService.initialize` called, payload constructed, send attempted, VAPID validation fails as expected with test keys. Real deployment would use user's VAPID keys. Next: **Phase 4 — Context That Survives**.
+
+### Phase 4 — Context That Survives
+
+| Task | Status |
+|------|--------|
+| **4-level compaction with preservation**: (1) Keep all, (2) Summarize old history, (3) Decisions + fileMap + errorPatterns only, (4) Goal + state only — trigger at 80% token budget, >10 steps, >50k tokens | ✅ **DONE** — `build-context.ts` `COMPACTION_LEVELS` (1 Full / 2 Compressed / 3 Decision Log / 4 Emergency); `checkCompactionTriggers()` = token-budget ≥80% / step-count >10 / context-size >50k, target levels escalate by severity (80%→L2, 90%→L3, 95%→L4, >10 steps→L2, >20 steps→L3, >50k→L2, >100k→L3); `maybeAutoCompact()` fired from `recordStep` + `trackTokens` in the live agent loop; `autoCompactContext` no-op guard (never re-compacts to a weaker level); decisions/fileMap/errors preserved through L2–L3 |
+| **Persistent working context**: `keyDecisions[]`, `fileMap`, `errorPatterns[]` stored in checkpoints AND `.infinity/working-context.json` | ✅ **DONE** — `saveWorkingContextToDisk` writes the FULL context (goal, plan, decisions, fileMap, error patterns, token budget, compaction level, total steps) to `<workspace>/.infinity/working-context.json` on every step/token/compaction; `persistContextToCheckpoint` now stores the REAL `fileMap` + `currentPlan` (was only the size — fixed); `loadWorkingContextFromDisk` restores it; resume order in `loadOrCreateContextFromPersistentStore` = disk → latest DB checkpoint → blank (used by `build-orchestrator.loadContext` on resume/restart) |
+| **Smart file inclusion**: use project map + error patterns + recent edits to select relevant files (not whole repo) | ✅ **DONE** — `refreshFileMap` for repos >120 files with a goal: scores path keyword matches (+3), error-pattern file refs (+4), entry/config (+2), <24h edits (+5); reads only the top 3×cap slice, then re-ranks by purpose/export match (+4) + entry (+8) + recency (+3) and caps at **SMART_CAP 20** — a 1000-file repo yields exactly the 20 relevant files |
+| **Debug panel visualization**: token gauge, compaction history, manual compact/expand controls | ✅ **DONE** — `build-debug-panel.tsx` "Context" section: live readout (level, tokens, files, steps, decisions/errors, active trigger chips), 4 compact buttons `L1`–`L4` (and expand/`L1`), wired to `POST /build/:id/context/compact` + `POST /build/:id/context/reset` (route clamps 1–4, returns fresh `context-debug`); `GET /build/:id/context-debug` feeds the gauge; `GET /build/:id/compaction-history` now reads REAL `compaction` telemetry events (level, trigger, tokens before/after/saved, preservedItems) instead of fabricated rows |
+
+**PHASE 4 — COMPLETE (2026-09-14).** Proven by `bench/context-harness.mjs` (esbuild-bundles the REAL modules `build-context`, `context-compactor`, `workspace`, `build-telemetry`, `@workspace/db` + **real Postgres 16** with the real migration) — **exit 0, all mechanism checks pass**:
+
+```
+CONTEXT HARNESS — Phase 4: Context That Survives
+=== 0. DB BOOTSTRAP ===
+✅  ensureTables() — build_checkpoints table ready
+=== 1. COMPACTION PRESERVATION ===
+✅  compact to L3 sets compactionLevel=3
+✅  all 3 keyDecisions preserved through L3
+✅  errorPatterns preserved through L3
+✅  fileMap preserved through L3
+✅  projectGoal survives compaction
+✅  totalStepsOriginal tracked across compaction
+=== 2. AUTO ESCALATION (step-count trigger) ===
+✅  12 steps recorded (>10 threshold)
+✅  auto-compaction escalated to L2+
+✅  decision survived auto-compaction
+✅  error pattern survived auto-compaction
+✅  fileMap survived auto-compaction
+=== 3. WORKING-CONTEXT DISK RESTART ===
+✅  working-context.json written on disk
+✅  loadWorkingContextFromDisk restores a context
+✅  goal restored from disk / decisions / error patterns / fileMap / token budget
+=== 4. CHECKPOINT ROUND-TRIP (real Postgres) ===
+✅  loadContextFromCheckpoint finds the seeded checkpoint
+✅  checkpoint restores the REAL fileMap (not just its size)
+✅  checkpoint restores currentPlan / goal / decisions / compaction level
+=== 5. SMART FILE INCLUSION (1000 → 20) ===
+✅  synthetic repo built with 1000 source files
+✅  agent sees exactly 20 files (SMART_CAP)
+✅  all 20 included files are the goal-relevant dashboard files
+=== 6. MANUAL COMPACT + RESET ===
+✅  manualCompact(L3) sets level 3
+✅  resetCompaction() returns to level 1
+✅  resetCompaction() clears the compacted summary
+=== 7. RESUME INTEGRATION (restore on kill) ===
+✅  resume restores the project goal / fileMap / key decisions / compaction level
+=== 8. COMPACTION TELEMETRY ===
+✅  compaction events are emitted to telemetry
+✅  event carries the honest trigger / level name / preservedItems payload
+CONTEXT_HARNESS_OK
+```
+
+Honest finding fixed by the harness: **checkpoint persistence silently never wrote anything** — `onConflictDoUpdate({ target: [projectId, iteration] })` had no matching unique constraint (fresh DB → "no unique or exclusion constraint matching the ON CONFLICT specification"), so every insert was swallowed by the try/catch. Fixed in both the Drizzle schema (`build_checkpoints_project_iteration_idx` unique index, canonical `pgTable` third-arg form) and `auto-migrate.ts` (`CREATE UNIQUE INDEX IF NOT EXISTS`). Next: **Phase 5 — Catastrophic Failure Recovery**.
 
 ## 📋 Phase Overview
 

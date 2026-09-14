@@ -429,6 +429,13 @@ const CREATE_TABLES = [
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
+  // Phase 4: one checkpoint per (project, iteration) — REQUIRED for the
+  // `INSERT ... ON CONFLICT (project_id, iteration) DO UPDATE` upsert in
+  // build-context.persistContextToCheckpoint; without it the upsert fails with
+  // "no unique or exclusion constraint matching the ON CONFLICT specification"
+  // and the whole insert is silently swallowed (no checkpoint ever persisted).
+  `CREATE UNIQUE INDEX IF NOT EXISTS "build_checkpoints_project_iteration_idx"
+    ON "build_checkpoints" ("project_id", "iteration")`,
   // ── Phase 2: Crew message bus (agent_messages) ─────────────────
   `CREATE TABLE IF NOT EXISTS "agent_messages" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
