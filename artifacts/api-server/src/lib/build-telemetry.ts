@@ -38,7 +38,9 @@ export type BuildEventType =
   | "skill"
   | "local_model_attempt"
   | "local_model_proposed"
-  | "compaction";
+  | "compaction"
+  /** Phase 5 — a catastrophic-failure recovery action was auto-executed */
+  | "recovery";
 
 export interface BuildEvent {
   ts: string;

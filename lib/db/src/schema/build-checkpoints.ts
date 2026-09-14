@@ -22,6 +22,14 @@ export const buildCheckpoints = pgTable(
     compactedContext: jsonb("compacted_context"),
     fileSnapshots: jsonb("file_snapshots"), // path -> content hash (for diff)
     tokenUsage: jsonb("token_usage").notNull().default(sql`'{}'::jsonb`),
+    /** Phase 5 — lifecycle phase (planning, step-group-N, pre-verification,
+      * verification, done-contract, completed). Was missing: checkpoint writes
+      * SET phase but the column didn't exist, so the phase silently vanished
+      * and phase-based recovery/resume could never identify where a build died. */
+    phase: text("phase").notNull().default("planning"),
+    /** Git commit hash captured at checkpoint — the git-reset-hard recovery
+      * action rolls back to this exact commit. */
+    gitCommit: text("git_commit"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

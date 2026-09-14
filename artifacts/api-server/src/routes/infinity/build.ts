@@ -24,7 +24,9 @@ import {
   readWorkspaceFileText,
   safeWorkspacePath,
 } from "../../lib/workspace";
-import { saveCheckpoint, getLatestCheckpoint } from "../../lib/build-checkpoints";
+import { saveCheckpoint, getLatestCheckpoint, createPlanningCheckpoint, createStepGroupCheckpoint, createPreVerificationCheckpoint } from "../../lib/build-checkpoints";
+import type { CheckpointPhase } from "../../lib/build-checkpoints";
+import { recoverFromFailure, detectMassiveRewrite, recoverCorruptedWorkspace } from "../../lib/build-recovery";
 import { getStorage, persistFile } from "../../lib/storage";
 import { logBuildEvent } from "../../lib/build-telemetry";
 import { infinityConfig } from "../../config/infinity";
@@ -825,6 +827,20 @@ router.post("/build/plan", requireAuth, async (req, res) => {
       });
       return;
     }
+    // Phase 5 — Checkpoint 1 (post-plan, FIX plan). A kill right after /plan
+    // writes this so a resume finds a real plan, not a blank restart. Never
+    // runs on the 503 fallback path above (a canned plan is not a checkpoint).
+    try {
+      await createPlanningCheckpoint(
+        workspaceId, // projectId — execute-plan maps projectId→workspaceId
+        plan as unknown as Record<string, unknown>,
+        0,
+        getWorkspaceRoot(workspaceId),
+        workspaceId,
+      );
+    } catch (cpErr) {
+      req.log.warn({ err: cpErr }, "Post-plan checkpoint failed (non-fatal)");
+    }
     res.json({ ok: true, plan });
   } catch (err) {
     req.log.error({ err }, "Failed to create Infinity Build plan");
@@ -1549,6 +1565,55 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
           });
 
           if (!verification.ok) {
+            // Phase 5 — catastrophic-failure recovery: before conceding the step
+            // to a permanent failure, classify the verification feedback and
+            // auto-execute ONE workspace-bounded recovery action (git reset-hard,
+            // clear node_modules, fix lockfile, reinstall…). Host-wide actions
+            // (dev-server restart) are always deferred, never auto-fired. Then
+            // RE-VERIFY once — a step is only "recovered" when it verifies green.
+            let recovered = false;
+            try {
+              const groupPhase = `step-group-${Math.min(5, Math.floor(stepIndex / 5) + 1)}` as CheckpointPhase;
+              const attempt = await recoverFromFailure({
+                projectId,
+                workspaceId,
+                projectPath: getWorkspaceRoot(workspaceId),
+                error: new Error(verification.feedback || "step verification failed"),
+                recentOutput: verification.feedback,
+                phase: groupPhase,
+                checkpoint: null,
+              });
+              recovered = attempt.recovered && attempt.retry;
+              if (recovered) {
+                await logBuildEvent(projectId, "retry", `Step ${step.id} auto-recovered via ${attempt.action} — re-verifying`, {
+                  data: { action: attempt.action, failureClass: attempt.classification.class, confidence: attempt.classification.confidence, deferred: attempt.deferred },
+                });
+                // Massive-rewrite / corrupted-workspace gates are surfaced as an
+                // honest "rollback offered" event, auto-detected on the project.
+                if (attempt.classification.class === "massive-rewrite") {
+                  const rewrite = await detectMassiveRewrite(getWorkspaceRoot(workspaceId));
+                  await logBuildEvent(projectId, "info", `Massive rewrite detected (${rewrite.reason || "n/a"}) — rollback offered`, {
+                    data: { isMassive: rewrite.isMassive, totalFiles: rewrite.totalFiles, changedFiles: rewrite.changedFiles, ratio: rewrite.ratio },
+                  });
+                }
+              }
+            } catch (recErr) {
+              req.log.warn({ err: recErr }, "Failure recovery errored — falling through to fail");
+            }
+
+            if (recovered) {
+              const reVerify = await runStepVerification(stepIndex);
+              if (reVerify.ok) {
+                livingSteps[stepIndex].status = "completed";
+                livingSteps[stepIndex].files = agentResult.editedFiles;
+                livingSteps[stepIndex].verifyResult = { ok: true, atIteration: totalIterations };
+                await logBuildEvent(projectId, "step_completed", `Step ${step.id} recovered and verified`, {
+                  data: { stepIndex, stepId: step.id, recovered: true },
+                });
+                continue; // recovered step is a completed step — skip the failure bookkeeping
+              }
+            }
+
             // Step failed verification - mark failed, don't advance
             livingSteps[stepIndex].status = "failed";
             livingSteps[stepIndex].files = agentResult.editedFiles;
@@ -1609,6 +1674,63 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         // Checkpoint after each step (Phase E 5.5)
         if (hasIsolated(projectId)) {
           await commitIteration(projectId, totalIterations, totalIterations, `plan step ${step.id} ${livingSteps[stepIndex].status}`);
+        }
+
+        // Phase 5 — Checkpoint 2 (post-step-group, every 5 steps). A kill
+        // mid-implementation resumes at the last committed group boundary, so a
+        // 30-step build never loses more than ~4 steps. Bounded + best-effort:
+        // a checkpoint write failure never fails the running build.
+        if ((stepIndex + 1) % 5 === 0) {
+          try {
+            await createStepGroupCheckpoint(
+              projectId,
+              Math.floor(stepIndex / 5),
+              {
+                title: plan.title,
+                summary: plan.summary,
+                steps: plan.steps,
+                files: plan.files,
+                risks: plan.risks,
+              },
+              livingSteps
+                .filter((s) => s.status === "completed")
+                .map((s) => ({ step: s.id, description: s.description, status: s.status, files: s.files })),
+              { prompt, workspaceId, lastDecision, stepsCompleted: stepIndex + 1, gates: allGates },
+              totalIterations,
+              getWorkspaceRoot(workspaceId),
+              workspaceId,
+            );
+          } catch (cpErr) {
+            req.log.warn({ err: cpErr }, "Step-group checkpoint failed (non-fatal)");
+          }
+        }
+      }
+
+      // Phase 5 — Checkpoint 3 (pre-verify, FIX plan). Persist the full execution
+      // state BEFORE the done contract runs, so a kill during/after verification
+      // resumes to "verify once more" — never a silent restart. Only when the
+      // build is still green (a failed build has nothing to verify).
+      if (overallSuccess) {
+        try {
+          await createPreVerificationCheckpoint(
+            projectId,
+            {
+              title: plan.title,
+              summary: plan.summary,
+              steps: livingSteps,
+              files: plan.files,
+              risks: plan.risks,
+            },
+            livingSteps
+              .filter((s) => s.status === "completed")
+              .map((s) => ({ step: s.id, description: s.description, status: s.status, files: s.files })),
+            { prompt, workspaceId, lastDecision, gates: allGates, doneContractPending: true },
+            totalIterations,
+            getWorkspaceRoot(workspaceId),
+            workspaceId,
+          );
+        } catch (cpErr) {
+          req.log.warn({ err: cpErr }, "Pre-verification checkpoint failed (non-fatal)");
         }
       }
 

@@ -173,6 +173,13 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
     .orderBy(desc(buildCheckpoints.iteration))
     .limit(1);
 
+  // Phase 5 — persist the lifecycle phase + git commit at the checkpoint.
+  // Without these the phase (planning / step-group-N / pre-verification /
+  // completed) silently vanished on write and phase-based recovery/resume
+  // couldn't identify where a build died.
+  const phase = data.phase || "planning";
+  const gitCommit = data.gitCommit || null;
+
   if (existing.length > 0 && existing[0].id) {
     // Update existing latest checkpoint
     await db
@@ -186,6 +193,8 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
         compactedContext: redactedCompactedContext ?? null,
         fileSnapshots: redactedFileSnapshots ?? null,
         tokenUsage: redactedTokenUsage ?? {},
+        phase,
+        gitCommit,
         updatedAt: new Date(),
       })
       .where(eq(buildCheckpoints.id, existing[0].id));
@@ -205,6 +214,8 @@ export async function saveCheckpoint(data: CheckpointData): Promise<string> {
       compactedContext: redactedCompactedContext ?? null,
       fileSnapshots: redactedFileSnapshots ?? null,
       tokenUsage: redactedTokenUsage ?? {},
+      phase,
+      gitCommit,
     })
     .returning({ id: buildCheckpoints.id });
   return row.id;
@@ -274,11 +285,22 @@ export async function savePhaseCheckpoint(
     // ignore
   }
 
+  // Phase 5 — the git commit + step group are ALSO folded into the plan object
+  // because generateResumeOptions / the git-reset-hard recovery action read them
+  // back from the checkpoint's plan meta (no dedicated columns existed for them).
+  const planWithMeta: Record<string, unknown> = {
+    ...(data.plan || {}),
+    ...(gitCommit ? { gitCommit } : {}),
+    ...(typeof data.stepGroupIndex === "number" ? { stepGroupIndex: data.stepGroupIndex } : {}),
+    phase,
+  };
+
   const checkpointData: CheckpointData = {
     ...data,
     projectId,
     phase,
     gitCommit,
+    plan: planWithMeta,
   };
 
   return saveCheckpoint(checkpointData);
@@ -682,19 +704,20 @@ export async function generateResumeOptions(
     return null;
   }
 
-  // Parse checkpoint data
+  // Parse checkpoint data. Phase 5: `phase` (and `gitCommit`) are now REAL
+  // columns on the row — prefer them; plan meta is the legacy fallback.
   const checkpointData: CheckpointData = {
     projectId: checkpoint.projectId,
     iteration: checkpoint.iteration,
     completed: checkpoint.completed as 0 | 1,
-    phase: (checkpoint.plan as any)?.phase || "planning",
+    phase: (checkpoint as any)?.phase || (checkpoint.plan as any)?.phase || "planning",
     plan: checkpoint.plan as Record<string, unknown>,
     completedSteps: checkpoint.completedSteps as Array<Record<string, unknown>>,
     workingContext: checkpoint.workingContext as Record<string, unknown>,
     compactedContext: checkpoint.compactedContext as Record<string, unknown> | undefined,
     fileSnapshots: checkpoint.fileSnapshots as Record<string, string> | undefined,
     tokenUsage: checkpoint.tokenUsage as Record<string, unknown> | undefined,
-    gitCommit: (checkpoint.plan as any)?.gitCommit,
+    gitCommit: (checkpoint as any)?.gitCommit || (checkpoint.plan as any)?.gitCommit,
     worktreePath: (checkpoint.plan as any)?.worktreePath,
     stepGroupIndex: (checkpoint.plan as any)?.stepGroupIndex,
   };

@@ -426,6 +426,8 @@ const CREATE_TABLES = [
     "compacted_context" jsonb,
     "file_snapshots" jsonb,
     "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb,
+    "phase" text NOT NULL DEFAULT 'planning',
+    "git_commit" text,
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
   )`,
@@ -906,6 +908,11 @@ const ALTER_TABLES = [
   `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "compacted_context" jsonb`,
   `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "file_snapshots" jsonb`,
   `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "token_usage" jsonb NOT NULL DEFAULT '{}'::jsonb`,
+  // Phase 5 — lifecycle phase + git commit the checkpoint was taken at; without
+  // the phase column every checkpoint write silently DROPPED its phase and
+  // phase-based recovery/resume could never identify where a build died.
+  `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "phase" text NOT NULL DEFAULT 'planning'`,
+  `ALTER TABLE "build_checkpoints" ADD COLUMN IF NOT EXISTS "git_commit" text`,
 ];
 
 export async function ensureTables(): Promise<void> {
