@@ -51,6 +51,7 @@ const API = (p) => resolve(API_SERVER, "src", p).replace(/\\/g, "/");
 const ENTRY = `
 import { promises as fsp } from "node:fs";
 import * as fss from "node:fs";
+import * as fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execSync } from "node:child_process";
@@ -88,7 +89,7 @@ function seedRepo(name, baseFiles = {}) {
     fsSync.writeFileSync(path.join(dir, file), content, "utf8");
   }
   execSync("git add -A", { cwd: dir });
-  execSync("git commit -q -m \"seed\"", { cwd: dir });
+  execSync("git commit -q -m 'seed'", { cwd: dir });
   return dir;
 }
 const branchOf = (dir) => execSync("git symbolic-ref --short HEAD", { cwd: dir }).toString().trim();
@@ -168,7 +169,7 @@ async function main() {
     assert(headOf(dir) === baseBefore, "after revert HEAD == pre-build base commit");
     assert(fss.existsSync(path.join(dir, "a.txt")) === false, "build file a.txt is GONE from the working tree");
     assert(fss.existsSync(path.join(dir, "base.txt")) === true, "base file is present");
-    const branchRefs = execSync("git for-each-ref --format=%(refname) refs/heads/infinity/build/", { cwd: dir }).toString().trim().split("\\n").filter(Boolean);
+    const branchRefs = execSync("git for-each-ref --format='%(refname)' refs/heads/infinity/build/", { cwd: dir }).toString().trim().split("\\n").filter(Boolean);
     assert(branchRefs.some((r) => r.endsWith(s.branch)), "build branch OBJECT is retained for inspection", JSON.stringify(branchRefs));
     assert(fss.existsSync(path.join(dir, ".infinity", "git-first-state.json")) === false, "state file cleared so the next build starts fresh");
   }
@@ -190,7 +191,7 @@ async function main() {
     const appOnBase = execSync(\`git cat-file -e \${s.baseBranch}:app.txt && echo yes || echo no\`, { cwd: dir }).toString().trim();
     assert(appOnBase === "yes", "the build's app.txt is ON the base branch (keep = merged)", appOnBase);
     assert(headOf(dir, s.baseBranch) !== baseBefore, "base branch advanced with the kept build");
-    const retained = execSync(\`git for-each-ref --format=%(refname) refs/heads/infinity/build/\`, { cwd: dir }).toString().trim();
+    const retained = execSync(\`git for-each-ref --format='%(refname)' refs/heads/infinity/build/\`, { cwd: dir }).toString().trim();
     assert(retained.includes(s.branch), "build branch object retains the record after keep");
     assert(fss.existsSync(path.join(dir, ".infinity", "git-first-state.json")) === false, "state file cleared after keep");
   }

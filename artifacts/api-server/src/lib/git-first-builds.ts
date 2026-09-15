@@ -177,15 +177,33 @@ export async function beginGitFirstBuild(
     await git(repoPath, ["config", "user.name", "Infinity Build"]).catch(() => {});
     await git(repoPath, ["config", "user.email", "infinity@build.local"]).catch(() => {});
 
+    // Keep build bookkeeping (.infinity/) out of the user's git history ENTIRELY:
+    // ignore it via .git/info/exclude (repo-local, never appears in status, commits
+    // or diffs, and never pollutes the base branch — unlike a tracked .gitignore).
+    const excludePath = path.join(repoPath, ".git", "info", "exclude");
+    try {
+      const excludeRaw = await fsp.readFile(excludePath, "utf8").catch(() => "");
+      if (!excludeRaw.split("\n").includes(".infinity/")) {
+        await fsp.appendFile(excludePath, "\n.infinity/\n", "utf8");
+      }
+    } catch { /* worst case the bookkeeping is harmless in status — still works */ }
+
     // The base branch is the branch the repo is normally on (main, master…).
     const headRef = await git(repoPath, ["symbolic-ref", "--short", "HEAD"]);
     const detectedBase = headRef.ok && headRef.stdout.trim() ? headRef.stdout.trim() : "main";
 
-    // An empty repo needs a base commit so reset/revert has a target.
+    // An empty repo needs a base commit so reset/revert has a target. A repo
+    // with files but no commit yet gets a normal first commit; a TRULY empty
+    // repo has nothing to commit and `git commit` refuses — fall back to
+    // --allow-empty so a root commit exists without writing anything into the
+    // user's tree (revert must always have a base to reset to).
     const headVerify = await git(repoPath, ["rev-parse", "--verify", "HEAD"]);
     if (!headVerify.ok || !headVerify.stdout.trim()) {
       await git(repoPath, ["add", "-A"]);
-      await git(repoPath, ["commit", "-q", "-m", "infinity: git-first base"]);
+      const first = await git(repoPath, ["commit", "-q", "-m", "infinity: git-first base"]);
+      if (!first.ok) {
+        await git(repoPath, ["commit", "--allow-empty", "-q", "-m", "infinity: git-first base"]);
+      }
     }
 
     // Commit any pre-existing dirty tree into the base branch so the build

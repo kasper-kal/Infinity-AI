@@ -23,7 +23,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 | **3** | Local Watchdog (supervisor + push) | ✅ **COMPLETE** |
 | **4** | Context That Survives (4-level compaction, project map) | ✅ **COMPLETE** |
 | **5** | Catastrophic Failure Recovery | ✅ **COMPLETE** |
-| **6** | Git-First Builds (worktree isolation, auto-revert) | 🔲 NOT STARTED |
+| **6** | Git-First Builds (worktree isolation, auto-revert) | ✅ **COMPLETE** |
 | **7** | Visual Verification Loop (vision channel, diff, walkthrough) | 🔲 NOT STARTED |
 | **8** | Honest Deploy + Push-Driven Human Loop | 🔲 NOT STARTED |
 | **9** | Polish the Harness (default quality profile, ask_user, admin) | 🔲 NOT STARTED |
@@ -252,6 +252,39 @@ Key architectural facts discovered by the harness:
 - **`permission-denied` class is unreachable** — EACCES/EPERM are swallowed by the earlier `bad-package-install` branch in classifyFailure's regex chain. Documented as a known limitation, not a bug to fix now.
 
 All 5 build.ts edits (post-plan checkpoint, step-group checkpoint every 5 steps, pre-verification checkpoint, recovery orchestrator in step-failure branch) + `build-recovery.ts` + `build-telemetry.ts` `"recovery"` event landed as commit `c567b44`. Next: **Phase 6 — Git-First Builds**.
+
+### Phase 6 — Git-First Builds
+
+| Task | Status |
+|------|--------|
+| **Branch isolation per build**: build runs on `infinity/build/<id>`; the base branch (`main`/`master`) does not move until success | ✅ **DONE** — `beginGitFirstBuild` (`lib/git-first-builds.ts`) |
+| **Incremental step commits**: one real commit per completed build step (`infinity: step N/M - label`) with hash + filesChanged + insertions/deletions | ✅ **DONE** — `commitGitFirstStep`, wired into execute-plan's step loop after `updatePlanFile("running")` |
+| **Final diff**: base..head `--stat/--numstat/--name-only` + commit count for the finished build | ✅ **DONE** — `generateGitFirstDiffSummary` (captured while still on the build branch) |
+| **Success → keep**: squash-merge the build branch into the base branch at `build <id> keep`; branch object retained for the record | ✅ **DONE** — `finalizeGitFirstBuild` |
+| **Failure → auto-revert**: `reset --hard` + `clean -fd` back to the EXACT pre-build base state; build branch retained for inspection | ✅ **DONE** — `revertGitFirstBuild` |
+| **Resume across a kill**: state file `.infinity/git-first-state.json` + re-checkout resume the SAME buildId/branch | ✅ **DONE** — resume branch of `beginGitFirstBuild` |
+| **Honest base**: empty repos get a real base commit (root `--allow-empty` fallback when nothing to commit); non-repos return `{ok:false, reason:"not-a-git-repo"}` and never throw | ✅ **DONE** |
+| **Bookkeeping isolation**: `.infinity/` ignored via `.git/info/exclude` — git-first state never pollutes status, step commits or diffs | ✅ **DONE** |
+| **Wire or delete**: the previous dead `createBuildWorktree`/`commitBuildStep`/`revertBuildWorktree`/`finalizeBuildWorktree` subsystem in `workspace.ts` DELETED (zero callers); the new real module lives at `lib/git-first-builds.ts` | ✅ **DONE** |
+| **Wired live**: execute-plan starts/resumes the session, commits each step, finalize/revert + `git_first`/`git_first_reverted` telemetry, revert in the route-level catch | ✅ **DONE** — `routes/infinity/build.ts` (6 edits), `build-telemetry.ts` |
+
+**PHASE 6 — COMPLETE (2026-09-15).** Proven by `bench/gitfirst-harness.mjs` — **exit 0, GITFIRST_HARNESS_OK, all 8 scenarios pass** against REAL git temp-repos:
+
+```
+=== S1. BRANCH ISOLATION ===     ✅ (5/5)  branch = infinity/build/<id>; baseCommit pinned; HEAD on build branch
+=== S2. INCREMENTAL COMMITS ===   ✅ (8/8)  real 40-char hashes; 2 step commits; BASE BRANCH HEAD UNCHANGED
+=== S3. LIVE STATUS ===           ✅ (4/4)  inactive→active; dirty count; currentBranch
+=== S4. FAILURE AUTO-REVERT ===   ✅ (7/7)  HEAD back on base @ pre-build commit; build file gone; branch object retained; state cleared
+=== S5. SUCCESS KEEP ===          ✅ (7/7)  squash-merge applied to base; app.txt on base branch; branch retained; state cleared
+=== S6. FINAL DIFF ===            ✅ (7/7)  files/insertions(3)/deletions/diffStat/commit count match the session
+=== S7. RESUME ACROSS A KILL ===  ✅ (5/5)  same buildId+branch+baseCommit; steps accumulate; base untouched
+=== S8. EMPTY-REPO + NO-GIT ===   ✅ (5/5)  empty repo gets a real base commit; non-repo {ok:false, reason:'not-a-git-repo'} never throws
+GITFIRST_HARNESS_OK
+```
+
+**HONEST DEVIATION (recorded in the `git-first-builds.ts` header):** "worktree isolation" is implemented as **BRANCH isolation** in the project's own repo — not a separate `git worktree` working directory. Reason: every live subsystem (scaffold-engine, structured-tools verify, the PTY shell sessions, browser preview, plan-file writer) is rooted at `getWorkspaceRoot(projectId)`; a second working tree would rewire all of them for zero user-visible gain. The isolation that protects the user is **commit-domain** isolation — the build lives on `infinity/build/<id>`, `main` never moves until success, and a failed build auto-reverts to the exact pre-build working tree.
+
+Verification notes (honest): the production bundle (`node ./build.mjs`) was NOT fully re-run — this env's `node_modules` were wiped (pnpm workspace; npm can't install into it). Evidence instead: esbuild parse-check of all 4 edited TS files clean + this harness bundle exercising the REAL `lib/git-first-builds.ts` green (`NODE_ENV=production`). Next: **Phase 7 — Visual Verification Loop**.
 
 ## 📋 Phase Overview
 
