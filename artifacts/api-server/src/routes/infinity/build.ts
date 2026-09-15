@@ -27,6 +27,14 @@ import {
 import { saveCheckpoint, getLatestCheckpoint, createPlanningCheckpoint, createStepGroupCheckpoint, createPreVerificationCheckpoint } from "../../lib/build-checkpoints";
 import type { CheckpointPhase } from "../../lib/build-checkpoints";
 import { recoverFromFailure, detectMassiveRewrite, recoverCorruptedWorkspace } from "../../lib/build-recovery";
+import {
+  beginGitFirstBuild,
+  commitGitFirstStep,
+  revertGitFirstBuild,
+  finalizeGitFirstBuild,
+  generateGitFirstDiffSummary,
+  type StepCommit,
+} from "../../lib/git-first-builds";
 import { getStorage, persistFile } from "../../lib/storage";
 import { logBuildEvent } from "../../lib/build-telemetry";
 import { infinityConfig } from "../../config/infinity";
@@ -1391,6 +1399,20 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
     const result = await enqueueBuild(projectId, async () => {
       await ensureWorkspace(workspaceId);
 
+      // Phase 6 — Git-First Builds: branch-per-build isolation + incremental
+      // commits + success→keep / failure→auto-revert. Starts (or resumes) a
+      // git-first session on the REAL project repo. Honest degradation: when
+      // git is unavailable the build proceeds WITHOUT git-first — never blocks.
+      const gitRoot = getWorkspaceRoot(workspaceId);
+      const gitFirstStart = Date.now();
+      const gitFirst = await beginGitFirstBuild(gitRoot);
+      const gitFirstSession = gitFirst.ok ? gitFirst.session ?? null : null;
+      const gitFirstCommits: StepCommit[] = [];
+      await logBuildEvent(projectId, "git_first", gitFirst.ok
+        ? `Git-first: branch ${gitFirst.session?.branch} (base ${gitFirst.session?.baseCommit?.slice(0, 8)})${gitFirst.session?.resumed ? " — RESUMED" : ""}`
+        : `Git-first skipped (${gitFirst.reason ?? "unknown"}) — build continues without it`,
+        { data: { ok: gitFirst.ok, branch: gitFirst.session?.branch, resumed: gitFirst.session?.resumed, durationMs: Date.now() - gitFirstStart } });
+
       // Phase 5.3 Integration: Pre-flight check before starting build
       // Phase F 7.14: the preflight EVIDENCE is threaded into the step goals.
       let preflightIssues: string[] = [];
@@ -1671,6 +1693,21 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         });
         await updatePlanFile("running");
 
+        // Phase 6 — Git-First: incremental step commit. Every executed step
+        // (pass AND fail) is committed on the build branch so the loop can
+        // diff, recover, or revert at any boundary. On overall success these
+        // commits are squashed into the base branch; on failure the working
+        // tree is auto-reverted but the branch keeps the record.
+        if (gitFirstSession) {
+          const stepCommit = await commitGitFirstStep(
+            gitRoot,
+            stepIndex + 1,
+            plan.steps.length,
+            `${step.id} ${livingSteps[stepIndex].status}`
+          );
+          if (stepCommit) gitFirstCommits.push(stepCommit);
+        }
+
         // Checkpoint after each step (Phase E 5.5)
         if (hasIsolated(projectId)) {
           await commitIteration(projectId, totalIterations, totalIterations, `plan step ${step.id} ${livingSteps[stepIndex].status}`);
@@ -1788,6 +1825,31 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
       // Plan-to-repo finalize: PLAN.md in the repo now carries the verdict, the
       // gates that actually ran, and every decision — the durable wake-up record.
       await updatePlanFile(overallSuccess ? "done" : "failed");
+
+      // Phase 6 — Git-First verdict: SUCCESS → keep the build branch (squash it
+      // back into the base branch, diff recorded before the merge); FAILURE →
+      // AUTO-REVERT the working tree to the exact pre-build base state. The
+      // failed build's branch object stays in the repo for inspection. Both are
+      // best-effort: on git-first being unavailable they are honest no-ops.
+      let gitFirstResult: { branch?: string; diff?: Awaited<ReturnType<typeof generateGitFirstDiffSummary>> | null; finalized?: boolean; mergeCommit?: string; reverted?: boolean } | null = null;
+      if (gitFirstSession) {
+        const branch = gitFirstSession.branch;
+        if (overallSuccess) {
+          const diff = await generateGitFirstDiffSummary(gitRoot);
+          const fin = await finalizeGitFirstBuild(gitRoot);
+          await logBuildEvent(projectId, "git_first", `Build KEPT: branch ${branch} ${fin.success ? "squashed into the base branch" : `not merged (${fin.message})`}`, {
+            data: { keep: fin.success, mergeCommit: fin.mergeCommit, branch, filesChanged: diff?.filesChanged.length ?? 0, insertions: diff?.totalInsertions ?? 0, deletions: diff?.totalDeletions ?? 0 },
+          });
+          gitFirstResult = { branch, diff, finalized: fin.success, mergeCommit: fin.mergeCommit };
+        } else {
+          const rv = await revertGitFirstBuild(gitRoot);
+          await logBuildEvent(projectId, "git_first_reverted", `AUTO-REVERT: workspace restored to ${gitFirstSession.baseCommit.slice(0, 8)}; build branch ${branch} kept for inspection`, {
+            data: { reverted: rv.success, branch, baseCommit: gitFirstSession.baseCommit },
+          });
+          gitFirstResult = { branch, reverted: rv.success };
+        }
+      }
+
       await saveCheckpoint({
         projectId,
         iteration: totalIterations,
@@ -1847,12 +1909,29 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
             }
           : null,
         steps: livingSteps, // Return living plan for transparency
+        // Phase 6 — git-first record: session branch, per-step commits, and the
+        // keep (finalize) or auto-revert verdict on this build.
+        gitFirst: gitFirstResult
+          ? {
+              branch: gitFirstResult.branch,
+              commits: gitFirstCommits,
+              diff: gitFirstResult.diff,
+              finalized: gitFirstResult.finalized ?? null,
+              mergeCommit: gitFirstResult.mergeCommit ?? null,
+              reverted: gitFirstResult.reverted ?? null,
+            }
+          : null,
       };
     }, { priority: "normal" });
 
     res.json(result);
   } catch (err) {
     req.log.error({ err }, "Plan execution failed");
+    // Phase 6 — an uncaught error is a build failure: auto-revert the workspace
+    // to its pre-build base state (best-effort; no-op when git-first wasn't
+    // active or git is unavailable). The failed build's branch remains for
+    // inspection and the recovery/checkpoint system still has the record.
+    await revertGitFirstBuild(getWorkspaceRoot(workspaceId)).catch(() => {});
     const message = err instanceof Error ? err.message : "Plan execution failed";
     if (message.includes("Pre-flight check failed")) {
       res.status(409).json({ error: message });

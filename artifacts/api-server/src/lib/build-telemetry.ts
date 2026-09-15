@@ -40,7 +40,11 @@ export type BuildEventType =
   | "local_model_proposed"
   | "compaction"
   /** Phase 5 — a catastrophic-failure recovery action was auto-executed */
-  | "recovery";
+  | "recovery"
+  /** Phase 6 — a git-first build session started/resumed or finalized */
+  | "git_first"
+  /** Phase 6 — a failed build auto-reverted the workspace to its base state */
+  | "git_first_reverted";
 
 export interface BuildEvent {
   ts: string;
