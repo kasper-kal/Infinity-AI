@@ -44,7 +44,9 @@ export type BuildEventType =
   /** Phase 6 — a git-first build session started/resumed or finalized */
   | "git_first"
   /** Phase 6 — a failed build auto-reverted the workspace to its base state */
-  | "git_first_reverted";
+  | "git_first_reverted"
+  /** Phase 7 — a visual walkthrough drove the built app (verdict + evidence) */
+  | "walkthrough";
 
 export interface BuildEvent {
   ts: string;

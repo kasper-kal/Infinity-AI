@@ -36,6 +36,14 @@ import {
   type StepCommit,
 } from "../../lib/git-first-builds";
 import { getStorage, persistFile } from "../../lib/storage";
+import {
+  runWalkthrough,
+  runWalkthroughOnBuilt,
+  writeWalkthroughReport,
+  walkthroughFeedback,
+  createPuppeteerWalkthroughBrowser,
+  type WalkthroughResult,
+} from "../../lib/build-walkthrough";
 import { logBuildEvent } from "../../lib/build-telemetry";
 import { infinityConfig } from "../../config/infinity";
 import { pooledClient } from "../../lib/llm-client";
@@ -1850,6 +1858,43 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
         }
       }
 
+      // Phase 7 — VISUAL VERIFICATION LOOP, the completion pass. On a successful
+      // build the loop now drives the real built output LIKE A USER: enumerates
+      // every interactive element, clicks each safe one, screenshots EVERY
+      // frame, fingerprint-diffs each frame against the base page, and writes a
+      // per-workspace proof report (.infinity/walkthrough/). Best-effort +
+      // honest: browser unreachable → `not-enforced`, no built output →
+      // `skipped` — never a forged pass. The verdict + evidence land in the
+      // checkpoint workingContext and the walkthrough telemetry event, so the
+      // user wakes up to real "here is what clicking your app does" proof.
+      let walkthrough: WalkthroughResult | null = null;
+      if (overallSuccess) {
+        try {
+          const builtWalk = await runWalkthroughOnBuilt(getWorkspaceRoot(workspaceId), {
+            label: projectId,
+            buildId: `${projectId}:${Date.now()}`,
+            getBrowser: async () => {
+              const wtBrowser = await getScreenshotBrowser();
+              const wtPage = await wtBrowser.newPage();
+              return createPuppeteerWalkthroughBrowser(wtPage as any);
+            },
+          });
+          walkthrough = builtWalk;
+          const fb = walkthroughFeedback(builtWalk);
+          await logBuildEvent(projectId, "walkthrough", fb.text, {
+            data: {
+              status: builtWalk.status,
+              testedElements: builtWalk.testedElements,
+              issues: builtWalk.issues.length,
+              report: builtWalk.reportRelPath,
+            },
+            step: builtWalk.status,
+          });
+        } catch (wtErr) {
+          req.log.warn({ err: wtErr }, "Walkthrough errored — treated as not-enforced (best-effort visual proof)");
+        }
+      }
+
       await saveCheckpoint({
         projectId,
         iteration: totalIterations,
@@ -1879,6 +1924,18 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
                 summary: doneContract.summary,
                 gateResults: doneContract.gateResults,
                 doneSignal: { status: doneContract.doneSignal.status, message: doneContract.doneSignal.message },
+              }
+            : null,
+          // Phase 7 — the VISUAL VERIFICATION LOOP verdict + proof report path:
+          // a resume surfaces "the built app was driven N elements, status …, report at …".
+          walkthrough: walkthrough
+            ? {
+                status: walkthrough.status,
+                testedElements: walkthrough.testedElements,
+                skippedElements: walkthrough.skippedElements,
+                issues: walkthrough.issues.length,
+                report: walkthrough.reportRelPath,
+                reason: walkthrough.reason ?? null,
               }
             : null,
         },
@@ -1919,6 +1976,18 @@ router.post("/build/execute-plan", requireAuth, requireScope("build:write"), asy
               finalized: gitFirstResult.finalized ?? null,
               mergeCommit: gitFirstResult.mergeCommit ?? null,
               reverted: gitFirstResult.reverted ?? null,
+            }
+          : null,
+        // Phase 7 — the visual walkthrough verdict: drove N elements, status
+        // (passed/failed/not-enforced/skipped), proof report rel-path.
+        walkthrough: walkthrough
+          ? {
+              status: walkthrough.status,
+              testedElements: walkthrough.testedElements,
+              skippedElements: walkthrough.skippedElements,
+              issues: walkthrough.issues.length,
+              report: walkthrough.reportRelPath,
+              reason: walkthrough.reason ?? null,
             }
           : null,
       };
@@ -2540,13 +2609,14 @@ router.post("/build/walkthrough", requireAuth, async (req, res) => {
     return;
   }
 
-  const errors: string[] = [];
-  const screenshotKeys: string[] = [];
   let page: Page | null = null;
   try {
     const browser = await getScreenshotBrowser();
     page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+    // Stay INSIDE the preview: any navigation leaving the local app is aborted
+    // (external links can't be driven by a headless walk, and blocking them
+    // keeps the walk deterministic).
     await page.setRequestInterception(true);
     page.on("request", (request) => {
       try {
@@ -2561,65 +2631,79 @@ router.post("/build/walkthrough", requireAuth, async (req, res) => {
       }
       void request.continue();
     });
-    page.on("console", (message) => {
-      if (message.type() === "error") errors.push(`Console error: ${message.text().slice(0, 500)}`);
-    });
-    page.on("pageerror", (error: Error) => errors.push(`Page error: ${error.message.slice(0, 500)}`));
-    page.on("requestfailed", (request) => errors.push(`Request failed: ${request.method()} ${request.url().slice(0, 300)} (${request.failure()?.errorText ?? "unknown"})`));
-    await page.goto(`http://127.0.0.1:${port}`, { waitUntil: "domcontentloaded", timeout: 20_000 });
 
-    const screenshot = await page.screenshot({ type: "png" });
-    const stored = await persistFile({ data: Buffer.from(screenshot), mimeType: "image/png", name: `walkthrough-${workspaceId}-${Date.now()}.png`, kind: "image", owner: "user" });
-    if (stored?.url) screenshotKeys.push(stored.url);
+    // Phase 7 — run the REAL walkthrough engine: enumerate every interactive
+    // element, click each safe one, screenshot EVERY frame, fingerprint-diff
+    // each frame against the base page, and persist a per-workspace proof
+    // report (.infinity/walkthrough/index.json + frame-NN.png + WALKTHROUGH.md).
+    const walk = await runWalkthrough(
+      createPuppeteerWalkthroughBrowser(page as any),
+      { url: `http://127.0.0.1:${port}`, label: workspaceId, maxElements: 60 }
+    );
 
-    const elements: Array<{ index: number; tag: string; text: string; disabled: boolean; href: string }> = await page.evaluate(() => {
-      const nodes = Array.from(document.querySelectorAll("button, a, input, textarea, select, [role=button]")) as Array<any>;
-      return nodes.map((element, index) => {
-        element.setAttribute("data-infinity-walkthrough-id", String(index));
-        return {
-          index,
-          tag: String(element.tagName).toLowerCase(),
-          text: String(element.textContent ?? "").replace(/\\s+/g, " ").trim().slice(0, 160),
-          disabled: element.disabled === true,
-          href: String(element.tagName).toLowerCase() === "a" ? String(element.getAttribute("href") ?? "") : "",
-        };
-      }).slice(0, 120);
-    });
+    // Initial-frame screenshot persists to the media store so the UI still gets
+    // a thumbnailable URL (its pre-Phase-7 contract).
+    const screenshotKeys: string[] = [];
+    const baseFrame = walk.frames.find((f) => f.kind === "base");
+    if (baseFrame?.screenshotBase64) {
+      const stored = await persistFile({
+        data: Buffer.from(baseFrame.screenshotBase64, "base64"),
+        mimeType: "image/png",
+        name: `walkthrough-${workspaceId}-${Date.now()}.png`,
+        kind: "image",
+        owner: "user",
+      });
+      if (stored?.url) screenshotKeys.push(stored.url);
+    }
 
-    for (const element of elements) {
-      if (element.disabled || element.href && !element.href.startsWith("#")) continue;
+    let reportRelPath: string | null = null;
+    let screenshotFiles: string[] = [];
+    if (walk.status !== "not-enforced" && walk.status !== "skipped") {
       try {
-        await page.$eval(`[data-infinity-walkthrough-id="${element.index}"]`, (node) => {
-          const tag = node.tagName.toLowerCase();
-          if (tag === "input" || tag === "textarea" || tag === "select") return;
-          (node as any).click();
-        });
-        await new Promise((resolve) => setTimeout(resolve, 140));
-      } catch (error) {
-        errors.push(`Interactive element ${element.index} (${element.tag} ${element.text || "untitled"}) failed: ${error instanceof Error ? error.message : "click failed"}`);
+        await ensureWorkspace(workspaceId);
+        const written = await writeWalkthroughReport(getWorkspaceRoot(workspaceId), walk);
+        if (written) {
+          reportRelPath = written.reportRelPath;
+          screenshotFiles = written.screenshotFiles;
+        }
+      } catch {
+        // proof artifact is best-effort
       }
     }
 
-    const reportPath = path.join(WORKSPACE_ROOT, "full-walktrough.md");
-    const timestamp = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
-    const uniqueErrors = [...new Set(errors)];
-    const lines = [
-      "",
-      "--------------------------------------------------",
-      `WALKTHROUGH SESSION START: ${timestamp}`,
-      "--------------------------------------------------",
-      ...uniqueErrors.map((error) => `- [ERROR] ${error}`),
-      ...(uniqueErrors.length === 0 ? ["- No unexpected interactive errors observed."] : []),
-      ...(screenshotKeys.length > 0 ? [`- Screenshot evidence: ${screenshotKeys.join(", ")}`] : []),
-      "==================================================",
-      "",
-    ];
-    await ensureWorkspace(workspaceId);
-    await fs.appendFile(reportPath, lines.join("\\n"), "utf8");
-    res.json({ ok: true, errors: uniqueErrors, reportPath: "full-walktrough.md", screenshotUrls: screenshotKeys, testedElements: elements.length });
+    const outcome = walk.ok
+      ? "ok"
+      : walk.status === "not-enforced"
+        ? "not-enforced"
+        : walk.status === "skipped"
+          ? "skipped"
+          : "errors";
+    await logBuildEvent(workspaceId, "walkthrough", walk.reason ?? `Walkthrough ${walk.status}`, {
+      data: {
+        status: walk.status,
+        testedElements: walk.testedElements,
+        skippedElements: walk.skippedElements,
+        issues: walk.issues.length,
+        report: reportRelPath,
+      },
+      step: outcome,
+    });
+
+    res.json({
+      ok: walk.ok,
+      status: walk.status,
+      reason: walk.reason ?? null,
+      errors: walk.errors,
+      issues: walk.issues,
+      testedElements: walk.testedElements,
+      skippedElements: walk.skippedElements,
+      reportPath: reportRelPath,
+      screenshotUrls: screenshotKeys,
+      frameScreenshots: screenshotFiles,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Walkthrough failed";
-    res.status(500).json({ error: message, errors });
+    res.status(500).json({ error: message });
   } finally {
     await page?.close().catch(() => undefined);
   }

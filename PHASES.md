@@ -24,7 +24,7 @@ Make Infinity **THE BEST IT CAN BE for $0** — using only free tiers, local mod
 | **4** | Context That Survives (4-level compaction, project map) | ✅ **COMPLETE** |
 | **5** | Catastrophic Failure Recovery | ✅ **COMPLETE** |
 | **6** | Git-First Builds (worktree isolation, auto-revert) | ✅ **COMPLETE** |
-| **7** | Visual Verification Loop (vision channel, diff, walkthrough) | 🔲 NOT STARTED |
+| **7** | Visual Verification Loop (vision channel, diff, walkthrough) | ✅ **COMPLETE** |
 | **8** | Honest Deploy + Push-Driven Human Loop | 🔲 NOT STARTED |
 | **9** | Polish the Harness (default quality profile, ask_user, admin) | 🔲 NOT STARTED |
 
@@ -284,7 +284,33 @@ GITFIRST_HARNESS_OK
 
 **HONEST DEVIATION (recorded in the `git-first-builds.ts` header):** "worktree isolation" is implemented as **BRANCH isolation** in the project's own repo — not a separate `git worktree` working directory. Reason: every live subsystem (scaffold-engine, structured-tools verify, the PTY shell sessions, browser preview, plan-file writer) is rooted at `getWorkspaceRoot(projectId)`; a second working tree would rewire all of them for zero user-visible gain. The isolation that protects the user is **commit-domain** isolation — the build lives on `infinity/build/<id>`, `main` never moves until success, and a failed build auto-reverts to the exact pre-build working tree.
 
-Verification notes (honest): the production bundle (`node ./build.mjs`) was NOT fully re-run — this env's `node_modules` were wiped (pnpm workspace; npm can't install into it). Evidence instead: esbuild parse-check of all 4 edited TS files clean + this harness bundle exercising the REAL `lib/git-first-builds.ts` green (`NODE_ENV=production`). Next: **Phase 7 — Visual Verification Loop**.
+Verification notes (honest): the production bundle (`node ./build.mjs`) was NOT fully re-run — this env's `node_modules` were wiped (pnpm workspace; npm can't install into it). Evidence instead: esbuild parse-check of all 4 edited TS files clean + this harness bundle exercising the REAL `lib/git-first-builds.ts` green (`NODE_ENV=production`).
+
+### Phase 7 — Visual Verification Loop
+
+| Task | Status |
+|------|--------|
+| **Browser-agnostic walkthrough engine**: narrow `WalkthroughBrowser` interface (goto/setViewport/readState/enumerateInteractables/click/screenshot/drainConsoleErrors/close) so mechanics are provable with a deterministic stub while production injects a real puppeteer page | ✅ **DONE** — `lib/build-walkthrough.ts` + `createPuppeteerWalkthroughBrowser(page)` |
+| **Per-frame screenshot proof**: real PNG base64 per driven element → `<workspace>/.infinity/walkthrough/frame-NN-EEE.png` + `index.json` + `WALKTHROUGH.md` | ✅ **DONE** |
+| **Zero-native-deps fingerprint diff** (this env has no pixel stack): FNV-1a 32-bit text hash + rendered-text length + visible-interactive count + horizontal overflow; base hashed first, every post-click frame diffed → issues blank-page (critical) / element-loss (major) / overflow-growth (major) / console-errors (major·critical) / teardown (info) | ✅ **DONE** — `visualDiff` |
+| **Safe-drive rules**: never click external/mailto/tel/javascript/data hrefs, disabled controls, destructive inputs (input/textarea/select), unlabeled buttons — every skip recorded with a reason | ✅ **DONE** — `isWalkTargetSafe` |
+| **Model feedback loop**: `## WALKTHROUGH EVIDENCE` text block ALWAYS + `image_url` vision parts for vision-capable adapters (capped MAX_VISION_SCREENSHOTS=6) | ✅ **DONE** — `walkthroughFeedback` |
+| **Honest paths in production**: served dist via static SPA server (`serveStaticDir`, index.html fallback, path-escape guard); no built output → `skipped`, no browser → `not-enforced` — never counted as passes | ✅ **DONE** — `runWalkthroughOnBuilt` |
+| **Hardwired live**: `/build/walkthrough` route drives a real page, persists the base screenshot (`screenshotUrls` UI contract kept); every successful execute-plan completes with a best-effort `walkthrough` telemetry event | ✅ **DONE** — `routes/infinity/build.ts` (route rewrite + completion hook), `build-telemetry.ts` (`"walkthrough"` type) |
+
+**PHASE 7 — COMPLETE (2026-09-15).** Proven by `bench/visual-harness.mjs` — **exit 0, VISUAL_HARNESS_OK, 50/50 checks pass** against the REAL assembly:
+
+```
+=== S1. SAFE-DRIVE RULES ===        ✅ (5/5)  external/mailto/disabled/destructive/unlabeled all skipped with reasons; 2 safe links driven
+=== S2. PER-FRAME PROOF + REPORT === ✅ (8/8)  index.json + WALKTHROUGH.md + 4 frame PNGs on disk; reportRelPath workspace-relative
+=== S3. VISUAL DIFF REGRESSIONS ===  ✅ (10/10) blank-page / element-loss / overflow-growth / console-errors / click-throw each caught; clean pass stays clean
+=== S4. MODEL FEEDBACK ===           ✅ (6/6)  EVIDENCE text always; vision parts on; text fallback when no browser; capped at 6
+=== S5. HONEST BUILT-PATHS ===       ✅ (10/10) skipped (no build) / not-enforced (no browser) / passed (served dist + report persisted) + findOutputDir matrix
+=== S6. SPA SERVER ===               ✅ (5/5)  index.html fallback for SPA routes; path-escape guard blocks traversal; 404s unknown files
+=== SANITY hashText ===              ✅ (3/3)  deterministic, case-sensitive, stable across runs
+```
+
+Honest deviations: no real browser stack exists in this env (puppeteer/pixelmatch/pngjs absent, node_modules wiped — pnpm workspace, npm can't install), so pixel-perfect diffing is not provable here; the fingerprint diff is the provable $0 analog and the engine accepts any browser adapter — in production, `createPuppeteerWalkthroughBrowser` injects a real page and the mechanism is identical. `not-enforced` (no browser) and `skipped` (no built output) are honest statuses returned by `runWalkthroughOnBuilt`, never counted as passes. The production bundle (`node ./build.mjs`) was also not re-run; evidence is the esbuild-bundled harness exercising the REAL module green (`NODE_ENV=production`). Next: **Phase 8 — Honest Deploy + Push-Driven Human Loop**.
 
 ## 📋 Phase Overview
 

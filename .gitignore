@@ -83,3 +83,4 @@ artifacts/api-server/.gate-run-bundle.mjs
 artifacts/api-server/.resume-accept-bundle.mjs
 artifacts/api-server/.recovery-harness-bundle.mjs
 artifacts/api-server/.gitfirst-harness-bundle.mjs
+artifacts/api-server/.visual-harness-bundle.mjs
